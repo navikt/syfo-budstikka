@@ -1,0 +1,13 @@
+# Normalize line endings: text files use LF in the repo, auto-detected
+* text=auto eol=lf
+
+# Gradle wrapper: shell script must stay LF, batch script must stay CRLF
+gradlew      text eol=lf
+*.bat        text eol=crlf
+
+# Binary files (never normalize)
+*.jar        binary
+gradle/wrapper/gradle-wrapper.jar binary
+*.png        binary
+*.jpg        binary
+*.ico        binary
