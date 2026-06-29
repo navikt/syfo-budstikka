@@ -7,7 +7,7 @@ description: "Bruk når domenespråket skal skjerpes eller skrives ned — et be
 
 Den **aktive** disiplinen: bygg og skjerp domenemodellen mens du designer — utfordre begreper, finn opp kant-scenarier, og skriv glossar og beslutninger ned i det øyeblikket de krystalliserer seg.
 
-Å bare *lese* `.grill/GLOSSARY.md` for å bruke riktig ord er ikke denne skillen — det er en énlinjes vane enhver skill har. Denne skillen er for når du **endrer** modellen, ikke bare konsumerer den. Den lever inne i grillingen (`/grill-with-docs`, fase 1): et avklart begrep blir en glossar-linje, en avklart beslutning blir en ADR-linje, løpende.
+Å bare *lese* `docs/GLOSSARY.md` for å bruke riktig ord er ikke denne skillen — det er en énlinjes vane enhver skill har. Denne skillen er for når du **endrer** modellen, ikke bare konsumerer den. Den lever inne i grillingen (`/grill-with-docs`, fase 1): et avklart begrep blir en glossar-linje, en avklart beslutning blir en ADR-linje, løpende.
 
 ## Hvor ting ligger
 

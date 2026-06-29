@@ -1,6 +1,6 @@
 # Deepening
 
-Hvordan deepe en klynge grunne moduler trygt, gitt avhengighetene. Forutsetter vokabularet i [SKILL.md](SKILL.md) — **modul**, **grensesnitt**, **skjøt**, **adapter**. Henger sammen med `/improve-codebase-architecture`; vanskelige beslutninger skrives som ADR i `.grill/adr/`.
+Hvordan deepe en klynge grunne moduler trygt, gitt avhengighetene. Forutsetter vokabularet i [SKILL.md](SKILL.md) — **modul**, **grensesnitt**, **skjøt**, **adapter**. Henger sammen med `/improve-codebase-architecture`; vanskelige beslutninger skrives som ADR i `docs/adr/`.
 
 ## Avhengighetskategorier
 

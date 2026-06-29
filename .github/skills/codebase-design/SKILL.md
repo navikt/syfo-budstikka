@@ -7,7 +7,7 @@ description: "Bruk når et modul-grensesnitt skal designes eller forbedres i det
 
 Design **dype moduler**: mye oppførsel bak et lite grensesnitt, plassert ved en ren skjøt, testet gjennom det samme grensesnittet. Bruk dette språket og disse prinsippene overalt der kode designes eller restruktureres i dette repoet (Kotlin, Ktor, `no.nav.syfo`). Målet er gjennomslag for kallere, lokalitet for de som vedlikeholder, og testbarhet for alle.
 
-Designbeslutninger som er vanskelige å reversere skrives som ADR i `.grill/adr/NNNN-*.md`, og den valgte modulformen havner i `.grill/CONTEXT.md` (se `/grill-with-docs`). Skarpe domenebegrep i `.grill/GLOSSARY.md` (se `/domain-modeling`).
+Designbeslutninger som er vanskelige å reversere skrives som ADR i `docs/adr/NNNN-*.md`, og den valgte modulformen havner i `docs/CONTEXT.md` (se `/grill-with-docs`). Skarpe domenebegrep i `docs/GLOSSARY.md` (se `/domain-modeling`).
 
 ## Vokabular
 

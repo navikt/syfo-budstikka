@@ -88,4 +88,4 @@ Vanlig NAV-gotcha: Tempo-søk kan gi treff som ikke egentlig tilhører tjenesten
 - Til [pod-diagnose.md](./pod-diagnose.md) når problemet i praksis er restart, readiness eller ressursmangel
 - Til [database-diagnose.md](./database-diagnose.md) når langsomme spans eller logger peker på pool/query-problem
 - Til [auth-diagnose.md](./auth-diagnose.md) når feilraten primært er 401/403
-- Til `/diagnosing-bugs` (perf-grenen) når rotårsaken krever en baseline-måling og bisect, eller når funnet er manglende instrumentering / feil labels / manglende `trace_id` i logger — løft det i så fall til en ADR i `.grill/adr/`
+- Til `/diagnosing-bugs` (perf-grenen) når rotårsaken krever en baseline-måling og bisect, eller når funnet er manglende instrumentering / feil labels / manglende `trace_id` i logger — løft det i så fall til en ADR i `docs/adr/`

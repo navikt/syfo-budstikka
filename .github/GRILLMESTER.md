@@ -3,7 +3,7 @@
 Et høykvalitets GitHub Copilot-oppsett for dette Ktor-backend-repoet (Kotlin, NAV / `no.nav.syfo`). Det bygger bro mellom tre kilder: research på agent-optimalisering, etablerte agent-flyt-mønstre fra åpne kilder, og NAV-teamets eksisterende «hovmester»-skills — alt reframet Copilot-native (`.agent.md` / `.instructions.md` / `SKILL.md`).
 
 ## Agenter (`.github/agents/`)
-- **@grillmester** (Opus 4.8) — orkestrator + **inline implementør**. Kjører en faseløkke: grill → design → plan → implementer → verifiser → server. Skriver arbeidsminne til `.grill/`.
+- **@grillmester** (Opus 4.8) — orkestrator + **inline implementør**. Kjører en faseløkke: grill → design → plan → implementer → verifiser → server. Skriver durable docs (ADR/glossar/kontekst) til `docs/` og transient arbeidsminne til `.grill/`.
 - **grill-inspektor** (GPT-5.5, internt) — fersk **kryssmodell-reviewer**. **Opt-in**, anbefalt-på for høyrisiko. Her bevares «begge modellfamilier ser på arbeidet», men kostnadsstyrt.
 
 ### Designprinsipper (hvorfor det er bygd slik)
@@ -14,8 +14,9 @@ Et høykvalitets GitHub Copilot-oppsett for dette Ktor-backend-repoet (Kotlin, N
 5. **Disk er minne** (`.grill/`), ikke samtalen. Checkpoint ved ~55 % vindu-okkupasjon.
 6. **Kontrakter, ikke forbud** i alle instruksjoner.
 
-## `.grill/` — arbeidsminne på disk
-Opprettes av @grillmester per oppgave: `STATE.md` + `MODELL-STATUS.md` (transiente, gitignorert), `CONTEXT.md`, `GLOSSARY.md`, `DECISIONS.md`, `PLAN.md`, `VERIFICATION.md` (append-only gate-bevis), `REVIEW.md` (kryssmodell-verdikt), `adr/NNNN-*.md`. ADR/glossar/CONTEXT er verdt å committe; `STATE.md`/`MODELL-STATUS.md` er transiente.
+## Filer: `docs/` (durable) vs `.grill/` (transient)
+**`docs/`** — committet, discoverable dokumentasjon: `docs/adr/NNNN-*.md` (ADR), `docs/GLOSSARY.md` (domenespråk), `docs/CONTEXT.md` (valgt tilnærming/kontekst). Eksempel fra en grilling-økt: `docs/CONTEXT.md`, `docs/FLYT.md`, `docs/adr/0001-*.md`.
+**`.grill/`** — gitignorert, transient arbeidsminne per oppgave: `STATE.md`, `MODELL-STATUS.md`, `PLAN.md`, `VERIFICATION.md` (gate-bevis), `REVIEW.md` (kryssmodell-verdikt), `DECISIONS.md` (beslutningskart). Durabel verdi graduerer til `docs/`; `.grill/` overlever ikke oppgaven.
 
 ## Modell-gate
 `scripts/validate-agent-models.sh` (kjøres av CI, se `.github/workflows/build.yml`) validerer at hver agents `model:`-pin er på allowlist, feiler hardt, og skriver status til `.grill/MODELL-STATUS.md`. Degradering oppdages her — aldri av modellen selv.

@@ -71,7 +71,7 @@ Logg aldri hele tokenet. Logg `sub`/`jti` for sporbarhet hvis nødvendig. Behold
 
 ## API-versjonering — koordiner med andre team
 
-Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsproblem**, ikke bare et teknisk problem. En slik beslutning hører hjemme som ADR i `.grill/adr/` — skriv den der så valg og overgangsvindu er sporbart.
+Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsproblem**, ikke bare et teknisk problem. En slik beslutning hører hjemme som ADR i `docs/adr/` — skriv den der så valg og overgangsvindu er sporbart.
 
 ### Før brudd-endring
 1. **Identifiser konsumenter** via `accessPolicy.inbound` + faktisk trafikk (logger/metrics).
@@ -79,7 +79,7 @@ Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsp
 3. **Avtal overgangsvindu** — typisk 1–3 måneder der begge versjoner lever parallelt.
 4. **Versjoner URL-en** — nytt route-prefiks (`/api/v1/` → `/api/v2/`) i `Routing.kt`, gammel rute beholdes til vinduet er ute.
 5. **Deprecering først**: merk gammel versjon som deprecated (gjerne `Deprecation`/`Sunset`-header), gi konsumentene tid.
-6. **Logg beslutningen** som ADR i `.grill/adr/` og oppdater `.grill/CONTEXT.md` hvis kontrakten er en del av domenespråket.
+6. **Logg beslutningen** som ADR i `docs/adr/` og oppdater `docs/CONTEXT.md` hvis kontrakten er en del av domenespråket.
 
 ### Ikke-brudd-endringer (trygge)
 - Legge til nye felter i response.
@@ -112,7 +112,7 @@ Dokumenter API-ene i formatet **teamet allerede bruker** (OpenAPI/Swagger, Postm
 
 ### Spør først
 - Fjerning av konsument fra `accessPolicy.inbound`.
-- Brudd-endring i kontrakt (krever ADR i `.grill/adr/`).
+- Brudd-endring i kontrakt (krever ADR i `docs/adr/`).
 - Eksponering av API utenfor `cluster` (ekstern tilgang).
 
 ### Aldri

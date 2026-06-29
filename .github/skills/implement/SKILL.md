@@ -16,14 +16,14 @@ Dette er et NAV Ktor-backend (Kotlin, Ktor/Netty, Gradle, Postgres/Flyway, Kafka
 3. **Positivt bevis per steg.** Påstå aldri at et steg er ferdig uten ferskt bevis i SAMME melding: kommandoen du kjørte + output + exit-kode. Mangler beviset: skriv `UVERIFISERT: <hva som gjenstår>`.
 4. **Atomiske commits.** Én logisk endring per commit, grønn ved hver commit. Ikke samle hele planen i én diff.
 5. **Disk er minne.** Status og fremdrift hører hjemme i `.grill/`, ikke i hodet på samtalen.
-6. **Respekter vedtatte valg.** ADR-ene i `.grill/adr/` og rammene i `.grill/CONTEXT.md` er bindende. Avdekker implementeringen at et valg er feil, STOPP og flagg det — ikke reåpne avgjorte valg på egen hånd.
+6. **Respekter vedtatte valg.** ADR-ene i `docs/adr/` og rammene i `docs/CONTEXT.md` er bindende. Avdekker implementeringen at et valg er feil, STOPP og flagg det — ikke reåpne avgjorte valg på egen hånd.
 
 ## Før du starter
 
 - [ ] Les `.grill/STATE.md` FØRST for å orientere deg: hvor er vi, hva er gjort, hva er neste steg.
 - [ ] Les `.grill/PLAN.md` — de nummererte oppgavene med filstier, ferdig-når-kriterium, risiko-tag og påkrevde skills.
-- [ ] Les `.grill/CONTEXT.md` og `.grill/GLOSSARY.md` så navngiving og grensesnitt matcher domenespråket.
-- [ ] Sjekk `.grill/adr/` for beslutninger som binder området du rører.
+- [ ] Les `docs/CONTEXT.md` og `docs/GLOSSARY.md` så navngiving og grensesnitt matcher domenespråket.
+- [ ] Sjekk `docs/adr/` for beslutninger som binder området du rører.
 
 Mangler `.grill/PLAN.md`, er du ikke klar for fase 4. Gå tilbake til plan-fasen (`/to-issues` / planlegging) eller `/grill-with-docs` hvis snittet trenger mer design.
 

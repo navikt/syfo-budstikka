@@ -1,6 +1,6 @@
 # Format for ADR
 
-ADR-er bor i `.grill/adr/` med fortløpende nummerering: `0001-<slug>.md`, `0002-<slug>.md`. Opprett mappa lazy — først når første ADR trengs.
+ADR-er bor i `docs/adr/` med fortløpende nummerering: `0001-<slug>.md`, `0002-<slug>.md`. Opprett mappa lazy — først når første ADR trengs.
 
 ## Mal
 
@@ -20,7 +20,7 @@ En ADR kan være korte avsnitt. Verdien ligger i å feste *at* en beslutning ble
 
 ## Nummerering
 
-Skann `.grill/adr/` for høyeste eksisterende nummer og øk med én.
+Skann `docs/adr/` for høyeste eksisterende nummer og øk med én.
 
 ## Når tilby en ADR
 

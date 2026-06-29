@@ -29,7 +29,7 @@ Før du oppretter et nytt issue: sjekk om brukeren allerede har referert til ett
 
 Hvis repoet har issue-maler i `.github/ISSUE_TEMPLATE/` for den valgte typen, les feltstrukturen fra malen og lag en markdown-body med tilsvarende seksjoner. Finnes ingen mal, bruk en kort, fast struktur: **Hva**, **Hvorfor**, **Akseptansekriterier**, og for backend-arbeid relevante lag (migrasjon / route / konsument / auth / test / NAIS).
 
-Bruk domenespråket fra `.grill/GLOSSARY.md` i titler og beskrivelser når det finnes, og respekter beslutninger i `.grill/adr/` for området du rører.
+Bruk domenespråket fra `docs/GLOSSARY.md` i titler og beskrivelser når det finnes, og respekter beslutninger i `docs/adr/` for området du rører.
 
 Inkluder alltid når relevant:
 - **Avhengigheter:** `Avhenger av #NNN`

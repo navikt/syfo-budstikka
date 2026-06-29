@@ -1,6 +1,6 @@
 # NAV Threat Model — STRIDE, DFD, trusseltabell, DPIA, auditlogg, Datatilsynet
 
-Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i `no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon, DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting. Resultatet av modelleringen forankres i `.grill/adr/` (beslutninger) og `.grill/VERIFICATION.md` (bevis).
+Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i `no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon, DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting. Resultatet av modelleringen forankres i `docs/adr/` (beslutninger) og `.grill/VERIFICATION.md` (bevis).
 
 ## DFD først
 

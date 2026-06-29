@@ -33,7 +33,7 @@ schema-/resolver-rammeverk, ny auth-mapping per felt, og en query-kostnadsgrense
 mot Postgres — betydelig overflate uten et reelt konsumentbehov.
 
 Konsumenter som trenger fleksible spørringer kan lese fra topicene og bygge sin
-egen lesemodell. Følger `.grill/adr/0003-rest-fremfor-graphql.md`.
+egen lesemodell. Følger `docs/adr/0003-rest-fremfor-graphql.md`.
 
 ## Tidligere ønsker
 
@@ -46,7 +46,7 @@ egen lesemodell. Følger `.grill/adr/0003-rest-fremfor-graphql.md`.
 Begrunnelsen skal være substansiell — ikke "vi vil ikke ha dette", men hvorfor. Gode begrunnelser refererer:
 
 - Tjenestens scope/filosofi ("Budstikka er hendelsesdrevet; X er en konsumentbekymring").
-- Tekniske rammer ("Dette ville kreve Y, som bryter med Z-arkitekturen i `.grill/adr/`").
+- Tekniske rammer ("Dette ville kreve Y, som bryter med Z-arkitekturen i `docs/adr/`").
 - Strategiske valg ("Vi valgte A fremfor B fordi …").
 
 Begrunnelsen skal være durabel. Unngå midlertidige omstendigheter ("vi har ikke tid nå") — det er ikke avvisninger, det er utsettelser.

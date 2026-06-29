@@ -69,7 +69,7 @@ Inkluder eksterne PR-er i bøttene og merk hver linje `[PR]` eller `[issue]`. Di
 ### 1. Hent kontekst
 Les hele saken (body, kommentarer, labels, forfatter, datoer; for en PR også diffen). Parse tidligere triage-notater så du ikke spør om det som allerede er løst. Utforsk kodebasen:
 
-- Les `.grill/CONTEXT.md` for mental modell av modulene, `.grill/adr/` for bindende beslutninger i området, og `.grill/GLOSSARY.md` for å bruke riktig domenespråk.
+- Les `docs/CONTEXT.md` for mental modell av modulene, `docs/adr/` for bindende beslutninger i området, og `docs/GLOSSARY.md` for å bruke riktig domenespråk.
 - Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg 5). **(b) tidligere avvist** — les `.out-of-scope/*.md` og flagg det som ligner.
 
 ### 2. Anbefal
@@ -82,7 +82,7 @@ Før noen grilling: sjekk at påstanden holder.
 - Rapporter: bekreftet (med kodevei), feilet, eller utilstrekkelig detalj (et sterkt `needs-info`-signal). En bekreftet verifisering gir en mye sterkere brief.
 
 ### 4. Grill (ved behov)
-Trenger saken kjøtt på beina, kjør `/grill-with-docs` sammen med `/domain-modeling` — grill den i form ett spørsmål av gangen, skjerp domenebegreper og oppdater `.grill/GLOSSARY.md`/`.grill/adr/` løpende. Er det en reell, vanskelig-å-reversere arkitekturbeslutning, utløs `/nav-architecture-review` så den festes som ADR.
+Trenger saken kjøtt på beina, kjør `/grill-with-docs` sammen med `/domain-modeling` — grill den i form ett spørsmål av gangen, skjerp domenebegreper og oppdater `docs/GLOSSARY.md`/`docs/adr/` løpende. Er det en reell, vanskelig-å-reversere arkitekturbeslutning, utløs `/nav-architecture-review` så den festes som ADR.
 
 ### 5. Bruk utfallet
 - `ready-for-agent` — post en arbeidsklar brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Saken regnes nå som plukkbar i @grillmester sin faseløkke.
