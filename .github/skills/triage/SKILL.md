@@ -1,6 +1,6 @@
 ---
 name: triage
-description: "Bruk når innkommende issues eller bug-meldinger på navikt/syfo-budstikka skal vurderes og klargjøres — klassifiser, reproduser/verifiser påstanden, avklar det uklare, prioriter, og gjør saken klar for arbeid (agent eller menneske). Trigger når noen sier 'triage', 'gå gjennom innboksen', 'se på #42', 'hva er klart å plukke', 'er denne buggen ekte', eller når en sak må gjøres AFK-klar. IKKE for å bryte en ferdig plan i issues (se /to-issues) eller selve oppretting/label-mekanikken."
+description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstikka skal vurderes og klargjøres: klassifiser, verifiser påstanden, avklar, prioriter, gjør AFK-klar. Triggere: 'triage', 'gå gjennom innboksen', 'se på #42', 'er denne buggen ekte'. Ikke for å bryte en ferdig plan i issues (se /to-issues)."
 ---
 
 # triage

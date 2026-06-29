@@ -1,6 +1,6 @@
 ---
 name: nav-troubleshoot
-description: "Bruk når dette Ktor-backendet (no.nav.syfo) feiler i DRIFT på NAIS og du må navigere symptom → diagnostisk tre med kubectl/nais. Triggere: pod starter ikke / CrashLoopBackOff / OOMKilled / ImagePullBackOff / Pending, 401 Unauthorized / 403 Forbidden, Kafka consumer lag eller meldinger som ikke prosesseres, DB-tilkoblingsfeil / HikariCP pool exhaustion / Flyway-feil ved startup, deploy som feiler, eller feilrate/latency der Mimir/Loki/Tempo spriker. IKKE for å designe schema/manifest/auth (se /nais-manifest, /auth-overview, /flyway-migration). Kalles via /nav-troubleshoot."
+description: "Bruk når Ktor-backendet feiler i DRIFT på NAIS: pod starter ikke / CrashLoopBackOff / OOMKilled, 401/403, Kafka consumer-lag, DB-/HikariCP-/Flyway-feil ved startup, eller sprik mellom Mimir/Loki/Tempo. For design av schema/manifest/auth, se /nais-manifest, /auth-overview, /flyway-migration."
 ---
 
 # Nav Troubleshoot — plattform-diagnostikk

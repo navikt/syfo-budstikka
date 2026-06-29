@@ -1,5 +1,4 @@
 ---
-applyTo: "**/nais/**,**/.nais/**,**/nais*.yaml,**/nais*.yml"
 description: "Hvordan NAIS håndterer pod-shutdown (preStop, SIGTERM, lastbalansering) og hvilke shutdown-mønstre som er riktige i et Ktor-backend. Les ved spørsmål om graceful shutdown, terminationGracePeriodSeconds, avbrutte requests eller readiness under nedstenging."
 ---
 

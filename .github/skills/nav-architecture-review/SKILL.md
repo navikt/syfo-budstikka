@@ -1,6 +1,6 @@
 ---
 name: nav-architecture-review
-description: "Bruk når dette Ktor-backendet (no.nav.syfo) står overfor en tyngre arkitekturbeslutning som bør dokumenteres som ADR: ny tjeneste/integrasjon mot annet team, nytt lagringslag eller event-kontrakt, ny auth-mekanisme (TokenX/Azure AD/Maskinporten), accessPolicy-endring som treffer andre team, behandling av nye personopplysninger (mulig DPIA), plattform-migrering eller avvik fra NAV-standardmønstre. Trigger: 'skriv en ADR', 'arkitektur-review', 'bør vi gjøre X eller Y', 'hvilke alternativer har vi'. Kalles via /nav-architecture-review."
+description: "Bruk når en tyngre arkitekturbeslutning bør festes som ADR: ny tjeneste/integrasjon mot annet team, nytt lagringslag eller event-kontrakt, ny auth-mekanisme, accessPolicy mot andre team, nye personopplysninger (DPIA), eller avvik fra NAV-standard. Triggere: 'skriv en ADR', 'arkitektur-review', 'bør vi X eller Y'."
 ---
 
 # NAV Architecture Review — ADR + 3-perspektiv

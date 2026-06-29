@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: "Brukes når et design er for usikkert til å planlegges på papir, og du vil føle på det med kjørbar kast-vekk-kode FØR du forplikter deg — en datamodell, en tilstandsmaskin, en API-/feilkontrakt eller en Kafka-flyt (idempotens, replay, rekkefølge). Trigger når noen sier 'spike dette', 'la meg leke med det', 'er datamodellen riktig', 'prøv et par varianter', eller når en grilling (@grillmester fase 1–2) treffer et åpent spørsmål paper-tenkning ikke løser."
+description: "Bruk når et design er for usikkert for papir og du vil teste det med kjørbar kast-vekk-kode FØR du forplikter deg — datamodell, tilstandsmaskin, API-/feilkontrakt eller Kafka-flyt (idempotens/replay). Triggere: 'spike dette', 'la meg leke med det', 'er datamodellen riktig', 'prøv et par varianter'."
 ---
 
 # prototype

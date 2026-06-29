@@ -1,5 +1,4 @@
 ---
-applyTo: "src/main/kotlin/**/*.kt"
 description: "Plain Apache Kafka i Ktor — consumer/producer-skjelett, SSL-config fra Nais-env, commit-strategi og Testcontainers. Les når repoet bruker org.apache.kafka:kafka-clients direkte."
 ---
 

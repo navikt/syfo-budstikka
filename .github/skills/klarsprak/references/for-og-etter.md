@@ -1,5 +1,4 @@
 ---
-applyTo: "**/*.md"
 description: Leses når du trenger konkrete før/etter-eksempler på språkvask av norsk backend-tekst — feiloversatte fagtermer, stiv tone, PR-beskrivelser, README og API-respons.
 ---
 # Før og etter
