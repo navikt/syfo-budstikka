@@ -1,0 +1,6 @@
+# Transient arbeidsminne — STATE.md regenereres per økt og av modell-gaten.
+# CONTEXT.md, GLOSSARY.md, DECISIONS.md, PLAN.md, VERIFICATION.md og adr/ er
+# durable og bør committes.
+STATE.md
+MODELL-STATUS.md
+*.tmp
