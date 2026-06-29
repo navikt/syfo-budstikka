@@ -1,5 +1,4 @@
 ---
-applyTo: "src/main/kotlin/**/*.kt"
 description: "Rapids & Rivers i Ktor — River-oppsett, validate/demand/require/interestedIn, publisering og TestRapid. Les kun når repoet allerede bruker no.nav.helse:rapids-rivers."
 ---
 

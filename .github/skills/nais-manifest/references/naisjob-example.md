@@ -1,5 +1,4 @@
 ---
-applyTo: "**/nais/**,**/.nais/**,**/naisjob*.yaml,**/naisjob*.yml"
 description: "Full Naisjob-mal (cron-batch med Kafka, Azure AD M2M og Postgres) og veiledning for når Naisjob er riktig framfor Application. Les når du skal lage eller endre en batch-/cron-jobb i no.nav.syfo-backendet."
 ---
 

@@ -6,6 +6,8 @@ description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes 
 
 Retningslinjer for norsk bokmål i feilmeldinger, loggtekst, API-respons, dokumentasjon og PR-beskrivelser i denne Ktor-backenden. Basert på Språkrådets klarspråk-prinsipper, ISO 24495-1, Digdirs klarspråk-veileder og Navs språkprofil. Språkloven pålegger Nav klart, korrekt språk tilpassa mottakeren — det gjelder også tekst som lekker ut til sluttbruker via API-feil og logger som havner i Kibana.
 
+Organisasjonen skrives **Nav**, ikke «NAV» (unntak: `NAIS`, `NAVident`-claim, `no.nav.syfo`) — se norwegian-text-instruksjonen for regelen.
+
 ## Når du skal bruke skillen
 
 - Feilmeldinger og API-feilrespons (det frontend eller en annen tjeneste faktisk får tilbake)

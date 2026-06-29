@@ -1,5 +1,4 @@
 ---
-applyTo: "src/main/kotlin/**/*.kt"
 description: "Slå opp ved skriving av Micrometer-metrikker i Ktor: MeterRegistry-oppsett, Counter/Timer/Gauge/DistributionSummary, domene- og Kafka-metrikker, og health-routes i syfo-budstikka."
 ---
 

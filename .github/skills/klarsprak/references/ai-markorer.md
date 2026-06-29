@@ -1,5 +1,4 @@
 ---
-applyTo: "**/*.md"
 description: Leses når du skal rense KI-genererte mønstre ut av norsk tekst — svulstige ord, em-dash-rytme, falsk symmetri, eller nynorsk/svensk som siver inn i bokmål.
 ---
 # AI-markører — fyldig oversikt

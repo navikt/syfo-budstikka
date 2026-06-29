@@ -33,26 +33,9 @@ For ikke-trivielle endringer skal teksten kort svare på:
 
 Hold body stram. Lenk til ADR der en beslutning er styrende: `Følger docs/adr/NNNN-...`.
 
-### Body-mal
+### Body-struktur
 
-```markdown
-## Hva og hvorfor
-<kort beskrivelse av snittet og motivasjonen>
-
-## Issue
-Closes #NNN
-
-## Verifisering
-- [x] ./gradlew build grønn
-- [x] ./gradlew test grønn (ny test dekker snittet)
-- [ ] Manuelt verifisert: <hva>
-
-## Risiko / deploy
-<Flyway-migrasjon? NAIS accessPolicy/topic/secret? auth/feilkontrakt? ellers "ingen spesiell risiko">
-
-## For review
-<hva reviewer bør se nøye på>
-```
+**Følg repoets `.github/PULL_REQUEST_TEMPLATE.md`** — GitHub autofyller den ved ny PR (seksjonene Beskrivelse / Endringer / Issue / Verifikasjon / Sjekkliste). Fyll ut seksjonene; ikke lag en egen, avvikende struktur. Punktene over (hva/hvorfor, verifisering, risiko, reviewer-kontekst) mapper inn i malens seksjoner, og malens sjekkliste dekker kryssmodell-review (`.grill/REVIEW.md` ved høyrisiko) og kontrakt-koordinering — kryss av det som er relevant.
 
 ## Issue-kobling
 
