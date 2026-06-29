@@ -1,5 +1,5 @@
 ---
-description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, docs/adr/, .grill/-artefakter (CONTEXT.md, PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
+description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, docs/ (ADR/glossar/kontekst), .grill/-artefakter (PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
 applyTo: "**/*.md"
 ---
 
@@ -50,6 +50,11 @@ Vanlige feller:
 
 Behold tekniske termer som er etablerte i stacken: Ktor, Netty, NAIS, TokenX, Azure AD, Flyway, Kafka, consumer, producer, endepunkt.
 I sammensatte ord med engelsk fagterm: bruk bindestrek (`CI-pipeline`, `API-kall`, `Kafka-consumer`, `Flyway-migrering`).
+
+## «Nav», ikke «NAV»
+
+Organisasjonen skrives **Nav** (ikke «NAV») i løpende tekst — det er gjeldende navnepraksis. «Nav-team», «en Nav-tjeneste», «Nav-utvikler».
+Unntak som beholder store bokstaver (egennavn / tekniske identifikatorer): `NAIS`, JWT-claimet `NAVident`, pakkenavn (`no.nav.syfo`), URL-er og kode-identifikatorer. Disse endres aldri.
 
 ## Tredjeperson i description-felt
 
