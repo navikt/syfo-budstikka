@@ -33,7 +33,7 @@ jobs:
 
       # Deterministisk gate 3: avhengighets-/filsystem-sårbarheter (SCA/CVE).
       - name: Trivy fs-skann
-        uses: aquasecurity/trivy-action@0.28.0 # pin SHA i produksjon
+        uses: aquasecurity/trivy-action@v0.36.0 # pin SHA i produksjon
         with:
           scan-type: fs
           severity: HIGH,CRITICAL
