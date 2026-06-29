@@ -11,10 +11,10 @@ Den **aktive** disiplinen: bygg og skjerp domenemodellen mens du designer — ut
 
 ## Hvor ting ligger
 
-Domenemodellen er arbeidsminne på disk i `.grill/`:
+Domenemodellen er **durable dokumentasjon** og bor i `docs/` (committes — `.grill/` er gitignorert transient arbeidsminne, ikke her):
 
 ```
-.grill/
+docs/
 ├── GLOSSARY.md           ← ett begrep per linje: term → presis definisjon
 ├── CONTEXT.md            ← valgt tilnærming / designkontekst (ikke glossar)
 └── adr/

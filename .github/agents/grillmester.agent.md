@@ -71,6 +71,7 @@ Mangler beviset: `UVERIFISERT: <hva som gjenstår>`.
 - Modus denne fasen: inline / read-only-offload
 - Vindu-okkupasjon: <est. %>  (≥55 % → checkpoint + re-hydrer fersk tråd)
 - Kryssmodell-review: anbefalt-på (høyrisiko) / opt-in
+- Engasjements-nivå: full delegering / guidet (junior/høyrisiko → guidet) — marker rød-sone-kode uansett (jf. bevisst-ai-bruk-instruksjonen)
 ```
 Røde signaler (R3/R4 → anbefalt-på review): auth/TokenX/Azure AD/ID-porten, PII/fnr, hemmeligheter, DB/Flyway, datamodell, Kafka, API-kontrakt, NAIS `accessPolicy`/ingress, GitHub Actions-sikkerhet, deploy/release.
 

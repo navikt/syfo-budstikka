@@ -35,39 +35,19 @@ spec:
 
 ## TokenX- / Azure AD-validering på serversiden
 
-Endepunkter som eksponeres må validere token før forretningslogikk kjøres. I Ktor gjøres dette med `Authentication`-plugin + `authenticate("...")`-blokk rundt rutene — aldri ad-hoc i hver handler.
+Endepunkter som eksponeres må validere token før forretningslogikk kjøres, med `Authentication`-plugin + `authenticate("...")`-blokk rundt rutene — aldri ad-hoc i hver handler.
 
-```kotlin
-// Skille mellom borger-API (TokenX) og system-API (Azure AD).
-install(Authentication) {
-    jwt("tokenx") {
-        verifier(jwkProvider, tokenxIssuer) {
-            withAudience(config.tokenxClientId)   // aud = din client-id
-        }
-        validate { cred -> JWTPrincipal(cred.payload) }
-    }
-}
+**Implementasjon: se `/auth-overview`.** Bruk NAV-biblioteket `no.nav.security:token-validation-ktor-v3` (`tokenValidationSupport`), ikke en rå `jwt()`-plugin, og valider `azp` mot `AZURE_APP_PRE_AUTHORIZED_APPS` for M2M-kallere. Her dekker vi kun **API-kontrakt-siden** av auth.
 
-routing {
-    authenticate("tokenx") {
-        get("/api/v1/dokument/{id}") {
-            val pid = call.principal<JWTPrincipal>()!!.payload
-                .getClaim("pid").asString()   // autoritativ brukeridentitet
-            // ... bruk pid, ALDRI fnr fra path/body
-        }
-    }
-}
-```
-
-Valideringsregler (rammeverk-uavhengige, men kontroller at de er dekket i `verifier`/`validate`):
+Kontrakts-relevante valideringsregler (sjekk at de er dekket):
 - **Issuer**: matcher TokenX-/Azure-issuer for riktig miljø (dev-gcp / prod-gcp).
 - **Audience (`aud`)**: matcher din applikasjons client-id.
-- **Signatur**: verifiseres mot JWKS-endpoint (cache `JwkProvider`).
-- **`pid`-claim** (TokenX): brukerens fødselsnummer — bruk denne som autoritativ identitet, **ikke** noe fra request body eller path.
+- **Signatur**: verifiseres mot JWKS-endpoint.
+- **`pid`-claim** (TokenX): brukerens fødselsnummer — autoritativ identitet, **ikke** noe fra request body eller path.
 - **`acr`-claim**: sjekk nivå (`idporten-loa-high` / `Level4`) hvis API-et krever høyt innloggingsnivå.
-- **`exp`/`nbf`**: standard gyldighetssjekk (håndteres av `jwt`-plugin).
+- **`exp`/`nbf`**: standard gyldighetssjekk.
 
-Logg aldri hele tokenet. Logg `sub`/`jti` for sporbarhet hvis nødvendig. Behold `/internal/*` (isalive, isready, metrics) uten `authenticate`.
+Logg aldri hele tokenet. Behold `/internal/*` (isalive, isready, metrics) uten `authenticate`.
 
 ## API-versjonering — koordiner med andre team
 
