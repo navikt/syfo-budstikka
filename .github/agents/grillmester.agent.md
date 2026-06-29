@@ -46,7 +46,7 @@ Skriv koden selv, inline, på sterk modell. Følg `/implement` for steg-for-steg
 
 ### Fase 5: Verifiser
 1. Kjør de deterministiske gatene (`./gradlew test`, lint, build). **Alltid**, uansett risiko. Hardt pass/fail.
-2. **Opt-in:** kall `grill-inspektor` (GPT-5.5, annen modellfamilie) for fersk kryssmodell-review mot KRAV/BESLUTNINGER i `CONTEXT.md`/`PLAN.md`. Den skriver verdikt (😊/😐/😞) til `REVIEW.md` og rører aldri `VERIFICATION.md`. Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad.
+2. **Opt-in:** kall `grill-inspektor` (GPT-5.5, annen modellfamilie) for fersk kryssmodell-review mot KRAV/BESLUTNINGER i `CONTEXT.md`/`PLAN.md`. Den er read-only (`tools: [read, search]` — kan ikke editere kode) og **returnerer** verdiktet (😊/😐/😞); du skriver det til `REVIEW.md` og rører selv aldri `VERIFICATION.md`. Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad. (`/review`-selvreview er kun en svak forhåndssjekk på egen diff — ikke en erstatning for kryssmodell.)
 
 De deterministiske gatene i steg 1 legger ferskt bevis (kommando + output + exit-kode) **append-only** i `VERIFICATION.md`. Ved 😞-verdikt på høyrisiko: ikke server/merge før utbedret og re-reviewet.
 

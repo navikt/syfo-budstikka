@@ -40,9 +40,9 @@ Path-scopede via `applyTo`: `kotlin` (`**/*.kt`), `security`, `github-actions`, 
 
 ## Status og empirisk verifisering (gjenstår)
 
-Dette er en eksperimentell testbenk. To ting hviler på Copilot-plattformevner som må bekreftes empirisk (CLI + VS Code) før de regnes som bevist:
-- **Eksakt `model:`-streng** Copilot aksepterer i agent-frontmatter (`claude-opus-4.8` / `gpt-5.5`). Modell-gaten validerer at pinnen står på allowlist, ikke at runtime faktisk bruker den.
-- **Agent-til-agent-delegering:** hele fase 5 kryssmodell-review forutsetter at `@grillmester` kan kalle `grill-inspektor` (annen modellfamilie). Hvis Copilot ikke støtter det, er fallback `/review` (selvreview) + de deterministiske gatene — som bærer kvalitet uansett — og manuell kryssmodell-review.
+Dette er en eksperimentell testbenk, brukt lokalt via **Copilot CLI** — ikke cloud agent på github.com (den brukes ikke, og ignorerer uansett `model:` og agent-delegering). GitHub-dokumentasjonen bekrefter at CLI støtter det oppsettet hviler på; det som gjenstår er en lokal røyktest:
+- **`model:`-pinning i CLI:** Copilot CLI aksepterer modell-display-navn/vendor-suffiks i agent-frontmatter (verifisert i bruk). Modell-gaten validerer at pinnen står på allowlist, ikke at runtime faktisk bruker den.
+- **Lokal subagent-delegering:** fase 5 kryssmodell-review forutsetter at `@grillmester` kaller `grill-inspektor` (annen modellfamilie). Copilot CLI støtter custom agents + `/agent`-delegering til subagenter som kjører lokalt i sesjonen, med eget kontekstvindu og per-agent `model:`; `tools:`-allowlisten som låser `grill-inspektor` read-only gjelder også i CLI. `/review` (selvreview) er kun en svak forhåndssjekk — ikke en erstatning for kryssmodell (bukken og havresekken). De deterministiske gatene bærer kvalitet uansett.
 
 Ikke aktivt i dette repoet ennå: **fase 6–7 deploy** (krever `.nais/nais.yaml` + deploy-workflow når tjenesten er reell — mønsteret ligger i `github-actions.instructions.md`), og repo-herding som CODEOWNERS/branch protection, Dependabot og PR-mal.
 
