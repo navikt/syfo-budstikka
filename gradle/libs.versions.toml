@@ -1,6 +1,7 @@
 [versions]
 kotlin = "2.4.0"
 logback = "1.5.37"
+ktlint-gradle = "14.2.0"
 
 [libraries]
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
@@ -8,3 +9,4 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
