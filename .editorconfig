@@ -1,0 +1,16 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+# Ktor bruker wildcard-imports idiomatisk (io.ktor.server.application.*)
+ktlint_standard_no-wildcard-imports = disabled
+
+[*.{yml,yaml,json}]
+indent_size = 2

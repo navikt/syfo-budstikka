@@ -1,0 +1,8 @@
+# Standard reviewers for syfo-budstikka.
+# Verifiser at team-håndtaket stemmer (team-esyfo er nevnt i github-actions.instructions.md).
+* @navikt/team-esyfo
+
+# Høyrisiko-stier bør alltid ha menneskelig review (kombiner med branch protection):
+/.github/                @navikt/team-esyfo
+/.nais/                  @navikt/team-esyfo
+/src/main/resources/db/  @navikt/team-esyfo
