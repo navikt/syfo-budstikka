@@ -21,7 +21,7 @@ Typiske signaler:
 - Plattform-migrering eller opprydding i teknisk gjeld som flytter en søm.
 - Avvik fra NAV-standardmønstre eller introduksjon av ny teknologi i stacken.
 
-Lettere valg (biblioteksvalg innenfor eksisterende stack, intern refaktor uten ny søm) trenger ikke formell ADR — bare et notat i `.grill/CONTEXT.md`.
+Lettere valg (biblioteksvalg innenfor eksisterende stack, intern refaktor uten ny søm) trenger ikke formell ADR — bare et notat i `docs/CONTEXT.md`.
 
 ## Stacken er gitt — forslag skal matche den
 
@@ -45,14 +45,14 @@ Dokumenter minst to alternativer pluss «gjøre ingenting». NAVs Architecture A
 
 ## ADR-format og lagring
 
-Bruk det kanoniske ADR-formatet fra `/grill-with-docs` og `/domain-modeling` (Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert), og lagre som `.grill/adr/NNNN-<kort-tittel>.md` med samme `NNNN-`-nummerering (skann høyeste nummer i `.grill/adr/` og legg +1). Da finner og respekterer `/grill-with-docs`, `/domain-modeling` og `/improve-codebase-architecture` den. De NAV-spesifikke vurderingene (3-perspektiv, auth, dataklassifisering, `accessPolicy`) legges som underseksjoner i samme ADR — se [references/adr-template.md](references/adr-template.md) for en utvidet NAV-ADR.
+Bruk det kanoniske ADR-formatet fra `/grill-with-docs` og `/domain-modeling` (Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert), og lagre som `docs/adr/NNNN-<kort-tittel>.md` med samme `NNNN-`-nummerering (skann høyeste nummer i `docs/adr/` og legg +1). Da finner og respekterer `/grill-with-docs`, `/domain-modeling` og `/improve-codebase-architecture` den. De NAV-spesifikke vurderingene (3-perspektiv, auth, dataklassifisering, `accessPolicy`) legges som underseksjoner i samme ADR — se [references/adr-template.md](references/adr-template.md) for en utvidet NAV-ADR.
 
 Korte ADR-er er best — én beslutning per ADR. Oppdater status når beslutningen er tatt; bruk «Erstattet av NNNN-…» når en beslutning revideres.
 
 ## Kobling til faseløkka
 
-- **Input:** funn fra grill-/design-fasen og fra `/improve-codebase-architecture` mater hit. Les `.grill/CONTEXT.md` og `.grill/GLOSSARY.md` så ADR-en bruker domenets egne ord, ikke ad-hoc-navn.
-- **Output:** skriv den valgte tilnærmingen til `.grill/CONTEXT.md` og selve beslutningen til `.grill/adr/`. Konkrete aksjonspunkter brytes ned i `.grill/PLAN.md` (evt. via `/to-issues`), og hva som beviser at valget holder, fanges i `.grill/VERIFICATION.md`.
+- **Input:** funn fra grill-/design-fasen og fra `/improve-codebase-architecture` mater hit. Les `docs/CONTEXT.md` og `docs/GLOSSARY.md` så ADR-en bruker domenets egne ord, ikke ad-hoc-navn.
+- **Output:** skriv den valgte tilnærmingen til `docs/CONTEXT.md` og selve beslutningen til `docs/adr/`. Konkrete aksjonspunkter brytes ned i `.grill/PLAN.md` (evt. via `/to-issues`), og hva som beviser at valget holder, fanges i `.grill/VERIFICATION.md`.
 
 ## Relaterte skills
 

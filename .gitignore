@@ -17,5 +17,8 @@ out/
 # Lokal agent-/verktøy-state (ikke del av repoet)
 .claude/
 
+# Transient agent-arbeidsminne — durable docs (ADR/glossar/kontekst) ligger i docs/, ikke her
+.grill/
+
 # OS
 .DS_Store

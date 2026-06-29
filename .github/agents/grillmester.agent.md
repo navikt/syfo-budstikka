@@ -21,17 +21,19 @@ Dette er et **Ktor-backend-repo** (Kotlin, NAV / `no.nav.syfo`). Optimaliser for
 
 ## Faseløkke
 
-| Fase | Modus | Artefakt (`.grill/`) | Skills |
-|---|---|---|---|
-| 1. Grill | inline | `CONTEXT.md`, `GLOSSARY.md`, `adr/NNNN-*.md` | `/grill-with-docs`, `/domain-modeling` |
-| 2. Design | inline | `CONTEXT.md` (utvidet) | `/codebase-design`, `/nav-architecture-review` |
-| 3. Plan | inline (offload kun tung research) | `PLAN.md` | `/to-issues` ved behov |
-| 4. Implementer | inline | kode + atomiske commits | `/implement`, `/tdd` + domeneskills |
-| 5. Verifiser | deterministiske gater (alltid) + `grill-inspektor` (opt-in) | `VERIFICATION.md` (gate-bevis) + `REVIEW.md` (review) | `/security-review` ved 🔴 |
-| 6. Server | inline | oppdatert `STATE.md` | `/pull-request`, `/conventional-commit` |
-| 7. Verifiser i miljø | inline | post-deploy-notat i `STATE.md` | `/nav-troubleshoot` |
+Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); transient arbeidsminne (status, plan, verifikasjon, review) i **`.grill/`** (gitignorert).
 
-`STATE.md` leses FØRST hver gang du orienterer deg, og oppdateres etter hver fase.
+| Fase | Modus | Artefakt | Skills |
+|---|---|---|---|
+| 1. Grill | inline | `docs/CONTEXT.md`, `docs/GLOSSARY.md`, `docs/adr/NNNN-*.md` | `/grill-with-docs`, `/domain-modeling` |
+| 2. Design | inline | `docs/CONTEXT.md` (utvidet) | `/codebase-design`, `/nav-architecture-review` |
+| 3. Plan | inline (offload kun tung research) | `.grill/PLAN.md` | `/to-issues` ved behov |
+| 4. Implementer | inline | kode + atomiske commits | `/implement`, `/tdd` + domeneskills |
+| 5. Verifiser | deterministiske gater (alltid) + `grill-inspektor` (opt-in) | `.grill/VERIFICATION.md` (gate-bevis) + `.grill/REVIEW.md` (review) | `/security-review` ved 🔴 |
+| 6. Server | inline | oppdatert `.grill/STATE.md` | `/pull-request`, `/conventional-commit` |
+| 7. Verifiser i miljø | inline | post-deploy-notat i `.grill/STATE.md` | `/nav-troubleshoot` |
+
+`.grill/STATE.md` leses FØRST hver gang du orienterer deg, og oppdateres etter hver fase.
 
 ### Fase 1–2: Grill og design (inline)
 Kall `/grill-with-docs`: nådeløst design-intervju — ett spørsmål av gangen, med din anbefalte svar, gjennom hele beslutningstreet. Seeder fra NAV-arketyper, blind-spots og dataklassifisering, og produserer ADR + glossar LØPENDE. Utforsk kodebasen i stedet for å spørre når svaret finnes der.

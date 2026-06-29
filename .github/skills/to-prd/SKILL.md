@@ -9,9 +9,9 @@ Tar samtalekonteksten + det som ligger i `.grill/` og produserer et PRD som publ
 
 ## Forutsetning: les arbeidsminnet først
 Dette er et seint steg i Grillmester sin faseløkke. Før du skriver, les det som allerede er avklart:
-- `.grill/CONTEXT.md` — valgt tilnærming fra design-fasen
-- `.grill/adr/*.md` — beslutninger som er vanskelige å reversere
-- `.grill/GLOSSARY.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
+- `docs/CONTEXT.md` — valgt tilnærming fra design-fasen
+- `docs/adr/*.md` — beslutninger som er vanskelige å reversere
+- `docs/GLOSSARY.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
 - `.grill/PLAN.md` og `.grill/VERIFICATION.md` hvis de finnes — implementerings- og verifikasjonskontrakt
 
 PRD-et skal være en trofast syntese av dette, ikke en ny idé.
@@ -55,7 +55,7 @@ Beslutninger som er tatt. Kan inkludere:
 - Skjemaendringer (Flyway-migrering) og Kafka-topic/-kontrakt (nøkkel, schema, idempotens/replay)
 - Feilkontrakt (StatusPages / ApiError) og oppførsel når avhengigheter er nede
 - Observability: metrikker, logging (PII-hensyn), tracing fra dag én
-- Arkitekturvalg — pek til relevant `.grill/adr/NNNN-*.md` i stedet for å gjenta begrunnelsen
+- Arkitekturvalg — pek til relevant `docs/adr/NNNN-*.md` i stedet for å gjenta begrunnelsen
 
 **Ikke** inkluder konkrete filstier eller kodeutdrag — de blir utdaterte fort.
 

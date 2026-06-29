@@ -1,6 +1,6 @@
 ---
 name: klarsprak
-description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes — feilmeldinger og API-feilrespons, loggmeldinger, README, ADR-er i .grill/adr/, PR-beskrivelser, release-notes — eller når brukeren ber om klarspråk, språkvask, fjerning av AI-markører, retting av anglisismer, eller hjelp med norsk/engelsk terminologivalg i Ktor-backenden (pakke no.nav.syfo).
+description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes — feilmeldinger og API-feilrespons, loggmeldinger, README, ADR-er i docs/adr/, PR-beskrivelser, release-notes — eller når brukeren ber om klarspråk, språkvask, fjerning av AI-markører, retting av anglisismer, eller hjelp med norsk/engelsk terminologivalg i Ktor-backenden (pakke no.nav.syfo).
 ---
 # Klarspråk — norsk teknisk skriving for Ktor-backend
 
@@ -10,7 +10,7 @@ Retningslinjer for norsk bokmål i feilmeldinger, loggtekst, API-respons, dokume
 
 - Feilmeldinger og API-feilrespons (det frontend eller en annen tjeneste faktisk får tilbake)
 - Loggmeldinger (skal være entydige og søkbare i Kibana — ikke svulstige)
-- README, ADR-er (`.grill/adr/`) og annen Markdown i repoet
+- README, ADR-er (`docs/adr/`) og annen Markdown i repoet
 - PR-beskrivelser, release-notes og commit-meldinger
 - Terminologivalg når norsk og engelsk fagspråk blandes i Kotlin-kode og dokumentasjon
 - Rensing av AI-markører og anglisismer i tekst du eller en agent har generert
@@ -61,7 +61,7 @@ Unødvendige anglisismer — bruk norsk:
 
 | Teksttype | Tone | Tips |
 |-----------|------|------|
-| ADR (`.grill/adr/`) | Nøytral, teknisk | Kontekst → Beslutning → Konsekvenser. Beslutning i presens, aktiv form. |
+| ADR (`docs/adr/`) | Nøytral, teknisk | Kontekst → Beslutning → Konsekvenser. Beslutning i presens, aktiv form. |
 | README | Direkte, vennlig | Start med hva tjenesten gjør, deretter oppsett (`./gradlew run`, NAIS). Ikke selg prosjektet. |
 | Loggmelding | Entydig, søkbar | Konkret hendelse + nøkkelverdier. Ingen svulstige ord. Logg aldri personopplysninger (fnr, navn, helse). |
 | Feilmelding / API-respons | Enkel, handlingsrettet | Hva gikk galt + hva mottakeren kan gjøre. Aktiv form. |

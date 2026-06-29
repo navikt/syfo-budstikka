@@ -31,7 +31,7 @@ For ikke-trivielle endringer skal teksten kort svare på:
 - **Risiko og migrasjon**: Flyway-migrasjon som kjører i prod, endret `accessPolicy`/topic/secret i NAIS-yaml, endret feilkontrakt eller auth — alt som kan slå ut ved deploy
 - **Reviewer-kontekst**: hva reviewer bør se nøye på, og hva som bevisst er utelatt
 
-Hold body stram. Lenk til ADR der en beslutning er styrende: `Følger .grill/adr/NNNN-...`.
+Hold body stram. Lenk til ADR der en beslutning er styrende: `Følger docs/adr/NNNN-...`.
 
 ### Body-mal
 

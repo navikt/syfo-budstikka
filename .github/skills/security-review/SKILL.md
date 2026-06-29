@@ -11,9 +11,9 @@ NAV-spesifikk sikkerhetssjekk før commit, push og PR i `no.nav.syfo`-backenden.
 
 Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke, og før PR. Når en gjennomgang avdekker en bindende beslutning (ny datakategori, valgt auth-mekanisme, ny ekstern integrasjon), skal den fanges:
 
-- Sikkerhetsrelevante avveininger → `.grill/adr/` (én ADR per beslutning, ikke reåpne avgjorte valg).
+- Sikkerhetsrelevante avveininger → `docs/adr/` (én ADR per beslutning, ikke reåpne avgjorte valg).
 - Funn og bevis (trivy/zizmor-output, exit-koder) → `.grill/VERIFICATION.md`.
-- Rammer og klassifisering av data tjenesten behandler → `.grill/CONTEXT.md`.
+- Rammer og klassifisering av data tjenesten behandler → `docs/CONTEXT.md`.
 
 ## PII-klassifisering i NAV
 
@@ -132,7 +132,7 @@ Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk o
 
 ## Sjekkliste (NAV-fokus)
 
-- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og notert i `.grill/CONTEXT.md`
+- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og notert i `docs/CONTEXT.md`
 - [ ] Ingen FNR, navn, helse- eller sensitive ytelsesdata i standardlogger
 - [ ] CEF-auditlogg dekker visning av personopplysninger til NAV-ansatte
 - [ ] `accessPolicy.inbound` er eksplisitt og speiler auth-kodens validering

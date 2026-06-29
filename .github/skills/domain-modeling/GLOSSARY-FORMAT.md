@@ -1,6 +1,6 @@
 # Format for GLOSSARY.md
 
-Glossaret bor i `.grill/GLOSSARY.md`. Det er en ordliste over begreper som er spesifikke for dette domenet — ingenting annet.
+Glossaret bor i `docs/GLOSSARY.md`. Det er en ordliste over begreper som er spesifikke for dette domenet — ingenting annet.
 
 ## Struktur
 

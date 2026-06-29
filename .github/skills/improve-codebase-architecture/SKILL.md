@@ -9,7 +9,7 @@ Avdekk arkitektonisk friksjon i dette Ktor-backendet (Kotlin, `no.nav.syfo`) og 
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
 
-- `.grill/GLOSSARY.md` gir navn til gode sømmer i domenet; `.grill/CONTEXT.md` gir den valgte tilnærmingen; ADR-er i `.grill/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
+- `docs/GLOSSARY.md` gir navn til gode sømmer i domenet; `docs/CONTEXT.md` gir den valgte tilnærmingen; ADR-er i `docs/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
 - Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i grilling (`/grill-with-docs`), plan (`.grill/PLAN.md`) og verifisering (`.grill/VERIFICATION.md`).
 
 ## Vokabular (bruk disse ordene presist — ikke drift)
@@ -29,7 +29,7 @@ Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et 
 
 ### 1. Utforsk
 
-Les `.grill/CONTEXT.md`, `.grill/GLOSSARY.md` og relevante ADR-er i `.grill/adr/` **først**.
+Les `docs/CONTEXT.md`, `docs/GLOSSARY.md` og relevante ADR-er i `docs/adr/` **først**.
 
 Gå så gjennom kodebasen organisk — ikke følg rigide heuristikker. Noter hvor du opplever friksjon. I et Ktor-backend ser fordypningsmuligheter typisk slik ut:
 
@@ -48,7 +48,7 @@ Skriv en selvstendig HTML-fil til OS-temp slik at ingenting havner i repoet. Res
 
 Hver kandidat får et kort med: **Filer**, **Problem** (én setning), **Løsning** (én setning), **Gevinster** (punktliste i vokabularet — lokalitet/leverage/testflate), **Før/etter-diagram**, og **Anbefalingsstyrke** (`Sterk`, `Verdt å utforske`, `Spekulativ`). Avslutt med en **Topp-anbefaling**: hvilken du ville tatt først og hvorfor.
 
-Bruk **`.grill/GLOSSARY.md`-vokabular for domenet** og arkitekturvokabularet over for strukturen. Heter konseptet "Sykmelding-inntak" i glossaret, snakk om "Sykmelding-inntak-modulen" — ikke "SykmeldingHandler" og ikke "Sykmelding-servicen".
+Bruk **`docs/GLOSSARY.md`-vokabular for domenet** og arkitekturvokabularet over for strukturen. Heter konseptet "Sykmelding-inntak" i glossaret, snakk om "Sykmelding-inntak-modulen" — ikke "SykmeldingHandler" og ikke "Sykmelding-servicen".
 
 **ADR-konflikt:** hvis en kandidat motsier en eksisterende ADR, ta den kun opp når friksjonen er ekte nok til å forsvare å gjenåpne valget. Merk det tydelig i kortet (gul callout: _"motsier ADR-0007 — men verdt å gjenåpne fordi…"_). Ikke list opp enhver teoretisk refaktorering en ADR forbyr.
 
@@ -62,15 +62,15 @@ Når brukeren har valgt en kandidat, kjør `/grill-with-docs` for å gå ned bes
 
 Sideeffekter skjer **løpende** mens beslutninger faller på plass:
 
-- **Navngir du en fordypet modul etter et konsept som ikke står i `.grill/GLOSSARY.md`?** Legg termen til der (bruk `/domain-modeling`). Opprett fila lazy hvis den mangler.
-- **Skjerper du en uklar term underveis?** Oppdater `.grill/GLOSSARY.md` med en gang.
-- **Forkaster brukeren kandidaten av en bærende grunn?** Tilby en ADR: _"Vil du at jeg skriver dette som ADR i `.grill/adr/` så fremtidige arkitektur-review ikke foreslår det på nytt?"_ Tilby kun når grunnen faktisk trengs av en fremtidig utforsker — hopp over flyktige ("ikke verdt det nå") og selvinnlysende grunner. Utløs via `/nav-architecture-review` ved reell arkitekturbeslutning.
+- **Navngir du en fordypet modul etter et konsept som ikke står i `docs/GLOSSARY.md`?** Legg termen til der (bruk `/domain-modeling`). Opprett fila lazy hvis den mangler.
+- **Skjerper du en uklar term underveis?** Oppdater `docs/GLOSSARY.md` med en gang.
+- **Forkaster brukeren kandidaten av en bærende grunn?** Tilby en ADR: _"Vil du at jeg skriver dette som ADR i `docs/adr/` så fremtidige arkitektur-review ikke foreslår det på nytt?"_ Tilby kun når grunnen faktisk trengs av en fremtidig utforsker — hopp over flyktige ("ikke verdt det nå") og selvinnlysende grunner. Utløs via `/nav-architecture-review` ved reell arkitekturbeslutning.
 - **Vil du utforske alternative grensesnitt for den fordypede modulen?** Kjør `/codebase-design` (design-it-twice — alternativene lages sekvensielt inline, aldri over parallelle agenter).
 
 ### 4. Koble til faseløkka
 
 Når den valgte fordypningen er gjennomgrillet:
 
-- Skriv den valgte tilnærmingen til `.grill/CONTEXT.md` og besluttede valg til `.grill/adr/`.
+- Skriv den valgte tilnærmingen til `docs/CONTEXT.md` og besluttede valg til `docs/adr/`.
 - Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i `.grill/PLAN.md` (plan-fasen; evt. videre til `/to-issues` for plukkbare snitt).
 - Definer hva som beviser at fordypningen lyktes (tester gjennom ett grensesnitt, søm bekreftet av to adaptere) i `.grill/VERIFICATION.md`.

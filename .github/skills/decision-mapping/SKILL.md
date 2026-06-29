@@ -9,15 +9,15 @@ Gjør beslutningstreet eksplisitt: kartlegg de åpne valgene, hvilke som blokker
 
 **Komplementerer `/grill-with-docs`, dupliserer den ikke.** Selve intervju-mekanikken (ett spørsmål av gangen, anbefalt svar + begrunnelse) bor i `/grill-with-docs`. Denne skillen eier **kart-strukturen**: nodene, avhengighetsgrafen og rekkefølgen. Når en node skal løses ved drøfting, kjør `/grill-with-docs` for selve økta — og før resultatet tilbake i kartet.
 
-Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen. Avklarte beslutninger graduerer ut av kartet og inn i `.grill/adr/` og `.grill/CONTEXT.md`, som så mater PLAN-fasen.
+Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen. Avklarte beslutninger graduerer ut av kartet og inn i `docs/adr/` og `docs/CONTEXT.md`, som så mater PLAN-fasen.
 
 ## Beslutningskartet
 
-Ett kompakt Markdown-dokument per planleggings-innsats: `.grill/DECISIONS.md`, git-spores med repoet. Det er den kanoniske artefakten, og **hele kartet lastes inn som kontekst i hver økt** — derfor må det holdes stramt.
+Ett kompakt Markdown-dokument per planleggings-innsats: `.grill/DECISIONS.md` — transient arbeidsminne (gitignorert; avgjorte beslutninger graduerer til `docs/adr/`). Det er den kanoniske *arbeids*-artefakten, og **hele kartet lastes inn som kontekst i hver økt** — derfor må det holdes stramt.
 
 - Hold det kompakt. Tunge artefakter (utrednings-notater, spike-resultater, prototyper) lenkes fra noden, **aldri** limes inn i kartet.
-- Når en beslutning er tatt og er vanskelig å reversere → skriv den som `.grill/adr/NNNN-*.md` (se `/grill-with-docs`) og lenk fra noden. Kartet eier det åpne; ADR-ene eier det avgjorte.
-- Nytt domenebegrep dukker opp → `.grill/GLOSSARY.md` (se `/domain-modeling`). Bruk de samme begrepene i nodene.
+- Når en beslutning er tatt og er vanskelig å reversere → skriv den som `docs/adr/NNNN-*.md` (se `/grill-with-docs`) og lenk fra noden. Kartet eier det åpne; ADR-ene eier det avgjorte.
+- Nytt domenebegrep dukker opp → `docs/GLOSSARY.md` (se `/domain-modeling`). Bruk de samme begrepene i nodene.
 
 ## Node-struktur
 
@@ -98,6 +98,6 @@ Tilby da brukeren å hoppe over kartet, og anbefal i stedet å implementere dire
 
 ## Utfall
 
-Når kartet er ferdig: de avgjorte beslutningene lever i `.grill/adr/` og den valgte tilnærmingen i `.grill/CONTEXT.md`. Det er inngangen til plan-fasen — `/to-prd` for kravspec, deretter `/to-issues` for å bryte ned i uavhengig-gripbare saker.
+Når kartet er ferdig: de avgjorte beslutningene lever i `docs/adr/` og den valgte tilnærmingen i `docs/CONTEXT.md`. Det er inngangen til plan-fasen — `/to-prd` for kravspec, deretter `/to-issues` for å bryte ned i uavhengig-gripbare saker.
 
 Et utfylt eksempel: se [EKSEMPEL-BESLUTNINGSKART.md](references/EKSEMPEL-BESLUTNINGSKART.md).

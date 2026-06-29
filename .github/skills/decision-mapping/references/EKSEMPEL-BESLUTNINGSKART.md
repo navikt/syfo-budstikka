@@ -18,7 +18,7 @@ Inneholder hendelsene fnr og diagnosekoder (særlige kategorier), eller bare sta
 
 ### Beslutning
 Fnr + statuskode, ingen diagnose. Personopplysninger, ikke særlige kategorier.
-Konsekvens: TokenX-auth, fnr aldri i logg, sletterutine kreves. → .grill/adr/0001-dataklassifisering.md
+Konsekvens: TokenX-auth, fnr aldri i logg, sletterutine kreves. → docs/adr/0001-dataklassifisering.md
 
 ## #2: Arketype — API, Kafka-konsument eller begge?
 
@@ -28,7 +28,7 @@ Avveining: én deploy som gjør begge (enklere drift) vs. to apper (renere skale
 
 ### Beslutning
 Én Ktor-app: Kafka-konsument som materialiserer status til Postgres + REST-API som leser.
-Konsumenten og API-et deler datamodell, derfor samme app. → .grill/adr/0002-arketype.md
+Konsumenten og API-et deler datamodell, derfor samme app. → docs/adr/0002-arketype.md
 
 ## #3: Egen topic eller eksisterende rapid?
 

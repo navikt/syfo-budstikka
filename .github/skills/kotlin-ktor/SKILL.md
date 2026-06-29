@@ -78,7 +78,7 @@ Team-standard `PaginatedResponse<T>`-wrapper og route-validering med tidlig-retu
 
 - Flyway-migreringer i `src/main/resources/db/migration` (`V<n>__<navn>.sql`), kjøres ved oppstart. Migreringer er append-only — endre aldri en allerede deployet migrering.
 - Bruk NAIS-provisjonert Postgres med IAM/Vault-rotert credential; ikke hardkod connection-string.
-- Skjema- og lagringsvalg for personopplysninger er en arkitekturbeslutning → utløs ADR i `.grill/adr/` via grill-fasen.
+- Skjema- og lagringsvalg for personopplysninger er en arkitekturbeslutning → utløs ADR i `docs/adr/` via grill-fasen.
 
 ## Kafka (hendelseskonsument/-produsent)
 

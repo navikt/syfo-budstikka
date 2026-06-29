@@ -53,7 +53,7 @@ og feilkontrakt.
 - Config/meldingsskjema — nye felter eller former som trengs
 
 **Styrende beslutninger:**
-- Følger `.grill/adr/NNNN-...` der det finnes en ADR som binder valget
+- Følger `docs/adr/NNNN-...` der det finnes en ADR som binder valget
 
 **Akseptansekriterier:**
 - [ ] Konkret, testbart kriterium 1
@@ -91,7 +91,7 @@ av samme nøkkel skal være en no-op, ingen ny rad, ingen feil.
 - Konsument-løkka — bør ikke kaste på allerede-sett nøkkel
 
 **Styrende beslutninger:**
-- Følger `.grill/adr/0002-kafka-idempotens-via-meldingsnokkel.md`
+- Følger `docs/adr/0002-kafka-idempotens-via-meldingsnokkel.md`
 
 **Akseptansekriterier:**
 - [ ] Samme melding levert to ganger gir nøyaktig én rad

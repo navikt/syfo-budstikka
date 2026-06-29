@@ -1,11 +1,11 @@
 ---
-description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, .grill/adr/, .grill/-artefakter (CONTEXT.md, PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
+description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, docs/adr/, .grill/-artefakter (CONTEXT.md, PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
 applyTo: "**/*.md"
 ---
 
 # Norsk tekstkvalitet (lean)
 
-Disse reglene gjelder all norsk markdown-tekst i dette Ktor-backend-repoet (no.nav.syfo): README, arkitekturbeslutninger i `.grill/adr/`, `.grill/`-artefakter, PR-tekst og commit-meldinger. Hold tekst om kode like presis som koden selv.
+Disse reglene gjelder all norsk markdown-tekst i dette Ktor-backend-repoet (no.nav.syfo): README, arkitekturbeslutninger i `docs/adr/`, `.grill/`-artefakter, PR-tekst og commit-meldinger. Hold tekst om kode like presis som koden selv.
 
 ## AI-markører å unngå
 

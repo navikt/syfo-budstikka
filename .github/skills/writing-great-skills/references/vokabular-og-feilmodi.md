@@ -35,4 +35,4 @@ Skills i syfo-budstikka deler en kontekst de bør bygge på i stedet for å gjen
 - **Kafka** — konsumenter skal være idempotente og tåle replay.
 - **Flyway** — migreringer er append-only; endre aldri en deployet migrering.
 - **NAIS** — `accessPolicy.inbound/outbound`, topic-tilgang og secrets hører i manifestet, ikke hardkodes.
-- **Arkitekturbeslutninger** utløser ADR i `.grill/adr/` via `/nav-architecture-review` — en skill bør peke dit, ikke ta valget selv.
+- **Arkitekturbeslutninger** utløser ADR i `docs/adr/` via `/nav-architecture-review` — en skill bør peke dit, ikke ta valget selv.

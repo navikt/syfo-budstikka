@@ -4,7 +4,7 @@ NAV-spesifikk mal for Architecture Decision Records. Fyll inn avsnittene som er 
 
 ## Filnavn
 
-`.grill/adr/NNNN-<kort-tittel>.md`  (samme `NNNN-`-nummerering som `/grill-with-docs` og `/domain-modeling`)
+`docs/adr/NNNN-<kort-tittel>.md`  (samme `NNNN-`-nummerering som `/grill-with-docs` og `/domain-modeling`)
 
 ## Mal
 
@@ -19,7 +19,7 @@ NAV-spesifikk mal for Architecture Decision Records. Fyll inn avsnittene som er 
 
 - Hva er problemet eller muligheten?
 - Hvorfor må vi ta en beslutning nå?
-- Hvilke begrensninger gjelder (regulatorisk, plattform, team-kapasitet, eksisterende ADR-er i `.grill/adr/`)?
+- Hvilke begrensninger gjelder (regulatorisk, plattform, team-kapasitet, eksisterende ADR-er i `docs/adr/`)?
 
 ## Beslutning
 
@@ -117,6 +117,6 @@ Vi har besluttet å {konkret valg}.
 - Hold ADR-er korte og fokuserte — én beslutning per ADR.
 - «Gjøre ingenting» er alltid et alternativ.
 - Skriv for fremtidige lesere (og @grillmester i en senere tråd) som ikke kjenner konteksten.
-- Bruk domenets ord fra `.grill/GLOSSARY.md`, ikke ad-hoc-navn.
+- Bruk domenets ord fra `docs/GLOSSARY.md`, ikke ad-hoc-navn.
 - Oppdater status når beslutningen er tatt; «Erstattet av NNNN» når en beslutning revideres.
 - Ikke legg PII eller hemmeligheter i selve ADR-en — referer til riktig kilde i stedet.

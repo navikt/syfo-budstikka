@@ -165,7 +165,7 @@ Se `references/alerting.md` for Prometheus-regler og NAIS `Alert`-ressurs med Sl
 
 ## Beslutninger som skal til grilling
 
-Disse er arkitekturbeslutninger, ikke rutinearbeid — løft dem i grill-fasen og dokumenter i `.grill/adr/` (se `grill-with-docs`/`domain-modeling`):
+Disse er arkitekturbeslutninger, ikke rutinearbeid — løft dem i grill-fasen og dokumenter i `docs/adr/` (se `grill-with-docs`/`domain-modeling`):
 - Nye labels som kan øke kardinaliteten vesentlig
 - Endring av produksjonsterskler for varsler
 - Nye dashboards, mapper eller varslingskanaler som påvirker teamets arbeidsflyt
