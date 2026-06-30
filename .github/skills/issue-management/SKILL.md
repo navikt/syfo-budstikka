@@ -32,7 +32,7 @@ Hvis repoet har issue-maler i `.github/ISSUE_TEMPLATE/` for den valgte typen, le
 Bruk domenespråket fra `docs/GLOSSARY.md` i titler og beskrivelser når det finnes, og respekter beslutninger i `docs/adr/` for området du rører.
 
 Inkluder alltid når relevant:
-- **Avhengigheter:** `Avhenger av #NNN`
+- **Avhengigheter:** `Blokkert av #NNN`
 - **Epic-kobling:** `Del av epic: #EPIC_NUMMER`
 
 ### 4. Opprett issue
@@ -68,7 +68,7 @@ For store oppgaver som brytes ned:
 2. Opprett underliggende issues (ofte ferdig tegnet av `/to-issues` som vertikale snitt)
 3. Koble sub-issues til epicen via GitHubs sub-issues-API (`references/sub-issues.md`)
 4. Koble avhengigheter via dependencies-API-et (`references/dependencies.md`)
-5. Behold også `Del av epic: #EPIC_NUMMER` og `Avhenger av #NNN` i issue-teksten for lesbarhet
+5. Behold også `Del av epic: #EPIC_NUMMER` og `Blokkert av #NNN` i issue-teksten for lesbarhet
 
 #### Sub-issues skal være selvstendige
 
