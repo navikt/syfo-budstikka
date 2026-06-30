@@ -98,4 +98,4 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 | Bryt arbeid i plukkbare issues / lag PRD | `/to-issues`, `/to-prd` |
 | Kontekst-handoff / checkpoint mellom økter | `/handoff` |
 
-Levering-skillene (commit/PR/issue/README/klarspråk) og de øvrige fase-skillene står i faseløkka over.
+Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage`, `/writing-great-skills` og fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.

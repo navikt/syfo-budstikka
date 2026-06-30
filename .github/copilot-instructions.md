@@ -10,7 +10,7 @@ Ktor-backend (Kotlin, NAV / `no.nav.syfo`). Java 25, Gradle, Netty. Norsk er arb
 ## Faste prinsipper (gjelder all kode-assistanse i repoet)
 - **Kvalitetsgater er deterministiske og utenfor modellen:** `./gradlew test`, lint og build avgjør pass/fail. Ingen «ser riktig ut»-påstander uten ferskt bevis (kommando + output + exit-kode i samme melding).
 - **Inline skriving:** koding som krever skjønn gjøres i hovedtråden. Subagenter brukes kun til read-only utforsking, kryssmodell-verify og opt-in divergent design-utforsking (design-it-twice).
-- **Skills kalles eksplisitt** med `/skill-navn` når en oppgave berører et domene som har skill (se `.github/skills/`). Ikke stol på at de oppdages automatisk.
+- **Skills kalles eksplisitt** med `/skill-navn` når en oppgave berører et domene som har skill (se `.github/skills/`) — de surfaces på beskrivelsen sin, men kall den du trenger eksplisitt så selve skill-body-en faktisk lastes, ikke bare beskrivelsen.
 - **Disk-som-minne:** lengre arbeid sporer beslutninger/plan/verifikasjon i `.grill/` (`STATE.md` leses først). Ved ~55 % vindu-okkupasjon: checkpoint + fersk tråd.
 
 ## Modell-policy
