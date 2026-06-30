@@ -5,7 +5,7 @@ description: "Brukes når du skal lage en commit eller skrive en commit-melding 
 
 # Conventional commit
 
-Generer commit-meldinger etter Conventional Commits-spesifikasjonen, tilpasset dette NAV Ktor-backendet (Kotlin, Ktor/Netty, Gradle, Postgres/Flyway, Kafka, TokenX/Azure AD, NAIS; pakke `no.nav.syfo`).
+Generer commit-meldinger etter Conventional Commits-spesifikasjonen, tilpasset dette repoet.
 
 ## Format
 

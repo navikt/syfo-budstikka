@@ -3,11 +3,9 @@ name: implement
 description: "Brukes når en vedtatt plan skal omsettes til kode i dette Ktor-backendet — typisk @grillmester fase 4 med `.grill/PLAN.md` på plass, eller når noen sier «implementer planen», «begynn på oppgave N», «kod opp dette», «start implementeringen». Trigger også når et plukket issue/snitt er klart for koding og du vil drive frem arbeidet steg for steg med bevis og atomiske commits."
 ---
 
-# Implementer (Ktor / no.nav.syfo)
+# Implementer
 
 Implementeringsdisiplinen for `@grillmester` **fase 4**. Du omsetter `.grill/PLAN.md` til kjørende kode — ett steg av gangen, test-først, med positivt bevis per steg og atomiske commits.
-
-Dette er et NAV Ktor-backend (Kotlin, Ktor/Netty, Gradle, Postgres/Flyway, Kafka, TokenX/Azure AD, NAIS; pakke `no.nav.syfo`).
 
 ## Grunnregler (ufravikelige)
 

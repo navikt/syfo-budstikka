@@ -3,9 +3,9 @@ name: security-review
 description: "Sikkerhetsgjennomgang av Ktor-backend i no.nav.syfo: PII/FNR/helseopplysninger i logger, secrets, CEF-auditlogg, accessPolicy i NAIS-manifestet, JWT-validering (TokenX/Azure AD), eksterne integrasjoner, DPIA og eskalering til sikkerhetschampion. Brukes før commit/push/PR med sikkerhetsrelevans, eller når noen sier /security-review."
 ---
 
-# Sikkerhetsgjennomgang — NAV Ktor-backend
+# Sikkerhetsgjennomgang — NAV-kontekst
 
-NAV-spesifikk sikkerhetssjekk før commit, push og PR i `no.nav.syfo`-backenden. Generiske OWASP-mønstre (SQLi, XSS, CSRF, injection) forutsettes kjent — dette dokumentet fokuserer på NAV-konteksten: PII-klassifisering, accessPolicy som sikkerhetsmekanisme, og eskalering til sikkerhetschampion. For JWT-validering, claims og auth-oppsett i koden, se `/auth-overview`.
+NAV-spesifikk sikkerhetssjekk før commit, push og PR i dette repoet. Generiske OWASP-mønstre (SQLi, XSS, CSRF, injection) forutsettes kjent — dette dokumentet fokuserer på NAV-konteksten: PII-klassifisering, accessPolicy som sikkerhetsmekanisme, og eskalering til sikkerhetschampion. For JWT-validering, claims og auth-oppsett i koden, se `/auth-overview`.
 
 ## Flytkobling
 

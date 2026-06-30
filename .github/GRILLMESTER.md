@@ -8,7 +8,7 @@ Et høykvalitets GitHub Copilot-oppsett for dette Ktor-backend-repoet (Kotlin, N
 
 ### Designprinsipper (hvorfor det er bygd slik)
 1. **Skriveren er inline** på sterk modell — koding parallelliseres ikke (implisitte beslutninger kolliderer).
-2. **Subagenter = kontekst-verktøy**, kun til read-only utforsking + kryssmodell-verify.
+2. **Subagenter = kontekst-verktøy**, kun til read-only utforsking, kryssmodell-verify + opt-in divergent design-utforsking (design-it-twice). Aldri parallell skriving av kode.
 3. **Sterke modeller, ingen svake tier.** Kostnadskontroll skjer via opt-in på de dyre stegene, ikke ved å svekke modellen. (Ingen «juniorkokk».)
 4. **Kvalitetsgater er deterministiske og utenfor modellen** — `./gradlew test`, lint, build + `scripts/validate-agent-models.sh`. Positivt bevis, ikke «ser riktig ut».
 5. **Disk er minne** (`.grill/`), ikke samtalen. Checkpoint ved ~55 % vindu-okkupasjon.

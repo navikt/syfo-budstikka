@@ -5,25 +5,20 @@ description: "Bruk når brukeren vil forbedre arkitekturen, finne refaktorerings
 
 # improve-codebase-architecture
 
-Avdekk arkitektonisk friksjon i dette Ktor-backendet (Kotlin, `no.nav.syfo`) og foreslå **fordypningsmuligheter** — refaktoreringer som gjør grunne moduler dype. Målet er testbarhet og at både mennesker og AI lett kan navigere koden.
+Avdekk arkitektonisk friksjon i dette repoet og foreslå **fordypningsmuligheter** — refaktoreringer som gjør grunne moduler dype. Målet er testbarhet og at både mennesker og AI lett kan navigere koden.
+
+**Rolle:** dette _finner_ kandidater (oppdagelse). Designe grensesnittet på en valgt kandidat = `/codebase-design`; avhøre valget = `/grill-with-docs`; formalisere et tungt valg som ADR = `/nav-architecture-review`.
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
 
 - `docs/GLOSSARY.md` gir navn til gode sømmer i domenet; `docs/CONTEXT.md` gir den valgte tilnærmingen; ADR-er i `docs/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
 - Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i grilling (`/grill-with-docs`), plan (`.grill/PLAN.md`) og verifisering (`.grill/VERIFICATION.md`).
 
-## Vokabular (bruk disse ordene presist — ikke drift)
+## Vokabular
 
-- **modul** — en kohesiv enhet med et grensesnitt (ikke "komponent", "service", "lag", "wrapper").
-- **grensesnitt** — det utsiden ser og kaller (ikke "API", "signatur").
-- **implementasjon** — det som ligger bak grensesnittet.
-- **dybde / dyp / grunn** — en dyp modul gjemmer mye bak et smalt grensesnitt; en grunn modul har et grensesnitt nesten like bredt som implementasjonen.
-- **søm** (seam) — stedet to moduler møtes og kan byttes ut (ikke "boundary").
-- **adapter** — implementasjonen av en søm (f.eks. HTTP-klient i prod, in-memory i test).
-- **lokalitet** — at en feil konsentreres i én modul i stedet for å smøres ut over kallstedet.
-- **leverage** — ett grensesnitt, mange kallsteder.
+Dette bruker dyp-modul-vokabularet som `/codebase-design` eier — **modul**, **grensesnitt**, **implementasjon**, **dybde** (dyp/grunn), **søm** (seam, ikke «boundary»), **adapter**, **lokalitet**, **leverage**. Bruk ordene presist; ikke drift til «komponent», «service», «lag» eller «API». Full definisjon av hvert: `/codebase-design`.
 
-**Slettetesten:** ville det å slette modulen *konsentrere* kompleksitet (bra — den var grunn) eller bare flytte den (da var den ekte)? Et "ja, konsentrerer" er signalet du jakter på.
+**Slettetesten** (det operative verktøyet for oppdagelse): ville det å slette modulen *konsentrere* kompleksitet (bra — den var grunn) eller bare flytte den (da var den ekte)? Et «ja, konsentrerer» er signalet du jakter på.
 
 ## Prosess
 

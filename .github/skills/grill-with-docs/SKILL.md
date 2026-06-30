@@ -7,16 +7,16 @@ description: "Bruk når et design, en ny tjeneste eller en ikke-triviell endring
 
 Et nådeløst design-intervju som skjerper planen OG produserer dokumentasjon (ADR + glossar) underveis. Dette er inngangen til Grillmester sin faseløkke — målet er delt forståelse FØR kode skrives.
 
+**Rolle:** dette _avhører_ planen og fester docs løpende. Beslektede skills med egne roller: `/improve-codebase-architecture` finner kandidater, `/codebase-design` designer grensesnittet, `/nav-architecture-review` formaliserer tunge valg som ADR.
+
 ## Kontrakt for økta
-1. **Ett spørsmål av gangen.** Aldri flere samtidig — det forvirrer.
-2. Hvert spørsmål kommer med **din anbefalte svar** og en kort begrunnelse.
-3. Gå ned hvert gren av beslutningstreet; løs avhengigheter mellom valg ett for ett.
-4. Kan et spørsmål besvares ved å lese kodebasen → **utforsk i stedet for å spørre**.
-5. Skriv artefakter **løpende** (ikke til slutt): hver avklart beslutning → ADR-linje; hvert avklart begrep → glossar. Bruk `/domain-modeling` for å holde språket skarpt.
+Grunnkontrakten for selve grillingen eies av `/grill-me` — ett spørsmål av gangen, hvert med din anbefalte svar, gå ned hvert gren av beslutningstreet, og utforsk kodebasen i stedet for å spørre når svaret finnes der. Det som er **i tillegg** her:
+
+- Skriv artefakter **løpende** (ikke til slutt): hver avklart beslutning → ADR-linje; hvert avklart begrep → glossar-linje. Bruk `/domain-modeling` for å holde språket skarpt.
 
 ## NAV-seeding (still disse før de generiske)
 Velg arketype først, og still domene-spørsmålene som hører til. Den korte versjonen:
-- **Arketype:** Backend-API / Hendelseskonsument (Kafka) / Naisjob / Fullstack. (Dette er et Ktor-backend-repo — vekt på de tre første.)
+- **Arketype:** Backend-API / Hendelseskonsument (Kafka) / Naisjob / Fullstack. (Sjekk repoets arketype i `copilot-instructions.md`; vekt seedingen deretter.)
 - **Dataklassifisering:** Hvilke data berøres? (åpne / personopplysninger / særlige kategorier / fnr) — styrer auth, logging, lagring og om DPIA trengs.
 - **Blind-spots å grave i:** auth (TokenX / Azure AD / ID-porten / Maskinporten), `accessPolicy` mot andre team, idempotens/replay (Kafka), oppførsel når avhengigheter er nede, PII i logger, sletting/oppbevaring, observability fra dag én, feilkontrakt (StatusPages/ApiError).
 - **Arkitekturbeslutning?** → utløs ADR via `/nav-architecture-review`.
@@ -27,15 +27,7 @@ For **ny tjeneste, ny arketype eller modernisering** — kjør den fulle kravavd
 - [references/data-classification.md](references/data-classification.md) — NAVs klassifiseringsnivåer, PII-kategorier og arkitekturkonsekvenser.
 
 ## ADR-kontrakt
-For hver beslutning som er vanskelig å reversere, overraskende uten kontekst, og resultatet av en reell avveining, skriv `docs/adr/NNNN-<kort-tittel>.md`:
-```
-# NNNN: <tittel>
-- Status: foreslått | besluttet
-- Kontekst: <hva tvang frem valget>
-- Beslutning: <hva vi valgte>
-- Konsekvenser: <hva det betyr, inkl. ulemper>
-- Alternativer vurdert: <kort>
-```
+For hver beslutning som er vanskelig å reversere, overraskende uten kontekst, og resultatet av en reell avveining, skriv `docs/adr/NNNN-<kort-tittel>.md` med det kanoniske ADR-formatet — se `/domain-modeling` (ADR-FORMAT.md). Én beslutning per ADR.
 
 ## Glossar-kontrakt
 Hvert domenebegrep som dukker opp avklares i `docs/GLOSSARY.md` (én linje: `term → presis definisjon i NAV-kontekst`). Konsistent språk er en del av designet, ikke pynt.

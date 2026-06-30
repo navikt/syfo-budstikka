@@ -5,7 +5,9 @@ description: "Bruk når et modul-grensesnitt skal designes eller forbedres i det
 
 # codebase-design
 
-Design **dype moduler**: mye oppførsel bak et lite grensesnitt, plassert ved en ren søm, testet gjennom det samme grensesnittet. Bruk dette språket og disse prinsippene overalt der kode designes eller restruktureres i dette repoet (Kotlin, Ktor, `no.nav.syfo`). Målet er gjennomslag for kallere, lokalitet for de som vedlikeholder, og testbarhet for alle.
+Design **dype moduler**: mye oppførsel bak et lite grensesnitt, plassert ved en ren søm, testet gjennom det samme grensesnittet. Bruk dette språket og disse prinsippene overalt der kode designes eller restruktureres i dette repoet. Målet er gjennomslag for kallere, lokalitet for de som vedlikeholder, og testbarhet for alle.
+
+**Rolle:** dette _designer_ grensesnittet og eier dyp-modul-vokabularet (under) — andre skills låner det herfra. Beslektet: `/improve-codebase-architecture` finner hva som bør fordypes, `/grill-with-docs` avhører valget, `/nav-architecture-review` formaliserer det som ADR.
 
 Designbeslutninger som er vanskelige å reversere skrives som ADR i `docs/adr/NNNN-*.md`, og den valgte modulformen havner i `docs/CONTEXT.md` (se `/grill-with-docs`). Skarpe domenebegrep i `docs/GLOSSARY.md` (se `/domain-modeling`).
 

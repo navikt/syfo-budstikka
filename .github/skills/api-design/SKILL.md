@@ -3,9 +3,9 @@ name: api-design
 description: "Bruk når et Ktor-endepunkt skal legges til eller endres, en konsument skal få tilgang, eller en API-kontrakt brytes — accessPolicy.inbound, TokenX-/Azure AD-validering, versjonering, breaking changes og API-katalog. Triggere: 'nytt endepunkt', 'eksponere API', 'hvem kan kalle', 'breaking change', 'versjonere API', 'aud/issuer', ny route i Routing.kt."
 ---
 
-# API Design — Nav-konvensjoner for Ktor-backend
+# API Design — Nav-konvensjoner
 
-Dette dokumentet dekker **Nav-spesifikke** konvensjoner for API-design i dette Ktor-repoet (`no.nav.syfo`, Netty, NAIS). Generelle REST-/HTTP-mønstre er ikke dekket — bruk teamets etablerte praksis.
+Dette dokumentet dekker **Nav-spesifikke** konvensjoner for API-design i dette repoet. Generelle REST-/HTTP-mønstre er ikke dekket — bruk teamets etablerte praksis.
 
 Brukes typisk i @grillmester fase 1–2 (design) når en kontrakt formes, og i implementasjonsfasen når en route skrives.
 

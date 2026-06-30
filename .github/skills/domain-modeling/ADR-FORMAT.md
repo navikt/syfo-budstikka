@@ -4,7 +4,7 @@ ADR-er bor i `docs/adr/` med fortløpende nummerering: `0001-<slug>.md`, `0002-<
 
 ## Mal
 
-Samme form som `/grill-with-docs` bruker, så artefaktene er enhetlige gjennom hele faseløkka:
+Dette er det kanoniske ADR-formatet for oppsettet — `/grill-with-docs` og `/nav-architecture-review` peker hit, så artefaktene er enhetlige gjennom hele faseløkka:
 
 ```md
 # NNNN: <kort tittel på beslutningen>

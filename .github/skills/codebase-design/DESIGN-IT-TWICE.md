@@ -2,7 +2,9 @@
 
 Når du vil utforske alternative grensesnitt for en valgt deepening-kandidat. Basert på «Design It Twice» (Ousterhout) — den første idéen din er sjelden den beste. Bruker vokabularet i [SKILL.md](SKILL.md) — **modul**, **grensesnitt**, **søm**, **adapter**, **gjennomslag**.
 
-**Inline-prinsipp (dette repoet):** designarbeid som krever skjønn skjer i hovedtråden. Du splitter aldri «skriveren» over parallelle agenter — implisitte beslutninger kolliderer. Lag alternativene sekvensielt inline. Read-only utforsking av et alternativ kan offloades til en subagent som returnerer en kort skisse (≤1–2k tegn) når den ellers ville fylt hovedtråden med støy — aldri til å skrive kode.
+**Inline vs. parallell:** _implementasjon_ (kode) skrives alltid inline i hovedtråden — «skriveren» splittes aldri over parallelle agenter, fordi implisitte beslutninger kolliderer. _Design-varianter_ er unntaket: de SKAL divergere, så her er parallell strukturelt **bedre** enn sekvensielt (sekvensielt risikerer ankring — variant 2 farget av variant 1).
+
+**Opt-in parallell for variantene:** for et hardt grensesnittvalg kan du spinne N **read-only** design-agenter i parallell — én per designtvang under. De skriver **ingen** filer og returnerer **kompakte** skisser (≤1–2k tegn hver); orkestratoren syntetiserer. Default er sekvensielt inline; velg parallell når valget er hardt nok til å rettferdiggjøre kostnaden — samme opt-in-logikk som kryssmodell-review (de dyre stegene er valgfrie, ikke default).
 
 ## Prosess
 
