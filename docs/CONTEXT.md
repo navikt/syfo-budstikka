@@ -64,6 +64,14 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B11: Retry sentralt — eksponentiell backoff + jitter m/ tak; sentral maxLeveringsalder → UTLOPT + metrikk/alert (aldri stille dropp); synligTom (når oppgitt) kapper fristen tidligere; transient (retry) vs permanent (rett til feilet) skilles.
 - B12: Prosesseringstopologi — decoupled workers. Konsument skriver kun til inbox (rask, idempotent). Egen beslutnings-worker + outbox-worker drevet av kontinuerlig polling med DB-radlås (FOR UPDATE SKIP LOCKED), så flere podder deler last uten dobbeltlevering. Ingen leader election.
 
+## Datamodell-beslutninger (se docs/DATAMODELL.md)
+- B13: Topologi A — to tabeller: `inbox_hendelse` + `leveranse`. `referanse` + `inbox_event_id` på leveranse holder døren åpen for senere varsel-aggregat (B) via additiv migrering.
+- B14: Status på leveranse-raden (KLAR/SENDT/FEILET_PERMANENT/UTLOPT); transient feil = bli i KLAR m/ backoff (forsok, neste_forsok_tid). Ingen separat feilet-tabell.
+- B15: Outbox-worker holder radlås under selve sendingen (FOR UPDATE SKIP LOCKED) med stramme klient-timeouts. Lease/claim er ren oppgraderingssti senere.
+- B16: Idempotensnøkkel mot kanaler = vår genererte `leveranse.id` (UUID), gjenbrukt ved retry + FERDIGSTILL. `ekstern_respons_id` (nullable) lagrer kanalens retur-id for sporing.
+- B17: Sporing — `trace_id`-kolonne på inbox+leveranse; enkelt-id spores i Grafana via Loki (logger) + Tempo (traces) korrelert på trace_id. Prometheus-metrikker kun lav kardinalitet (kanal/status/mottaker_type/feiltype), aldri id/fnr som label.
+- B18: Inbox-livsløp — konsument skriver MOTTATT; beslutnings-workeren setter BEHANDLET/DROPPET(drop_aarsak=DOD)/FEILET i én tx. Inbox har egen backoff (forsok/neste_forsok_tid) for transiente gate-feil mot PDL/KRR. Død-dropp logges som status på inbox (justerer B7: ingen egen tabell). PII-at-rest: fnr i klartekst i mottaker_id (CloudSQL-kryptert, maskert i logg); retensjon/GDPR er åpent punkt.
+
 ## Kjernespenning å designe rundt
 Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan
 flytte resten til konsument? Kontrakt: hva sender domeneappen, hva eier budstikka.
