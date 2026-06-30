@@ -12,7 +12,7 @@ Ren beregning, in-memory tilstand, ingen I/O (f.eks. arbeidsgiverperiode-beregni
 
 ### 2. Lokalt-substituerbar
 
-Avhengigheter med lokale test-stand-ins: Postgres via Testcontainers + Flyway, embedded/Testcontainers Kafka, in-memory `DataSource`. Deepbar hvis stand-in finnes. Den deepede modulen testes med stand-in kjørende i testsuiten. Skjøten er intern; ingen port på modulens eksterne grensesnitt.
+Avhengigheter med lokale test-stand-ins: Postgres via Testcontainers + Flyway, embedded/Testcontainers Kafka, in-memory `DataSource`. Deepbar hvis stand-in finnes. Den deepede modulen testes med stand-in kjørende i testsuiten. Sømmen er intern; ingen port på modulens eksterne grensesnitt.
 
 ### 3. Eid over nett (Ports & Adapters)
 
@@ -35,7 +35,7 @@ class PdlInMemory(private val data: Map<String, Navn>) : PdlClient
 
 Tredjeparter / felleskomponenter du ikke kontrollerer (ID-porten, Maskinporten-endepunkter, eksterne leverandører). Den deepede modulen tar den eksterne avhengigheten som en injisert port; tester gir en mock-adapter. Vurder kontrakt-/avtaletester mot leverandøren der det finnes.
 
-## Skjøt-disiplin
+## Søm-disiplin
 
 - **Én adapter betyr en hypotetisk søm. To adaptere betyr en reell.** Ikke innfør en port før minst to adaptere er rettferdiggjort (typisk produksjon + test). En søm med bare én adapter er ren indireksjon.
 - **Interne sømmer vs eksterne sømmer.** En dyp modul kan ha interne sømmer (private for implementasjonen, brukt av dens egne tester) i tillegg til den eksterne sømmen ved grensesnittet. Ikke eksponer interne sømmer gjennom grensesnittet bare fordi testene bruker dem.

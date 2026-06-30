@@ -100,8 +100,8 @@ Gode grensesnitt gjør testing naturlig. I Ktor/`no.nav.syfo` betyr det som rege
 
 - En **Modul** har nøyaktig ett **Grensesnitt** (flaten den viser til kallere og tester).
 - **Dybde** er en egenskap ved en **Modul**, målt mot dens **Grensesnitt**.
-- En **Skjøt** er der en **Moduls** **Grensesnitt** ligger.
-- En **Adapter** sitter ved en **Skjøt** og oppfyller **Grensesnittet**.
+- En **Søm** er der en **Moduls** **Grensesnitt** ligger.
+- En **Adapter** sitter ved en **Søm** og oppfyller **Grensesnittet**.
 - **Dybde** gir **Gjennomslag** for kallere og **Lokalitet** for vedlikeholdere.
 
 ## Forkastede rammer
