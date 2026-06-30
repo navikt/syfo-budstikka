@@ -3,9 +3,9 @@ name: auth-overview
 description: "Bruk når dette Ktor-backendet (no.nav.syfo) skal sette opp eller feilsøke autentisering/autorisering — innkommende JWT-validering, TokenX OBO, Azure AD M2M (client_credentials), Texas-sidecar, accessPolicy i Nais, eller når et endepunkt skal beskyttes. Trigger: 'beskytt dette endepunktet', 401/403-feil, 'hvilken auth skal denne kalleren ha', token-utveksling mot nedstrøms-tjeneste, audience/issuer-mismatch. Kalles via /auth-overview."
 ---
 
-# Autentiseringsoversikt — Ktor-backend (no.nav.syfo)
+# Autentiseringsoversikt
 
-Referanse for autentisering og autorisering i dette Ktor-backendet på NAIS. Backend mottar tokens fra kallere og kaller selv nedstrøms-tjenester. Fokus er JVM/Ktor — ikke frontend.
+Referanse for autentisering og autorisering i dette repoet på NAIS. Backend mottar tokens fra kallere og kaller selv nedstrøms-tjenester. Fokus er JVM/Ktor — ikke frontend.
 
 ## Beslutningstre — caller-type → auth-mekanisme
 

@@ -1,6 +1,6 @@
-# ADR-mal — Ktor-backend (no.nav.syfo)
+# ADR-mal — NAV-utvidet
 
-NAV-spesifikk mal for Architecture Decision Records. Fyll inn avsnittene som er relevante, slett resten. Hold ADR-en kort og fokusert — én beslutning per ADR.
+Den NAV-utvidede malen for Architecture Decision Records. Grunnfeltene (Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert) eies av `/domain-modeling` (ADR-FORMAT.md); denne malen legger NAV-spesifikke seksjoner (sikkerhet/personvern, plattform, migrasjon) på toppen. Fyll inn avsnittene som er relevante, slett resten. Hold ADR-en kort og fokusert — én beslutning per ADR.
 
 ## Filnavn
 

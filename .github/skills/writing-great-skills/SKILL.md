@@ -5,7 +5,7 @@ description: "Bruk når du skal skrive en ny Copilot-skill, endre eller forbedre
 
 # Skrive gode skills (syfo-budstikka)
 
-En skill finnes for å presse **forutsigbarhet** ut av et stokastisk system: at Copilot tar samme _prosess_ hver gang, ikke at den produserer samme tekst. Det er rotdyden — alt under tjener den. Skills i dette repoet ligger i `.github/skills/<navn>/SKILL.md`, er på **norsk**, og er rettet mot en NAV Ktor-backend (`no.nav.syfo`).
+En skill finnes for å presse **forutsigbarhet** ut av et stokastisk system: at Copilot tar samme _prosess_ hver gang, ikke at den produserer samme tekst. Det er rotdyden — alt under tjener den. Skills i dette repoet ligger i `.github/skills/<navn>/SKILL.md`, er på **norsk**, og er rettet mot repoets stack (se `copilot-instructions.md`).
 
 Vokabular i **fet skrift** er definert i [references/vokabular-og-feilmodi.md](references/vokabular-og-feilmodi.md) — slå opp der når du trenger full betydning eller skal diagnostisere en skill som ikke oppfører seg.
 

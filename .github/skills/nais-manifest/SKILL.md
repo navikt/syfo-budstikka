@@ -3,9 +3,9 @@ name: nais-manifest
 description: "Bruk når dette Ktor-backendet (no.nav.syfo) skal få nytt eller endret NAIS-manifest — nais.yaml for Application eller Naisjob: ingress, resources, probes, accessPolicy, Azure AD/TokenX, Kafka eller GCP Postgres. Trigger: 'lag et nais-manifest', 'eksponer appen', 'legg til database/Kafka/auth i nais', 'skaler opp i prod', CPU-throttling, OOM-kill, batch-/cron-jobb. Kalles via /nais-manifest."
 ---
 
-# NAIS-manifest — Ktor-backend (no.nav.syfo)
+# NAIS-manifest
 
-Lag eller oppdater et komplett NAIS-manifest (`Application` for den kontinuerlige tjenesten, `Naisjob` for batch). Dette er et Kotlin/Ktor-backend på JVM (Netty) — fokuser på server-port, JVM-runtime og JVM-observability, ikke frontend.
+Lag eller oppdater et komplett NAIS-manifest (`Application` for den kontinuerlige tjenesten, `Naisjob` for batch). Fokuser på server-port, JVM-runtime og JVM-observability, ikke frontend.
 
 ## Fremgangsmåte
 

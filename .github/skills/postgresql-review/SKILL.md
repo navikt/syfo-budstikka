@@ -5,7 +5,7 @@ description: "Brukes når du setter opp eller endrer DataSource/connection-pool 
 
 # PostgreSQL-gjennomgang
 
-Gjennomgang av PostgreSQL-bruk i dette Ktor-backendet (`no.nav.syfo`, Netty, NAIS). Dekker NAV-spesifikk tilkoblingspool-dimensjonering (NAIS-replicas + Cloud SQL), indekser, anti-mønstre, migrasjoner og koordinering av delte schemas.
+Gjennomgang av PostgreSQL-bruk i dette repoet. Dekker NAV-spesifikk tilkoblingspool-dimensjonering (NAIS-replicas + Cloud SQL), indekser, anti-mønstre, migrasjoner og koordinering av delte schemas.
 
 Se [references/sql-patterns.md](references/sql-patterns.md) for NAV-spesifikt HikariCP- og `gcp.sqlInstances`-oppsett, og [references/migration-flyway.md](references/migration-flyway.md) for migrasjonsmønstre. Generisk SQL-tuning (indeksvalg, JSONB, window functions, upsert, partisjonering, N+1) er utenfor scope — det kan modellen selv, eller slå opp i PostgreSQL-dokumentasjonen.
 

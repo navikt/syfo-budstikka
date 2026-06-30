@@ -3,9 +3,9 @@ name: kafka-topic
 description: "Brukes når dette Ktor-backendet (no.nav.syfo) skal produsere eller konsumere Kafka-hendelser — ny eller endret consumer/producer, ny topic via Kafkarator, event-kontrakt, key-strategi, idempotens eller DLQ. Triggere: 'lytte på topic', 'publisere hendelse', 'Kafkarator', 'Topic-CRD', 'consumer', 'producer', 'Rapids & Rivers', 'River', '@event_name', 'kafka.pool', 'DLQ', 'idempotent konsument'."
 ---
 
-# Kafka — topic, consumer og producer i Ktor-backend
+# Kafka — topic, consumer og producer
 
-Nav-spesifikke konvensjoner for Kafka i dette repoet (`no.nav.syfo`, Ktor, Netty, NAIS). Generell Kafka-teori er ikke dekket — fokus er topic-provisjonering, event-kontrakt og hvordan consumer/producer kobles inn i en Ktor-app.
+Nav-spesifikke konvensjoner for Kafka i dette repoet. Generell Kafka-teori er ikke dekket — fokus er topic-provisjonering, event-kontrakt og hvordan consumer/producer kobles inn i en Ktor-app.
 
 Brukes typisk i @grillmester fase 1–2 når en event-kontrakt formes (loggføres som ADR), og i implementasjonsfasen når en consumer eller producer skrives.
 

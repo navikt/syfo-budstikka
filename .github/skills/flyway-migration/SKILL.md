@@ -5,7 +5,7 @@ description: "Flyway-databasemigreringer i no.nav.syfo-backend — V__ SQL-filer
 
 # Flyway-migrering
 
-Opprett eller endre en Flyway-migreringsfil etter teamets konvensjoner i dette Ktor-backendet.
+Opprett eller endre en Flyway-migreringsfil etter teamets konvensjoner i dette repoet.
 
 ## Steg
 

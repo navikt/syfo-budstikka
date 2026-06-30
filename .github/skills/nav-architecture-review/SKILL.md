@@ -5,7 +5,9 @@ description: "Bruk når en tyngre arkitekturbeslutning bør festes som ADR: ny t
 
 # NAV Architecture Review — ADR + 3-perspektiv
 
-Skriv Architecture Decision Records (ADR) og gjør tyngre arkitektur-review for dette Ktor-backendet (`no.nav.syfo`). Skillen dekker det som er NAV- og backend-spesifikt: NAIS/GCP-plattformen, TokenX/Azure AD/Maskinporten, `accessPolicy`, Datatilsynet/DPIA og NAVs arkitekturprinsipper (Team First, Architecture Advice Process, foretrekk plattform-kapabiliteter framfor egenbygd).
+Skriv Architecture Decision Records (ADR) og gjør tyngre arkitektur-review for dette repoet. Skillen dekker det som er NAV- og backend-spesifikt: NAIS/GCP-plattformen, TokenX/Azure AD/Maskinporten, `accessPolicy`, Datatilsynet/DPIA og NAVs arkitekturprinsipper (Team First, Architecture Advice Process, foretrekk plattform-kapabiliteter framfor egenbygd).
+
+**Rolle:** dette _formaliserer_ tunge valg som ADR med NAV 3-perspektiv. Finne kandidater = `/improve-codebase-architecture`, avhøre valget = `/grill-with-docs`, designe grensesnittet = `/codebase-design`. ADR-grunnformatet eies av `/domain-modeling`; her legges de NAV-spesifikke vurderingene på som underseksjoner.
 
 Generisk «hva er en ADR» eller generiske OWASP-lister er ikke gjengitt her — bruk det fra ditt eget repertoar.
 
@@ -45,7 +47,7 @@ Dokumenter minst to alternativer pluss «gjøre ingenting». NAVs Architecture A
 
 ## ADR-format og lagring
 
-Bruk det kanoniske ADR-formatet fra `/grill-with-docs` og `/domain-modeling` (Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert), og lagre som `docs/adr/NNNN-<kort-tittel>.md` med samme `NNNN-`-nummerering (skann høyeste nummer i `docs/adr/` og legg +1). Da finner og respekterer `/grill-with-docs`, `/domain-modeling` og `/improve-codebase-architecture` den. De NAV-spesifikke vurderingene (3-perspektiv, auth, dataklassifisering, `accessPolicy`) legges som underseksjoner i samme ADR — se [references/adr-template.md](references/adr-template.md) for en utvidet NAV-ADR.
+Bruk det kanoniske ADR-grunnformatet fra `/domain-modeling` (ADR-FORMAT.md: Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert), og lagre som `docs/adr/NNNN-<kort-tittel>.md` med samme `NNNN-`-nummerering (skann høyeste nummer i `docs/adr/` og legg +1). Da finner og respekterer `/grill-with-docs`, `/domain-modeling` og `/improve-codebase-architecture` den. De NAV-spesifikke vurderingene (3-perspektiv, auth, dataklassifisering, `accessPolicy`) legges som underseksjoner i samme ADR — se [references/adr-template.md](references/adr-template.md) for en utvidet NAV-ADR.
 
 Korte ADR-er er best — én beslutning per ADR. Oppdater status når beslutningen er tatt; bruk «Erstattet av NNNN-…» når en beslutning revideres.
 

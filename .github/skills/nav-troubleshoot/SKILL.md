@@ -5,7 +5,7 @@ description: "Bruk når Ktor-backendet feiler i DRIFT på NAIS: pod starter ikke
 
 # Nav Troubleshoot — plattform-diagnostikk
 
-Strukturerte diagnostiske trær for kjøre-tids-symptomer på NAIS for dette Ktor-backendet (`no.nav.syfo`, Kotlin/Netty). Bruk denne skillen når noe **feiler i drift** (pod krasjer, 401/403, consumer lag, DB-timeout) — ikke når du skal designe eller endre schema / manifest / auth.
+Strukturerte diagnostiske trær for kjøre-tids-symptomer på NAIS for dette repoet. Bruk denne skillen når noe **feiler i drift** (pod krasjer, 401/403, consumer lag, DB-timeout) — ikke når du skal designe eller endre schema / manifest / auth.
 
 Skillen ruter symptom → riktig diagnostisk tre. Den fikse-disiplinerte delen (feedback-loop, repro, hypoteser, regresjonstest) bor i `/diagnosing-bugs` — start her for å lokalisere årsaken, gå dit for å lukke feilen. Generisk Kubernetes-/Kafka-/SQL-kunnskap er ikke replikert; bruk den fra eget repertoar.
 

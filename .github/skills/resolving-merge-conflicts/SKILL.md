@@ -5,7 +5,7 @@ description: "Bruk når en git-merge eller -rebase i dette Ktor-repoet har stopp
 
 # Løse merge-konflikter
 
-Du løser en pågående merge/rebase-konflikt i et NAV Ktor-backend-repo (Kotlin, Gradle, pakke `no.nav.syfo`). Aldri `--abort` — alltid løs konflikten.
+Du løser en pågående merge/rebase-konflikt i dette repoet. Aldri `--abort` — alltid løs konflikten.
 
 ## Arbeidsflyt
 

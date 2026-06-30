@@ -5,7 +5,7 @@ description: "Bruk når en plan, et design, en PRD eller `.grill/PLAN.md` skal b
 
 # to-issues
 
-Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i Ktor-backenden, ikke et horisontalt snitt av ett lag.
+Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i tjenesten, ikke et horisontalt snitt av ett lag.
 
 Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` (+ `docs/CONTEXT.md` og `docs/adr/`), output er issues på `navikt/syfo-budstikka` som er klare for plukking.
 
