@@ -35,7 +35,7 @@ Hva er ferdig-når-kriteriet? Hvilke filstier? Hvilken risiko-tag? Hvilke skills
 
 ### 2. Rut til riktig domeneskill
 
-Kall den eksplisitt med slash-form når steget berører domenet — ikke håp at den oppdages:
+Kall den eksplisitt med slash-form når steget berører domenet — så body-en faktisk lastes, ikke bare beskrivelsen:
 
 | Signal i steget | Skill |
 |---|---|
