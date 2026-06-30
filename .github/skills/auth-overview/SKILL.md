@@ -16,7 +16,7 @@ Identifiser hvem som initierer forespørselen mot dette API-et, og hvem dette AP
 | NAV-tjeneste med brukerkontekst (OBO)        | TokenX                               | `tokenx.enabled: true`            |
 | NAV-tjeneste uten brukerkontekst (batch/job) | Azure AD client_credentials          | `azure.application.enabled: true` |
 | Saksbehandler (token fra Azure-frontend)     | Azure AD                             | `azure.application.enabled: true` |
-| Innbygger (token fra ID-porten-frontend)     | ID-porten / TokenX                  | `idporten.enabled: true`          |
+| Innbygger (via frontend/Wonderwall)          | TokenX (frontend veksler ID-porten-token) | `tokenx.enabled: true`            |
 | Ekstern partner / system                     | Maskinporten                         | `maskinporten.enabled: true`      |
 
 Når dette API-et kaller utgående:
@@ -24,6 +24,8 @@ Når dette API-et kaller utgående:
 - Ren maskin-til-maskin uten bruker → **Azure AD client_credentials (M2M)**.
 
 Komplett beslutningstre, mot-eksempel og systembruker (Altinn 3): se [`references/decision-tree.md`](references/decision-tree.md).
+
+**Merk Innbygger-flyten:** frontend/BFF (Wonderwall) veksler ID-porten-token til TokenX før kall til dette backend-API-et, så backend validerer et TokenX-token. `idporten.enabled: true` settes kun hvis appen selv mottar ID-porten-token direkte — uvanlig for et rent backend-API.
 
 **Vanligste feil:** Azure client_credentials brukt der brukerkontekst finnes — brukeridentiteten tapes og per-bruker-autorisasjon blir umulig. Bruk TokenX-exchange i stedet.
 

@@ -9,9 +9,11 @@ Identifiser hvem som initierer forespørselen mot dette Ktor-backendet, og velg 
 | NAV-tjeneste med brukerkontekst (OBO)     | TokenX                       | `tokenx.enabled: true`            |
 | NAV-tjeneste uten brukerkontekst (batch)  | Azure AD client_credentials  | `azure.application.enabled: true` |
 | Saksbehandler (token fra Azure-frontend)  | Azure AD                     | `azure.application.enabled: true` |
-| Innbygger (token fra ID-porten-frontend)  | ID-porten / TokenX           | `idporten.enabled: true`          |
+| Innbygger (via frontend/Wonderwall)       | TokenX (frontend veksler ID-porten) | `tokenx.enabled: true`            |
 | Ekstern partner / system                  | Maskinporten                 | `maskinporten.enabled: true`      |
 | Systembruker (Altinn 3)                   | Maskinporten + systembruker  | `maskinporten.enabled: true`      |
+
+> **Merk Innbygger-flyten:** frontend/BFF (Wonderwall) veksler ID-porten-token til TokenX før kall til dette backend-API-et — backend validerer da et TokenX-token. `idporten.enabled: true` på et rent backend-API er uvanlig (settes kun hvis appen selv mottar ID-porten-token direkte).
 
 ## Utgående — dette API-et kaller en annen tjeneste
 

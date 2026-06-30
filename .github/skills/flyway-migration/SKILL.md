@@ -56,7 +56,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vedtak_bruker ON vedtak (bruker_id);
 
 ## Langvarige migreringer og NAIS
 
-Hvis migreringen kan ta tid, sjekk appens NAIS-manifest (`.nais/`, `nais/` eller tilsvarende `*.yaml`). Verifiser at appen har `spec.startupProbe` slik at Flyway får tid til å fullføre før liveness overtar og poden restartes midt i migreringen.
+Hvis migreringen kan ta tid, sjekk appens NAIS-manifest (`.nais/`, `nais/` eller tilsvarende `*.yaml`). Verifiser at appen har `spec.startup` slik at Flyway får tid til å fullføre før liveness overtar og poden restartes midt i migreringen.
 
 Hvis startup-probe mangler, foreslå eller legg den til med samme health-path som appen allerede bruker (typisk `/internal/isalive` eller `/isAlive` i et Ktor-backend):
 
