@@ -70,7 +70,7 @@ Selvreview produserer en handling, ikke en rapport til arkivet:
 3. **Funn du bevisst lar stå** (utenfor scope, egen oppgave) → noter dem kort i `.grill/STATE.md` så de ikke forsvinner.
 4. **Bindende beslutninger** som dukker opp under reviewen (valgt mekanisme, ny datakategori) → fang som ADR i `docs/adr/`, ikke i en kommentar.
 
-Først NÅ er diffen klar for det dyre passet: kall `grill-inspektor` for kryssmodell-review (anbefalt-på ved R3/R4 — auth, PII, schema, API-kontrakt, Kafka, deploy; opt-in ellers). Den verifiserer uavhengig mot KRAV og BESLUTNINGER og skriver verdikt til `.grill/REVIEW.md` (de deterministiske gatene eier `.grill/VERIFICATION.md`). Selvreview erstatter den aldri — den gjør den verdt pengene.
+Først NÅ er diffen klar for det dyre passet: kall `grill-inspektor` for kryssmodell-review (anbefalt-på ved R3/R4 — auth, PII, schema, API-kontrakt, Kafka, deploy; opt-in ellers). Den er read-only (`tools: [read, search]` — kan ikke skrive filer), verifiserer uavhengig mot KRAV og BESLUTNINGER og **returnerer** verdiktet; `@grillmester` skriver det til `.grill/REVIEW.md` (de deterministiske gatene eier `.grill/VERIFICATION.md`). Selvreview erstatter den aldri — den gjør den verdt pengene.
 
 ## Flytkobling
 

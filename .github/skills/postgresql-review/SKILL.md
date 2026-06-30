@@ -48,7 +48,7 @@ fun dataSource(env: ApplicationEnvironment): HikariDataSource =
 replicas.max × maximumPoolSize ≤ max_connections
 ```
 
-Cloud SQL har `max_connections = 100` som default. Med `replicas.max = 4` og `maximumPoolSize = 3` bruker du maks 12 av 100 — trygt. Med `replicas.max = 10` og `maximumPoolSize = 20` bruker du 200 — tjenesten faller over på høy last.
+Cloud SQL setter `max_connections` etter instansens tier/minne — mindre tiers (shared-core som `db-f1-micro`) ligger vesentlig under 100, så verifiser med `SHOW max_connections;` før du regner (dev og prod kjører ofte ulik tier). Med `replicas.max = 4` og `maximumPoolSize = 3` bruker du maks 12 — trygt selv på en liten tier. Med `replicas.max = 10` og `maximumPoolSize = 20` bruker du 200 — tjenesten faller over så snart det overstiger `max_connections`.
 
 **Begrunnelse for `maxLifetime = 30 min`:** Cloud SQL Proxy kan restarte (vedlikehold, node-bytter). Med lavere lifetime byttes connections ut før proxyen tvinger brudd, så du unngår "connection reset"-feil i applikasjonsloggen.
 

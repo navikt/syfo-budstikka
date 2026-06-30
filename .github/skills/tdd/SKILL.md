@@ -88,7 +88,10 @@ Kjør raskt og fokusert mens du jobber:
 
 ```bash
 ./gradlew test --tests "no.nav.syfo.<KlasseNavn>"
+echo "exit: $?"
 ```
+
+En GREEN-påstand krever ferskt bevis i samme melding — kommando + output + exit-kode. Uten det: UVERIFISERT.
 
 ### 4. Refaktorer
 
@@ -112,6 +115,7 @@ Når implementasjonen er ferdig og grønn, oppdater `.grill/VERIFICATION.md` med
 [ ] Test ville overlevd intern refaktorering
 [ ] Kode er minimal for denne testen
 [ ] Ingen spekulative funksjoner lagt til
+[ ] GREEN bevist med ferskt kommando + output + exit-kode i samme melding (ellers UVERIFISERT)
 ```
 
 ## Bugfiks er TDD
