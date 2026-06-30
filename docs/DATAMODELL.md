@@ -65,8 +65,12 @@ KLAR ──(sendt ok)────────────────▶ SENDT  
 KLAR ──(transient feil)──────────▶ KLAR              (forsok++, neste_forsok_tid backoff)
 KLAR ──(permanent feil, 4xx)─────▶ FEILET_PERMANENT  (terminal, alert)
 KLAR ──(frist_tid/synlig_tom)────▶ UTLOPT            (terminal, alert)
+KLAR ──(FERDIGSTILL før sending)─▶ KANSELLERT        (terminal, jf. B20)
 ```
 Transient feil er ikke egen status — raden blir i `KLAR` med backoff. Aldri stille dropp.
+`KANSELLERT` settes når en FERDIGSTILL treffer en ennå-`KLAR` OPPRETT (lokal annullering,
+ingen utsending + lukking). En INAKTIVER-leveranse er en egen rad (`operasjon=INAKTIVER`)
+som går gjennom samme KLAR→SENDT-løp.
 
 ## Workere (polling, radlås)
 - **Beslutnings-worker:** `SELECT … FROM inbox_hendelse WHERE status='MOTTATT'

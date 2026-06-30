@@ -72,6 +72,11 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B17: Sporing — `trace_id`-kolonne på inbox+leveranse; enkelt-id spores i Grafana via Loki (logger) + Tempo (traces) korrelert på trace_id. Prometheus-metrikker kun lav kardinalitet (kanal/status/mottaker_type/feiltype), aldri id/fnr som label.
 - B18: Inbox-livsløp — konsument skriver MOTTATT; beslutnings-workeren setter BEHANDLET/DROPPET(drop_aarsak=DOD)/FEILET i én tx. Inbox har egen backoff (forsok/neste_forsok_tid) for transiente gate-feil mot PDL/KRR. Død-dropp logges som status på inbox (justerer B7: ingen egen tabell). PII-at-rest: fnr i klartekst i mottaker_id (CloudSQL-kryptert, maskert i logg); retensjon/GDPR er åpent punkt.
 
+## FERDIGSTILL-beslutninger (se docs/FERDIGSTILL.md)
+- B19: FERDIGSTILL er kanal-eksplisitt (referanse pr. kanal/mottaker, symmetrisk med B6). Matching på (referanse, mottaker_id, kanal). Lukking gjenbruker outbox-maskineriet: en `leveranse`-rad med `operasjon=INAKTIVER`, retry/frist/idempotens som en OPPRETT.
+- B20: FERDIGSTILL-edge — OPPRETT fortsatt KLAR → kanseller lokalt (OPPRETT→KANSELLERT, ingen utsending+lukking), mulig pga. delt partisjon (B5). Ingen matchende OPPRETT → ikke feil: inbox BEHANDLET, logg + metrikk `ferdigstill_uten_treff`.
+- B21: Ulovlige kombinasjoner (f.eks. FERDIGSTILL+BREV) gjøres urepresenterbare i typede sealed-kontrakter + JSON Schema (feil ved bygg, ikke drift). Runtime = defense-in-depth: logg + metrikk `ugyldig_kombinasjon`, ingen FEILET/alert. Kafka-offset committes alltid etter inbox-skriving; terminal DB-status blokkerer aldri partisjonen.
+
 ## Kjernespenning å designe rundt
 Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan
 flytte resten til konsument? Kontrakt: hva sender domeneappen, hva eier budstikka.
