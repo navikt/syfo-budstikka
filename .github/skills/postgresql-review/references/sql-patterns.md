@@ -23,25 +23,17 @@ spec:
 ```
 
 ```kotlin
-// HikariCP-defaults for et NAV Ktor-backend (no.nav.syfo)
+// Pool-verdiene er dokumentert i SKILL.md; det referansen viser er ENV-WIRINGEN:
 HikariConfig().apply {
-    jdbcUrl = System.getenv("DB_JDBC_URL")
+    jdbcUrl  = System.getenv("DB_JDBC_URL")   // injisert av gcp.sqlInstances envVarPrefix: DB
     username = System.getenv("DB_USERNAME")
     password = System.getenv("DB_PASSWORD")
-    maximumPoolSize = 3          // Start smått — 3–5 for typiske NAV-tjenester
-    minimumIdle = 1
-    connectionTimeout = 10_000   // Feil raskt hvis Cloud SQL Proxy er nede
-    idleTimeout = 300_000        // 5 min — slipp idle connections raskt
-    maxLifetime = 1_800_000      // 30 min — under Cloud SQL sin restart-terskel
-    transactionIsolation = "TRANSACTION_READ_COMMITTED"
+    // maximumPoolSize / minimumIdle / connectionTimeout / idleTimeout / maxLifetime
+    // / transactionIsolation — se SKILL.md for verdier og begrunnelser
 }
 ```
 
-**Dimensjoneringsformel:** `replicas.max × maximumPoolSize ≤ max_connections`
-
-Cloud SQL har `max_connections = 100` som default. Overvåk bruken ved skalering — husk at også migrerings-/admin-connections og andre apper på samme instans teller med.
-
-**`maxLifetime = 30 min`:** Cloud SQL Proxy restartes ved vedlikehold/node-bytter. Lavere lifetime bytter ut connections før proxyen tvinger brudd, slik at du unngår "connection reset"-feil i loggen.
+**Dimensjonering:** `replicas.max × maximumPoolSize ≤ max_connections` (full forklaring i SKILL.md). `max_connections` settes etter Cloud SQL-tier — shared-core ligger under 100, så kjør `SHOW max_connections;` før du regner, og husk at migrerings-/admin-connections og andre apper på samme instans teller med.
 
 **Eksplisitt `READ_COMMITTED`:** Matcher PostgreSQL-default og unngår overraskelser ved driver-oppgraderinger.
 

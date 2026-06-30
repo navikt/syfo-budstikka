@@ -74,6 +74,10 @@ Team-standard for strukturerte feilresponser: sealed `ApiErrorException`-hierark
 
 Team-standard `PaginatedResponse<T>`-wrapper og route-validering med tidlig-retur (kast `ApiErrorException.BadRequestException`) på ugyldige parametre. Se [references/paginering-og-validering.md](references/paginering-og-validering.md).
 
+## Utgående HttpClient (kall mot nedstrøms-tjeneste)
+
+Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `ktorLibs.client.*`, med eksplisitt timeout/retry, `Nav-Call-Id`-propagering og oversettelse av nedstrøms-feil til repoets feilkontrakt. Token for kallet hentes som beskrevet i `/auth-overview` (TokenX OBO / Azure AD M2M) — ikke dupliser auth her. Se [references/http-client.md](references/http-client.md) for konkret oppsett (motor, `HttpTimeout`, `HttpRequestRetry`, callId-header, `ApiErrorException`-mapping; circuit breaker krever Resilience4j — ikke native i Ktor).
+
 ## Persistens (Postgres / Flyway)
 
 - Flyway-migreringer i `src/main/resources/db/migration` (`V<n>__<navn>.sql`), kjøres ved oppstart. Migreringer er append-only — endre aldri en allerede deployet migrering.

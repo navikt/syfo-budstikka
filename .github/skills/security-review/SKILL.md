@@ -5,7 +5,7 @@ description: "Sikkerhetsgjennomgang av Ktor-backend i no.nav.syfo: PII/FNR/helse
 
 # Sikkerhetsgjennomgang — NAV Ktor-backend
 
-NAV-spesifikk sikkerhetssjekk før commit, push og PR i `no.nav.syfo`-backenden. Generiske OWASP-mønstre (SQLi, XSS, CSRF, injection) forutsettes kjent — dette dokumentet fokuserer på NAV-konteksten: PII-klassifisering, accessPolicy som sikkerhetsmekanisme, og eskalering til sikkerhetschampion. For JWT-validering, claims og auth-oppsett i koden, se `/kotlin-ktor`.
+NAV-spesifikk sikkerhetssjekk før commit, push og PR i `no.nav.syfo`-backenden. Generiske OWASP-mønstre (SQLi, XSS, CSRF, injection) forutsettes kjent — dette dokumentet fokuserer på NAV-konteksten: PII-klassifisering, accessPolicy som sikkerhetsmekanisme, og eskalering til sikkerhetschampion. For JWT-validering, claims og auth-oppsett i koden, se `/auth-overview`.
 
 ## Flytkobling
 
@@ -150,7 +150,8 @@ Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk o
 | Ressurs | Bruksområde |
 |---------|-------------|
 | [sikkerhet.nav.no](https://sikkerhet.nav.no) | NAVs Golden Path for sikkerhet |
-| `/kotlin-ktor` | JWT-validering, TokenX/Azure AD, NAVident-claim, CallId/MDC, StatusPages-feilkontrakt |
+| `/auth-overview` | JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar |
+| `/kotlin-ktor` | CallId/MDC, StatusPages/ApiError-feilkontrakt |
 | `/flyway-migration` | Migreringer som legger til/endrer PII-kolonner — vurder klassifisering og behandlingsgrunnlag |
 | `references/nav-threat-model.md` | Dyp trusselmodellering (STRIDE i NAV-kontekst), DPIA-prosess, audit-logging-krav, Datatilsynet-varsling |
 | `references/gdpr-privacy.md` | NAV-spesifikk PII-kategorisering og pekere til DPIA/CEF/retention |

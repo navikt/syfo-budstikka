@@ -107,15 +107,9 @@ gcp:
 
 Gir env: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Schema-endringer og migreringer kjøres med Flyway — se `/flyway-migration`. For langvarige migreringer: sørg for `startup`-probe slik at Flyway fullfører før liveness restarter poden.
 
-### HikariCP i containere — pool 3–5, ikke default 10
+### HikariCP-pool — eies av `/postgresql-review`
 
-HikariCP default `maximumPoolSize` er 10. I NAIS-containere er det feil:
-
-- Containeren har en brøkdel av CPU-kjerner (`requests.cpu: 100m` ≈ 0,1 kjerne).
-- 10 aktive forbindelser gir tråd-kontensjon og kontekstsvitsj-overhead.
-- Cloud SQL Proxy og Postgres har egne grenser; mange poolere × mange replicaer sprenger serveren.
-
-**Start med `maximumPoolSize: 3–5`** i `HikariConfig`. Øk bare hvis metrikker viser pool-exhaustion (`hikaricp_connections_pending`). Formelen `connections = ((cores * 2) + effective_spindle_count)` ([HikariCP Pool Sizing](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing)) gir lave tall i containere.
+Connection-pool-dimensjonering (`maximumPoolSize` 3–5 i containere, ikke default 10; `maxLifetime`; og regelen `replicas.max × maximumPoolSize ≤ max_connections`) hører til `/postgresql-review`. Manifestet mater inn i den beregningen: `replicas.max` og valgt `gcp.sqlInstances`-tier avgjør hhv. hvor mange poolere som finnes og hva `max_connections` er — hold dem i sync (flere replicaer eller en mindre tier strammer pool-budsjettet).
 
 ## Kafka
 
