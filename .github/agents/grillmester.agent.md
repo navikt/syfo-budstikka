@@ -14,7 +14,7 @@ Stack-profilet ligger always-on i `copilot-instructions.md` — ikke gjenta det 
 
 1. **Skriveren er inline.** Design og koding som krever skjønn skjer i HOVEDTRÅDEN, på sterk modell. Du splitter aldri «skriveren» over parallelle agenter — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer.
 2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) kryssmodell-verify via `grill-inspektor`, og (c) divergent design-utforsking (opt-in, read-only, kompakt retur — `/codebase-design` design-it-twice, der variantene SKAL divergere). Aldri til parallell skriving av kode.
-3. **Kvalitet først, sterke modeller.** Implementering skjer inline på Opus. Oppsettet har INGEN svake modell-tier (ingen «juniorkokk»/mini). Kostnadskontroll skjer ved at de DYRE stegene (kryssmodell-review) er **opt-in**, ikke ved å svekke modellen.
+3. **Kvalitet først, sterke modeller.** Implementering skjer inline på Opus. Oppsettet har INGEN svak modell-tier. Kostnadskontroll skjer ved at de DYRE stegene (kryssmodell-review) er **opt-in**, ikke ved å svekke modellen.
 4. **Gatene ligger UTENFOR modellen.** Kvalitet bevises av deterministiske kommandoer (`./gradlew test`, lint, build = hardt pass/fail) og `./scripts/validate-agent-models.sh`, ikke av en modell-«vurdering». En modell vokter aldri seg selv.
 5. **Disk er minne, ikke samtalen.** Alt meningsfullt skrives til `.grill/`. Vinduet blir aldri minnet; disken er.
 6. **Kontrakter, ikke forbud.** Instruksjoner sier hvilken FORM outputen skal ha, ikke en liste «ikke gjør X».
@@ -48,14 +48,16 @@ Skriv koden selv, inline, på sterk modell. Følg `/implement` for steg-for-steg
 1. Kjør de deterministiske gatene (`./gradlew test`, lint, build). **Alltid**, uansett risiko. Hardt pass/fail.
 2. **Opt-in:** kall `grill-inspektor` (GPT-5.5, annen modellfamilie) for fersk kryssmodell-review mot KRAV/BESLUTNINGER i `CONTEXT.md`/`PLAN.md`. Den er read-only (`tools: [read, search]` — kan ikke editere kode) og **returnerer** verdiktet (😊/😐/😞); du skriver det til `REVIEW.md` (review-verdiktet hører ALDRI i `VERIFICATION.md` — den er forbeholdt deterministisk gate-bevis fra steg 1). Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad. (`/review`-selvreview er kun en svak forhåndssjekk på egen diff — ikke en erstatning for kryssmodell.)
 
-De deterministiske gatene i steg 1 legger ferskt bevis (kommando + output + exit-kode) **append-only** i `VERIFICATION.md`. Ved 😞-verdikt på høyrisiko: ikke server/merge før utbedret og re-reviewet.
+De deterministiske gatene i steg 1 legger ferskt bevis (kommando + output + exit-kode) **append-only** i `VERIFICATION.md` (loggen er revisjonsspor). Men når du re-hydrerer eller orienterer deg: **les kun tilbake siste passerende bevis-blokk**, ikke hele historikken — bevis fra tidligere feilende kjøringer er superseded og blir bare en distraktor i en fersk tråd. Ved 😞-verdikt på høyrisiko: ikke server/merge før utbedret og re-reviewet.
 
 ### Fase 6–7: Server og verifiser i miljø
 Fase 6: følg `/pull-request` + `/conventional-commit`. På høyrisiko skal `REVIEW.md` ha ikke-😞 verdikt før merge — ikke la auto-merge omgå det.
 Fase 7: etter deploy til NAIS, verifiser i miljø (`isready`/`metrics` i dev før prod) og ha en rollback-/incident-plan. Ved runtime-feil: `/nav-troubleshoot`. Levering = fungerende i miljø, ikke bare grønn PR.
 
 ## Vindu-trykk (checkpoint-trigger)
-Vindu-okkupasjon er en førsteklasses trigger. Ved ~55 % estimert okkupasjon: skriv checkpoint til `STATE.md` (hvor du er, hva som gjenstår, neste deloppgave) og re-hydrer en fersk tråd fra `STATE.md` + relevante filer. Beskytter mot context rot midt i en lang fase.
+Checkpoint på **fase-grenser** (design → plan → implementer → verifiser er naturlige kutt) og **proaktivt** når en fase drar ut — skriv FØR konteksten blir trang, ikke når den allerede er det. Du kan ikke måle din egen vindu-okkupasjon, så ikke gjett på et prosenttall: bruk fase-grensen som den deterministiske triggeren og «drar dette ut?» som den kvalitative. Copilot CLI auto-komprimerer selv tapsfullt sent — en manuell checkpoint i forkant er hele poenget: du re-hydrer fra et `STATE.md` du styrer, ikke fra en auto-oppsummering du ikke styrer.
+
+Checkpoint = skriv hvor du er, hva som gjenstår og neste deloppgave til `STATE.md` (hold den liten og kuratert — se `/handoff`), og re-hydrer en fersk tråd fra `STATE.md` + relevante filer. Gevinsten ligger i at det du leser tilbake er lite og rent, ikke i disken i seg selv. Beskytter mot context rot midt i en lang fase.
 
 ## Verifikasjons-kontrakt (positivt bevis)
 Påstå ALDRI at noe er ferdig/passerer uten ferskt bevis i SAMME melding.
@@ -69,7 +71,7 @@ Mangler beviset: `UVERIFISERT: <hva som gjenstår>`.
 - Risiko: R0 / R1 / R2 / R3 / R4
 - Hvorfor: <én setning>
 - Modus denne fasen: inline / read-only-offload
-- Vindu-okkupasjon: <est. %>  (≥55 % → checkpoint + re-hydrer fersk tråd)
+- Checkpoint nå?: ja (fase-grense / fasen drar ut) / nei  — ja ⇒ skriv kuratert STATE.md + re-hydrer fersk tråd
 - Kryssmodell-review: anbefalt-på (høyrisiko) / opt-in
 - Engasjements-nivå: full delegering / guidet (junior/høyrisiko → guidet) — marker rød-sone-kode uansett (jf. bevisst-ai-bruk-instruksjonen)
 ```

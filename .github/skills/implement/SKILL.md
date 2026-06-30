@@ -77,11 +77,11 @@ Uten dette beviset er steget `UVERIFISERT`.
 
 ### 5. Commit atomisk
 
-Når steget er grønt, commit det alene via `/conventional-commit`. Verifiser at staged changes ikke inneholder secrets eller PII (fnr, aktør-id, navn, tokens) før commit.
+Når steget er grønt, commit det alene via `/conventional-commit`. Pre-commit-gaten `scripts/scan-grill-pii.sh` (core.hooksPath `.githooks`) skanner staged changes for secrets/PII (fnr, tokens, hemmeligheter) og blokkerer commit ved mistanke — men len deg ikke blindt på den: ikke stage PII i utgangspunktet.
 
 ### 6. Oppdater fremdrift
 
-Kryss av steget i `.grill/PLAN.md`. Ved ~55 % estimert vindu-okkupasjon: skriv checkpoint til `.grill/STATE.md` (hvor du er, hva som gjenstår, neste deloppgave) og re-hydrer en fersk tråd fra `.grill/STATE.md` + relevante filer.
+Kryss av steget i `.grill/PLAN.md`. Når en fase drar ut eller du står ved en fase-grense: skriv checkpoint til `.grill/STATE.md` (hvor du er, hva som gjenstår, neste deloppgave — hold den kuratert) og re-hydrer en fersk tråd fra `.grill/STATE.md` + relevante filer. Ikke gjett på en vindu-prosent; bruk fase / «drar dette ut?» som trigger.
 
 ## Sjekkliste per steg
 

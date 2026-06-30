@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Grillmester pre-commit-gate. Aktiver én gang per klon:
+#   git config core.hooksPath .githooks
+# Håndhever at PII/hemmeligheter ikke lever i `.grill/` eller stages (se /handoff).
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+exec bash "$root/scripts/scan-grill-pii.sh"
