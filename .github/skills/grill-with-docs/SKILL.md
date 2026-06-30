@@ -1,6 +1,6 @@
 ---
 name: grill-with-docs
-description: "Bruk når et design, en ny tjeneste eller en ikke-triviell endring skal stresstestes før koding, og du vil ha ADR + glossar som faller ut underveis. @grillmester fase 1–2, eller når noen sier 'grill meg', 'design dette', 'er dette gjennomtenkt'."
+description: "Bruk når et design, en ny tjeneste eller en ikke-triviell endring skal stresstestes før koding, og du vil ha ADR + glossar som faller ut underveis. @grillmester fase 1–2, eller når noen sier 'design dette', 'er dette gjennomtenkt', 'grill dette designet'. For en rask plan-stresstest UTEN dokumentasjon: /grill-me."
 ---
 
 # grill-with-docs

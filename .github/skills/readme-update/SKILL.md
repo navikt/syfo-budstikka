@@ -136,7 +136,7 @@ Når backenden eksponerer et API, list endepunktene fra `routing { ... }` med me
 | POST | `/api/v1/...` | Kort beskrivelse | Azure AD |
 ```
 
-Ta bare med endepunkter som faktisk er sentrale for konsumentene. `/internal/is_alive`, `/internal/is_ready` og `/metrics` (NAIS-prober) trenger normalt ikke stå i API-tabellen.
+Ta bare med endepunkter som faktisk er sentrale for konsumentene. `/internal/isalive`, `/internal/isready` og `/metrics` (NAIS-prober) trenger normalt ikke stå i API-tabellen.
 
 ## Formål-seksjonen
 

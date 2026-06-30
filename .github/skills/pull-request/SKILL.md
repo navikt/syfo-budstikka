@@ -17,7 +17,7 @@ Bruk semantisk commit-format:
 type(scope): kort beskrivelse
 ```
 
-- **Typer:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `build`
+- **Typer:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `build` — full liste og regler eies av `/conventional-commit`
 - **Scope:** modulen eller domenet som endres i `no.nav.syfo` (f.eks. `auth`, `kafka`, `db`, en route-modul)
 - Skriv beskrivelsen på norsk, imperativt og kort. Eksempel: `feat(kafka): konsumer sykmelding-topic idempotent`
 

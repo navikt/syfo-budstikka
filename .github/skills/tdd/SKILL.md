@@ -121,3 +121,5 @@ Når implementasjonen er ferdig og grønn, oppdater `.grill/VERIFICATION.md` med
 ## Bugfiks er TDD
 
 En feilretting starter med en **reproduksjonstest**: skriv en test som feiler fordi feilen finnes (RED), fiks så til den blir grønn (GREEN). Da har du både bevist feilen og hindret regresjon. Skriv aldri fiksen først.
+
+For en feil som er vanskelig å reprodusere (flaky, timing- eller miljøavhengig): start med `/diagnosing-bugs` for å bygge en stram, rød-kapabel repro-loop først — reproduksjonstesten her er da den minimerte loopen.

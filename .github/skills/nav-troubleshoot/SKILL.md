@@ -62,6 +62,7 @@ Deploy feiler
 - `/auth-overview` — Azure AD, TokenX, ID-porten, Maskinporten, Texas-sidecar (mekanismene bak auth-diagnose)
 - `/kafka-topic` — consumer/producer-mønstre, SSL-env, idempotens, Rapids & Rivers
 - `/flyway-migration` og `/postgresql-review` — schema, migrering, query- og indeksvurdering (design-tid)
+- `/observability-setup` — Micrometer/Prometheus + Mimir/Loki/Tempo-oppsett (design-tid; nav-troubleshoot leser signalene, observability-setup etablerer dem)
 - `/diagnosing-bugs` — feedback-loop, repro, hypoteser, regresjonstest; sporer arbeid i `.grill/` på linje med @grillmester sin faseløkke
 
 ## Grenser

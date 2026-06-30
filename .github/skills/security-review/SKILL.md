@@ -150,6 +150,7 @@ Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk o
 | Ressurs | Bruksområde |
 |---------|-------------|
 | [sikkerhet.nav.no](https://sikkerhet.nav.no) | NAVs Golden Path for sikkerhet |
+| `security.instructions.md` | Alltid-på (`applyTo: "**"`) sikkerhetsgrenser — supplerer denne on-demand-skillen |
 | `/auth-overview` | JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar |
 | `/kotlin-ktor` | CallId/MDC, StatusPages/ApiError-feilkontrakt |
 | `/flyway-migration` | Migreringer som legger til/endrer PII-kolonner — vurder klassifisering og behandlingsgrunnlag |
