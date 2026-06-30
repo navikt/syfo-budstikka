@@ -73,8 +73,7 @@ Iterer til brukeren godkjenner nedbrytningen.
 
 For hvert godkjent snitt, opprett et issue på `navikt/syfo-budstikka` med malen under. Publiser i avhengighetsrekkefølge (blokkerere først) så du kan referere reelle issue-nummer i "Blokkert av".
 
-- Sett **issue-type** (`Feature`/`Task`/`Bug`/`Story`) — se `references/github-mekanikk.md`
-- Er kilden stor nok for en **epic**: opprett epic først, koble snittene som **sub-issues**, og koble **avhengigheter** native — se `references/github-mekanikk.md`
+- Sett **issue-type** (`Feature`/`Task`/`Bug`/`Story`), og for store kilder: opprett epic først, koble snittene som **sub-issues** og koble **avhengigheter** native. Selve issue-mekanikken (typer, sub-issues, avhengigheter, ferdigmelding, PR-kobling) eies av `/issue-management` — kall den.
 - Legg issuet inn i prosjektboardet hvis konfigurert — se `references/prosjektboard.md`
 - Disse issuene regnes som klare for plukking; publiser med riktig triage-label med mindre noe annet er sagt
 

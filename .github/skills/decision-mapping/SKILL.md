@@ -58,7 +58,7 @@ Hver node løses av riktig verktøy. Velg type etter hva slags spørsmål det er
 
 - **Drøfting** (standard) — svaret ligger i hodet til teamet/brukeren eller i kodebasen. Kjør `/grill-with-docs` (+ `/domain-modeling` for språket). Kan spørsmålet besvares ved å lese repoet → utforsk i stedet for å spørre.
 - **Utredning** — svaret ligger i dokumentasjon utenfor repoet (bibliotek, tredjeparts-API, NAV-plattform: nais.io, TokenX, Maskinporten). Slå opp i offisiell dokumentasjon for plattformen eller biblioteket. For et reelt arkitekturvalg: `/nav-architecture-review`. Resultat: et kort markdown-notat, lenket fra noden.
-- **Spike** — spørsmålet er «virker dette / hvordan oppfører det seg». Skriv vekk-kastbar kode på egen branch for å teste hypotesen (f.eks. idempotens ved Kafka-replay, en Flyway-migrering mot Testcontainers-Postgres, ytelse på en spørring). Skal spiken modnes til ekte kode senere → `/tdd`. Resultat: kort notat + evt. lenke til spike-branch. Aldri lim spike-kode inn i kartet.
+- **Spike** — spørsmålet er «virker dette / hvordan oppfører det seg». Kjør `/prototype` for selve spiken (eier kast-vekk-kode, plassering og regler) — f.eks. idempotens ved Kafka-replay, en tilstandsmaskin, eller en datamodell mot Testcontainers-Postgres. Skal kjernen modnes til ekte kode → `/tdd`. Resultat: kort notat lenket fra noden; aldri lim spike-kode inn i kartet.
 
 ## Tåkefronten
 

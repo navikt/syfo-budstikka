@@ -65,8 +65,11 @@ Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsp
 - Legge til nye felter i response.
 - Gjøre nye request-felter valgfrie (med fornuftig default i data-klassen).
 - Legge til nye endpoints.
+- Legge til en ny `ErrorType`-verdi — forutsatt at konsumenter deserialiserer feilrespons defensivt.
 
 Disse kan rulles ut uten koordinering, men dokumenter dem.
+
+**Feilkontrakten teller også:** å omdøpe/fjerne en `ErrorType`-verdi eller endre `ApiError`-formen (`status`/`type`/`message`/`path`/`timestamp`) bryter konsumenter som parser feilrespons — behandle det som en brudd-endring (se trinnene over). Implementasjon: `/kotlin-ktor` (references/error-handling.md).
 
 ## API-katalog
 

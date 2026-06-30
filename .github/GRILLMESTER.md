@@ -36,7 +36,7 @@ Et høykvalitets GitHub Copilot-oppsett for dette Ktor-backend-repoet (Kotlin, N
 `pull-request` · `conventional-commit` · `issue-management` · `readme-update` · `klarsprak` (norsk mikrotekst) · `handoff` (kontekst-handoff) · `writing-great-skills` (skriv nye skills konsistent)
 
 ## Instruksjoner (`.github/instructions/`)
-Path-scopede via `applyTo`: `kotlin` (`**/*.kt`), `security`, `github-actions`, `docker`, `norwegian-text`, `copilot-review`.
+Alltid-på (`applyTo: "**"`): `security`, `copilot-review`, `bevisst-ai-bruk`. Path-scopede: `kotlin` (`**/*.kt`), `github-actions` (`.github/workflows/**`), `docker` (`**/Dockerfile*`), `norwegian-text` (`**/*.md`).
 
 ## Status og empirisk verifisering (gjenstår)
 
@@ -44,7 +44,7 @@ Dette er en eksperimentell testbenk, brukt lokalt via **Copilot CLI** — ikke c
 - **`model:`-pinning i CLI:** Copilot CLI aksepterer modell-display-navn/vendor-suffiks i agent-frontmatter (verifisert i bruk). Modell-gaten validerer at pinnen står på allowlist, ikke at runtime faktisk bruker den.
 - **Lokal subagent-delegering:** fase 5 kryssmodell-review forutsetter at `@grillmester` kaller `grill-inspektor` (annen modellfamilie). Copilot CLI støtter custom agents + `/agent`-delegering til subagenter som kjører lokalt i sesjonen, med eget kontekstvindu og per-agent `model:`; `tools:`-allowlisten som låser `grill-inspektor` read-only gjelder også i CLI. `/review` (selvreview) er kun en svak forhåndssjekk — ikke en erstatning for kryssmodell (bukken og havresekken). De deterministiske gatene bærer kvalitet uansett.
 
-Ikke aktivt i dette repoet ennå: **fase 6–7 deploy** (krever `.nais/nais.yaml` + deploy-workflow når tjenesten er reell — mønsteret ligger i `github-actions.instructions.md`), og repo-herding som CODEOWNERS/branch protection, Dependabot og PR-mal.
+På plass (committet): `.github/CODEOWNERS`, `.github/dependabot.yml`, `.github/PULL_REQUEST_TEMPLATE.md`. Gjenstår: **fase 6–7 deploy** (krever `.nais/nais.yaml` + deploy-workflow når tjenesten er reell — mønsteret ligger i `github-actions.instructions.md`) og branch protection (GitHub-innstilling, ikke en fil).
 
 ## Proveniens
 Bygd ved å adaptere hovmesters backend-skills (Ktor-tunet) + etablerte flyt-mønstre for design/implementering/review (oversatt og NAV/Ktor-tilpasset) + research-funn (context-rot, sterk-modell-inline, deterministiske gater, disk-som-minne, kontrakter-ikke-forbud). Eksperimentell testbenk — meningen er å bevise mønstrene her før de evt. graderes inn i hovmester.

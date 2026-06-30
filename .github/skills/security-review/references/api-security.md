@@ -1,6 +1,6 @@
 # API-sikkerhet — NAV-signal
 
-Generisk API-sikkerhet (CORS-oppsett, CSP/X-Frame-Options/HSTS, Ktor `Authentication`/`CORS`-plugin-boilerplate, rate-limit-filterkode, cookie `Secure/HttpOnly/SameSite`, session fixation, CSRF-teori) er utenfor scope — LLM-en kan dette, og auth-oppsettet i koden dekkes av `/kotlin-ktor`. Denne referansen dekker kun NAV-spesifikk signal.
+Generisk API-sikkerhet (CORS-oppsett, CSP/X-Frame-Options/HSTS, Ktor `Authentication`/`CORS`-plugin-boilerplate, rate-limit-filterkode, cookie `Secure/HttpOnly/SameSite`, session fixation, CSRF-teori) er utenfor scope — LLM-en kan dette, og auth-oppsettet i koden dekkes av `/auth-overview`. Denne referansen dekker kun NAV-spesifikk signal.
 
 ## Sporbarhet med Nav-Call-Id
 

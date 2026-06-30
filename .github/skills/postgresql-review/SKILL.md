@@ -1,6 +1,6 @@
 ---
 name: postgresql-review
-description: "PostgreSQL-design og -review i no.nav.syfo-backend — HikariCP-pool og dimensjonering mot Cloud SQL/replicas, indekser, N+1, trege queries, EXPLAIN, samspill med Flyway og koordinering av delte schemas. Brukes når du setter opp eller endrer DataSource/connection-pool, ser connection-feil i logg, velger databaseteknologi, eller reviewer en queries-/schema-endring i Postgres."
+description: "Brukes når du setter opp eller endrer DataSource/connection-pool i no.nav.syfo-backend, ser connection-feil i loggen, velger databaseteknologi, eller reviewer en schema-/migrasjonsendring i Postgres. Dekker HikariCP-pool og dimensjonering mot Cloud SQL/replicas, samspill med Flyway og koordinering av delte schemas."
 ---
 
 # PostgreSQL-gjennomgang
@@ -118,7 +118,7 @@ Se [references/migration-flyway.md](references/migration-flyway.md) for konkrete
 - [ ] Ingen N+1-spørringer
 - [ ] SELECT bare kolonner som trengs
 - [ ] LIMIT på spørringer som kan returnere mange rader
-- [ ] Migrasjoner er reversible der mulig
+- [ ] Revert-vei vurdert (forward-only: ny `V{n+1}`-migrering, ikke undo — se `/flyway-migration`)
 - [ ] Ingen `SELECT *` i produksjonskode
 
 ## Grenser

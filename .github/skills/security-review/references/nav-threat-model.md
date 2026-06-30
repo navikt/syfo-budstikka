@@ -62,7 +62,7 @@ STRIDE brukes her som sjekkliste, ikke som generisk akademisk øvelse. For hver 
 **NAV-kontekst:** Angriper utgir seg for å være en bruker, en NAV-ansatt, eller en annen tjeneste i klyngen.
 
 - [ ] Brukerautentisering via riktig IDP: ID-porten for innbyggere, Azure AD for ansatte, Maskinporten for eksterne M2M, TokenX for intern service-to-service på vegne av bruker.
-- [ ] Token-validering validerer `iss`, `aud`, `exp`, `nbf` og signatur mot IDP-ens JWKS (Ktor `jwt`-auth, se `/kotlin-ktor`).
+- [ ] Token-validering validerer `iss`, `aud`, `exp`, `nbf` og signatur mot IDP-ens JWKS (`token-validation-ktor-v3`/`tokenValidationSupport`, se `/auth-overview`).
 - [ ] For Azure AD M2M: `azp`-claim valideres mot `AZURE_APP_PRE_AUTHORIZED_APPS`. Uten denne sjekken kan hvilken som helst app i tenanten kalle tjenesten.
 - [ ] Call-ID (`Nav-Call-Id`) propageres, men brukes *aldri* som autorisasjonsgrunnlag.
 - [ ] For impersonering/on-behalf-of: Verifiser at originalbruker er riktig tema-bruker i `sub`/`pid`.
@@ -243,6 +243,7 @@ Alle brudd skal dokumenteres internt — også de som ikke utløser varsling til
 - `../SKILL.md` — PII-klassifisering, accessPolicy-vurdering, eskalering til sikkerhetschampion.
 - `gdpr-privacy.md` — NAV-spesifikk PII-kategorisering, retention, dataminimering.
 - `api-security.md` — Nav-Call-Id, Nav-Consumer-Id, accessPolicy som primærmekanisme.
-- `/kotlin-ktor` — JWT-validering, TokenX/Azure AD, NAVident-claim, StatusPages, CallId/MDC.
+- `/auth-overview` — JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar.
+- `/kotlin-ktor` — StatusPages/ApiError-feilkontrakt, CallId/MDC.
 - `/flyway-migration` — constraints og PII-kolonner i migreringer.
 - [sikkerhet.nav.no](https://sikkerhet.nav.no) — NAVs Golden Path, autoritativ sikkerhetsveiledning.

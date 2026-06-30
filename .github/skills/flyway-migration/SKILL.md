@@ -24,6 +24,7 @@ Opprett eller endre en Flyway-migreringsfil etter teamets konvensjoner i dette K
 - Bruk vanlig `CREATE INDEX` bare når indeksen opprettes sammen med en ny tom tabell i samme migrering
 - Én fokusert endring per migrering
 - Ikke rediger en `V__`-migrering som allerede er kjørt i et miljø — Flyway feiler på endret checksum. Lag en ny migrering i stedet.
+- `V__`-migreringer er **forward-only**: Flyway Community har ingen automatisk undo (`U__`-undo er en betalt funksjon). Et tilbakerull er en ny `V{n+1}__`-migrering som reverserer — aldri redigering eller sletting av en kjørt migrering.
 
 ## Mal
 
