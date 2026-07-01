@@ -111,6 +111,24 @@ data class ArbeidsgivervarselOpprett(
 - Sak/oppgave/beskjed-modell i notifikasjon-produsent-api: hvor mye eksponeres nøytralt?
 - `merkelapp` o.l. nedstrøms-felt: settes av budstikka, ikke i kontrakt.
 
+> **Funn fra esyfovarsel (research 2026-07) — grunnlag for AG-grillingen:**
+> - **To separate mottaker-stier i dag, ALDRI kombinert:** (1) `NaermesteLederMottaker`
+>   (personlig NL via fnr+ansattfnr; ekstern e-post til NLs registrerte adresse — INGEN
+>   SMS), (2) `AltinnRessursMottaker` (`ressursId`, f.eks. `nav_syfo_dialogmote`; ekstern
+>   SMS + e-post til alle med Altinn-rollen). Bruker Altinn 3-ressurs, IKKE serviceCode.
+> - **INGEN NL→Altinn-fallback finnes i dag:** mangler NL-relasjon → esyfovarsel DROPPER
+>   varselet (hard retur, logg). To helt separate kodegrener.
+> - **Mye er domenespesifikt og MÅ komme fra konsument:** `merkelapp` ("Dialogmøte"/
+>   "Oppfølging"), `messageText`/`smsTekst`, `epostTittel`/`epostHtmlBody`, `meldingstype`
+>   (BESKJED vs OPPGAVE), sak-tittel (inneholder personnavn), `grupperingsid`, `lenke`/
+>   `ressursUrl`, `ressursId`, `hardDeleteDate`. Sak/Kalenderavtale-livsløp er i dag tett
+>   koblet til dialogmøte-domenet → bør ligge hos konsument i nytt design.
+> - **Ruteren kan eie generisk:** NL-oppslag (B24), bygging av riktig MottakerInput,
+>   ekstern varsling, sendevindu (B25), idempotens, retry, DB-persistens.
+> - **Lukking i dag:** NL-sti = `hardDeleteNotifikasjon(merkelapp, eksternReferanse)`;
+>   Altinn-sti = `nyStatusSakByGrupperingsid(grupperingsid, merkelapp → FERDIG)`.
+>   Matchenøkkel varierer → relevant for hvordan Inaktiver targeter AG (jf. ⟡ Inaktiver).
+
 ### 5. Brev — sykmeldt, fysisk  (INGEN ferdigstill, jf. B3/B21)
 ```kotlin
 data class BrevOpprett(

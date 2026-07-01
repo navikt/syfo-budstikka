@@ -74,15 +74,25 @@ ingen utsending + lukking). En INAKTIVER-leveranse er en egen rad (`operasjon=IN
 som går gjennom samme KLAR→SENDT-løp.
 
 ## Workere (polling, radlås)
-- **Beslutnings-worker:** `SELECT … FROM inbox_hendelse WHERE status='MOTTATT'
-  AND neste_forsok_tid <= now() FOR UPDATE SKIP LOCKED`. Eksterne lesekall (PDL/KRR)
-  først, så én tx: oppdater inbox + insert leveranse(r).
+Topologi: én generisk dyp modul + tynn `Kanalhandler`-seam (dispatch på `kanal`), jf.
+B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikker) bor
+ÉN gang; kanalspesifikt bak smalt grensesnitt.
+
+- **Beslutnings-worker** (functional core / imperative shell, B28):
+  `SELECT … FROM inbox_hendelse WHERE status='MOTTATT' AND neste_forsok_tid <= now()
+  FOR UPDATE SKIP LOCKED`. Tre steg: (1) `Grunnlagsinnhenter` henter PDL/KRR/NL (I/O,
+  betinget på hendelsestype) → immutabelt `Beslutningsgrunnlag`; (2) `decide(hendelse,
+  grunnlag): Beslutning` — REN funksjon, all gate-/rutelogikk, ingen I/O; (3) effektuering:
+  én tx som skriver leveranse(r) + inbox-status. Eksterne lesekall skjer i steg 1, aldri
+  inne i tx-en.
 - **Outbox-worker:** `SELECT … FROM leveranse WHERE status='KLAR'
   AND neste_forsok_tid <= now() AND tidligst_sending <= now() FOR UPDATE SKIP LOCKED`.
   Holder radlås under sending (B15), stramme klient-timeouts. Idempotensnøkkel =
   `leveranse.id` (B16). `tidligst_sending` gater sendevindu (B25) — beregnes i
   Beslutning-fasen fra `sendevindu` + NKS-kalender; budstikka sender alltid LØPENDE
   nedstrøms (self-operasjonalisert), så hele ventetiden er synlig i vår egen DB.
+  Anti-corruption-mapping `byggNedstrømsforespørsel(leveranse)` er REN (testbar);
+  `send(request)` er I/O.
 
 ## Indekser
 - `inbox_hendelse`: PK(`event_id`); idx(`status`,`neste_forsok_tid`) for plukk.
