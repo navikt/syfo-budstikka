@@ -97,6 +97,8 @@ som går gjennom samme KLAR→SENDT-løp.
   Drill-down til enkelt-id via Loki/Tempo, ikke metrikk-labels.
 
 ## Åpne punkter
-- Retensjon/sletting av PII (fnr) — GDPR. Eget designpunkt.
+- Retensjon/sletting av PII (fnr) — GDPR. Eget designpunkt. GULV satt av B26:
+  inbox-dedup-rader (event_id) MÅ holdes ≥ 90 dager (= topic-retention), ellers gir
+  Kafka-replay dobbeltvarsling. Leveranse-rader kan ha egen (kortere?) retensjon.
 - FERDIGSTILL-flyt i detalj (matching, hvilke kanaler kan lukkes) — område 2.
 - `payload`-skjema pr. kanal (typet DTO ↔ jsonb) — kanal-DTO-område (3).
