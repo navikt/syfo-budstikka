@@ -38,6 +38,7 @@ erDiagram
         text        status "KLAR|SENDT|FEILET_PERMANENT|UTLOPT"
         int         forsok
         timestamptz neste_forsok_tid
+        timestamptz tidligst_sending "sendevindu-gate (B25), default=opprettet"
         timestamptz frist_tid "maxLeveringsalder, kappet av synlig_tom"
         text        ekstern_respons_id "kanalens retur-id (nullable)"
         text        feilmelding "nullable"
@@ -77,13 +78,17 @@ som går gjennom samme KLAR→SENDT-løp.
   AND neste_forsok_tid <= now() FOR UPDATE SKIP LOCKED`. Eksterne lesekall (PDL/KRR)
   først, så én tx: oppdater inbox + insert leveranse(r).
 - **Outbox-worker:** `SELECT … FROM leveranse WHERE status='KLAR'
-  AND neste_forsok_tid <= now() FOR UPDATE SKIP LOCKED`. Holder radlås under sending
-  (B15), stramme klient-timeouts. Idempotensnøkkel = `leveranse.id` (B16).
+  AND neste_forsok_tid <= now() AND tidligst_sending <= now() FOR UPDATE SKIP LOCKED`.
+  Holder radlås under sending (B15), stramme klient-timeouts. Idempotensnøkkel =
+  `leveranse.id` (B16). `tidligst_sending` gater sendevindu (B25) — beregnes i
+  Beslutning-fasen fra `sendevindu` + NKS-kalender; budstikka sender alltid LØPENDE
+  nedstrøms (self-operasjonalisert), så hele ventetiden er synlig i vår egen DB.
 
 ## Indekser
 - `inbox_hendelse`: PK(`event_id`); idx(`status`,`neste_forsok_tid`) for plukk.
-- `leveranse`: PK(`id`); idx(`status`,`neste_forsok_tid`) for plukk;
-  idx(`referanse`,`mottaker_id`,`kanal`) for FERDIGSTILL-oppslag; idx(`inbox_event_id`).
+- `leveranse`: PK(`id`); idx(`status`,`neste_forsok_tid`,`tidligst_sending`) for plukk
+  (sendevindu-gate, B25); idx(`referanse`,`mottaker_id`,`kanal`) for FERDIGSTILL-oppslag;
+  idx(`inbox_event_id`).
 
 ## Observability-koblinger (jf. B17)
 - `trace_id` på begge tabeller; strukturert logg ved hver overgang med
