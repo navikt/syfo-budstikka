@@ -129,9 +129,8 @@ esyfovarsels DB). Ingen aktiv fremtidsdatert scheduler-kø (`PlanlagtVarsel` er 
 ## Åpne punkter
 
 - **syfooppfolgingsplanservice er deprecated** og skrus av etter sommeren (2026) → utenfor
-  migreringsscope; dens typer (`*_OPPFOLGINGSPLAN_SENDT_TIL_GODKJENNING`) opphører når appen
-  dør. Avklar om funksjonen forsvinner helt eller flyttes til en annen produsent (som da
-  onboardes direkte mot budstikka som en ny integrasjon, ikke en straddle-migrering).
+  migreringsscope. AVKLART: funksjonen forsvinner **helt** (flyttes ikke) → budstikka bygger
+  aldri `*_OPPFOLGINGSPLAN_SENDT_TIL_GODKJENNING`; disse 2 typene dør med appen.
 - **isdialogmote sak-grense:** eksakt hvordan flagget henger på dialogmøtet/saken og hvordan
   hele oppfølgingskjeden (INNKALT/NYTT_TID_STED/AVLYST/REFERAT) rutes konsistent — detaljeres
   når vi når trinn 5.
