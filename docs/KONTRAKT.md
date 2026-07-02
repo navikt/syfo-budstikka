@@ -53,6 +53,8 @@ enum class Sendevindu { LOEPENDE, NKS_AAPNINGSTID }   // utvidbar (DAGTID, ...)
 // budstikka-onboarding til å skje sammen → holder listene i synk. Utvides ved onboarding.
 enum class Merkelapp { DIALOGMOETE, OPPFOELGING }     // mappes til produsent-api-streng (B23)
 
+enum class AltinnRessursId { DIALOGMOETE }            // B32: → produsent-api ressursId "nav_syfo_dialogmote"; register-håndhevet (B30-logikk)
+
 enum class AgMeldingstype { BESKJED, OPPGAVE }        // ⟡ nøytral (beskjed vs oppgave) — bekreft
 
 data class Sakstilknytning(                            // B31: konsumenten eier saken
@@ -104,12 +106,12 @@ data class DittSykefravaerOpprett(
 ) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 
-### 4. Arbeidsgivervarsel — Min side arbeidsgiver / Altinn  ⟡ MOTTAKER-MODELL GJENSTÅR
+### 4. Arbeidsgivervarsel — Min side arbeidsgiver / Altinn
 ```kotlin
 data class ArbeidsgivervarselOpprett(
-    val orgnummer: Orgnummer,
-    val mottaker: AgMottaker,                       // ⟡ ÅPEN: sealed NærmesteLeder | AltinnRessurs (+ fallback?)
-    val merkelapp: Merkelapp,                        // B30: typet LUKKET enum (kategori), ikke streng
+    val orgnummer: Orgnummer,                       // virksomhet (underenhet) — alltid til stede
+    val mottaker: AgMottaker,                       // B32: sealed valg (stiene kombineres aldri)
+    val merkelapp: Merkelapp,                        // B30: typet LUKKET enum (kategori)
     val tekst: String,                              // skjermtekst (bjella / sak-tidslinje)
     val lenke: String,
     val eksternVarsling: EksternVarsling? = null,   // B29: epostTittel/epostTekst/smsTekst (ren tekst, budstikka saniterer)
@@ -118,19 +120,28 @@ data class ArbeidsgivervarselOpprett(
     val synligTom: Instant? = null,
     val sendevindu: Sendevindu? = null,             // B25
 ) : Hendelsesinnhold { override val partisjonsnokkel get() = orgnummer.value }
+
+// B32 — de to stiene kombineres ALDRI (research) → sealed valg, ikke separate hendelsesvarianter.
+sealed interface AgMottaker
+data class NarmesteLeder(val sykmeldt: Personident) : AgMottaker   // budstikka resolver NL (B24) fra (sykmeldt, orgnummer); én personlig mottaker
+data class AltinnRessurs(val ressurs: AltinnRessursId) : AgMottaker // → alle med Altinn-rollen ved virksomheten; ressursId typet (B30)
+// Opt-in altinnFallback (NL→Altinn ved manglende leder) er BESLUTTET men UTSATT (fase 2,
+// nice-to-have — esyfovarsel har det ikke i dag). Legges til NarmesteLeder som valgfritt felt
+// når implementert (non-breaking). Utelates fra v1 for å unngå falsk affordance.
+// V1-default = OBSERVERBAR drop ved manglende NL (metrikk/alert), ikke stille.
 ```
-**Løst denne runden:**
+**Løst:**
 - E-post (B29): budstikka eier ikke mal; konsument oppgir ren-tekst `epostTittel`/`epostTekst`/
   `smsTekst` via `eksternVarsling`; budstikka saniterer; plattformen nedstrøms brander.
 - Merkelapp (B30): typet LUKKET enum i delt kontraktlib (kategori, ingen oppførsel); fager-
   registeret er håndhevelsen (`kanSendeTil`), enumen er DX-laget; lukket form tvinger synk.
 - Sak (B31): konsumenten eier saken → valgfri `sakstilknytning` (sakId → grupperingsid).
+- Mottaker-modell (B32): sealed `AgMottaker` = `NarmesteLeder` | `AltinnRessurs` (aldri kombinert).
+  NL resolveres av budstikka (B24); `ressursId` typet (B30). Opt-in Altinn-fallback ved manglende
+  NL er BESLUTTET (mottaker-utvidelse ≠ brevFallback → konsument eier samtykke) men UTSATT (fase 2);
+  v1 = observerbar drop.
 
 **Gjenstår (⟡):**
-- Mottaker-modell: sealed `AgMottaker` = `NærmesteLeder` | `AltinnRessurs` — én variant med
-  sealed valg. Research: to separate stier i dag, ALDRI kombinert; INGEN NL→Altinn-fallback
-  finnes. Skal budstikka innføre en valgfri Altinn-fallback (speiler brevFallback B8), eller
-  beholde separasjonen?
 - `meldingstype` BESKJED|OPPGAVE: dekker den nøytrale enumen behovet?
 
 > **Funn fra esyfovarsel (research 2026-07) — grunnlag for AG-grillingen:**
@@ -193,7 +204,7 @@ felles thin → (a). Bekreft at generisk ident er greit her (vi matcher kun en l
 
 ## Åpne spørsmål til review
 1. ~~Ledervarsel: konsument vs budstikka-oppslag av NL~~ → **LØST (B24): budstikka resolver.**
-2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30) og sak (B31) LØST. Gjenstår: mottaker-modell (`NærmesteLeder` | `AltinnRessurs` + evt. fallback) + `meldingstype`. ⟡
+2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30), sak (B31), mottaker-modell (B32) LØST. Gjenstår: `meldingstype`. ⟡
 3. Inaktiver: generisk `mottakerident: String` vs typet pr. kanal. ⟡
 4. Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?
 5. Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?
