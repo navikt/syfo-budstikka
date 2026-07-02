@@ -8,6 +8,27 @@ kun sørge for riktig kanal på en god måte. Ønsket arkitektur: Kafka, inbox/o
 asynkron utsending, idempotens, innebygd retry og feilhåndtering, bedre logging med
 trace-id/tracing, enklere feilsøk, eget Grafana-board.
 
+## Status og videre arbeid (per 2026-07-02)
+
+**Fase 1 (grill/design) pågår — ingen produksjonskode skrevet ennå.** Beslutninger festes
+som nummererte B-er nedenfor og i temadokumentene. **B1–B37 er låst.** En fersk økt kan
+plukke opp arbeidet ved å lese denne fila + temadokumentene:
+`KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse), `FERDIGSTILL.md` (lukking),
+`FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37), `adr/0001-domeneblind-varselruter.md`.
+
+**Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er 🟡 (AG ferdig B29–B33;
+gjenstår Inaktiver-typing, tekstmodell/enums, mikrofrontend-detaljer) · 4 Observability ⬜ ·
+5 Auth & ACL ⬜ · 6 Migrering ✅ (B34–B37, detaljer ved implementering).
+
+**Neste konkrete steg:** grill **Inaktiver-typing** (lukker område 3) — generisk
+`mottakerident` vs typet pr. kanal, + AG-koblingen fra B33 (OPPGAVE→`oppgaveUtført` vs
+BESKJED→`hardDelete`; NL-sti vs Altinn-sti ulik matchenøkkel → Inaktiver må slå opp lagret
+meldingstype/sti). Deretter tekstmodell/enums, så område 4/5.
+
+**Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved
+usikkerhet, fest durable beslutninger her i `docs/` med nye B-nummer, commit per ferdig
+delområde. Domeneblindhet (B1) er den røde tråden: budstikka forgrener aldri på domenetype.
+
 ## Hva esyfovarsel er og gjør i dag
 Sentral varsel-router for eSyfo. Konsumerer ett topic `team-esyfo.varselbus`,
 mapper hver hendelse til riktig flate, og håndterer tilstand rundt utsending,
