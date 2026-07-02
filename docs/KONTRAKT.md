@@ -55,7 +55,7 @@ enum class Merkelapp { DIALOGMOETE, OPPFOELGING }     // mappes til produsent-ap
 
 enum class AltinnRessursId { DIALOGMOETE }            // B32: → produsent-api ressursId "nav_syfo_dialogmote"; register-håndhevet (B30-logikk)
 
-enum class AgMeldingstype { BESKJED, OPPGAVE }        // ⟡ nøytral (beskjed vs oppgave) — bekreft
+enum class AgMeldingstype { BESKJED, OPPGAVE }        // B33: nøytral, separat fra Brukervarsels Varseltype; frist/påminnelse utsatt
 
 data class Sakstilknytning(                            // B31: konsumenten eier saken
     val sakId: String,                                 // konsumentens id → grupperingsid nedstrøms
@@ -115,7 +115,7 @@ data class ArbeidsgivervarselOpprett(
     val tekst: String,                              // skjermtekst (bjella / sak-tidslinje)
     val lenke: String,
     val eksternVarsling: EksternVarsling? = null,   // B29: epostTittel/epostTekst/smsTekst (ren tekst, budstikka saniterer)
-    val meldingstype: AgMeldingstype = AgMeldingstype.BESKJED,  // ⟡ bekreft
+    val meldingstype: AgMeldingstype = AgMeldingstype.BESKJED,  // B33 (OPPGAVE-lukking → Inaktiver, ⟡ #3)
     val sakstilknytning: Sakstilknytning? = null,   // B31: konsumentens sak (→ grupperingsid); konsument eier saken
     val synligTom: Instant? = null,
     val sendevindu: Sendevindu? = null,             // B25
@@ -140,9 +140,11 @@ data class AltinnRessurs(val ressurs: AltinnRessursId) : AgMottaker // → alle 
   NL resolveres av budstikka (B24); `ressursId` typet (B30). Opt-in Altinn-fallback ved manglende
   NL er BESLUTTET (mottaker-utvidelse ≠ brevFallback → konsument eier samtykke) men UTSATT (fase 2);
   v1 = observerbar drop.
+- Meldingstype (B33): nøytral `AgMeldingstype { BESKJED, OPPGAVE }`, separat fra Brukervarsel;
+  frist/påminnelse utsatt (YAGNI).
 
-**Gjenstår (⟡):**
-- `meldingstype` BESKJED|OPPGAVE: dekker den nøytrale enumen behovet?
+**AG ferdig-grillet.** Eneste rest er en kobling til felles Inaktiver (⟡ #3): en OPPGAVE lukkes
+trolig via `oppgaveUtført` (ikke `hardDelete`) — løses i Inaktiver-grillingen.
 
 > **Funn fra esyfovarsel (research 2026-07) — grunnlag for AG-grillingen:**
 > - **To separate mottaker-stier i dag, ALDRI kombinert:** (1) `NaermesteLederMottaker`
@@ -201,10 +203,13 @@ varierer pr. kanal. To valg: (a) felles thin variant med generisk `mottakerident
 (matcher lagret rad på (referanse, mottaker_id, kanal)) — bryter litt med typede
 value-class-mottakere; (b) én Inaktiver-variant pr. kanal med typet mottaker. B22 valgte
 felles thin → (a). Bekreft at generisk ident er greit her (vi matcher kun en lagret rad).
+Dessuten (B33): for AG avhenger lukke-OPERASJONEN nedstrøms av den lagrede leveransen —
+OPPGAVE → `oppgaveUtført`, BESKJED → `hardDelete`; og NL-sti vs Altinn-sti bruker ulik
+matchenøkkel (jf. funn-boks). Inaktiver må derfor slå opp lagret meldingstype/sti, ikke bare kanal.
 
 ## Åpne spørsmål til review
 1. ~~Ledervarsel: konsument vs budstikka-oppslag av NL~~ → **LØST (B24): budstikka resolver.**
-2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30), sak (B31), mottaker-modell (B32) LØST. Gjenstår: `meldingstype`. ⟡
+2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30), sak (B31), mottaker-modell (B32), meldingstype (B33) LØST — **AG ferdig-grillet**. Rest-kobling til Inaktiver, se #3.
 3. Inaktiver: generisk `mottakerident: String` vs typet pr. kanal. ⟡
 4. Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?
 5. Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?
