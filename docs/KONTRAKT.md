@@ -189,27 +189,47 @@ data class MikrofrontendDeaktiver(             // mikrofrontendens «ferdigstill
 ⟡ Mikrofrontend er synlighet, ikke et varsel. Egne aktiver/deaktiver-varianter holder
 det utenfor den generelle Inaktiver-mekanismen. OK?
 
-## FERDIGSTILL / lukking
-```kotlin
-data class Inaktiver(
-    val kanal: LukkbarKanal,                    // uten BREV → B21 i typen
-    val mottakerident: String,                  // for partisjonsnøkkel + matching
-) : Hendelsesinnhold { override val partisjonsnokkel get() = mottakerident }
+## FERDIGSTILL / lukking (B38, B39)
+Typet variant PR. LUKKBAR KANAL — kanal er implisitt i typen, matchnøkkelen er typet
+(bevarer PII-maskering, B9) og ulovlige `(kanal, nøkkel)`-par er urepresenterbare (B38).
+Hendelsen er THIN: kun `referanse` + typet nøkkel. Lukkeoperasjonen nedstrøms bæres ALDRI
+av hendelsen — budstikka avleder den fra den lagrede OPPRETT-raden (B39).
 
-enum class LukkbarKanal { BRUKERVARSEL, LEDERVARSEL, DITT_SYKEFRAVAER, ARBEIDSGIVERVARSEL }
+```kotlin
+data class BrukervarselInaktiver(
+    val referanse: String,
+    val sykmeldt: Personident,                  // matchnøkkel = OPPRETT-partisjonsanker
+) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+
+data class LedervarselInaktiver(
+    val referanse: String,
+    val sykmeldt: Personident,                  // B24: sykmeldt, IKKE NL-fnr (ukjent for konsument)
+) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+
+data class DittSykefravaerInaktiver(
+    val referanse: String,
+    val sykmeldt: Personident,
+) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+
+data class ArbeidsgivervarselInaktiver(
+    val referanse: String,
+    val orgnummer: Orgnummer,                   // matchnøkkel = virksomhet (B32)
+) : Hendelsesinnhold { override val partisjonsnokkel get() = orgnummer.value }
 ```
-⟡ `Inaktiver` trenger mottaker for partisjonsnøkkel + matching, men mottakertypen
-varierer pr. kanal. To valg: (a) felles thin variant med generisk `mottakerident: String`
-(matcher lagret rad på (referanse, mottaker_id, kanal)) — bryter litt med typede
-value-class-mottakere; (b) én Inaktiver-variant pr. kanal med typet mottaker. B22 valgte
-felles thin → (a). Bekreft at generisk ident er greit her (vi matcher kun en lagret rad).
-Dessuten (B33): for AG avhenger lukke-OPERASJONEN nedstrøms av den lagrede leveransen —
-OPPGAVE → `oppgaveUtført`, BESKJED → `hardDelete`; og NL-sti vs Altinn-sti bruker ulik
-matchenøkkel (jf. funn-boks). Inaktiver må derfor slå opp lagret meldingstype/sti, ikke bare kanal.
+**Matchnøkkel** = OPPRETTs partisjonsanker (det konsumenten kjenner ved OPPRETT), ikke den
+faktiske resolverte mottakeren. Match mot lagret rad: `(referanse, mottaker_id, kanal)`.
+BREV er urepresenterbart (ingen `BrevInaktiver` — B3/B21). Mikrofrontend har egne
+aktiver/deaktiver-varianter (§ over), utenfor denne mekanismen.
+
+**Lukkeoperasjon (B39):** avledes fra lagret OPPRETT-rad. Beslutnings-workeren (B28) finner
+matchende OPPRETT-leveranse, `decide()` fryser lukkeparametrene (`meldingstype`, sti NL/Altinn,
+`ekstern_respons_id`, `grupperingsid`) onto INAKTIVER-leveransen, og `Kanalhandler` (B27)
+dispatcher på disse LAGREDE TEKNISKE attributtene — AG: OPPGAVE→`oppgaveUtført`,
+BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` — aldri på domenetype (domeneblind, B1/B30).
 
 ## Åpne spørsmål til review
 1. ~~Ledervarsel: konsument vs budstikka-oppslag av NL~~ → **LØST (B24): budstikka resolver.**
 2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30), sak (B31), mottaker-modell (B32), meldingstype (B33) LØST — **AG ferdig-grillet**. Rest-kobling til Inaktiver, se #3.
-3. Inaktiver: generisk `mottakerident: String` vs typet pr. kanal. ⟡
+3. ~~Inaktiver: generisk `mottakerident: String` vs typet pr. kanal~~ → **LØST (B38/B39): typet Inaktiver pr. kanal (thin), lukkeoperasjon avledes fra lagret OPPRETT-rad.**
 4. Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?
 5. Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?
