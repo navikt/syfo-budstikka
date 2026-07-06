@@ -11,7 +11,7 @@ trace-id/tracing, enklere feilsøk, eget Grafana-board.
 ## Status og videre arbeid (per 2026-07-06)
 
 **Fase 1 (grill/design) pågår — ingen produksjonskode skrevet ennå.** Beslutninger festes
-som nummererte B-er nedenfor og i temadokumentene. **B1–B41 er låst.** En fersk økt kan
+som nummererte B-er nedenfor og i temadokumentene. **B1–B42 er låst.** En fersk økt kan
 plukke opp arbeidet ved å lese denne fila + temadokumentene:
 `KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse), `FERDIGSTILL.md` (lukking),
 `FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37), `adr/0001-domeneblind-varselruter.md`.
@@ -20,11 +20,11 @@ plukke opp arbeidet ved å lese denne fila + temadokumentene:
 Inaktiver-typing B38–B39; tekstmodell/enums + mikrofrontend B40–B41) · 4 Observability ⬜ ·
 5 Auth & ACL ⬜ · 6 Migrering ✅ (B34–B37, detaljer ved implementering).
 
-**Neste konkrete steg:** kontrakten er ferdig-spekket. Gjenstår å grille område 4
-(Observability — Grafana-board, metrikker, tracing; B17 la grunnlaget) og område 5 (Auth &
-ACL — TokenX/Azure AD, accessPolicy; ventet rett-fram da esyfovarsel har Texas-mønsteret),
-samt tverrgående GDPR/retensjon (gulv B26). Parallelt: opprette epic + sub-issues for
-utvikling (kontrakt + datamodell + worker-topologi er implementeringsklare).
+**Neste konkrete steg:** kontrakten er ferdig-spekket og GDPR/retensjon er avklart (B42).
+Gjenstår å grille område 4 (Observability — Grafana-board, metrikker, tracing; B17 la
+grunnlaget) og område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy; ventet rett-fram da
+esyfovarsel har Texas-mønsteret). Parallelt: epic + sub-issues for utvikling er under
+opprettelse (kontrakt + datamodell + worker-topologi + retensjon er implementeringsklare).
 
 **Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved
 usikkerhet, fest durable beslutninger her i `docs/` med nye B-nummer, commit per ferdig
@@ -122,6 +122,9 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B39: INAKTIVER-OPERASJON AVLEDES FRA LAGRET OPPRETT-RAD, ikke fra hendelsen. FERDIGSTILL-hendelsen er THIN (referanse + typet nøkkel, B38); den bærer ALDRI meldingstype/sti/operasjon. Flyt (functional core, B28): (1) `Grunnlagsinnhenter` finner matchende OPPRETT-leveranse på `(referanse, mottaker_id, kanal)`; (2) `decide()` FRYSER lukkeparametrene fra OPPRETT-raden onto INAKTIVER-leveransen (`meldingstype`, sti NL/Altinn, `ekstern_respons_id`, `grupperingsid`, opprinnelig `leveranse.id`); (3) `Kanalhandler` (B27) dispatcher på LAGREDE TEKNISKE attributter — AG: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` — ALDRI på domenetype/merkelapp (domeneblind B1/B30: forgrening på tekniske kanalattributter er lov, på domenetype ikke). `leveranse.mottaker_id` = MATCHNØKKEL (sykmeldt-fnr for LEDERVARSEL, orgnr for AG); resolvert NL-fnr/`ekstern_respons_id`/`grupperingsid` bor i payload/egne kolonner (justerer DATAMODELL `mottaker_id`-semantikk). KOMPATIBILITET med B34–B37 (verifisert): klebrig eierskap ruter FERDIGSTILL til systemet som gjorde OPPRETT → budstikka mottar ALDRI close for fremmed OPPRETT → lagret rad finnes alltid, avledning treffer alltid. Det motsatte valget (bær info i hendelsen = stateless close) impliserer nettopp fremmed-close som MIGRERING §15–22 forkaster (fasade/state-handover/referanse-kontinuitet). Lukker AG ⟡ #3 og designområde 3 sin Inaktiver-typing.
 - B40: TEKSTMODELL/ENUMS. (1) `Varseltype { BESKJED, OPPGAVE }` beholdt og eksplisitt definert i kontraktlib (tms har også `Innboks`, men esyfovarsel bruker den aldri → utelatt, YAGNI/utvidbar). (2) `variant`/`Meldingsvariant` FJERNET fra `DittSykefravaerOpprett` — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum har KUN `INFO` (verifisert i esyfovarsel `DittSykefravaerMelding.kt`); et felt konsumenten ikke kan variere = falsk affordance (jf. B32). Budstikka sender alltid INFO; legges til non-breaking senere hvis flex utvider. (3) Felles `tekst`/`lenke` holdes INLINE pr. variant, IKKE trukket ut i delt `Innholdstekst` — bevarer AG sin `lenke`-required-invariant (urepresenterbar-ulovlig ellers), og dette er deklarasjonsduplisering, ikke logikk-duplisering (ingen delt validering på in-app-skjermtekst; sanitering B29 gjelder kun ekstern SMS/e-post).
 - B41: MIKROFRONTEND UTENFOR INAKTIVER — eget `MikrofrontendAktiver`/`MikrofrontendDeaktiver`-par. Det er synlighet på Min side, ikke en leveranse-med-mottaker: `Deaktiver` matcher IKKE en lagret OPPRETT-leveranse på `referanse` (som Inaktiver B39), og har ingen `meldingstype`/sti/`ekstern_respons_id` å fryse — bare en av/på-bryter for `(person, mikrofrontendId)`. Konsistent med B38 (`LukkbarKanal` inkluderte aldri MIKROFRONTEND). Med B40–B41 er DESIGNOMRÅDE 3 (kanal-DTO-er) LUKKET.
+
+## Retensjon/GDPR-beslutninger (se docs/DATAMODELL.md)
+- B42: RETENSJON/GDPR. DATA: Fortrolig (fnr i `mottaker_id`, resolvert NL-fnr i payload) + selve eksistensen av et sykefravær-oppfølgingsvarsel er helserelatert (art. 9, nær Strengt fortrolig) → aggressiv sletting, minimal eksponering. MODELL: ulik retensjon pr. tabell, HARD DELETE (ikke anonymisering — observability bor i Loki/Tempo/Prometheus B17, ingen analysebehov i radene). `inbox_hendelse`: slett ved alder > ~100 dager (90d B26-gulv for replay-dedup + buffer). `leveranse`: slett når TERMINAL og alder > ~180 dager (dekker 90d replay + dialogmøte/AG-sak-lukkevindu ~4 mnd + margin; alle rader blir terminale innen `frist_tid`, B11). FK `inbox_event_id` → `ON DELETE SET NULL` (inbox kan slettes før leveranse). 180d ≈ Loki-loggretensjon (maks ~6 mnd) → logg-drill-down (B17) dekker HELE radens levetid, ingen foreldreløs logg/rad. MEKANISME: in-app periodisk coroutine (gjenbruker poller-mønster, ingen egen Naisjob), batchet idempotent DELETE (`LIMIT`-løkke, korte låser), INGEN leader election (B12) — Postgres advisory lock (`pg_try_advisory_lock`) per sveip unngår bortkastet dobbeltarbeid; kjøres ~hver time. JURIDISK (egen oppgave, ikke kode): avklaring med jurist/personvernombud + dokumentasjon (DPIA/PVK, ROS, behandlingsprotokoll art. 30) før prod. Lukker DATAMODELL åpent retensjonspunkt.
 
 ## Migreringsbeslutninger (se docs/MIGRERING.md)
 - B34: MIGRERINGSRYGGRAD = klebrig eierskap, operasjonalisert som PER-PROSESS PRODUSENT-RUTET cutover. Systemet som gjorde OPPRETT eier hele livsløpet; produsenten ruter FERDIGSTILL + oppfølgings-hendelser til SAMME system. Migreringsenhet = prosess/gruppering (hel dialogmøte-sak, møtebehov-runde, brev), ikke enkeltvarsel. FORKASTET: fasade (unødvendig for selv-utløpende, utilstrekkelig for dialogmøte-delt-SAK), referanse-kontinuitet (umulig — referanser er stort sett UUID.randomUUID() kun i esyfovarsels DB), state-handover (kompleks/risikabel). Anti-dobbeltvarsling: produsenten flipper sin egen OPPRETT-output → hver prosess til nøyaktig ett system. Ingen race: OPPRETT/FERDIGSTILL deler partisjonsnøkkel (B5/B24/B32) → ordnet på samme partisjon.
