@@ -20,8 +20,12 @@ aldri hardkodede versjoner.
 - **Flyway** for skjemaendringer (`src/main/resources/db/migration/V<n>__*.sql`), additivt.
 - **UUID v7** (tidssortert) for interne id-er som `leveranse.id` (B16). Gir bedre B-tree-lokalitet
   enn v4 og hjelper alders-baserte retensjons-`DELETE` (B42). **Postgres 18 har `uuidv7()` innebygd**
-  → genereres i skjemaet med `DEFAULT uuidv7()`, ingen app-side generator eller bibliotek.
-  Merk: `eventId` (B4) settes av produsent-appene (innkommende Kafka-kontrakt), ikke av budstikkas DB.
+  → id-en genereres av databasen med `DEFAULT uuidv7()` (settes i Flyway-migreringen), ingen app-side
+  generator. I Exposed: bruk `uuid("id")` (→ `java.util.UUID`, ingen opt-in) markert `.databaseGenerated()`
+  slik at Exposed leser id-en tilbake i stedet for å sende en. **Ikke** `.autoGenerate()` — den lager en
+  klient-side v4. `kotlinUuid()` (→ `kotlin.uuid.Uuid`) krever `@OptIn(ExperimentalUuidApi::class)`; velges
+  kun hvis vi bevisst vil ha Kotlins UUID-type. Merk: `eventId` (B4) settes av produsent-appene
+  (innkommende Kafka-kontrakt), ikke av budstikkas DB.
 
 ## Kafka
 
