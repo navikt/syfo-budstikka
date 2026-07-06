@@ -12,7 +12,7 @@ flowchart TB
         P4["... øvrige domeneapper"]
     end
 
-    P1 & P2 & P3 & P4 -->|"hendelse: eventId, referanse,<br/>mottaker, kanal, tekst, synligTom"| TOPIC{{"Kafka-topic<br/>team-esyfo.varselbestilling<br/>nøkkel = mottaker-id"}}
+    P1 & P2 & P3 & P4 -->|"hendelse: eventId, referanse,<br/>mottaker, kanal, tekst, synligTom"| TOPIC{{"Kafka-topic<br/>team-esyfo.formidling.v1<br/>nøkkel = mottaker-id"}}
 
     subgraph Budstikka["syfo-budstikka"]
         direction TB

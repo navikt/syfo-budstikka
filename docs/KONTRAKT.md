@@ -12,13 +12,13 @@ har det. Intern mapping til nedstrøms er et anti-corruption-lag.
 
 ## Konvolutt
 ```kotlin
-data class Varselbestilling(
+data class Formidling(
     val eventId: UUID,            // dedup (B4)
     val referanse: String,        // kobler OPPRETT/FERDIGSTILL (B4)
-    val innhold: Hendelsesinnhold // sealed — bærer mottaker + operasjon
+    val innhold: Formidlingsinnhold // sealed — bærer mottaker + operasjon
 )
 
-sealed interface Hendelsesinnhold {
+sealed interface Formidlingsinnhold {
     val partisjonsnokkel: String  // accessor for Kafka-nøkkel (B5), ikke delt Mottaker-hierarki (B9)
 }
 ```
@@ -78,7 +78,7 @@ data class BrukervarselOpprett(
     val eksternVarsling: EksternVarsling? = null,  // null = kun Min side
     val brevFallback: BrevFallback? = null,    // B8
     val sendevindu: Sendevindu? = null,        // B25: null = budstikka-default
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 
 ### 2. Ledervarsel — nærmeste leder, Dine Sykmeldte
@@ -91,7 +91,7 @@ data class LedervarselOpprett(
     val synligTom: Instant? = null,
     val eksternVarsling: EksternVarsling? = null,
     val sendevindu: Sendevindu? = null,        // B25
-) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
 ```
 **B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
 — IKKE NL-fnr. Budstikka slår opp aktiv leder i narmesteleder-registeret i Beslutning-
@@ -105,7 +105,7 @@ data class DittSykefravaerOpprett(
     val tekst: String,
     val lenke: String? = null,
     val synligTom: Instant? = null,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 **B40:** ingen `variant`-felt — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum
 har kun `INFO` (verifisert i esyfovarsel). Budstikka sender alltid INFO. Legges til
@@ -124,7 +124,7 @@ data class ArbeidsgivervarselOpprett(
     val sakstilknytning: Sakstilknytning? = null,   // B31: konsumentens sak (→ grupperingsid); konsument eier saken
     val synligTom: Instant? = null,
     val sendevindu: Sendevindu? = null,             // B25
-) : Hendelsesinnhold { override val partisjonsnokkel get() = orgnummer.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = orgnummer.value }
 
 // B32 — de to stiene kombineres ALDRI (research) → sealed valg, ikke separate hendelsesvarianter.
 sealed interface AgMottaker
@@ -175,7 +175,7 @@ data class BrevOpprett(
     val personident: Personident,
     val journalpostId: String,                 // konsument har opprettet journalpost
     val distribusjonstype: Distribusjonstype = Distribusjonstype.VIKTIG,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 
 ### 6. Mikrofrontend — sykmeldt, synlighet på Min side
@@ -184,12 +184,12 @@ data class MikrofrontendAktiver(
     val personident: Personident,
     val mikrofrontendId: String,               // konsument oppgir hvilken (domeneblind)
     val synligTom: Instant? = null,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 
 data class MikrofrontendDeaktiver(             // mikrofrontendens «ferdigstill»
     val personident: Personident,
     val mikrofrontendId: String,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 **B41: mikrofrontend holdes utenfor Inaktiver-mekanismen** — eget aktiver/deaktiver-par.
 Det er synlighet på Min side, ikke en leveranse-med-mottaker: `Deaktiver` matcher ikke en
@@ -207,22 +207,22 @@ av hendelsen — budstikka avleder den fra den lagrede OPPRETT-raden (B39).
 data class BrukervarselInaktiver(
     val referanse: String,
     val sykmeldt: Personident,                  // matchnøkkel = OPPRETT-partisjonsanker
-) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
 
 data class LedervarselInaktiver(
     val referanse: String,
     val sykmeldt: Personident,                  // B24: sykmeldt, IKKE NL-fnr (ukjent for konsument)
-) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
 
 data class DittSykefravaerInaktiver(
     val referanse: String,
     val sykmeldt: Personident,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
 
 data class ArbeidsgivervarselInaktiver(
     val referanse: String,
     val orgnummer: Orgnummer,                   // matchnøkkel = virksomhet (B32)
-) : Hendelsesinnhold { override val partisjonsnokkel get() = orgnummer.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = orgnummer.value }
 ```
 **Matchnøkkel** = OPPRETTs partisjonsanker (det konsumenten kjenner ved OPPRETT), ikke den
 faktiske resolverte mottakeren. Match mot lagret rad: `(referanse, mottaker_id, kanal)`.

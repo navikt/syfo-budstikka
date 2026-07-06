@@ -11,20 +11,23 @@ trace-id/tracing, enklere feilsøk, eget Grafana-board.
 ## Status og videre arbeid (per 2026-07-06)
 
 **Fase 1 (grill/design) pågår — ingen produksjonskode skrevet ennå.** Beslutninger festes
-som nummererte B-er nedenfor og i temadokumentene. **B1–B42 er låst.** En fersk økt kan
+som nummererte B-er nedenfor og i temadokumentene. **B1–B43 er låst.** En fersk økt kan
 plukke opp arbeidet ved å lese denne fila + temadokumentene:
-`KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse), `FERDIGSTILL.md` (lukking),
-`FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37), `adr/0001-domeneblind-varselruter.md`.
+`GLOSSARY.md` (domenespråk), `KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse),
+`FERDIGSTILL.md` (lukking), `FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37),
+`adr/0001-domeneblind-varselruter.md`.
 
 **Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er ✅ (AG B29–B33;
 Inaktiver-typing B38–B39; tekstmodell/enums + mikrofrontend B40–B41) · 4 Observability ⬜ ·
 5 Auth & ACL ⬜ · 6 Migrering ✅ (B34–B37, detaljer ved implementering).
 
-**Neste konkrete steg:** kontrakten er ferdig-spekket og GDPR/retensjon er avklart (B42).
+**Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42), og
+topic-identitet/navn låst (B43: `team-esyfo.formidling.v1`, rot-type `Formidling`).
 Gjenstår å grille område 4 (Observability — Grafana-board, metrikker, tracing; B17 la
 grunnlaget) og område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy; ventet rett-fram da
-esyfovarsel har Texas-mønsteret). Parallelt: epic + sub-issues for utvikling er under
-opprettelse (kontrakt + datamodell + worker-topologi + retensjon er implementeringsklare).
+esyfovarsel har Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på
+`navikt/syfo-budstikka` (kontrakt, datamodell, worker-topologi og retensjon er
+implementeringsklare).
 
 **Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved
 usikkerhet, fest durable beslutninger her i `docs/` med nye B-nummer, commit per ferdig
@@ -74,7 +77,7 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 ## Låste beslutninger
 - B1: Konsument eier tekst + utløp (synligTom). Budstikka kjenner ikke domenet.
 - B2: Konsument oppgir mottaker (SM/NL/AG) + tillatte kanaler. Budstikka gjør KRR/digital-sjekk og velger digital vs. brev + fallback.
-- B3: 1 Kafka-topic `team-esyfo.varselbestilling` (IKKE «varselbus» — det var esyfovarsel-navnet), enkelthendelse (ingen liste), gjenbrukt for alle mottakere. Mottaker + handling er FELT, ikke topics. Ferdigstilling = egen hendelse. Brev kan ikke ferdigstilles.
+- B3: 1 Kafka-topic `team-esyfo.formidling.v1` (NY budstikka-eid topic — IKKE esyfovarsels legacy «varselbus»; navn/versjon/rot-type fastsatt i B43), enkelthendelse (ingen liste), gjenbrukt for alle mottakere. Mottaker + handling er FELT, ikke topics. Ferdigstilling = egen hendelse. Brev kan ikke ferdigstilles.
 - B4: Produsent oppgir eventId (inbox-dedup) + referanse (kobler FERDIGSTILL→OPPRETT). Budstikka kjenner ikke domenet, matcher kun på referanse.
 - B5: Partisjonsnøkkel = mottakerens id (SM=fnr, NL=nl-fnr, AG=orgnr). Ingen antakelse om at alt handler om en sykmeldt — bygg fleksibelt.
 - B6: Eksplisitt kanal pr. hendelse + kanalspesifikt payload (sealed/typet). Ingen array av kanaler. Vil konsument ha flere kanaler → flere hendelser.
@@ -100,11 +103,12 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B21: Ulovlige kombinasjoner (f.eks. FERDIGSTILL+BREV) gjøres urepresenterbare i typede sealed-kontrakter + JSON Schema (feil ved bygg, ikke drift). Runtime = defense-in-depth: logg + metrikk `ugyldig_kombinasjon`, ingen FEILET/alert. Kafka-offset committes alltid etter inbox-skriving; terminal DB-status blokkerer aldri partisjonen.
 
 ## Kontrakt/kanal-DTO-beslutninger (se docs/KONTRAKT.md)
-- B22: Kontraktstruktur — felles konvolutt (eventId, referanse) + sealed `Hendelsesinnhold` med diskriminator. Operasjon (OPPRETT/FERDIGSTILL) KODES INN i sealed-typen (ingen separat handling-enum), så B21 håndheves av kompilatoren. Lukking = felles thin `Inaktiver`-variant for lukkbare kanaler (`LukkbarKanal` uten BREV).
+- B22: Kontraktstruktur — felles konvolutt (eventId, referanse) + sealed `Formidlingsinnhold` med diskriminator. Operasjon (OPPRETT/FERDIGSTILL) KODES INN i sealed-typen (ingen separat handling-enum), så B21 håndheves av kompilatoren. Lukking = felles thin `Inaktiver`-variant for lukkbare kanaler (`LukkbarKanal` uten BREV).
 - B23: Egen NØYTRAL kanalabstraksjon for ALLE kanaler (anti-corruption-lag), formet rundt konsumentbehov — ikke nedstrøms-form. Budstikka mapper internt til tms/dokdist/notifikasjon-produsent-api. Nedstrøms-felt lekker aldri inn i offentlig kontrakt. Tekstmodell er vår egen (skjermtekst + valgfri ekstern SMS/e-post-override + foretrukne kanaler).
 - B24: NL-resolusjon SENTRALISERES i budstikka. Kontrakten for ledervarsel bærer `(arbeidstakerFnr, orgnummer)` — IKKE `narmesteLederFnr`. Budstikka slår opp aktiv leder i narmesteleder-registeret i Beslutning-fasen (samme fase som KRR/PDL, B10). Begrunnelse (research 2026-07): dagens esyfovarsel er en hybrid med DOBBELTOPPSLAG (både produsent og esyfovarsel kaller narmesteleder for samme dialogmøte-hendelse); produsentene har allerede narmesteleder-integrasjon → Alt B er ikke ekstra stress, eliminerer duplisering, gir én konsistent oppførsel og korrekt leder på sendetidspunkt (robust mot lederbytte). Konsekvens: narmesteleder blir budstikka-avhengighet (accessPolicy + Azure AD M2M); partisjonsnøkkel for ledervarsel = `arbeidstakerFnr` (stabil anker, nyanserer B5); FERDIGSTILL-matching = `(referanse, arbeidstakerFnr, kanal)`.
 - B25: SENDEVINDU eies av budstikka som nøytralt begrep (anti-corruption, B23) og operasjonaliseres i outbox. Nøytral `Sendevindu` (`LOEPENDE`, `NKS_AAPNINGSTID`, utvidbar). Budstikka SELF-operasjonaliserer: `tidligst_sending`-kolonne på leveranse beregnes i Beslutning-fasen fra vindu + NKS-kalender; outbox-poller gater `AND tidligst_sending <= now()`; budstikka sender ALLTID LØPENDE nedstrøms (aldri nedstrøms-native vindu) → lik oppførsel uansett kanal + hele ventetiden synlig i egen DB/Grafana. Default = `NKS_AAPNINGSTID` for eksternbærende leveranser (brukervarsel m/eksternVarsling, ledervarsel m/ekstern, arbeidsgivervarsel), `LOEPENDE` for brev/mikrofrontend/ren in-app. Konsument kan overstyre pr. hendelse (valgfritt `sendevindu`-felt). Vinduet holder HELE leveransen (in-app + ekstern samlet) — unngår avhengighet til nedstrøms utsatt-sending. Kostnad tatt bevisst: NKS-åpningstidskalender (helg/helligdag) bor i budstikka.
-- B26: Inbound-topic `team-esyfo.varselbestilling` får BOUNDED retention: 90 dager, `cleanup.policy=delete` (tidsbasert; IKKE compaction — dette er en kommando/event-strøm, ikke keyed changelog). Bounded er valgt bevisst av GDPR-dataminimering (topicet bærer fnr) + fordi inbox-tabellen (DB) er sannhetskilden, ikke topicet. HARD KOBLING: retention = replay-vindu (reset offset), og replay er kun trygt så lenge inbox-dedup-radene (event_id) fortsatt finnes → **inbox-dedup-rader MÅ holdes ≥ 90 dager**, ellers gir replay dobbeltvarsling. Setter dermed gulv for inbox-retention (åpent GDPR-punkt). Under migrering fra esyfovarsel gir 90 dager ekstra sikkerhetsnett.
+- B26: Inbound-topic `team-esyfo.formidling.v1` får BOUNDED retention: 90 dager, `cleanup.policy=delete` (tidsbasert; IKKE compaction — dette er en kommando/event-strøm, ikke keyed changelog). Bounded er valgt bevisst av GDPR-dataminimering (topicet bærer fnr) + fordi inbox-tabellen (DB) er sannhetskilden, ikke topicet. HARD KOBLING: retention = replay-vindu (reset offset), og replay er kun trygt så lenge inbox-dedup-radene (event_id) fortsatt finnes → **inbox-dedup-rader MÅ holdes ≥ 90 dager**, ellers gir replay dobbeltvarsling. Setter dermed gulv for inbox-retention (åpent GDPR-punkt). Under migrering fra esyfovarsel gir 90 dager ekstra sikkerhetsnett.
+- B43: TOPIC-IDENTITET/NAVN. Budstikkas innkommende topic er en NY, budstikka-EID topic `team-esyfo.formidling.v1` — ikke esyfovarsels legacy `team-esyfo.varselbus` (konsum av varselbus var aldri planen; issue #17 refererte den feilaktig og er rettet). Provisjoneres via Kafkarator `Topic`-CRD (egen oppgave, blokkerer Kafka-konsum-snittet); retention pr. B26 (90d, `cleanup.policy=delete`). ROT-TYPEN omdøpt `Varselbestilling` → `Formidling` (og `Hendelsesinnhold` → `Formidlingsinnhold`) fordi topicen bærer IKKE bare varsler, men også mikrofrontend-synlighet (B41 — en av/på-flate på Min side, ikke et varsel) samt brev og e-post: «varsel»/«bestilling» var for smalt (og «bestilling» rammer feil — det er ikke en ordre til budstikka, men selve tingen som skal ut). «Formidling» navngir HANDLINGEN å nå ut til en mottaker, kanal- og artefakt-agnostisk → dekker varsel, brev, e-post og mikrofrontend ærlig. Versjonssuffiks `.v1` per Kafka-navnekonvensjon (`<team>.<domene>.v<versjon>`) gir eksplisitt event-evolusjonssti (breaking → `.v2`, dual-write). Domenespråket festet i nytt `docs/GLOSSARY.md` med «Formidling» som paraplybegrep. GLOSSARET innført samtidig (første durable ordliste for domenet).
 
 ## Worker-/prosesseringsbeslutninger
 - B27: Worker-topologi = ÉN generisk dyp modul + tynn `Kanalhandler`-seam (dispatch på `kanal`). Det generiske maskineriet (poll, `FOR UPDATE SKIP LOCKED`-radlås, retry/backoff, statusoverganger, tracing, metrikker) bor ÉN gang; kanalspesifikt (bygg tms-varsel, kall dokdist, GraphQL mot notifikasjon-produsent-api) er tynne handler-implementasjoner bak et smalt grensesnitt. Ny kanal = én handler + registrering (ingen ny deploy/topic/tabell). Skalerer horisontalt via SKIP LOCKED (N like instanser). IKKE én worker-deployment per type (dupliserer maskineriet, øker sprawl) og IKKE saga/prosess-manager (hver leveranse er én idempotent, retrybar side-effekt uten distribuert tx å kompensere; brev-fallback + OPPRETT→INAKTIVER er allerede egne rader + tilstandsoverganger = routing-slip/state-machine, riktig vekt). Isolasjon dekkes billig: stramme per-kanal-timeouts (B15) + circuit breaker + backoff; trenger én kanal ekte isolasjon → dedikert poller-coroutine `WHERE kanal='X'` i SAMME deployment (config, ikke rearkitektur). `kanal`-kolonnen + `Kanalhandler` ER sømmen som muliggjør senere per-kanal-splitt uten å røre handler-kode.
