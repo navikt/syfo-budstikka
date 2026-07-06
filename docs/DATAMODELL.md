@@ -14,7 +14,7 @@ erDiagram
         text        handling "OPPRETT | FERDIGSTILL"
         text        kanal
         text        mottaker_type "SYKMELDT | NL | AG"
-        text        mottaker_id "fnr/nl-fnr/orgnr (PII)"
+        text        mottaker_id "matchnøkkel: sykmeldt-fnr/orgnr (PII); IKKE resolvert NL"
         jsonb       payload "rå hendelse"
         text        trace_id
         text        status "MOTTATT|BEHANDLET|DROPPET|FEILET"
@@ -33,8 +33,8 @@ erDiagram
         text        operasjon "OPPRETT | INAKTIVER"
         text        kanal
         text        mottaker_type
-        text        mottaker_id "PII"
-        jsonb       payload "frosset innhold: tekst, synlig_tom, eksternVarsling, journalpostId"
+        text        mottaker_id "matchnøkkel (PII); resolvert NL i payload"
+        jsonb       payload "frosset innhold: tekst, synlig_tom, eksternVarsling, journalpostId, resolvert NL; for INAKTIVER: meldingstype/sti/ekstern_respons_id/grupperingsid fra OPPRETT (B39)"
         text        status "KLAR|SENDT|FEILET_PERMANENT|UTLOPT"
         int         forsok
         timestamptz neste_forsok_tid
@@ -107,8 +107,14 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
   Drill-down til enkelt-id via Loki/Tempo, ikke metrikk-labels.
 
 ## Åpne punkter
-- Retensjon/sletting av PII (fnr) — GDPR. Eget designpunkt. GULV satt av B26:
-  inbox-dedup-rader (event_id) MÅ holdes ≥ 90 dager (= topic-retention), ellers gir
-  Kafka-replay dobbeltvarsling. Leveranse-rader kan ha egen (kortere?) retensjon.
-- FERDIGSTILL-flyt i detalj (matching, hvilke kanaler kan lukkes) — område 2.
+- ~~Retensjon/sletting av PII (fnr) — GDPR.~~ → LØST (B42): HARD DELETE, ulik retensjon
+  pr. tabell — `inbox_hendelse` ~100 dager (90d B26-gulv + buffer), `leveranse` terminal
+  + ~180 dager (dekker replay + dialogmøte/AG-sak-lukkevindu; ≈ Loki-loggretensjon maks
+  ~6 mnd). FK `inbox_event_id` → `ON DELETE SET NULL`. Mekanisme: in-app periodisk
+  coroutine med advisory lock + batchet DELETE (ingen leader election, B12). Juridisk
+  avklaring + personverndokumentasjon (DPIA/ROS/behandlingsprotokoll) = egen oppgave.
+- ~~FERDIGSTILL-flyt i detalj (matching, hvilke kanaler kan lukkes) — område 2.~~ → LØST
+  (B19–B21, B38–B39): typet Inaktiver pr. kanal, matchnøkkel = OPPRETTs partisjonsanker
+  (`mottaker_id`; sykmeldt-fnr for LEDERVARSEL, orgnr for AG — ikke resolvert NL), lukke-
+  operasjon avledet fra lagret OPPRETT-rad og fryst på INAKTIVER-leveransen.
 - `payload`-skjema pr. kanal (typet DTO ↔ jsonb) — kanal-DTO-område (3).

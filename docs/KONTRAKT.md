@@ -1,8 +1,9 @@
-# Kontrakt / kanal-DTO-er — syfo-budstikka (UTKAST)
+# Kontrakt / kanal-DTO-er — syfo-budstikka
 
-> **Status: UTKAST for review.** Strukturen (sealed + operasjon i typen, jf. B22) er
-> låst. Feltene er forslag — vi finmodellerer den nøytrale abstraksjonen (B23) til den
-> dekker konsumentbehovet enkelt. Åpne spørsmål er markert ⟡.
+> **Status: FERDIG-GRILLET (designområde 3 lukket).** Struktur (sealed + operasjon i
+> typen, B22), alle kanal-DTO-er, Inaktiver-typing (B38–B39) og tekstmodell/enums
+> (B40–B41) er låst. Alle åpne spørsmål (⟡) er løst — se § nederst. Feltdetaljer kan
+> justeres non-breaking ved implementering; nye kanaler/felt legges til additivt.
 
 ## Prinsipp (B23)
 Budstikka eier sin egen nøytrale modell. Den speiler IKKE tms/dokdist/notifikasjon-
@@ -11,13 +12,13 @@ har det. Intern mapping til nedstrøms er et anti-corruption-lag.
 
 ## Konvolutt
 ```kotlin
-data class Varselbestilling(
+data class Formidling(
     val eventId: UUID,            // dedup (B4)
     val referanse: String,        // kobler OPPRETT/FERDIGSTILL (B4)
-    val innhold: Hendelsesinnhold // sealed — bærer mottaker + operasjon
+    val innhold: Formidlingsinnhold // sealed — bærer mottaker + operasjon
 )
 
-sealed interface Hendelsesinnhold {
+sealed interface Formidlingsinnhold {
     val partisjonsnokkel: String  // accessor for Kafka-nøkkel (B5), ikke delt Mottaker-hierarki (B9)
 }
 ```
@@ -57,6 +58,8 @@ enum class AltinnRessursId { DIALOGMOETE }            // B32: → produsent-api 
 
 enum class AgMeldingstype { BESKJED, OPPGAVE }        // B33: nøytral, separat fra Brukervarsels Varseltype; frist/påminnelse utsatt
 
+enum class Varseltype { BESKJED, OPPGAVE }            // B40: brukervarsel; tms støtter også Innboks, men esyfovarsel bruker den aldri → utelatt (YAGNI, utvidbar)
+
 data class Sakstilknytning(                            // B31: konsumenten eier saken
     val sakId: String,                                 // konsumentens id → grupperingsid nedstrøms
 )
@@ -75,7 +78,7 @@ data class BrukervarselOpprett(
     val eksternVarsling: EksternVarsling? = null,  // null = kun Min side
     val brevFallback: BrevFallback? = null,    // B8
     val sendevindu: Sendevindu? = null,        // B25: null = budstikka-default
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 
 ### 2. Ledervarsel — nærmeste leder, Dine Sykmeldte
@@ -88,7 +91,7 @@ data class LedervarselOpprett(
     val synligTom: Instant? = null,
     val eksternVarsling: EksternVarsling? = null,
     val sendevindu: Sendevindu? = null,        // B25
-) : Hendelsesinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
 ```
 **B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
 — IKKE NL-fnr. Budstikka slår opp aktiv leder i narmesteleder-registeret i Beslutning-
@@ -101,10 +104,12 @@ data class DittSykefravaerOpprett(
     val personident: Personident,
     val tekst: String,
     val lenke: String? = null,
-    val variant: Meldingsvariant = Meldingsvariant.INFO,  // INFO | VIKTIG
     val synligTom: Instant? = null,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
+**B40:** ingen `variant`-felt — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum
+har kun `INFO` (verifisert i esyfovarsel). Budstikka sender alltid INFO. Legges til
+non-breaking senere hvis flex utvider.
 
 ### 4. Arbeidsgivervarsel — Min side arbeidsgiver / Altinn
 ```kotlin
@@ -119,7 +124,7 @@ data class ArbeidsgivervarselOpprett(
     val sakstilknytning: Sakstilknytning? = null,   // B31: konsumentens sak (→ grupperingsid); konsument eier saken
     val synligTom: Instant? = null,
     val sendevindu: Sendevindu? = null,             // B25
-) : Hendelsesinnhold { override val partisjonsnokkel get() = orgnummer.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = orgnummer.value }
 
 // B32 — de to stiene kombineres ALDRI (research) → sealed valg, ikke separate hendelsesvarianter.
 sealed interface AgMottaker
@@ -170,7 +175,7 @@ data class BrevOpprett(
     val personident: Personident,
     val journalpostId: String,                 // konsument har opprettet journalpost
     val distribusjonstype: Distribusjonstype = Distribusjonstype.VIKTIG,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
 
 ### 6. Mikrofrontend — sykmeldt, synlighet på Min side
@@ -179,37 +184,60 @@ data class MikrofrontendAktiver(
     val personident: Personident,
     val mikrofrontendId: String,               // konsument oppgir hvilken (domeneblind)
     val synligTom: Instant? = null,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 
 data class MikrofrontendDeaktiver(             // mikrofrontendens «ferdigstill»
     val personident: Personident,
     val mikrofrontendId: String,
-) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
+) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
 ```
-⟡ Mikrofrontend er synlighet, ikke et varsel. Egne aktiver/deaktiver-varianter holder
-det utenfor den generelle Inaktiver-mekanismen. OK?
+**B41: mikrofrontend holdes utenfor Inaktiver-mekanismen** — eget aktiver/deaktiver-par.
+Det er synlighet på Min side, ikke en leveranse-med-mottaker: `Deaktiver` matcher ikke en
+lagret OPPRETT-leveranse på `referanse` (som Inaktiver, B39), og har ingen `meldingstype`/sti/
+`ekstern_respons_id` å fryse — bare en av/på-bryter for `(person, mikrofrontendId)`. Konsistent
+med B38 (`LukkbarKanal` inkluderte aldri MIKROFRONTEND).
 
-## FERDIGSTILL / lukking
+## FERDIGSTILL / lukking (B38, B39)
+Typet variant PR. LUKKBAR KANAL — kanal er implisitt i typen, matchnøkkelen er typet
+(bevarer PII-maskering, B9) og ulovlige `(kanal, nøkkel)`-par er urepresenterbare (B38).
+Hendelsen er THIN: kun `referanse` + typet nøkkel. Lukkeoperasjonen nedstrøms bæres ALDRI
+av hendelsen — budstikka avleder den fra den lagrede OPPRETT-raden (B39).
+
 ```kotlin
-data class Inaktiver(
-    val kanal: LukkbarKanal,                    // uten BREV → B21 i typen
-    val mottakerident: String,                  // for partisjonsnøkkel + matching
-) : Hendelsesinnhold { override val partisjonsnokkel get() = mottakerident }
+data class BrukervarselInaktiver(
+    val referanse: String,
+    val sykmeldt: Personident,                  // matchnøkkel = OPPRETT-partisjonsanker
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
 
-enum class LukkbarKanal { BRUKERVARSEL, LEDERVARSEL, DITT_SYKEFRAVAER, ARBEIDSGIVERVARSEL }
+data class LedervarselInaktiver(
+    val referanse: String,
+    val sykmeldt: Personident,                  // B24: sykmeldt, IKKE NL-fnr (ukjent for konsument)
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+
+data class DittSykefravaerInaktiver(
+    val referanse: String,
+    val sykmeldt: Personident,
+) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+
+data class ArbeidsgivervarselInaktiver(
+    val referanse: String,
+    val orgnummer: Orgnummer,                   // matchnøkkel = virksomhet (B32)
+) : Formidlingsinnhold { override val partisjonsnokkel get() = orgnummer.value }
 ```
-⟡ `Inaktiver` trenger mottaker for partisjonsnøkkel + matching, men mottakertypen
-varierer pr. kanal. To valg: (a) felles thin variant med generisk `mottakerident: String`
-(matcher lagret rad på (referanse, mottaker_id, kanal)) — bryter litt med typede
-value-class-mottakere; (b) én Inaktiver-variant pr. kanal med typet mottaker. B22 valgte
-felles thin → (a). Bekreft at generisk ident er greit her (vi matcher kun en lagret rad).
-Dessuten (B33): for AG avhenger lukke-OPERASJONEN nedstrøms av den lagrede leveransen —
-OPPGAVE → `oppgaveUtført`, BESKJED → `hardDelete`; og NL-sti vs Altinn-sti bruker ulik
-matchenøkkel (jf. funn-boks). Inaktiver må derfor slå opp lagret meldingstype/sti, ikke bare kanal.
+**Matchnøkkel** = OPPRETTs partisjonsanker (det konsumenten kjenner ved OPPRETT), ikke den
+faktiske resolverte mottakeren. Match mot lagret rad: `(referanse, mottaker_id, kanal)`.
+BREV er urepresenterbart (ingen `BrevInaktiver` — B3/B21). Mikrofrontend har egne
+aktiver/deaktiver-varianter (§ over), utenfor denne mekanismen.
+
+**Lukkeoperasjon (B39):** avledes fra lagret OPPRETT-rad. Beslutnings-workeren (B28) finner
+matchende OPPRETT-leveranse, `decide()` fryser lukkeparametrene (`meldingstype`, sti NL/Altinn,
+`ekstern_respons_id`, `grupperingsid`) onto INAKTIVER-leveransen, og `Kanalhandler` (B27)
+dispatcher på disse LAGREDE TEKNISKE attributtene — AG: OPPGAVE→`oppgaveUtført`,
+BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` — aldri på domenetype (domeneblind, B1/B30).
 
 ## Åpne spørsmål til review
 1. ~~Ledervarsel: konsument vs budstikka-oppslag av NL~~ → **LØST (B24): budstikka resolver.**
 2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30), sak (B31), mottaker-modell (B32), meldingstype (B33) LØST — **AG ferdig-grillet**. Rest-kobling til Inaktiver, se #3.
-3. Inaktiver: generisk `mottakerident: String` vs typet pr. kanal. ⟡
-4. Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?
-5. Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?
+3. ~~Inaktiver: generisk `mottakerident: String` vs typet pr. kanal~~ → **LØST (B38/B39): typet Inaktiver pr. kanal (thin), lukkeoperasjon avledes fra lagret OPPRETT-rad.**
+4. ~~Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?~~ → **LØST (B40): `Varseltype {BESKJED,OPPGAVE}` beholdt + definert; `variant`/`Meldingsvariant` fjernet (nedstrøms har kun INFO).**
+5. ~~Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?~~ → **LØST (B40): holdes inline pr. variant (bevarer AG lenke-required; deklarasjonsduplisering ≠ logikk-duplisering).**
