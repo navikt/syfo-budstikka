@@ -56,7 +56,7 @@ flowchart TB
     OWORK -->|"levér / ferdigstill<br/>(idempotent pr. leveranse-id)"| MS & DS & DSF & AG & BREV & MF
     OWORK -->|"suksess → sendt + metrikk"| OK([" "])
 
-    TRACE["trace-id propageres:<br/>produsent → Kafka-header → workers → levering → logg/Grafana"]
+    TRACE["korrelasjon = eventId (B45):<br/>produsent-oppgitt → inbox/leveranse → workers → levering → logg/Grafana;<br/>OTel trace_id/span_id per hopp (Tempo)"]
 ```
 
 ## Lesehjelp

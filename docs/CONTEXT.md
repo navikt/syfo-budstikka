@@ -11,7 +11,7 @@ trace-id/tracing, enklere feilsøk, eget Grafana-board.
 ## Status og videre arbeid (per 2026-07-06)
 
 **Fase 1 (grill/design) pågår — ingen produksjonskode skrevet ennå.** Beslutninger festes
-som nummererte B-er nedenfor og i temadokumentene. **B1–B44 er låst.** En fersk økt kan
+som nummererte B-er nedenfor og i temadokumentene. **B1–B45 er låst.** En fersk økt kan
 plukke opp arbeidet ved å lese denne fila + temadokumentene:
 `GLOSSARY.md` (domenespråk), `KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse),
 `FERDIGSTILL.md` (lukking), `FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37),
@@ -94,7 +94,7 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B14: Status på leveranse-raden (KLAR/SENDT/FEILET_PERMANENT/UTLOPT); transient feil = bli i KLAR m/ backoff (forsok, neste_forsok_tid). Ingen separat feilet-tabell.
 - B15: Outbox-worker holder radlås under selve sendingen (FOR UPDATE SKIP LOCKED) med stramme klient-timeouts. Lease/claim er ren oppgraderingssti senere.
 - B16: Idempotensnøkkel mot kanaler = vår genererte `leveranse.id` (UUID), gjenbrukt ved retry + FERDIGSTILL. `ekstern_respons_id` (nullable) lagrer kanalens retur-id for sporing.
-- B17: Sporing — `trace_id`-kolonne på inbox+leveranse; enkelt-id spores i Grafana via Loki (logger) + Tempo (traces) korrelert på trace_id. Prometheus-metrikker kun lav kardinalitet (kanal/status/mottaker_type/feiltype), aldri id/fnr som label.
+- B17: Sporing — enkelt-id spores i Grafana via Loki (logger) + Tempo (traces). Prometheus-metrikker kun lav kardinalitet (kanal/status/mottaker_type/feiltype), aldri id/fnr som label. REVIDERT av B45: korrelasjons-iden er `eventId` (produsent-oppgitt), ingen egen `trace_id`-kolonne.
 - B18: Inbox-livsløp — konsument skriver MOTTATT; beslutnings-workeren setter BEHANDLET/DROPPET(drop_aarsak=DOD)/FEILET i én tx. Inbox har egen backoff (forsok/neste_forsok_tid) for transiente gate-feil mot PDL/KRR. Død-dropp logges som status på inbox (justerer B7: ingen egen tabell). PII-at-rest: fnr i klartekst i mottaker_id (CloudSQL-kryptert, maskert i logg); retensjon/GDPR er åpent punkt.
 
 ## FERDIGSTILL-beslutninger (se docs/FERDIGSTILL.md)
@@ -138,6 +138,9 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 
 ## Teknologivalg (se docs/TEKNOLOGI.md)
 - B44: TEKNOLOGIVALG. Idiomatisk moderne Kotlin, IKKE Spring-aktig; testbarhet er førsteklasses. RAMMEVERK: Ktor + Netty med Ktors INNEBYGDE DI (Ktor 3.2+) — ikke Koin, ikke Spring → `domain` holdes rammeverksfritt (nyanserer `kotlin.instructions.md` som nevner Koin). DATA: Postgres 18 (esyfovarsel kjørte 17) + Exposed DSL (typet SQL-DSL, IKKE DAO/ORM eller rå JDBC; parameterisert av DSL-en; må uttrykke `FOR UPDATE SKIP LOCKED` for B15/B27) + HikariCP + Flyway (additivt). UUID v7 (tidssortert) for interne id-er som `leveranse.id` (B16) → bedre B-tree-lokalitet enn v4 + hjelper alders-`DELETE` (B42); Postgres 18 har `uuidv7()` INNEBYGD → id genereres av DB via `DEFAULT uuidv7()` (Flyway), ingen app-side generator. STANDARD: `java.util.UUID` via Exposed `javaUUID()` (ingen experimental opt-in, best interop mot Kafka/JDBC på JVM) — IKKE `uuid()` (som i Exposed 1.0 er `kotlin.uuid.Uuid` + krever `@OptIn(ExperimentalUuidApi::class)`); bruk `.databaseGenerated()`, IKKE `.autoGenerate()` (gir klient-side v4). `eventId` B4 settes av produsent-appene, ikke budstikkas DB. KAFKA: plain `kafka-clients` i egen coroutine (ikke Rapids & Rivers). STRUKTUR (DDD/ports & adapters under `no.nav.syfo`): `domain` = ren kjerne/functional core (B28, ingen I/O) · `infrastructure` = imperative shell (Kafka, Exposed-repos, eksterne klienter, DataSource) · `api` = Ktor-routes (interne endepunkter, ev. admin). TEST: Kotest FunSpec + MockK + Testcontainers (Kotest-extension); to nivåer — raske, parallelle, rene enhetstester av `domain` + container-integrasjonstester; ktlint for stil. Alle avhengigheter via version catalog (`libs.*`/`ktorLibs.*`), aldri hardkodede versjoner.
+
+## Observability-beslutninger (se docs/DATAMODELL.md, FLYT.md; jf. B17)
+- B45: KORRELASJONS-ID = `eventId` (REVIDERER B17). Ingen egen `trace_id`-kolonne. `eventId` (B4, produsent-oppgitt PK for dedup) ER den persisterte korrelasjons-iden for ett hendelsesløp: trådes til leveranse via `inbox_event_id`-FK, re-attacheres på MDC i hvert prosesseringssteg (konsum, `decide()`, poller, send) → Loki-filter `| eventId="X"` viser hele per-hendelse-livsløpet på tvers av tid og instanser. GRATIS kryss-system-sporing: siden eventId er produsent-oppgitt, korrelerer den også inn i den PRODUSERENDE appens logger dersom produsenten logger sin egen eventId — ingen egen `Nav-Callid`-header nødvendig. KRYSS-HENDELSE: OPPRETT→FERDIGSTILL er to ULIKE events med ulik eventId → korreleres på `referanse` (B39-oppslagsnøkkel, allerede indeksert), også MDC/logg-felt. OTEL: W3C `traceparent` settes av NAIS-agenten per eksekvering (kortlevd, per hopp — dekker ALDRI hele det asynkrone outbox-løpet) → logg OTel `trace_id`+`span_id` per hopp for Tempo-drill-down; DISTINKT fra `eventId` (teknisk per-hopp vs forretning per-hendelse). NAVNEKOLLISJON unngått: forretnings-korrelasjon heter `eventId`/`referanse` i logg/MDC, `trace_id` reserveres OTel. Prometheus uendret (lav kardinalitet; aldri eventId/fnr som label — drill-down kun via Loki/Tempo). KONSEKVENS: `trace_id`-kolonne fjernet fra inbox+leveranse; «trace_id via Kafka-header» utgår (DATAMODELL/KONTRAKT/FLYT ryddet).
 
 ## Kjernespenning å designe rundt
 Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan
