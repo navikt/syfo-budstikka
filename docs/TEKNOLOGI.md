@@ -18,9 +18,10 @@ aldri hardkodede versjoner.
   Parameteriserte spørringer ivaretas av DSL-en. Må uttrykke `FOR UPDATE SKIP LOCKED`
   for worker-radlåsen (B15/B27). **HikariCP** som connection pool.
 - **Flyway** for skjemaendringer (`src/main/resources/db/migration/V<n>__*.sql`), additivt.
-- **UUID v7** (tidssortert) for `eventId` og `leveranse.id` (B4/B16). Gir bedre B-tree-lokalitet
-  enn v4 og hjelper alders-baserte retensjons-`DELETE` (B42). JVM/Kotlin genererer v4 som
-  standard → v7 krever en generator (bibliotek eller liten egen implementasjon).
+- **UUID v7** (tidssortert) for interne id-er som `leveranse.id` (B16). Gir bedre B-tree-lokalitet
+  enn v4 og hjelper alders-baserte retensjons-`DELETE` (B42). **Postgres 18 har `uuidv7()` innebygd**
+  → genereres i skjemaet med `DEFAULT uuidv7()`, ingen app-side generator eller bibliotek.
+  Merk: `eventId` (B4) settes av produsent-appene (innkommende Kafka-kontrakt), ikke av budstikkas DB.
 
 ## Kafka
 
