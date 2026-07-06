@@ -21,10 +21,12 @@ aldri hardkodede versjoner.
 - **UUID v7** (tidssortert) for interne id-er som `leveranse.id` (B16). Gir bedre B-tree-lokalitet
   enn v4 og hjelper alders-baserte retensjons-`DELETE` (B42). **Postgres 18 har `uuidv7()` innebygd**
   → id-en genereres av databasen med `DEFAULT uuidv7()` (settes i Flyway-migreringen), ingen app-side
-  generator. I **Exposed 1.0** aksepterer `uuid("id")` nå **kun `kotlin.uuid.Uuid`** → filen/objektet
-  må ha `@OptIn(ExperimentalUuidApi::class)`; vil man ha `java.util.UUID` brukes `javaUUID("id")` (ingen
-  opt-in). Marker kolonnen `.databaseGenerated()` så Exposed leser id-en tilbake i stedet for å sende en.
-  **Ikke** `.autoGenerate()` — den lager en klient-side v4. Merk: `eventId` (B4) settes av produsent-appene
+  generator. **Standard i budstikka: `java.util.UUID` via `javaUUID("id")`** (pakke
+  `org.jetbrains.exposed.v1.core.java`) — ingen experimental opt-in, best interop mot Kafka/JDBC/serialisering
+  på en ren JVM-backend. (`uuid("id")` i Exposed 1.0 er `kotlin.uuid.Uuid` og krever
+  `@OptIn(ExperimentalUuidApi::class)` — velges ikke her.) Marker kolonnen `.databaseGenerated()` så Exposed
+  leser id-en tilbake i stedet for å sende en. **Ikke** `.autoGenerate()` — den lager en klient-side v4.
+  Merk: `eventId` (B4) settes av produsent-appene
   (innkommende Kafka-kontrakt), ikke av budstikkas DB.
 
 ## Kafka
