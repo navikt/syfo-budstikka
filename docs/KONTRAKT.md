@@ -1,8 +1,9 @@
-# Kontrakt / kanal-DTO-er — syfo-budstikka (UTKAST)
+# Kontrakt / kanal-DTO-er — syfo-budstikka
 
-> **Status: UTKAST for review.** Strukturen (sealed + operasjon i typen, jf. B22) er
-> låst. Feltene er forslag — vi finmodellerer den nøytrale abstraksjonen (B23) til den
-> dekker konsumentbehovet enkelt. Åpne spørsmål er markert ⟡.
+> **Status: FERDIG-GRILLET (designområde 3 lukket).** Struktur (sealed + operasjon i
+> typen, B22), alle kanal-DTO-er, Inaktiver-typing (B38–B39) og tekstmodell/enums
+> (B40–B41) er låst. Alle åpne spørsmål (⟡) er løst — se § nederst. Feltdetaljer kan
+> justeres non-breaking ved implementering; nye kanaler/felt legges til additivt.
 
 ## Prinsipp (B23)
 Budstikka eier sin egen nøytrale modell. Den speiler IKKE tms/dokdist/notifikasjon-
@@ -57,6 +58,8 @@ enum class AltinnRessursId { DIALOGMOETE }            // B32: → produsent-api 
 
 enum class AgMeldingstype { BESKJED, OPPGAVE }        // B33: nøytral, separat fra Brukervarsels Varseltype; frist/påminnelse utsatt
 
+enum class Varseltype { BESKJED, OPPGAVE }            // B40: brukervarsel; tms støtter også Innboks, men esyfovarsel bruker den aldri → utelatt (YAGNI, utvidbar)
+
 data class Sakstilknytning(                            // B31: konsumenten eier saken
     val sakId: String,                                 // konsumentens id → grupperingsid nedstrøms
 )
@@ -101,10 +104,12 @@ data class DittSykefravaerOpprett(
     val personident: Personident,
     val tekst: String,
     val lenke: String? = null,
-    val variant: Meldingsvariant = Meldingsvariant.INFO,  // INFO | VIKTIG
     val synligTom: Instant? = null,
 ) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
 ```
+**B40:** ingen `variant`-felt — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum
+har kun `INFO` (verifisert i esyfovarsel). Budstikka sender alltid INFO. Legges til
+non-breaking senere hvis flex utvider.
 
 ### 4. Arbeidsgivervarsel — Min side arbeidsgiver / Altinn
 ```kotlin
@@ -186,8 +191,11 @@ data class MikrofrontendDeaktiver(             // mikrofrontendens «ferdigstill
     val mikrofrontendId: String,
 ) : Hendelsesinnhold { override val partisjonsnokkel get() = personident.value }
 ```
-⟡ Mikrofrontend er synlighet, ikke et varsel. Egne aktiver/deaktiver-varianter holder
-det utenfor den generelle Inaktiver-mekanismen. OK?
+**B41: mikrofrontend holdes utenfor Inaktiver-mekanismen** — eget aktiver/deaktiver-par.
+Det er synlighet på Min side, ikke en leveranse-med-mottaker: `Deaktiver` matcher ikke en
+lagret OPPRETT-leveranse på `referanse` (som Inaktiver, B39), og har ingen `meldingstype`/sti/
+`ekstern_respons_id` å fryse — bare en av/på-bryter for `(person, mikrofrontendId)`. Konsistent
+med B38 (`LukkbarKanal` inkluderte aldri MIKROFRONTEND).
 
 ## FERDIGSTILL / lukking (B38, B39)
 Typet variant PR. LUKKBAR KANAL — kanal er implisitt i typen, matchnøkkelen er typet
@@ -231,5 +239,5 @@ BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` — aldri på domenetype (do
 1. ~~Ledervarsel: konsument vs budstikka-oppslag av NL~~ → **LØST (B24): budstikka resolver.**
 2. Arbeidsgivervarsel (#4): e-post (B29), merkelapp (B30), sak (B31), mottaker-modell (B32), meldingstype (B33) LØST — **AG ferdig-grillet**. Rest-kobling til Inaktiver, se #3.
 3. ~~Inaktiver: generisk `mottakerident: String` vs typet pr. kanal~~ → **LØST (B38/B39): typet Inaktiver pr. kanal (thin), lukkeoperasjon avledes fra lagret OPPRETT-rad.**
-4. Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?
-5. Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?
+4. ~~Varseltype-enum (BESKJED/OPPGAVE) og Meldingsvariant: dekker de behovet?~~ → **LØST (B40): `Varseltype {BESKJED,OPPGAVE}` beholdt + definert; `variant`/`Meldingsvariant` fjernet (nedstrøms har kun INFO).**
+5. ~~Felles `tekst`/`lenke` — bør de trekkes ut i en delt `Innholdstekst`-type?~~ → **LØST (B40): holdes inline pr. variant (bevarer AG lenke-required; deklarasjonsduplisering ≠ logikk-duplisering).**
