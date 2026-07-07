@@ -12,16 +12,24 @@ KRR-reservasjon, nærmeste leder, de seks kanalene) ligger bak grensesnitt («po
 
 Behovet for slike fakes — og for å starte Kafka + Postgres — er identisk for de automatiske
 integrasjonstestene og for et framtidig interaktivt lokalt løp. Derfor bygger vi det **én
-gang** og deler:
+gang** og deler. **Standard: alt i `src/test`** — fakes, scenario-byggere, Testcontainers-base,
+e2e-specs og (senere) en kjørbar lokal `main()`. Innenfor ett modul er `src/test` allerede delt
+på tvers av alle testklasser, så det trengs verken en ekstra plugin eller et eget source-set.
 
-- **Fakes** (in-memory implementasjoner av portene) og **scenario-byggere** → `src/testFixtures`.
-- **Kjørbar `main()`** og **e2e-specs** → `src/test`.
+- **Fakes** (in-memory implementasjoner av portene), **scenario-byggere**, **Testcontainers-base**,
+  **e2e-specs** og (senere) **kjørbar `main()`** → `src/test`.
 - **Aldri i `src/main`.**
+
+Et eget `testFixtures`-source-set (`java-test-fixtures`-pluginen — merk: Gradle-navn, koden er
+Kotlin) innføres **kun hvis** et konkret delingsbehov dukker opp: prosjektet splittes i flere
+moduler, eller en ekstern konsument skal gjenbruke fakene. Så lenge det er ett modul og fakene
+kun konsumeres av egne tester, er `src/test` enklere og gir alle de samme prod-garantiene.
+(Bonus i `src/test`: fakene ser `internal`-medlemmer i `src/main`; `testFixtures` ser bare `public`.)
 
 ### Prod-grensen er garantien (B50)
 
-Prod-artefakten (fat-jar / Docker-image) bygges **kun** fra `src/main`. Alt i `testFixtures`
-og `test` er fysisk fraværende fra prod-jaren. Det gjør det **umulig** å wire en fake i prod
+Prod-artefakten (fat-jar / Docker-image) bygges **kun** fra `src/main`. Alt i `src/test`
+er fysisk fraværende fra prod-jaren. Det gjør det **umulig** å wire en fake i prod
 — håndhevet av Gradle/kompilatoren, ikke av menneskelig disiplin.
 
 ```
@@ -29,11 +37,10 @@ src/main/…                         ← PROD (kun dette shippes)
   Application.module(deps)          ← wiring tar avhengigheter som parametre (Ktor-DI, B44)
   Main.kt                           ← prod-entrypoint: wirer EKTE adaptere
 
-src/testFixtures/…                 ← IKKE i prod-jaren
-  FakeDodsfall, FakeReservasjon, FakeNarmesteLeder, FakeKanal …   ← delte fakes
-  scenario-byggere (digital-bruker, reservert-brev-fallback, mottaker-dod, nl-mangler, …)
-
 src/test/…                         ← IKKE i prod-jaren
+  fakes/  FakeDodsfall, FakeReservasjon, FakeNarmesteLeder, FakeKanal …   ← delte fakes
+  scenario-byggere (digital-bruker, reservert-brev-fallback, mottaker-dod, nl-mangler, …)
+  Testcontainers-base (delt Kotest-extension)
   <e2e>Spec.kt                      ← Kotest e2e mot Testcontainers + fakes
   LokalApp.kt (main)                ← UTSATT: interaktivt lokalt løp
 ```
