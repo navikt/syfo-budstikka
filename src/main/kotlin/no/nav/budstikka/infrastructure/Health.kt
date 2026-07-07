@@ -5,10 +5,12 @@ data class HealthResult(
     val message: String,
 )
 
-typealias HealthCheck = suspend () -> HealthResult
+interface HealthCheck {
+    suspend fun check(): HealthResult
+}
 
 suspend fun checkHealth(checks: List<HealthCheck>): HealthResult {
-    val results = checks.map { it() }
+    val results = checks.map { it.check() }
 
     return if (results.all { it.healthy }) {
         HealthResult(
