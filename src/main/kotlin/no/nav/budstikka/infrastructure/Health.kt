@@ -15,7 +15,7 @@ suspend fun checkHealth(checks: List<HealthCheck>): HealthResult {
     return if (results.all { it.healthy }) {
         HealthResult(
             healthy = true,
-            message = "Ready",
+            message = "I'm ready! :)",
         )
     } else {
         HealthResult(
