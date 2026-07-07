@@ -6,6 +6,7 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import no.nav.budstikka.infrastructure.HealthCheck
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -15,6 +16,9 @@ fun DependencyRegistry.databaseModule() {
     provide<HikariDataSource> { createDataSource(resolve()) }
         .cleanup(HikariDataSource::close)
     provide<Database> { Database.connect(resolve<DataSource>()) }
+    provide<HealthCheck> {
+        dataSourceHealthCheck(resolve())
+    }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =
