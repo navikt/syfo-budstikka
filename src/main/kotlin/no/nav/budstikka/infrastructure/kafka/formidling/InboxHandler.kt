@@ -13,7 +13,7 @@ class InboxHandler : MessageHandler<String, String?> {
     override suspend fun handle(record: ConsumerRecord<String, String?>) {
         val payload = record.value() ?: return
 //            val dto = json.decodeFromString<SykmeldingHendelseDto>(payload)
-        logger.debug(
+        logger.info(
             "Processed sykmelding hendelse for topic={}, partition={}, offset={}",
             record.topic(),
             record.partition(),
