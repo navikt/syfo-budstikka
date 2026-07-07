@@ -1,18 +1,15 @@
-# Gradle
-.gradle/
-build/
-!gradle/wrapper/gradle-wrapper.jar
+# Idea project files
+*.iml
+.idea/
 
-# IntelliJ IDEA (project-specific user state)
-*.iws
-*.ipr
+# Gradle files
 out/
-.idea/shelf/
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/usage.statistics.xml
-.idea/dictionaries/
-.idea/httpRequests/
+build/
+.gradle/
+.kotlin/
+
+# Local mise config with developer-specific environment values
+mise.local.toml
 
 # Lokal agent-/verktøy-state (ikke del av repoet)
 .claude/
@@ -22,3 +19,13 @@ out/
 
 # OS
 .DS_Store
+
+# Package Files #
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
