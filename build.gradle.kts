@@ -1,3 +1,5 @@
+import com.adarshr.gradle.testlogger.theme.ThemeType
+
 buildscript {
     dependencies {
         classpath(libs.flyway.database.postgresql)
@@ -10,6 +12,7 @@ plugins {
     alias(libs.plugins.ktor)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.flyway)
+    alias(libs.plugins.test.logger)
 }
 
 group = "no.nav.syfo"
@@ -50,6 +53,8 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.logstash.logback.encoder)
     implementation(libs.micrometer.registry.prometheus)
+    testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.kotest.runner.junit5)
 }
 
 tasks {
@@ -57,6 +62,15 @@ tasks {
         description = "Print the version of the app"
         doLast {
             println(project.version)
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+        testlogger {
+            theme = ThemeType.MOCHA_PARALLEL
+            showFullStackTraces = true
+            showSimpleNames = true
         }
     }
 

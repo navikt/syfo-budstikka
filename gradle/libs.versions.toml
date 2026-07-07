@@ -12,6 +12,8 @@ flyway = "12.9.0"
 postgresql = "42.7.11"
 coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
+kotest = "6.2.1"
+testLogger = "4.0.0"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -19,6 +21,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
 flyway = { id = "org.flywaydb.flyway", version.ref = "flyway" }
+test-logger = { id = "com.adarshr.test-logger", version.ref = "testLogger" }
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -43,4 +46,5 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashLogbackEncoder" }
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
-
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
