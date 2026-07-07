@@ -2,12 +2,13 @@ package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.infrastructure.LivenessCheck
+import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
 import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
 
 fun DependencyRegistry.kafkaModule() {
-    provide<MessageHandler<String, String?>> { InboxHandler() }
+    provide<InboxHandler> { InboxHandler(resolve<InboxRepository>()) }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
         val enabledConsumers = kafkaConfig.consumers.filterValues { it.enabled }
@@ -25,7 +26,7 @@ fun DependencyRegistry.kafkaModule() {
                     )
                 },
                 topics = listOf(consumerConfig.topic),
-                handler = resolve<MessageHandler<String, String?>>(),
+                handler = handlerForConsumer(name),
                 coroutineName = "$name-kafka-consumer",
             )
         }
@@ -39,3 +40,9 @@ fun DependencyRegistry.kafkaModule() {
         LivenessCheck { runners.all { it.isAlive() } }
     }
 }
+
+private suspend fun DependencyRegistry.handlerForConsumer(name: String): MessageHandler<String, String?> =
+    when (name) {
+        "formidling" -> resolve<InboxHandler>()
+        else -> error("Unknown Kafka consumer: $name")
+    }
