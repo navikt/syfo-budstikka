@@ -1,8 +1,9 @@
 # Datamodell — syfo-budstikka
 
-Avledet av B1–B18. To tabeller: **`inbox_hendelse`** (transport + dedup + beslutning)
-og **`leveranse`** (outbox: frosne konkrete utsendinger). Postgres. Topologi A
-(jf. B13) — kan utvides til varsel-aggregat senere (additiv migrering).
+Avledet av B1–B18. Tre tabeller: **`inbox_hendelse`** (transport + dedup + beslutning),
+**`leveranse`** (outbox: frosne konkrete utsendinger) og **`inbox_feilet`** (dead-letter:
+meldinger konsumenten ikke klarte å parse). Postgres. Topologi A (jf. B13) — kan utvides
+til varsel-aggregat senere (additiv migrering).
 
 ```mermaid
 erDiagram
@@ -11,11 +12,7 @@ erDiagram
     inbox_hendelse {
         uuid        event_id PK "produsent-oppgitt, dedup"
         text        referanse "kobler OPPRETT/FERDIGSTILL"
-        text        handling "OPPRETT | FERDIGSTILL"
-        text        kanal
-        text        mottaker_type "SYKMELDT | NL | AG"
-        text        mottaker_id "matchnøkkel: sykmeldt-fnr/orgnr (PII); IKKE resolvert NL"
-        jsonb       payload "rå hendelse"
+        text        payload "rå hendelse (byte-eksakt JSON-tekst; typet decode utsatt til beslutnings-worker)"
         text        status "MOTTATT|BEHANDLET|DROPPET|FEILET"
         text        drop_aarsak "DOD | ... (nullable)"
         int         forsok
@@ -44,7 +41,67 @@ erDiagram
         timestamptz opprettet
         timestamptz sendt_tid "nullable"
     }
+
+    inbox_feilet {
+        bigint      id PK "surrogat (ingen event_id: kunne ikke parses)"
+        text        payload "rå record-verdi, byte-eksakt (kan være ugyldig JSON) — text/bytea, ALDRI jsonb"
+        text        topic
+        int         partisjon
+        bigint      kafka_offset "Kafka-koordinat for etterforskning/replay (offset er reservert ord)"
+        text        kafka_key "partisjonsnokkel (nullable)"
+        text        feilaarsak "f.eks. UGYLDIG_JSON | MANGLER_EVENT_ID"
+        text        feilmelding "exception-melding (nullable)"
+        timestamptz mottatt_tid
+    }
 ```
+
+## Konsument: rå dump (envelope-only parse)
+Konsumenten skriver **kun** til `inbox_hendelse` og gjør ingen typet decode. `eventId`
+og `referanse` ligger i konvolutten (`Formidling`, jf. `KONTRAKT.md`) og hentes ut med en
+strukturell JSON-lesing (`Json.parseToJsonElement`) — ikke via domenetyper. Kafka-nøkkelen
+er `partisjonsnokkel` (partisjonering/rekkefølge, B5), ikke dedup-nøkkel, så `event_id`
+må leses fra payloaden. Selve payloaden lagres byte-eksakt som `text`.
+
+Den sealed `innhold`-delen (mottaker, operasjon/`handling`, `kanal`, tekst, ekstern
+varsling) dekodes først av **beslutnings-workeren**. Derfor bor `handling`, `kanal`,
+`mottaker_type` og `mottaker_id` ikke på `inbox_hendelse`: de utledes ved behandling og
+fryses på `leveranse`. Dedup skjer på `event_id` (PK) via `INSERT … ON CONFLICT DO NOTHING`.
+
+Malformet JSON (klarer ikke å hente `event_id`) er en konsument-grense-feil (sjelden;
+tiltrodd produsent + typet kontraktlib) → dead-letter til `inbox_feilet`, ikke stille dropp.
+Gyldig konvolutt med ugyldig `innhold` lagres som `MOTTATT` og går til `FEILET` når workeren
+dekoder — jf. tilstandsmaskinen under.
+
+## Feiltaksonomi ved konsument-grensen (best practice)
+Bransjestandard (Confluent/Spring Kafka): **klassifiser feilen, rut på klasse.** Konsumenten
+har kun to feilklasser, og de rutes ulikt:
+
+| Feilklasse | Eksempel | Håndtering | Hvorfor |
+|---|---|---|---|
+| **Transient** | inbox-DB nede | Handler **kaster** → `ConsumerRunner` committer ikke, bygger consumer på nytt og re-poller samme batch med backoff (blokker-og-prøv-igjen) | Selv-helende; ingen tap. DB kommer tilbake. |
+| **Poison** | ugyldig JSON, mangler `event_id` | Handler dead-letter til `inbox_feilet`, **returnerer normalt** → offset committes, partisjon flyter videre | Deterministisk feil; retry gir identisk feil. Unngår head-of-line-blokkering; meldingen er bevart. |
+
+Konsekvenser og bevisste valg:
+
+- **Ingen Kafka retry-topic.** Klassisk retry-topic håndterer *nedstrøms* transiente feil
+  (PDL/KRR/DB) — de retryes hos **beslutnings-workeren** av inboxen (`MOTTATT` +
+  `neste_forsok_tid` backoff), ikke ved re-konsum fra Kafka. Ved konsument-grensen finnes
+  bare de to klassene over.
+- **Poison retryes ikke N ganger** før dead-letter: en deterministisk feil feiler likt hver
+  gang, så den dead-letteres umiddelbart.
+- **Dead-letter i Postgres-tabell, ikke DLQ-topic.** Gjenbruker DB + hard-delete-retensjon;
+  SQL til inspeksjon/replay; slipper egen Kafkarator-topic + separat konsument.
+- **`inbox_feilet.payload` er `text`/`bytea`, ALDRI `jsonb`.** Tabellen finnes nettopp for å
+  bevare mulig-ugyldige bytes; `jsonb` ville avvist radene den skal ta vare på.
+- **Liveness ser ikke en poison-stall.** Ved transient blokkering lykkes `poll()` (heartbeat
+  grønn), så en blokkert partisjon fanges av **consumer-lag-alert**, ikke liveness-proben
+  (jf. `HELSESJEKK.md`). Lag-alert er derfor påkrevd.
+- **Idempotens + backoff** finnes allerede: `event_id` PK (`ON CONFLICT DO NOTHING`) og
+  eksponentiell backoff i `ConsumerRunner`.
+
+`ConsumerRunner` forblir domeneblind: «handler kastet ⇒ transient ⇒ blokker og prøv igjen».
+Poison-klassifiseringen bor i `InboxHandler`, der domenekunnskapen er. **Implementeres i egen
+PR.**
 
 ## Tilstandsmaskiner
 
@@ -97,6 +154,7 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
 - `leveranse`: PK(`id`); idx(`status`,`neste_forsok_tid`,`tidligst_sending`) for plukk
   (sendevindu-gate, B25); idx(`referanse`,`mottaker_id`,`kanal`) for FERDIGSTILL-oppslag;
   idx(`inbox_event_id`).
+- `inbox_feilet`: PK(`id`); idx(`mottatt_tid`) for retensjons-sletting og nyeste-først-visning.
 
 ## Observability-koblinger (jf. B17/B45)
 - Korrelasjon = `eventId` (B45), ingen egen `trace_id`-kolonne. Strukturert logg ved hver
@@ -112,8 +170,11 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
   ~6 mnd). FK `inbox_event_id` → `ON DELETE SET NULL`. Mekanisme: in-app periodisk
   coroutine med advisory lock + batchet DELETE (ingen leader election, B12). Juridisk
   avklaring + personverndokumentasjon (DPIA/ROS/behandlingsprotokoll) = egen oppgave.
+  `inbox_feilet` følger samme hard-delete-mekanisme; retensjon avklares ved implementering
+  (payload kan inneholde PII selv om den er uparsebar).
 - ~~FERDIGSTILL-flyt i detalj (matching, hvilke kanaler kan lukkes) — område 2.~~ → LØST
   (B19–B21, B38–B39): typet Inaktiver pr. kanal, matchnøkkel = OPPRETTs partisjonsanker
   (`mottaker_id`; sykmeldt-fnr for LEDERVARSEL, orgnr for AG — ikke resolvert NL), lukke-
   operasjon avledet fra lagret OPPRETT-rad og fryst på INAKTIVER-leveransen.
-- `payload`-skjema pr. kanal (typet DTO ↔ jsonb) — kanal-DTO-område (3).
+- `payload`-skjema pr. kanal (typet DTO ↔ `jsonb` på `leveranse`; rå JSON-`text` på
+  `inbox_hendelse`) — kanal-DTO-område (3).
