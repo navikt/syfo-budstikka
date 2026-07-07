@@ -1,0 +1,82 @@
+[tools]
+java = "25"
+
+[env]
+BUDSTIKKA_DB_HOST = "localhost"
+BUDSTIKKA_DB_PORT = "5432"
+BUDSTIKKA_DB_DATABASE = "budstikka"
+BUDSTIKKA_DB_USERNAME = "budstikka"
+BUDSTIKKA_DB_PASSWORD = "dummy-password"
+
+# App lifecycle
+[tasks.go]
+description = "Start local infrastructure and run app"
+run = [
+    { task = "infra" },
+    { task = "dev" },
+]
+
+[tasks.dev]
+description = "Run app using gradle"
+run = './gradlew run'
+
+# Quality checks
+[tasks.build]
+description = "Run build with gradle"
+run = './gradlew build'
+
+[tasks.test]
+description = "Run tests with gradle"
+run = './gradlew test'
+
+[tasks.lint]
+description = "Run check with gradle"
+run = './gradlew ktlintCheck'
+
+[tasks.format]
+description = "Run ktlintFormat with gradle"
+run = './gradlew ktlintFormat'
+
+# Local infrastructure
+[tasks.infra]
+description = "Start local infrastructure"
+run = '''
+docker-compose -f docker-compose.yaml up -d
+'''
+
+[tasks."infra:down"]
+description = "Stop local infrastructure"
+run = 'docker-compose -f docker-compose.yaml down'
+
+[tasks."infra:clean"]
+description = "Remove local infrastructure including volumes"
+run = 'docker-compose -f docker-compose.yaml down --volumes'
+
+# Database migrations
+[tasks."migration:info"]
+description = "Database migrations info"
+run = [{ task = "migration:_run", args = ["flywayInfo"] }]
+
+[tasks."migration:migrate"]
+description = "Run database migrations"
+run = [{ task = "migration:_run", args = ["flywayMigrate"] }]
+
+[tasks."migration:validate"]
+description = "Validate database migrations"
+run = [{ task = "migration:_run", args = ["flywayValidate"] }]
+
+[tasks."migration:repair"]
+description = "Repair database migrations"
+run = [{ task = "migration:_run", args = ["flywayRepair"] }]
+
+# Hidden task shared by migration:* commands
+[tasks."migration:_run"]
+hide = true
+usage = 'arg "<flyway_task>"'
+run = '''
+./gradlew --no-configuration-cache \
+  -Dflyway.user="${BUDSTIKKA_DB_USERNAME}" \
+  -Dflyway.password="${BUDSTIKKA_DB_PASSWORD}" \
+  -Dflyway.url="jdbc:postgresql://${BUDSTIKKA_DB_HOST}:${BUDSTIKKA_DB_PORT}/${BUDSTIKKA_DB_DATABASE}" \
+  "${usage_flyway_task?}"
+'''
