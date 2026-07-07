@@ -55,3 +55,5 @@ Mapping til B28: `domain` = functional core · `infrastructure` = imperative she
   containere, kjøres **parallelt**; (2) **integrasjonstester** (repositories, konsument,
   ende-til-ende) med Testcontainers. Parallellitet konfigureres i Kotest.
 - **ktlint** (allerede i repoet) for kodestil. Kjør `./gradlew test` før ferdigmelding.
+- Lokal test/e2e-strategi (delt substrat, `testFixtures`/prod-grense, port-fakes, utsatt
+  interaktivt løp): se `TESTSTRATEGI.md` (B50–B53).
