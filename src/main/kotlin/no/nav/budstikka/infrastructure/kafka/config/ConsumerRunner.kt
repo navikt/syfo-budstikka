@@ -46,7 +46,7 @@ class ConsumerRunner<K, V>(
     private val maxRetries: Int = 3,
     private val retryBackoff: Duration = Duration.ofMillis(500),
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
-) {
+) : AutoCloseable {
     private val logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
     private val running = AtomicBoolean(false)
     private var scope: CoroutineScope? = null
@@ -71,6 +71,18 @@ class ConsumerRunner<K, V>(
     fun stop() {
         running.set(false)
         activeConsumer?.wakeup()
+    }
+
+    override fun close() {
+        stop()
+        val stopped = join(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS))
+        if (!stopped) {
+            logger.warn(
+                "{} did not stop within {} seconds",
+                coroutineName,
+                CLOSE_TIMEOUT_SECONDS,
+            )
+        }
     }
 
     /**
@@ -207,6 +219,7 @@ class ConsumerRunner<K, V>(
 
     private companion object {
         const val BACKOFF_STEP_MILLIS = 200L
+        const val CLOSE_TIMEOUT_SECONDS = 5L
 
         fun isFatalByDefault(error: Throwable): Boolean =
             error is AuthenticationException ||

@@ -28,5 +28,9 @@ fun DependencyRegistry.kafkaModule() {
                 coroutineName = "$name-kafka-consumer",
             )
         }
+    }.cleanup { runners ->
+        runners.forEach { runner ->
+            runner.close()
+        }
     }
 }
