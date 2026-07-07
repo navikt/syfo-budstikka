@@ -9,6 +9,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.infrastructure.HealthCheck
+import no.nav.budstikka.infrastructure.LivenessCheck
 
 private const val POD_HEALTH_PATH = "/internal/health"
 const val POD_METRICS_PATH = "/internal/metrics"
@@ -16,16 +17,27 @@ const val POD_METRICS_PATH = "/internal/metrics"
 fun Application.configureInternalApi() {
     val meterRegistry: PrometheusMeterRegistry by dependencies
     val healthCheck: HealthCheck by dependencies
+    val livenessCheck: LivenessCheck by dependencies
 
     routing {
-        registerPodApi(healthCheck)
+        registerPodApi(healthCheck, livenessCheck)
         registerMetricApi(meterRegistry)
     }
 }
 
-fun Routing.registerPodApi(healthCheck: HealthCheck) {
+fun Routing.registerPodApi(
+    healthCheck: HealthCheck,
+    livenessCheck: LivenessCheck,
+) {
     get("$POD_HEALTH_PATH/is_alive") {
-        call.respondText("I'm alive! :)")
+        if (livenessCheck.isAlive()) {
+            call.respondText("I'm alive! :)")
+        } else {
+            call.respondText(
+                "Consumer heartbeat is stale",
+                status = HttpStatusCode.ServiceUnavailable,
+            )
+        }
     }
     get("$POD_HEALTH_PATH/is_ready") {
         val result = healthCheck.check()

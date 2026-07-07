@@ -46,6 +46,7 @@ class ConsumerRunner<K, V>(
     private val maxRetries: Int = 3,
     private val retryBackoff: Duration = Duration.ofMillis(500),
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
+    private val heartbeat: ConsumerHeartbeat = ConsumerHeartbeat(),
 ) : AutoCloseable {
     private val logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
     private val running = AtomicBoolean(false)
@@ -72,6 +73,9 @@ class ConsumerRunner<K, V>(
         running.set(false)
         activeConsumer?.wakeup()
     }
+
+    /** Liveness signal for this consumer loop; see [ConsumerHeartbeat] and docs/HELSESJEKK.md. */
+    fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
         stop()
@@ -156,6 +160,10 @@ class ConsumerRunner<K, V>(
 
     private suspend fun pollAndHandle(consumer: Consumer<K, V>) {
         val records = consumer.poll(pollTimeout)
+        // Heartbeat every poll round, including empty ones: a quiet topic must not look dead. A
+        // transient broker outage surfaces as empty polls (not exceptions), so liveness stays green
+        // and we avoid coupling the probe to broker availability.
+        heartbeat.recordPoll()
         if (records.isEmpty) return
         val maxOffsets = mutableMapOf<TopicPartition, Long>()
         for (record in records) {

@@ -10,10 +10,10 @@ internal fun Application.startKafkaConsumers() {
 
     runners.forEach { runner ->
         runner.start { error ->
-            // Transient failures are retried internally; this only fires on unrecoverable errors
-            // (bad credentials/config). Fail the liveness probe so the platform restarts the pod,
-            // since restarting the consumer in-process would just keep hitting the same fault.
-            log.error("Kafka consumer hit a fatal error, marking application as not alive", error)
+            // Unrecoverable errors (bad credentials/config) stop the consumer loop. Once it stops
+            // updating its heartbeat, is_alive reports stale and the platform restarts the pod;
+            // restarting in-process would just keep hitting the same fault. See docs/HELSESJEKK.md.
+            log.error("Kafka consumer hit a fatal error; loop stopped, liveness will report stale", error)
         }
     }
 }

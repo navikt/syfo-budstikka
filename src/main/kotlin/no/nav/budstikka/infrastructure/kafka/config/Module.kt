@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
+import no.nav.budstikka.infrastructure.LivenessCheck
 import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -32,5 +33,9 @@ fun DependencyRegistry.kafkaModule() {
         runners.forEach { runner ->
             runner.close()
         }
+    }
+    provide<LivenessCheck> {
+        val runners = resolve<List<ConsumerRunner<*, *>>>()
+        LivenessCheck { runners.all { it.isAlive() } }
     }
 }
