@@ -1,0 +1,2 @@
+-- Baseline migration for PostgreSQL and Flyway setup verification.
+-- Domain tables are introduced in later issues.

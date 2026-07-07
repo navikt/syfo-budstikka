@@ -43,7 +43,7 @@ fun DataSource.migrate() {
     Flyway
         .configure()
         .dataSource(this)
-        .locations("classpath:db/migration")
+        .locations("classpath:database.migration")
         .load()
         .migrate()
 }
