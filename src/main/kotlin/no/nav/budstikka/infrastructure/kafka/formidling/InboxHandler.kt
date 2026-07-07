@@ -14,7 +14,7 @@ class InboxHandler : MessageHandler<String, String?> {
         val payload = record.value() ?: return
 //            val dto = json.decodeFromString<SykmeldingHendelseDto>(payload)
         logger.info(
-            "Processed sykmelding hendelse for topic={}, partition={}, offset={}",
+            "Processed formidling hendelse for topic={}, partition={}, offset={}",
             record.topic(),
             record.partition(),
             record.offset(),
