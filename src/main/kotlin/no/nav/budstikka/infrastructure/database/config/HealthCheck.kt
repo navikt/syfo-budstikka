@@ -7,11 +7,11 @@ import no.nav.budstikka.infrastructure.HealthResult
 import org.slf4j.LoggerFactory
 import javax.sql.DataSource
 
-private val logger = LoggerFactory.getLogger("no.nav.budstikka.infrastructure.database.config.HealthCheck")
+private val logger = LoggerFactory.getLogger(DataSourceHealthCheck::class.java)
 
-fun databaseHealthCheck(dataSource: DataSource): HealthCheck = DatabaseHealthCheck(dataSource)
+fun dataSourceHealthCheck(dataSource: DataSource): HealthCheck = DataSourceHealthCheck(dataSource)
 
-private class DatabaseHealthCheck(
+private class DataSourceHealthCheck(
     private val dataSource: DataSource,
 ) : HealthCheck {
     override suspend fun check(): HealthResult =
