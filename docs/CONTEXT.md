@@ -11,22 +11,24 @@ trace-id/tracing, enklere feilsøk, eget Grafana-board.
 ## Status og videre arbeid (per 2026-07-06)
 
 **Fase 1 (grill/design) pågår — ingen produksjonskode skrevet ennå.** Beslutninger festes
-som nummererte B-er nedenfor og i temadokumentene. **B1–B49 er låst.** En fersk økt kan
+som nummererte B-er nedenfor og i temadokumentene. **B1–B53 er låst.** En fersk økt kan
 plukke opp arbeidet ved å lese denne fila + temadokumentene:
 `GLOSSARY.md` (domenespråk), `KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse),
 `FERDIGSTILL.md` (lukking), `FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37),
-`TEKNOLOGI.md` (teknologivalg, B44), `adr/0001-domeneblind-varselruter.md`.
+`TEKNOLOGI.md` (teknologivalg, B44), `TESTSTRATEGI.md` (lokal test/e2e, B50–B53),
+`adr/0001-domeneblind-varselruter.md`.
 
 **Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er ✅ (AG B29–B33;
 Inaktiver-typing B38–B39; tekstmodell/enums + mikrofrontend B40–B41) · 4 Observability ✅
 (B17 + B45–B49: korrelasjon=eventId, logging/PII, metrikk-katalog, endepunkter, varsling) ·
-5 Auth & ACL ⬜ · 6 Migrering ✅ (B34–B37, detaljer ved implementering).
+5 Auth & ACL ⬜ · 6 Migrering ✅ (B34–B37, detaljer ved implementering) ·
+7 Lokal test/e2e ✅ (B50–B53: delt substrat, testFixtures/prod-grense, Testcontainers, port-fakes).
 
 **Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42),
 topic-identitet/navn låst (B43: `team-esyfo.formidling.v1`, rot-type `Formidling`),
-teknologivalg låst (B44) og observability ferdig-grillet (B45–B49). Gjenstår kun å grille
-område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy; ventet rett-fram da esyfovarsel har
-Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på `navikt/syfo-budstikka`
+teknologivalg låst (B44), observability ferdig-grillet (B45–B49) og lokal test/e2e-strategi
+låst (B50–B53). Gjenstår kun å grille område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy;
+ventet rett-fram da esyfovarsel har Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på `navikt/syfo-budstikka`
 (kontrakt, datamodell, worker-topologi og retensjon er implementeringsklare).
 
 **Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved
@@ -145,6 +147,12 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B47: METRIKK-KATALOG. Micrometer → Prometheus; `snake_case`, `_total`/`_seconds`-suffiks, lav-kardinalitets labels (B17/B45 — aldri `eventId`/fnr/`leveranse_id`). FUNNEL (counters): `hendelse_mottatt_total{handling}`, `hendelse_behandlet_total{handling,resultat}` (resultat=besluttet/droppet/ugyldig), `leveranse_sendt_total{kanal,operasjon}`, `leveranse_feilet_total{kanal,feiltype}` (transient/permanent), `leveranse_utlopt_total{kanal}` (B11). AVVIK (counters): `dropp_total{aarsak}` (dod B7 / nl_mangler B32 / …), `ferdigstill_uten_treff_total` (B20), `ugyldig_kombinasjon_total` (B21). VARIGHET (histograms): `decide_varighet_seconds`, `ekstern_kall_varighet_seconds{tjeneste,utfall}` (krr/pdl/dokdist/notifikasjon-api), `leveranse_leveringstid_seconds{kanal}` = `tidligst_sending`→`sendt_tid` (HELSE-SLI). GAUGES: `outbox_klar_antall{kanal}` (kvalifisert-nå backlog), `outbox_venter_antall{kanal}` (planlagt sendevindu-venting B25). Kafka consumer-lag (`kafka_consumergroup_lag`) + HikariCP-pool kommer fra NAIS/auto-bindere — lages ikke selv. Labels bundet til små enums: kanal(~6), operasjon, handling, resultat, feiltype, aarsak, tjeneste. ENDE-TIL-ENDE-LATENCY = alt. A: måler ventetid ETTER kvalifisering (ikke `mottatt`→`sendt`) → planlagt sendevindu-venting synlig separat via gauge, så alarmer/board ikke slår falskt ut på legitim venting.
 - B48: OBSERVABILITY-DRIFT (endepunkter, wiring, board). ENDEPUNKTER: `/internal/isalive` (liveness = prosess oppe), `/internal/isready` (readiness = KUN Postgres-pool nåbar — Kafka-konsument-helse dekkes av lag-alarm B49, IKKE readiness: en readiness-flipp fikser ikke en stallet consumer og gir bare deploy-støy; budstikka har ~ingen innkommende HTTP-trafikk), `/internal/prometheus` (scrape). Stier MÅ matche NAIS-manifestet; `/internal` er åpent (ingen auth). WIRING: Ktor `MicrometerMetrics` + delt `PrometheusMeterRegistry`; JVM-bindere (memory/gc/processor) + HikariCP-binder; OTel auto-instrumentation via NAIS-agent (traceparent → Tempo). BOARD (baseline, bygges når metrikk-settet er stabilt): funnel-rate, feilrate per kanal, `leveranse_leveringstid_seconds` p95/p99, `outbox_klar/venter`-gauges, consumer-lag, dropp/avvik-rater, JVM/pool/pod-restarts; template-variabler `app`/`namespace`/`cluster`.
 - B49: VARSLING. NAIS `Alert`/PrometheusRule → Slack; forsiktige defaults, terskler tunes i dev-gcp før prod. SIGNALER: Kafka consumer-lag vedvarende høy (warning→critical), `leveranse_feilet{feiltype=permanent}` rate høy per kanal (warning), `leveranse_utlopt` spike (warning, B11), `dropp_total{aarsak=nl_mangler}` spike (warning, B32), pod crashloop/restarts (critical), HikariCP-pool utmattet (warning). BEVISST UTELATT: `dropp_total{aarsak=dod}` (B7) er legitim lav-rate-drop → kun board, ikke alarm. Consumer-lag valgt som ENESTE primærsignal for backlog (outbox-backlog overlapper → unngår dobbelt-alarm for samme symptom).
+
+## Lokal test/e2e-beslutninger (se docs/TESTSTRATEGI.md)
+- B50: LOKAL TEST/E2E-SUBSTRAT & PROD-GRENSE. Fakes (PDL død / KRR-reservasjon / nærmeste leder / de 6 kanalene) + Kafka/Postgres-bootstrap + scenario-byggere bygges ÉN gang og deles av BÅDE automatiske e2e-tester OG (senere) et interaktivt lokalt løp — aldri to sett (unngår drift; DRY). PLASSERING: delte fakes/scenario-byggere i `src/testFixtures`; kjørbar `main()`/e2e-specs i `src/test` — ALDRI i `src/main`. GARANTI mot prod-lekkasje er BUILD-GRENSEN: prod-artefakten (fat-jar/Docker-image) bygges kun fra `src/main`, så fakes er fysisk fraværende fra prod-jaren — håndhevet av Gradle/kompilator, ikke av disiplin. Ktor-DI (B44) muliggjør det: `Application.module(deps)` tar avhengigheter som parametre; prod-entrypoint (`Main.kt`) wirer EKTE adaptere, lokal `main()` wirer fakes. AVVIST ANTI-MØNSTER: en `if (System.getenv("USE_FAKES"))`-adapterbytte inne i `src/main` (da ligger fakes i prod-jaren og én feilkonfig flipper dem) — grensen skal være i bygget, ikke i en env-var.
+- B51: INFRA-BOOTSTRAP = Testcontainers-fra-kode (Kafka + Postgres), samme oppsett som integrasjonstestene bruker (holder B50s «én kilde»-løfte) — INGEN docker-compose (unngår en separat fil som drifter fra test-konfigen). DB-tabeller (inbox/outbox) er fullt inspiserbare UNDER kjøring: containeren mapper Postgres-porten til localhost så lenge prosessen lever; logg JDBC-URL ved oppstart (evt. pinn fast host-port). Ferskt miljø per kjøring; data overlever ikke prosess-restart (live-inspeksjon under kjøring får du uansett). `withReuse(true)` (persistens over restart uten compose) utsatt til konkret behov. KONSEKVENS av B52-fakes: lokalt trengs KUN Kafka+Postgres — INGEN Texas/token-sidecar, ingen ekte tokens, ingen TokenX-validering, ingen compose (fakene erstatter alt autentisert nedstrøms; token-laget lever i de ekte adapterne i `src/main`, som ikke er på lokalt classpath).
+- B52: FAKE-MEKANISME = in-process port-fakes som STANDARD. Kotlin-implementasjoner av portgrensesnittene (dødsoppslag/reservasjon/nærmeste-leder/kanal) i minne, styrbare (`fake.marker(ident)` = «gjør død») — ingen nettverk, ingen tokens, raske, deles med enhets-/integrasjonstester. Portgrensesnittene (B28 ports & adapters) ER sømmen som gjør byttet mulig. WireMock/mockserver reservert for UTVALGTE klient-kontrakttester der vi bevisst vil verifisere en ekte HTTP-klients kontrakt/serialisering — IKKE for det brede e2e/lokale løpet. Ktor MockEngine ikke valgt (fake på for lavt abstraksjonsnivå for en domeneblind ruter).
+- B53: TEST/LØP-STRATEGI & SCOPE. NÅ: automatiske Kotest e2e-specs som booter hele appen (konsument + workers + Ktor) in-process mot Testcontainers (B51) med port-fakes (B52) wiret inn, og asserter at fake-kanalene mottok forventet leveranse — dekker inbox→`decide()`→outbox→levering ende-til-ende via delte scenario-byggere (B50). Async workers → assert med Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand. UTSATT (bygges når behovet melder seg, som et TYNT lag oppå samme substrat): interaktivt lokalt HTTP kontroll-plan (`main()` som står og kjører + dev-only routes `POST /dev/formidling`, fake-toggle-endepunkter, navngitte scenarier) og live-inspeksjon via kafka-ui/pgweb. Ingen ny build-kompleksitet: e2e og et framtidig lokalt løp deler fakes + scenario-byggere.
 
 ## Kjernespenning å designe rundt
 Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan
