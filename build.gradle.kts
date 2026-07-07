@@ -32,17 +32,15 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
-    implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.call.id)
     implementation(libs.ktor.server.call.logging)
-    implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.server.di)
-    implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.hikari)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
