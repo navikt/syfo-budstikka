@@ -6,6 +6,7 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.infrastructure.database.config.databaseModule
 import no.nav.budstikka.infrastructure.database.config.toDatabaseConfig
+import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
 
 internal fun Application.installDependencyInjection() {
     val config = environment.config
@@ -13,5 +14,6 @@ internal fun Application.installDependencyInjection() {
         provide { config.toDatabaseConfig() }
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         databaseModule()
+        kafkaModule()
     }
 }
