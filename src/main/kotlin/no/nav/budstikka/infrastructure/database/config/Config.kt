@@ -18,6 +18,7 @@ data class DatabaseConfig(
 
 fun ApplicationConfig.toDatabaseConfig(): DatabaseConfig {
     fun value(key: String): String = stringOrEmpty("database.$key")
+
     fun hikariValue(key: String): String = stringOrEmpty("database.hikari.$key")
 
     val host = value("host")
