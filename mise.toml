@@ -7,6 +7,11 @@ BUDSTIKKA_DB_PORT = "5432"
 BUDSTIKKA_DB_DATABASE = "budstikka"
 BUDSTIKKA_DB_USERNAME = "budstikka"
 BUDSTIKKA_DB_PASSWORD = "dummy-password"
+KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+KAFKA_FORMIDLING_ENABLED = "true"
+KAFKA_FORMIDLING_TOPIC = "team-esyfo.formidling.v1"
+KAFKA_FORMIDLING_GROUP_ID = "budstikka-formidling-v1"
+KAFKA_FORMIDLING_AUTO_OFFSET_RESET = "earliest"
 
 # App lifecycle
 [tasks.go]
@@ -41,16 +46,32 @@ run = './gradlew ktlintFormat'
 [tasks.infra]
 description = "Start local infrastructure"
 run = '''
-docker-compose -f docker-compose.yaml up -d
+docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml up -d
+
+until docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml exec -T kafka \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:19092 \
+  --list >/dev/null 2>&1; do
+  sleep 1
+done
+
+docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml exec -T kafka \
+  /opt/kafka/bin/kafka-topics.sh \
+  --create \
+  --if-not-exists \
+  --topic "${KAFKA_FORMIDLING_TOPIC}" \
+  --partitions 1 \
+  --replication-factor 1 \
+  --bootstrap-server localhost:19092
 '''
 
 [tasks."infra:down"]
 description = "Stop local infrastructure"
-run = 'docker-compose -f docker-compose.yaml down'
+run = 'docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml down'
 
 [tasks."infra:clean"]
 description = "Remove local infrastructure including volumes"
-run = 'docker-compose -f docker-compose.yaml down --volumes'
+run = 'docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml down --volumes'
 
 # Database migrations
 [tasks."migration:info"]
@@ -74,7 +95,8 @@ run = [{ task = "migration:_run", args = ["flywayRepair"] }]
 hide = true
 usage = 'arg "<flyway_task>"'
 run = '''
-./gradlew --no-configuration-cache \
+./gradlew --no-configuration-cache --warning-mode=none \
+  -Dflyway.locations=filesystem:src/main/resources/database.migration \
   -Dflyway.user="${BUDSTIKKA_DB_USERNAME}" \
   -Dflyway.password="${BUDSTIKKA_DB_PASSWORD}" \
   -Dflyway.url="jdbc:postgresql://${BUDSTIKKA_DB_HOST}:${BUDSTIKKA_DB_PORT}/${BUDSTIKKA_DB_DATABASE}" \
