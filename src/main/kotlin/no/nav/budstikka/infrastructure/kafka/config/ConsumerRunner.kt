@@ -34,6 +34,11 @@ fun interface MessageHandler<K, V> {
  * process restart. Failures classified as fatal by [isFatal] (bad credentials or configuration) are
  * not retried: they invoke the `onFatalError` callback passed to [start] and stop the runner, leaving
  * the rest of the application (e.g. the HTTP server) untouched.
+ *
+ * Offsets are committed only after every record in a poll batch has been handled. If [handler] throws,
+ * the exception propagates, the offset is not advanced, and the batch is re-polled from the last commit
+ * after a backoff. This is deliberate inbox semantics: a message is never dropped, and a record that can
+ * never be handled halts the partition (visible as consumer lag) rather than being silently skipped.
  */
 class ConsumerRunner<K, V>(
     private val consumerFactory: () -> Consumer<K, V>,
@@ -43,8 +48,6 @@ class ConsumerRunner<K, V>(
     private val coroutineName: String = "kafka-consumer",
     private val initialBackoff: Duration = Duration.ofSeconds(1),
     private val maxBackoff: Duration = Duration.ofSeconds(30),
-    private val maxRetries: Int = 3,
-    private val retryBackoff: Duration = Duration.ofMillis(500),
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
     private val heartbeat: ConsumerHeartbeat = ConsumerHeartbeat(),
 ) : AutoCloseable {
@@ -167,62 +170,15 @@ class ConsumerRunner<K, V>(
         if (records.isEmpty) return
         val maxOffsets = mutableMapOf<TopicPartition, Long>()
         for (record in records) {
-            handleRecord(record)
+            // A throw here propagates out of the poll loop: the offset is not committed and
+            // runWithRestart re-polls the same batch after a backoff. The inbox never drops a message.
+            handler.handle(record)
             maxOffsets.merge(
                 TopicPartition(record.topic(), record.partition()),
                 record.offset() + 1,
             ) { current, new -> maxOf(current, new) }
         }
         consumer.commitSync(maxOffsets.mapValues { OffsetAndMetadata(it.value) })
-    }
-
-    private suspend fun handleRecord(record: ConsumerRecord<K, V>) {
-        val maxAttempts = maxRetries + 1
-        repeat(maxAttempts) { attempt ->
-            try {
-                handler.handle(record)
-                // TODO metrics on poison pill
-                // TODO no retry when Serialization exception
-                // TODO should consumer give up after five serialization exceptions without killing the whole app?
-                return
-            } catch (error: Exception) {
-                onHandleError(record, error, attempt, maxAttempts)
-            }
-        }
-    }
-
-    private suspend fun onHandleError(
-        record: ConsumerRecord<K, V>,
-        error: Exception,
-        attempt: Int,
-        maxAttempts: Int,
-    ) {
-        when (attempt) {
-            maxAttempts - 1 -> {
-                logger.error(
-                    "Message handling failed after {} attempts for topic={}, partition={}, offset={}",
-                    maxAttempts,
-                    record.topic(),
-                    record.partition(),
-                    record.offset(),
-                    error,
-                )
-            }
-
-            else -> {
-                logger.warn(
-                    "Message handling failed (attempt {}/{}), retrying in {}ms for topic={}, partition={}, offset={}",
-                    attempt + 1,
-                    maxAttempts,
-                    retryBackoff.toMillis(),
-                    record.topic(),
-                    record.partition(),
-                    record.offset(),
-                    error,
-                )
-                delay(retryBackoff.toMillis().milliseconds)
-            }
-        }
     }
 
     private companion object {
