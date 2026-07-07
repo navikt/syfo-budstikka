@@ -1,9 +1,9 @@
-package no.nav.syfo.no.nav.budstikka.infrastructure.database.config
+package no.nav.budstikka.infrastructure.database.config
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import no.nav.syfo.no.nav.budstikka.infrastructure.HealthCheck
-import no.nav.syfo.no.nav.budstikka.infrastructure.HealthResult
+import no.nav.budstikka.infrastructure.HealthCheck
+import no.nav.budstikka.infrastructure.HealthResult
 import org.slf4j.LoggerFactory
 import javax.sql.DataSource
 

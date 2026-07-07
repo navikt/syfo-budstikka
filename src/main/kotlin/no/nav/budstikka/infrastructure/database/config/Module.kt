@@ -1,4 +1,4 @@
-package no.nav.syfo.no.nav.budstikka.infrastructure.database.config
+package no.nav.budstikka.infrastructure.database.config
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource

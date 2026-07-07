@@ -1,4 +1,4 @@
-package no.nav.syfo.no.nav.budstikka.infrastructure
+package no.nav.budstikka.infrastructure
 
 data class HealthResult(
     val healthy: Boolean,

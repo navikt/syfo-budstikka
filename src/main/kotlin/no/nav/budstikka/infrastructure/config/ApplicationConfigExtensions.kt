@@ -1,4 +1,4 @@
-package no.nav.syfo.no.nav.budstikka.infrastructure.config
+package no.nav.budstikka.infrastructure.config
 
 import io.ktor.server.config.ApplicationConfig
 

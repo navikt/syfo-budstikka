@@ -1,7 +1,7 @@
-package no.nav.syfo.no.nav.budstikka.infrastructure.database.config
+package no.nav.budstikka.infrastructure.database.config
 
 import io.ktor.server.config.ApplicationConfig
-import no.nav.syfo.no.nav.budstikka.infrastructure.config.stringOrEmpty
+import no.nav.budstikka.infrastructure.config.stringOrEmpty
 
 data class DatabaseConfig(
     val username: String,
