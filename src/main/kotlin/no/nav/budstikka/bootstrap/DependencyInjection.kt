@@ -15,10 +15,8 @@ internal fun Application.installDependencyInjection() {
         provide { config.toDatabaseConfig() }
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         databaseModule()
-        provide<List<HealthCheck>> {
-            listOf(
-                databaseHealthCheck(resolve()),
-            )
+        provide<HealthCheck> {
+            databaseHealthCheck(resolve())
         }
     }
 }
