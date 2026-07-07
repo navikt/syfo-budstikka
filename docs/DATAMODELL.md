@@ -16,7 +16,6 @@ erDiagram
         text        mottaker_type "SYKMELDT | NL | AG"
         text        mottaker_id "matchnøkkel: sykmeldt-fnr/orgnr (PII); IKKE resolvert NL"
         jsonb       payload "rå hendelse"
-        text        trace_id
         text        status "MOTTATT|BEHANDLET|DROPPET|FEILET"
         text        drop_aarsak "DOD | ... (nullable)"
         int         forsok
@@ -42,7 +41,6 @@ erDiagram
         timestamptz frist_tid "maxLeveringsalder, kappet av synlig_tom"
         text        ekstern_respons_id "kanalens retur-id (nullable)"
         text        feilmelding "nullable"
-        text        trace_id
         timestamptz opprettet
         timestamptz sendt_tid "nullable"
     }
@@ -100,9 +98,10 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
   (sendevindu-gate, B25); idx(`referanse`,`mottaker_id`,`kanal`) for FERDIGSTILL-oppslag;
   idx(`inbox_event_id`).
 
-## Observability-koblinger (jf. B17)
-- `trace_id` på begge tabeller; strukturert logg ved hver overgang med
-  `leveranse_id`/`referanse`/`kanal`/`status`/`trace_id`.
+## Observability-koblinger (jf. B17/B45)
+- Korrelasjon = `eventId` (B45), ingen egen `trace_id`-kolonne. Strukturert logg ved hver
+  overgang med `eventId`/`leveranse_id`/`referanse`/`kanal`/`status` + OTel `trace_id`/`span_id`
+  per hopp (Tempo). Kryss-hendelse (OPPRETT→FERDIGSTILL) korreleres på `referanse`.
 - Prometheus-metrikker kun lav kardinalitet (`kanal`,`status`,`mottaker_type`,`feiltype`).
   Drill-down til enkelt-id via Loki/Tempo, ikke metrikk-labels.
 

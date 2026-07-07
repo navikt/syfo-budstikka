@@ -22,7 +22,7 @@ sealed interface Formidlingsinnhold {
     val partisjonsnokkel: String  // accessor for Kafka-nøkkel (B5), ikke delt Mottaker-hierarki (B9)
 }
 ```
-trace_id kommer via Kafka-header (B17), ikke i payload.
+Korrelasjon skjer på `eventId` (B45) — ingen egen header eller payload-felt.
 
 ## Felles byggesteiner
 ```kotlin
