@@ -11,23 +11,23 @@ trace-id/tracing, enklere feilsøk, eget Grafana-board.
 ## Status og videre arbeid (per 2026-07-06)
 
 **Fase 1 (grill/design) pågår — ingen produksjonskode skrevet ennå.** Beslutninger festes
-som nummererte B-er nedenfor og i temadokumentene. **B1–B47 er låst.** En fersk økt kan
+som nummererte B-er nedenfor og i temadokumentene. **B1–B49 er låst.** En fersk økt kan
 plukke opp arbeidet ved å lese denne fila + temadokumentene:
 `GLOSSARY.md` (domenespråk), `KONTRAKT.md` (kanal-DTO-er), `DATAMODELL.md` (inbox+leveranse),
 `FERDIGSTILL.md` (lukking), `FLYT.md`, `MIGRERING.md` (cutover-strategi, B34–B37),
 `TEKNOLOGI.md` (teknologivalg, B44), `adr/0001-domeneblind-varselruter.md`.
 
 **Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er ✅ (AG B29–B33;
-Inaktiver-typing B38–B39; tekstmodell/enums + mikrofrontend B40–B41) · 4 Observability ⬜ ·
+Inaktiver-typing B38–B39; tekstmodell/enums + mikrofrontend B40–B41) · 4 Observability ✅
+(B17 + B45–B49: korrelasjon=eventId, logging/PII, metrikk-katalog, endepunkter, varsling) ·
 5 Auth & ACL ⬜ · 6 Migrering ✅ (B34–B37, detaljer ved implementering).
 
-**Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42), og
-topic-identitet/navn låst (B43: `team-esyfo.formidling.v1`, rot-type `Formidling`).
-Gjenstår å grille område 4 (Observability — Grafana-board, metrikker, tracing; B17 la
-grunnlaget) og område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy; ventet rett-fram da
-esyfovarsel har Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på
-`navikt/syfo-budstikka` (kontrakt, datamodell, worker-topologi og retensjon er
-implementeringsklare).
+**Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42),
+topic-identitet/navn låst (B43: `team-esyfo.formidling.v1`, rot-type `Formidling`),
+teknologivalg låst (B44) og observability ferdig-grillet (B45–B49). Gjenstår kun å grille
+område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy; ventet rett-fram da esyfovarsel har
+Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på `navikt/syfo-budstikka`
+(kontrakt, datamodell, worker-topologi og retensjon er implementeringsklare).
 
 **Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved
 usikkerhet, fest durable beslutninger her i `docs/` med nye B-nummer, commit per ferdig
@@ -143,6 +143,8 @@ ktlint. Ingen DB/Kafka/auth/nais ennå. Pakke no.nav.syfo.
 - B45: KORRELASJONS-ID = `eventId` (REVIDERER B17). Ingen egen `trace_id`-kolonne. `eventId` (B4, produsent-oppgitt PK for dedup) ER den persisterte korrelasjons-iden for ett hendelsesløp: trådes til leveranse via `inbox_event_id`-FK, re-attacheres på MDC i hvert prosesseringssteg (konsum, `decide()`, poller, send) → Loki-filter `| eventId="X"` viser hele per-hendelse-livsløpet på tvers av tid og instanser. GRATIS kryss-system-sporing: siden eventId er produsent-oppgitt, korrelerer den også inn i den PRODUSERENDE appens logger dersom produsenten logger sin egen eventId — ingen egen `Nav-Callid`-header nødvendig. KRYSS-HENDELSE: OPPRETT→FERDIGSTILL er to ULIKE events med ulik eventId → korreleres på `referanse` (B39-oppslagsnøkkel, allerede indeksert), også MDC/logg-felt. OTEL: W3C `traceparent` settes av NAIS-agenten per eksekvering (kortlevd, per hopp — dekker ALDRI hele det asynkrone outbox-løpet) → logg OTel `trace_id`+`span_id` per hopp for Tempo-drill-down; DISTINKT fra `eventId` (teknisk per-hopp vs forretning per-hendelse). NAVNEKOLLISJON unngått: forretnings-korrelasjon heter `eventId`/`referanse` i logg/MDC, `trace_id` reserveres OTel. Prometheus uendret (lav kardinalitet; aldri eventId/fnr som label — drill-down kun via Loki/Tempo). KONSEKVENS: `trace_id`-kolonne fjernet fra inbox+leveranse; «trace_id via Kafka-header» utgår (DATAMODELL/KONTRAKT/FLYT ryddet).
 - B46: LOGGING & PII-GRENSE. FORMAT: `logstash-logback-encoder` → én JSON-linje/logg til stdout (NAIS-Loki henter; ingen filskriving); strukturerte felt via `StructuredArguments.kv(...)`, aldri streng-interpolasjon; MDC bærer B45-feltene. NORMALE logger inneholder KUN ikke-PII: `eventId`, `leveranse_id`, `referanse`, `kanal`, `mottaker_type`, `status`, `drop_aarsak`, `feiltype`, OTel-id-er. ALDRI `mottaker_id`/fnr, `payload`, resolvert NL-fnr eller meldingstekst. B9-maskering (`toString="***"` på `Personident`/`Orgnummer`) = forsvar-i-dybden ved uhell. INGEN secure-logs (`team-logs`) i v1: korrelasjon på ikke-PII (`eventId`/`referanse`) + DB-oppslag under tilgangskontroll dekker feilsøking → minimalt PII-fotavtrykk (B42 «minimal eksponering»); secure-logs legges til KUN ved konkret senere behov. INGEN CEF-auditlogg (budstikka er domeneblind ruter uten interaktiv menneskelig PII-tilgang). RISIKO: eksterne feilresponser (KRR/PDL/dokdist/notifikasjon-api) kan bære fnr i body/stacktrace → logg kun statuskode + teknisk kontekst, aldri rå respons-body. Erstatter skjelettets plaintext `logback.xml`.
 - B47: METRIKK-KATALOG. Micrometer → Prometheus; `snake_case`, `_total`/`_seconds`-suffiks, lav-kardinalitets labels (B17/B45 — aldri `eventId`/fnr/`leveranse_id`). FUNNEL (counters): `hendelse_mottatt_total{handling}`, `hendelse_behandlet_total{handling,resultat}` (resultat=besluttet/droppet/ugyldig), `leveranse_sendt_total{kanal,operasjon}`, `leveranse_feilet_total{kanal,feiltype}` (transient/permanent), `leveranse_utlopt_total{kanal}` (B11). AVVIK (counters): `dropp_total{aarsak}` (dod B7 / nl_mangler B32 / …), `ferdigstill_uten_treff_total` (B20), `ugyldig_kombinasjon_total` (B21). VARIGHET (histograms): `decide_varighet_seconds`, `ekstern_kall_varighet_seconds{tjeneste,utfall}` (krr/pdl/dokdist/notifikasjon-api), `leveranse_leveringstid_seconds{kanal}` = `tidligst_sending`→`sendt_tid` (HELSE-SLI). GAUGES: `outbox_klar_antall{kanal}` (kvalifisert-nå backlog), `outbox_venter_antall{kanal}` (planlagt sendevindu-venting B25). Kafka consumer-lag (`kafka_consumergroup_lag`) + HikariCP-pool kommer fra NAIS/auto-bindere — lages ikke selv. Labels bundet til små enums: kanal(~6), operasjon, handling, resultat, feiltype, aarsak, tjeneste. ENDE-TIL-ENDE-LATENCY = alt. A: måler ventetid ETTER kvalifisering (ikke `mottatt`→`sendt`) → planlagt sendevindu-venting synlig separat via gauge, så alarmer/board ikke slår falskt ut på legitim venting.
+- B48: OBSERVABILITY-DRIFT (endepunkter, wiring, board). ENDEPUNKTER: `/internal/isalive` (liveness = prosess oppe), `/internal/isready` (readiness = KUN Postgres-pool nåbar — Kafka-konsument-helse dekkes av lag-alarm B49, IKKE readiness: en readiness-flipp fikser ikke en stallet consumer og gir bare deploy-støy; budstikka har ~ingen innkommende HTTP-trafikk), `/internal/prometheus` (scrape). Stier MÅ matche NAIS-manifestet; `/internal` er åpent (ingen auth). WIRING: Ktor `MicrometerMetrics` + delt `PrometheusMeterRegistry`; JVM-bindere (memory/gc/processor) + HikariCP-binder; OTel auto-instrumentation via NAIS-agent (traceparent → Tempo). BOARD (baseline, bygges når metrikk-settet er stabilt): funnel-rate, feilrate per kanal, `leveranse_leveringstid_seconds` p95/p99, `outbox_klar/venter`-gauges, consumer-lag, dropp/avvik-rater, JVM/pool/pod-restarts; template-variabler `app`/`namespace`/`cluster`.
+- B49: VARSLING. NAIS `Alert`/PrometheusRule → Slack; forsiktige defaults, terskler tunes i dev-gcp før prod. SIGNALER: Kafka consumer-lag vedvarende høy (warning→critical), `leveranse_feilet{feiltype=permanent}` rate høy per kanal (warning), `leveranse_utlopt` spike (warning, B11), `dropp_total{aarsak=nl_mangler}` spike (warning, B32), pod crashloop/restarts (critical), HikariCP-pool utmattet (warning). BEVISST UTELATT: `dropp_total{aarsak=dod}` (B7) er legitim lav-rate-drop → kun board, ikke alarm. Consumer-lag valgt som ENESTE primærsignal for backlog (outbox-backlog overlapper → unngår dobbelt-alarm for samme symptom).
 
 ## Kjernespenning å designe rundt
 Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan
