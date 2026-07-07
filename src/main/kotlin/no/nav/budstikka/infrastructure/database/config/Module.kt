@@ -29,11 +29,11 @@ fun createDataSource(databaseConfig: DatabaseConfig): HikariDataSource =
             jdbcUrl = databaseConfig.jdbcUrl
             username = databaseConfig.username
             password = databaseConfig.password
-            maximumPoolSize = 3
-            minimumIdle = 1
-            connectionTimeout = 10_000
-            idleTimeout = 300_000
-            maxLifetime = 1_800_000
+            maximumPoolSize = databaseConfig.maximumPoolSize
+            minimumIdle = databaseConfig.minimumIdle
+            connectionTimeout = databaseConfig.connectionTimeout
+            idleTimeout = databaseConfig.idleTimeout
+            maxLifetime = databaseConfig.maxLifetime
             transactionIsolation = "TRANSACTION_READ_COMMITTED"
             validate()
         },

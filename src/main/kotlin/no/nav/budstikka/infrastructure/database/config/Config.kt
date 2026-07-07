@@ -7,12 +7,18 @@ data class DatabaseConfig(
     val username: String,
     val password: String,
     val jdbcUrl: String,
+    val maximumPoolSize: Int,
+    val minimumIdle: Int,
+    val connectionTimeout: Long,
+    val idleTimeout: Long,
+    val maxLifetime: Long,
 ) {
-    override fun toString(): String = "DatabaseConfig(username=$username, password=***, jdbcUrl=$jdbcUrl)"
+    override fun toString(): String = "DatabaseConfig(username=$username, ****** jdbcUrl=$jdbcUrl)"
 }
 
 fun ApplicationConfig.toDatabaseConfig(): DatabaseConfig {
     fun value(key: String): String = stringOrEmpty("database.$key")
+    fun hikariValue(key: String): String = stringOrEmpty("database.hikari.$key")
 
     val host = value("host")
     val port = value("port")
@@ -21,6 +27,11 @@ fun ApplicationConfig.toDatabaseConfig(): DatabaseConfig {
     val password = value("password")
     val url = value("url")
     val sslKey = value("sslkey")
+    val maximumPoolSize = hikariValue("maximumPoolSize").toIntOrNull() ?: 3
+    val minimumIdle = hikariValue("minimumIdle").toIntOrNull() ?: 1
+    val connectionTimeout = hikariValue("connectionTimeout").toLongOrNull() ?: 10_000L
+    val idleTimeout = hikariValue("idleTimeout").toLongOrNull() ?: 300_000L
+    val maxLifetime = hikariValue("maxLifetime").toLongOrNull() ?: 1_800_000L
 
     val errors =
         buildList {
@@ -43,10 +54,15 @@ fun ApplicationConfig.toDatabaseConfig(): DatabaseConfig {
         username = username,
         password = password,
         jdbcUrl = "jdbc:${url.withoutCredentials().withSslKey(sslKey)}",
+        maximumPoolSize = maximumPoolSize,
+        minimumIdle = minimumIdle,
+        connectionTimeout = connectionTimeout,
+        idleTimeout = idleTimeout,
+        maxLifetime = maxLifetime,
     )
 }
 
-// NAIS provides the database url with credentials embedded (postgresql://user:password@host...).
+// NAIS provides the database url with credentials embedded (******host...).
 // https://doc.nais.io/persistence/cloudsql/reference/
 // Hikari takes username/password separately, so we strip the credentials before prefixing jdbc:.
 private fun String.withoutCredentials(): String = replaceFirst(Regex("://[^@/]+@"), "://")
