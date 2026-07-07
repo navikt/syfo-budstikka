@@ -15,6 +15,7 @@ kotlinx-datetime = "0.8.0"
 kotest = "6.2.1"
 testLogger = "4.0.0"
 kotlinxSerializationJson = "1.9.0"
+kafka = "4.3.1"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -47,3 +48,4 @@ logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-enc
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
