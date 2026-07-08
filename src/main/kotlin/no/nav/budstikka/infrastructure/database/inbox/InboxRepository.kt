@@ -19,7 +19,6 @@ data class DeadLetterRecord(
 interface InboxRepository {
     suspend fun lagreHendelse(
         eventId: UUID,
-        referanse: String,
         payload: String,
     ): Boolean
 
@@ -31,7 +30,6 @@ class InboxRepositoryImpl(
 ) : InboxRepository {
     override suspend fun lagreHendelse(
         eventId: UUID,
-        referanse: String,
         payload: String,
     ): Boolean =
         database.transact {
@@ -39,7 +37,6 @@ class InboxRepositoryImpl(
             InboxHendelseTable
                 .insertIgnore {
                     it[InboxHendelseTable.eventId] = eventId
-                    it[InboxHendelseTable.referanse] = referanse
                     it[InboxHendelseTable.payload] = payload
                     it[InboxHendelseTable.mottattTid] = now
                 }.insertedCount > 0

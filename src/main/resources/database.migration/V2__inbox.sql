@@ -1,6 +1,5 @@
 CREATE TABLE inbox_hendelse (
     event_id        UUID        NOT NULL,
-    referanse       TEXT        NOT NULL,
     payload         TEXT        NOT NULL,
     status          TEXT        NOT NULL DEFAULT 'MOTTATT',
     drop_aarsak     TEXT,

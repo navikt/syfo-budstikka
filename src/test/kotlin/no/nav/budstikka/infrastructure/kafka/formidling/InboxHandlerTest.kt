@@ -2,9 +2,13 @@ package no.nav.budstikka.infrastructure.kafka.formidling
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.domain.formidling.FormidlingHeader
 import no.nav.budstikka.infrastructure.database.inbox.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.header.internals.RecordHeaders
+import org.apache.kafka.common.record.TimestampType
+import java.util.Optional
 import java.util.UUID
 
 private const val TOPIC = "team-esyfo.formidling.v1"
@@ -20,7 +24,6 @@ class InboxHandlerTest :
 
                 repository.lagredeHendelser.size shouldBe 1
                 repository.lagredeHendelser.single().second shouldBe "00000000-0000-0000-0000-000000000001"
-                repository.lagredeHendelser.single().third shouldBe "ref-1"
                 repository.lagredeDeadLetters.size shouldBe 0
             }
 
@@ -36,15 +39,15 @@ class InboxHandlerTest :
         }
 
         context("Poison-meldinger (dead-letter)") {
-            test("ugyldig JSON dead-letteres og kaster ikke") {
+            test("ugyldig JSON behandles som rå payload og lagres") {
                 val repository = FakeInboxRepository()
                 val handler = InboxHandler(repository)
 
-                handler.handle(record(value = "dette er ikke json {{{"))
+                // invalid JSON but eventId present in header -> should be stored as raw payload
+                handler.handle(record(value = "dette er ikke json {{{", eventId = UUID.randomUUID().toString()))
 
-                repository.lagredeHendelser.size shouldBe 0
-                repository.lagredeDeadLetters.size shouldBe 1
-                repository.lagredeDeadLetters.single().feilaarsak shouldBe "UGYLDIG_JSON"
+                repository.lagredeHendelser.size shouldBe 1
+                repository.lagredeDeadLetters.size shouldBe 0
             }
 
             test("null-payload dead-letteres og kaster ikke") {
@@ -58,16 +61,28 @@ class InboxHandlerTest :
                 repository.lagredeDeadLetters.single().feilaarsak shouldBe "NULL_PAYLOAD"
             }
 
-            test("manglende event_id dead-letteres og kaster ikke") {
+            test("manglende event_id-header dead-letteres og kaster ikke") {
                 val repository = FakeInboxRepository()
                 val handler = InboxHandler(repository)
 
-                val payloadUtenEventId = """{"referanse":"ref-1","innhold":{"type":"BrukervarselOpprett"}}"""
-                handler.handle(record(value = payloadUtenEventId))
+                // payload med gyldig JSON, men ingen eventId-header
+                val payload = """{"referanse":"ref-1","innhold":{"type":"BrukervarselOpprett"}}"""
+                handler.handle(record(value = payload))
 
                 repository.lagredeHendelser.size shouldBe 0
                 repository.lagredeDeadLetters.size shouldBe 1
-                repository.lagredeDeadLetters.single().feilaarsak shouldBe "UGYLDIG_JSON"
+                repository.lagredeDeadLetters.single().feilaarsak shouldBe "MANGLER_EVENT_ID"
+            }
+
+            test("ugyldig event_id-header dead-letteres og kaster ikke") {
+                val repository = FakeInboxRepository()
+                val handler = InboxHandler(repository)
+
+                handler.handle(record(value = "{}", eventId = "ikke-en-uuid"))
+
+                repository.lagredeHendelser.size shouldBe 0
+                repository.lagredeDeadLetters.size shouldBe 1
+                repository.lagredeDeadLetters.single().feilaarsak shouldBe "UGYLDIG_EVENT_ID"
             }
 
             test("Kafka-koordinater bevares på dead-letter-raden") {
@@ -102,16 +117,15 @@ class InboxHandlerTest :
 private class FakeInboxRepository(
     private val skalReturnereNyRad: Boolean = true,
 ) : InboxRepository {
-    // Triple: (payload, eventId.toString, referanse)
-    val lagredeHendelser = mutableListOf<Triple<String, String, String>>()
+    // Pair: (payload, eventId.toString)
+    val lagredeHendelser = mutableListOf<Pair<String, String>>()
     val lagredeDeadLetters = mutableListOf<DeadLetterRecord>()
 
     override suspend fun lagreHendelse(
         eventId: UUID,
-        referanse: String,
         payload: String,
     ): Boolean {
-        lagredeHendelser += Triple(payload, eventId.toString(), referanse)
+        lagredeHendelser += payload to eventId.toString()
         return skalReturnereNyRad
     }
 
@@ -125,7 +139,6 @@ private class ThrowingRepository : InboxRepository {
 
     override suspend fun lagreHendelse(
         eventId: UUID,
-        referanse: String,
         payload: String,
     ): Boolean = error("DB nede — transient feil")
 
@@ -156,7 +169,7 @@ private fun gyldigRecord(
             }
         }
         """.trimIndent()
-    return record(value = payload, partition = partition, offset = offset, key = key)
+    return record(value = payload, partition = partition, offset = offset, key = key, eventId = eventId)
 }
 
 private fun record(
@@ -164,4 +177,12 @@ private fun record(
     partition: Int = 0,
     offset: Long = 0L,
     key: String = "key",
-): ConsumerRecord<String, String?> = ConsumerRecord(TOPIC, partition, offset, key, value)
+    eventId: String? = null,
+): ConsumerRecord<String, String?> =
+    if (eventId != null) {
+        val headers = RecordHeaders()
+        headers.add(FormidlingHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
+        ConsumerRecord(TOPIC, partition, offset, offset, TimestampType.NO_TIMESTAMP_TYPE, -1, -1, key, value, headers, Optional.empty())
+    } else {
+        ConsumerRecord(TOPIC, partition, offset, key, value)
+    }

@@ -1,23 +1,24 @@
 package no.nav.budstikka.infrastructure.kafka.formidling
 
-import no.nav.budstikka.domain.formidling.Formidling
-import no.nav.budstikka.domain.formidling.formidlingJson
+import no.nav.budstikka.domain.formidling.FormidlingHeader
 import no.nav.budstikka.infrastructure.database.inbox.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
 import no.nav.budstikka.infrastructure.kafka.config.MessageHandler
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
+import java.util.UUID
 
 /**
  * Konsumerer nøytrale formidlinger fra topic og persisterer dem idempotent i inbox_hendelse.
  *
  * Feiltaksonomi (jf. docs/DATAMODELL.md):
- * - **Poison** (ugyldig JSON / mangler event_id): dead-letter til inbox_feilet, returner normalt
+ * - **Poison** (mangler/ugyldig event_id-header): dead-letter til inbox_feilet, returner normalt
  *   → offset committes, partisjon flyter videre.
  * - **Transient** (DB nede): kast → ConsumerRunner committer ikke, re-poller med backoff.
  *
  * Dedup: event_id er PK (ON CONFLICT DO NOTHING) — Kafka-replay dobbeltsender ikke.
- * Payload lagres byte-eksakt som text; sealed innhold dekodes først av beslutnings-workeren.
+ * Payload lagres byte-eksakt som text uten deserialisering; event_id leses fra Kafka-header
+ * (B54) og sealed innhold dekodes først av beslutnings-workeren.
  */
 class InboxHandler(
     private val repository: InboxRepository,
@@ -36,20 +37,49 @@ class InboxHandler(
                 return
             }
 
-        val formidling = parseFormidling(record, payload) ?: return
-        saveHendelse(record, formidling, payload)
+        // eventId leses fra Kafka-header (B54, dedup-fast-path). Payload lagres byte-eksakt uten
+        // deserialisering; referanse og sealed innhold dekodes først av beslutnings-workeren.
+        val eventIdStr =
+            record
+                .headers()
+                .lastHeader(FormidlingHeader.EVENT_ID)
+                ?.value()
+                ?.let { String(it, Charsets.UTF_8) }
+                ?: run {
+                    deadLetter(
+                        record = record,
+                        payload = payload,
+                        feilaarsak = "MANGLER_EVENT_ID",
+                        feilmelding = "Kafka-header '${FormidlingHeader.EVENT_ID}' mangler",
+                    )
+                    return
+                }
+
+        val eventId =
+            try {
+                UUID.fromString(eventIdStr)
+            } catch (e: IllegalArgumentException) {
+                deadLetter(
+                    record = record,
+                    payload = payload,
+                    feilaarsak = "UGYLDIG_EVENT_ID",
+                    feilmelding = e.message,
+                )
+                return
+            }
+
+        saveHendelse(record, eventId, payload)
     }
 
     private suspend fun saveHendelse(
         record: ConsumerRecord<String, String?>,
-        formidling: Formidling,
+        eventId: UUID,
         payload: String,
     ) {
         // Transient DB-feil kaster herfra → ConsumerRunner tar seg av re-poll med backoff
         val isNewHendelse =
             repository.lagreHendelse(
-                eventId = formidling.eventId,
-                referanse = formidling.referanse,
+                eventId = eventId,
                 payload = payload,
             )
         logger.info(
@@ -62,23 +92,6 @@ class InboxHandler(
             record.topicInfo,
         )
     }
-
-    private suspend fun parseFormidling(
-        record: ConsumerRecord<String, String?>,
-        payload: String,
-    ): Formidling? =
-        try {
-            formidlingJson.decodeFromString<Formidling>(payload)
-        } catch (e: IllegalArgumentException) {
-            // Dekodefeil og ugyldig UUID er deterministisk poison ved konsument-grensen.
-            deadLetter(
-                record = record,
-                payload = payload,
-                feilaarsak = "UGYLDIG_JSON",
-                feilmelding = e.message,
-            )
-            null
-        }
 
     private suspend fun deadLetter(
         record: ConsumerRecord<String, String?>,
