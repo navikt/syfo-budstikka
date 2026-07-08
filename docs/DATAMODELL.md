@@ -11,7 +11,6 @@ erDiagram
 
     inbox_hendelse {
         uuid        event_id PK "produsent-oppgitt, dedup"
-        text        referanse "kobler OPPRETT/FERDIGSTILL"
         text        payload "rå hendelse (byte-eksakt JSON-tekst; typet decode utsatt til beslutnings-worker)"
         text        status "MOTTATT|BEHANDLET|DROPPET|FEILET"
         text        drop_aarsak "DOD | ... (nullable)"
@@ -58,11 +57,12 @@ erDiagram
 ## Konsument: rå dump (envelope-only parse)
 Konsumenten skriver **kun** til `inbox_hendelse` og gjør ingen typet decode. `event_id`
 leses fra Kafka-headeren `eventId` (B54, dedup-fast-path) — ikke fra bodyen — så dedup
-(`ON CONFLICT DO NOTHING`, B4) og rå-dump er løsrevet fra payload-skjemaet. `referanse`
-ligger i konvolutten (`Formidling`, jf. `KONTRAKT.md`) og hentes fortsatt ut med en
-strukturell JSON-lesing (`Json.parseToJsonElement`) — ikke via domenetyper. Kafka-nøkkelen
-er `partisjonsnokkel` (partisjonering/rekkefølge, B5), ikke dedup-nøkkel. Payloaden er
-autoritativ kilde for `event_id` (B54) og lagres byte-eksakt som `text`.
+(`ON CONFLICT DO NOTHING`, B4) og rå-dump er løsrevet fra payload-skjemaet. Ingest gjør
+**ingen** body-parsing: `referanse` ligger i konvolutten (`Formidling`, jf. `KONTRAKT.md`),
+men leses IKKE ved mottak — den deferres til beslutnings-workeren (avgjort i #19) sammen med
+resten av innholdet. Kafka-nøkkelen er `partisjonsnokkel` (partisjonering/rekkefølge, B5),
+ikke dedup-nøkkel. Payloaden er autoritativ kilde for `event_id` (B54) og lagres byte-eksakt
+som `text`.
 
 Den sealed `innhold`-delen (mottaker, operasjon/`handling`, `kanal`, tekst, ekstern
 varsling) dekodes først av **beslutnings-workeren**. Derfor bor `handling`, `kanal`,
@@ -84,8 +84,8 @@ headeren er en fast-path, ikke en erstatning.
 
 Gevinst: dedup + rå-dump blir null-parse for `event_id`. `UGYLDIG_JSON`-triggeren ved ingest
 forsvinner, og dedup (`ON CONFLICT`, B4) overlever selv om body-skjemaet endrer seg eller er
-midlertidig ugyldig, fordi dedup løsrives fra payload-skjemaet. (`referanse` leses fortsatt
-strukturelt fra konvolutten; om også den skal deferres til workeren avgjøres i #19.)
+midlertidig ugyldig, fordi dedup løsrives fra payload-skjemaet. (`referanse` deferres til
+beslutnings-workeren sammen med resten av innholdet — avgjort i #19; ingest parser ikke bodyen.)
 
 Dette fjerner ikke `inbox_feilet`, det krymper bare triggeren. Hold to feilflater fra hverandre:
 
