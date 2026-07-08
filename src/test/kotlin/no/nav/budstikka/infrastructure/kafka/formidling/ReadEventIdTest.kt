@@ -12,24 +12,24 @@ import java.util.UUID
 
 private const val TOPIC = "team-esyfo.formidling.v1"
 
-class LesEventIdTest :
+class ReadEventIdTest :
     FunSpec({
         test("gyldig UUID-header gir Ok med parset verdi") {
             val id = UUID.randomUUID()
 
-            val resultat = record(eventId = id.toString()).lesEventId()
+            val resultat = record(eventId = id.toString()).readEventId()
 
             resultat.shouldBeInstanceOf<EventId.Ok>().verdi shouldBe id
         }
 
         test("manglende header gir Ugyldig(MANGLER_EVENT_ID)") {
-            val resultat = record(eventId = null).lesEventId()
+            val resultat = record(eventId = null).readEventId()
 
             resultat.shouldBeInstanceOf<EventId.Ugyldig>().feilaarsak shouldBe "MANGLER_EVENT_ID"
         }
 
         test("header som ikke er en UUID gir Ugyldig(UGYLDIG_EVENT_ID)") {
-            val resultat = record(eventId = "ikke-en-uuid").lesEventId()
+            val resultat = record(eventId = "ikke-en-uuid").readEventId()
 
             resultat.shouldBeInstanceOf<EventId.Ugyldig>().feilaarsak shouldBe "UGYLDIG_EVENT_ID"
         }

@@ -27,8 +27,11 @@ class InboxHandler(
 
     override suspend fun handle(record: ConsumerRecord<String, String?>) {
         val eventId =
-            when (val resultat = record.lesEventId()) {
-                is EventId.Ok -> resultat.verdi
+            when (val resultat = record.readEventId()) {
+                is EventId.Ok -> {
+                    resultat.verdi
+                }
+
                 is EventId.Ugyldig -> {
                     record.deadLetter(resultat.feilaarsak, resultat.feilmelding)
                     return
@@ -107,7 +110,7 @@ internal sealed interface EventId {
  * på filnivå og testes isolert. Skiller manglende header fra ugyldig UUID så [InboxHandler] kan
  * dead-lettere med riktig feilårsak.
  */
-internal fun ConsumerRecord<*, *>.lesEventId(): EventId {
+internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
         headers().lastHeader(FormidlingHeader.EVENT_ID)?.value()
             ?: return EventId.Ugyldig("MANGLER_EVENT_ID", "Kafka-header '${FormidlingHeader.EVENT_ID}' mangler")
