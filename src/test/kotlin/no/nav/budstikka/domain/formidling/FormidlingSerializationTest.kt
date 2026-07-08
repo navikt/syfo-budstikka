@@ -5,27 +5,12 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.serialization.encodeToString
-import java.util.UUID
 import kotlin.time.Instant
 
 class FormidlingSerializationTest :
     FunSpec({
-
         val fnr = "12345678901"
         val orgnr = "987654321"
-
-        fun envelope(innhold: Formidlingsinnhold) =
-            Formidling(
-                eventId = UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                referanse = "ref-123",
-                innhold = innhold,
-            )
-
-        fun rundtur(innhold: Formidlingsinnhold): Formidling {
-            val original = envelope(innhold)
-            val json = FormidlingJson.encodeToString(original)
-            return FormidlingJson.decodeFromString<Formidling>(json)
-        }
 
         context("de/serialisering rundtur bevarer alle varianter") {
             val varianter: List<Pair<String, Formidlingsinnhold>> =
@@ -130,10 +115,12 @@ class FormidlingSerializationTest :
                         tekst = "Dialogmøte",
                         lenke = "https://nav.no/ag",
                     )
-                val tekst = envelope(innhold).toString()
-                tekst shouldNotContain fnr
-                tekst shouldNotContain orgnr
-                tekst shouldContain "***"
+
+                with(envelope(innhold).toString()) {
+                    this shouldNotContain fnr
+                    this shouldNotContain orgnr
+                    this shouldContain "***"
+                }
             }
         }
 

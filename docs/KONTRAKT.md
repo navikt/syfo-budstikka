@@ -22,7 +22,10 @@ sealed interface Formidlingsinnhold {
     val partisjonsnokkel: String  // accessor for Kafka-nøkkel (B5), ikke delt Mottaker-hierarki (B9)
 }
 ```
-Korrelasjon skjer på `eventId` (B45) — ingen egen header eller payload-felt.
+Korrelasjon skjer på `eventId` (B45) — ingen egen korrelasjons-header eller -payloadfelt ut
+over `eventId` selv. `eventId` speiles i tillegg som Kafka-header (B54, navn:
+`FormidlingHeader.EVENT_ID`) som en dedup-fast-path ved inntak; payloaden forblir autoritativ
+kilde, headeren er ikke en erstatning.
 
 **Hvorfor er ikke `eventId` record key?** Record key har én bevisst jobb i budstikka:
 partisjonering og rekkefølge (B5). Den løses av `partisjonsnokkel` = mottakerens id, slik
