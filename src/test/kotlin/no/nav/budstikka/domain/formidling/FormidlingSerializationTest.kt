@@ -88,12 +88,12 @@ class FormidlingSerializationTest :
         }
 
         test("polymorf diskriminator bruker stabilt type-navn") {
-            val json = FormidlingJson.encodeToString(envelope(BrevOpprett(Personident(fnr), "jp-9")))
+            val json = formidlingJson.encodeToString(envelope(BrevOpprett(Personident(fnr), "jp-9")))
             json shouldContain "\"type\":\"BrevOpprett\""
         }
 
         test("partisjonsnokkel serialiseres ikke (computed getter uten backing field)") {
-            val json = FormidlingJson.encodeToString(envelope(BrevOpprett(Personident(fnr), "jp-9")))
+            val json = formidlingJson.encodeToString(envelope(BrevOpprett(Personident(fnr), "jp-9")))
             json shouldNotContain "partisjonsnokkel"
         }
 
@@ -125,7 +125,7 @@ class FormidlingSerializationTest :
         }
 
         test("serialisert payload bærer råverdien (partisjonering trenger ekte id)") {
-            val json = FormidlingJson.encodeToString(envelope(BrevOpprett(Personident(fnr), "jp-9")))
+            val json = formidlingJson.encodeToString(envelope(BrevOpprett(Personident(fnr), "jp-9")))
             json shouldContain fnr
         }
     })

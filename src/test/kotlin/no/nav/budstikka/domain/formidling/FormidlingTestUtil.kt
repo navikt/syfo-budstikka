@@ -14,6 +14,6 @@ fun envelope(innhold: Formidlingsinnhold) =
 
 fun rundtur(innhold: Formidlingsinnhold): Formidling {
     val original = envelope(innhold)
-    val json = FormidlingJson.encodeToString(original)
-    return FormidlingJson.decodeFromString<Formidling>(json)
+    val json = formidlingJson.encodeToString(original)
+    return formidlingJson.decodeFromString<Formidling>(json)
 }

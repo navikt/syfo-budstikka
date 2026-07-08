@@ -33,7 +33,7 @@ sealed interface Formidlingsinnhold {
  * (matcher `@SerialName` på hver variant). `ignoreUnknownKeys` gjør additive felt-tillegg
  * non-breaking for eldre konsumenter/versjoner.
  */
-val FormidlingJson: Json =
+val formidlingJson: Json =
     Json {
         classDiscriminator = "type"
         ignoreUnknownKeys = true
