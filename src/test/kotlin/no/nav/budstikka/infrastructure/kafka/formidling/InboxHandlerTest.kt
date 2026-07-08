@@ -14,8 +14,8 @@ private const val TOPIC = "team-esyfo.formidling.v1"
 
 class InboxHandlerTest :
     FunSpec({
-        context("Gyldig formidling") {
-            test("gyldig melding lagres i inbox og returnerer uten feil") {
+        context("Valid formidling") {
+            test("formidling saved in inbox and returns without error") {
                 val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
                 handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
@@ -25,7 +25,7 @@ class InboxHandlerTest :
                 deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
 
-            test("duplikat (samme event_id) gir ingen ny rad og kaster ikke") {
+            test("formidling duplicate (same event_id) yields no new row and does not throw") {
                 val (handler, inboxRepository, deadLetterRepository) =
                     createTestContext(
                         shouldReturnNewRowCreated = false,
@@ -38,8 +38,8 @@ class InboxHandlerTest :
             }
         }
 
-        context("Poison-meldinger (dead-letter)") {
-            test("ugyldig JSON behandles som rå payload og lagres") {
+        context("Poison formidling (dead-letter)") {
+            test("invalid JSON is treated as raw payload and stored") {
                 val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
                 // invalid JSON but eventId present in header -> should be stored as raw payload
@@ -49,7 +49,7 @@ class InboxHandlerTest :
                 deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
 
-            test("tom payload dead-letteres og kaster ikke") {
+            test("empty payload is dead-lettered and does not throw") {
                 val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
                 handler.handle(record(value = null, eventId = UUID.randomUUID().toString()))
@@ -59,7 +59,7 @@ class InboxHandlerTest :
                 deadLetterRepository.savedDeadLetters.single().failureReason shouldBe "MISSING_PAYLOAD"
             }
 
-            test("Kafka-koordinater bevares på dead-letter-raden") {
+            test("Kafka coordinates are preserved on dead-letter row") {
                 val (handler, _, deadLetterRepository) = createTestContext()
 
                 handler.handle(record(value = "ugyldig", partition = 2, offset = 42L, key = "partisjon-key"))
@@ -72,8 +72,8 @@ class InboxHandlerTest :
             }
         }
 
-        context("Transient DB-feil") {
-            test("DB-feil ved lagreHendelse kaster og dead-letter-tabell berøres ikke") {
+        context("Transient DB error") {
+            test("DB error during saveEvent throws and dead-letter table is not touched") {
                 val throwingRepository = ThrowingFormidlingRepository()
                 val deadLetterRepository = FakeDeadLetterRepository()
                 val handler = InboxHandler(throwingRepository, deadLetterRepository)
