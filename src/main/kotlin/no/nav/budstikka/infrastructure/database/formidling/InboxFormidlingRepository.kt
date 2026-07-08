@@ -21,8 +21,6 @@ interface InboxFormidlingRepository {
         eventId: UUID,
         payload: String,
     ): Boolean
-
-    suspend fun lagreFeilet(record: DeadLetterRecord)
 }
 
 class InboxFormidlingRepositoryImpl(
@@ -41,20 +39,4 @@ class InboxFormidlingRepositoryImpl(
                     it[InboxFormidlingTable.receivedAt] = now
                 }.insertedCount > 0
         }
-
-    override suspend fun lagreFeilet(record: DeadLetterRecord) {
-        database.transact {
-            val now = Clock.System.now()
-            DeadLetterFormidlingTable.insertIgnore {
-                it[DeadLetterFormidlingTable.payload] = record.payload
-                it[DeadLetterFormidlingTable.topic] = record.topic
-                it[DeadLetterFormidlingTable.partition] = record.partition
-                it[DeadLetterFormidlingTable.kafkaOffset] = record.kafkaOffset
-                it[DeadLetterFormidlingTable.kafkaKey] = record.kafkaKey
-                it[DeadLetterFormidlingTable.failureReason] = record.failureReason
-                it[DeadLetterFormidlingTable.errorMessage] = record.errorMessage
-                it[DeadLetterFormidlingTable.receivedAt] = now
-            }
-        }
-    }
 }

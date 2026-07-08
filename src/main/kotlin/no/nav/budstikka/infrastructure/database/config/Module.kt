@@ -7,6 +7,8 @@ import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.nav.budstikka.infrastructure.HealthCheck
+import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
+import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepositoryImpl
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepositoryImpl
 import org.flywaydb.core.Flyway
@@ -22,6 +24,7 @@ fun DependencyRegistry.databaseModule() {
         dataSourceHealthCheck(resolve())
     }
     provide<InboxFormidlingRepository> { InboxFormidlingRepositoryImpl(resolve()) }
+    provide<DeadLetterFormidlingRepository> { DeadLetterFormidlingRepositoryImpl(resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

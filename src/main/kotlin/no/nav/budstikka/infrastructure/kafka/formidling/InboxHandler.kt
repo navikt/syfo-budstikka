@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.kafka.formidling
 
 import no.nav.budstikka.domain.formidling.FormidlingHeader
+import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.kafka.config.MessageHandler
@@ -22,6 +23,7 @@ import java.util.UUID
  */
 class InboxHandler(
     private val repository: InboxFormidlingRepository,
+    private val deadLetterRepository: DeadLetterFormidlingRepository,
 ) : MessageHandler<String, String?> {
     private val logger = LoggerFactory.getLogger(InboxHandler::class.java)
 
@@ -69,7 +71,7 @@ class InboxHandler(
         )
     }
 
-    /** Dead-letterer recorden til inbox_feilet med den rå (mulig-ugyldige) payloaden bevart. */
+    /** Dead-letterer recorden til dead-letter-tabellen med den rå (mulig-ugyldige) payloaden bevart. */
     private suspend fun ConsumerRecord<String, String?>.deadLetter(
         failureReason: String,
         errorMessage: String?,
@@ -79,7 +81,7 @@ class InboxHandler(
             failureReason,
             topicInfo,
         )
-        repository.lagreFeilet(
+        deadLetterRepository.save(
             DeadLetterRecord(
                 payload = value().orEmpty(),
                 topic = topic(),
