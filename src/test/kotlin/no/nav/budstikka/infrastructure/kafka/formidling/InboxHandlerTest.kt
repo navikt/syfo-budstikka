@@ -16,7 +16,7 @@ class InboxHandlerTest :
     FunSpec({
         context("Gyldig formidling") {
             test("gyldig melding lagres i inbox og returnerer uten feil") {
-                val (handler, inboxRepository, deadLetterRepository) = createHandler()
+                val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
                 handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
 
@@ -27,7 +27,7 @@ class InboxHandlerTest :
 
             test("duplikat (samme event_id) gir ingen ny rad og kaster ikke") {
                 val (handler, inboxRepository, deadLetterRepository) =
-                    createHandler(
+                    createTestContext(
                         shouldReturnNewRowCreated = false,
                     )
 
@@ -40,7 +40,7 @@ class InboxHandlerTest :
 
         context("Poison-meldinger (dead-letter)") {
             test("ugyldig JSON behandles som rå payload og lagres") {
-                val (handler, inboxRepository, deadLetterRepository) = createHandler()
+                val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
                 // invalid JSON but eventId present in header -> should be stored as raw payload
                 handler.handle(record(value = "dette er ikke json {{{", eventId = UUID.randomUUID().toString()))
@@ -50,7 +50,7 @@ class InboxHandlerTest :
             }
 
             test("tom payload dead-letteres og kaster ikke") {
-                val (handler, inboxRepository, deadLetterRepository) = createHandler()
+                val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
                 handler.handle(record(value = null, eventId = UUID.randomUUID().toString()))
 
@@ -60,7 +60,7 @@ class InboxHandlerTest :
             }
 
             test("Kafka-koordinater bevares på dead-letter-raden") {
-                val (handler, _, deadLetterRepository) = createHandler()
+                val (handler, _, deadLetterRepository) = createTestContext()
 
                 handler.handle(record(value = "ugyldig", partition = 2, offset = 42L, key = "partisjon-key"))
 
@@ -88,7 +88,7 @@ class InboxHandlerTest :
 
 // --- Test helpers ---
 
-private fun createHandler(shouldReturnNewRowCreated: Boolean = true): TestContext {
+private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestContext {
     val inboxRepository =
         FakeInboxFormidlingRepository(
             shouldReturnNewRowCreated = shouldReturnNewRowCreated,
