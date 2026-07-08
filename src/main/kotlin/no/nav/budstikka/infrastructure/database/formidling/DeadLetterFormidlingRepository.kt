@@ -5,6 +5,16 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import kotlin.time.Clock
 
+data class DeadLetterRecord(
+    val payload: String,
+    val topic: String,
+    val partition: Int,
+    val kafkaOffset: Long,
+    val kafkaKey: String?,
+    val failureReason: String,
+    val errorMessage: String?,
+)
+
 interface DeadLetterFormidlingRepository {
     suspend fun save(record: DeadLetterRecord)
 }

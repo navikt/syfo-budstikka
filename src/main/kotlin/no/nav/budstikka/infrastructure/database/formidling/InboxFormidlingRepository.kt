@@ -6,16 +6,6 @@ import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import java.util.UUID
 import kotlin.time.Clock
 
-data class DeadLetterRecord(
-    val payload: String,
-    val topic: String,
-    val partition: Int,
-    val kafkaOffset: Long,
-    val kafkaKey: String?,
-    val failureReason: String,
-    val errorMessage: String?,
-)
-
 interface InboxFormidlingRepository {
     suspend fun save(
         eventId: UUID,
