@@ -12,8 +12,8 @@ import java.util.UUID
  * Konsumerer nøytrale formidlinger fra topic og persisterer dem idempotent i inbox_hendelse.
  *
  * Feiltaksonomi (jf. docs/DATAMODELL.md):
- * - **Poison** (mangler/ugyldig event_id-header): dead-letter til inbox_feilet, returner normalt
- *   → offset committes, partisjon flyter videre.
+ * - **Poison** (mangler/ugyldig event_id-header, eller tom payload): dead-letter til inbox_feilet,
+ *   returner normalt → offset committes, partisjon flyter videre.
  * - **Transient** (DB nede): kast → ConsumerRunner committer ikke, re-poller med backoff.
  *
  * Dedup: event_id er PK (ON CONFLICT DO NOTHING) — Kafka-replay dobbeltsender ikke.
@@ -26,47 +26,20 @@ class InboxHandler(
     private val logger = LoggerFactory.getLogger(InboxHandler::class.java)
 
     override suspend fun handle(record: ConsumerRecord<String, String?>) {
-        val payload =
-            record.value() ?: run {
-                deadLetter(
-                    record = record,
-                    payload = "",
-                    feilaarsak = "NULL_PAYLOAD",
-                    feilmelding = "Kafka-record hadde null-verdi",
-                )
-                return
-            }
-
-        // eventId leses fra Kafka-header (B54, dedup-fast-path). Payload lagres byte-eksakt uten
-        // deserialisering; referanse og sealed innhold dekodes først av beslutnings-workeren.
-        val eventIdStr =
-            record
-                .headers()
-                .lastHeader(FormidlingHeader.EVENT_ID)
-                ?.value()
-                ?.let { String(it, Charsets.UTF_8) }
-                ?: run {
-                    deadLetter(
-                        record = record,
-                        payload = payload,
-                        feilaarsak = "MANGLER_EVENT_ID",
-                        feilmelding = "Kafka-header '${FormidlingHeader.EVENT_ID}' mangler",
-                    )
+        val eventId =
+            when (val resultat = record.lesEventId()) {
+                is EventId.Ok -> resultat.verdi
+                is EventId.Ugyldig -> {
+                    record.deadLetter(resultat.feilaarsak, resultat.feilmelding)
                     return
                 }
-
-        val eventId =
-            try {
-                UUID.fromString(eventIdStr)
-            } catch (e: IllegalArgumentException) {
-                deadLetter(
-                    record = record,
-                    payload = payload,
-                    feilaarsak = "UGYLDIG_EVENT_ID",
-                    feilmelding = e.message,
-                )
-                return
             }
+
+        val payload = record.value()
+        if (payload.isNullOrBlank()) {
+            record.deadLetter("TOM_PAYLOAD", "Kafka-record manglet payload")
+            return
+        }
 
         saveHendelse(record, eventId, payload)
     }
@@ -93,28 +66,55 @@ class InboxHandler(
         )
     }
 
-    private suspend fun deadLetter(
-        record: ConsumerRecord<String, String?>,
-        payload: String,
+    /** Dead-letterer recorden til inbox_feilet med den rå (mulig-ugyldige) payloaden bevart. */
+    private suspend fun ConsumerRecord<String, String?>.deadLetter(
         feilaarsak: String,
         feilmelding: String?,
     ) {
         logger.warn(
             "Poison-melding dead-letteret feilaarsak={} {}",
             feilaarsak,
-            record.topicInfo,
+            topicInfo,
         )
         repository.lagreFeilet(
             DeadLetterRecord(
-                payload = payload,
-                topic = record.topic(),
-                partisjon = record.partition(),
-                kafkaOffset = record.offset(),
-                kafkaKey = record.key(),
+                payload = value().orEmpty(),
+                topic = topic(),
+                partisjon = partition(),
+                kafkaOffset = offset(),
+                kafkaKey = key(),
                 feilaarsak = feilaarsak,
                 feilmelding = feilmelding,
             ),
         )
+    }
+}
+
+/** Resultat av å lese event_id fra Kafka-headeren: enten en gyldig UUID eller en dead-letter-grunn. */
+internal sealed interface EventId {
+    data class Ok(
+        val verdi: UUID,
+    ) : EventId
+
+    data class Ugyldig(
+        val feilaarsak: String,
+        val feilmelding: String?,
+    ) : EventId
+}
+
+/**
+ * Ren header-lesing (B54, dedup-fast-path) uten å røre bodyen — ingen bivirkninger, så den bor
+ * på filnivå og testes isolert. Skiller manglende header fra ugyldig UUID så [InboxHandler] kan
+ * dead-lettere med riktig feilårsak.
+ */
+internal fun ConsumerRecord<*, *>.lesEventId(): EventId {
+    val raw =
+        headers().lastHeader(FormidlingHeader.EVENT_ID)?.value()
+            ?: return EventId.Ugyldig("MANGLER_EVENT_ID", "Kafka-header '${FormidlingHeader.EVENT_ID}' mangler")
+    return try {
+        EventId.Ok(UUID.fromString(String(raw, Charsets.UTF_8)))
+    } catch (e: IllegalArgumentException) {
+        EventId.Ugyldig("UGYLDIG_EVENT_ID", e.message)
     }
 }
 

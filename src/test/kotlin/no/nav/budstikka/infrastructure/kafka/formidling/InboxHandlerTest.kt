@@ -50,39 +50,15 @@ class InboxHandlerTest :
                 repository.lagredeDeadLetters.size shouldBe 0
             }
 
-            test("null-payload dead-letteres og kaster ikke") {
+            test("tom payload dead-letteres og kaster ikke") {
                 val repository = FakeInboxRepository()
                 val handler = InboxHandler(repository)
 
-                handler.handle(record(value = null))
+                handler.handle(record(value = null, eventId = UUID.randomUUID().toString()))
 
                 repository.lagredeHendelser.size shouldBe 0
                 repository.lagredeDeadLetters.size shouldBe 1
-                repository.lagredeDeadLetters.single().feilaarsak shouldBe "NULL_PAYLOAD"
-            }
-
-            test("manglende event_id-header dead-letteres og kaster ikke") {
-                val repository = FakeInboxRepository()
-                val handler = InboxHandler(repository)
-
-                // payload med gyldig JSON, men ingen eventId-header
-                val payload = """{"referanse":"ref-1","innhold":{"type":"BrukervarselOpprett"}}"""
-                handler.handle(record(value = payload))
-
-                repository.lagredeHendelser.size shouldBe 0
-                repository.lagredeDeadLetters.size shouldBe 1
-                repository.lagredeDeadLetters.single().feilaarsak shouldBe "MANGLER_EVENT_ID"
-            }
-
-            test("ugyldig event_id-header dead-letteres og kaster ikke") {
-                val repository = FakeInboxRepository()
-                val handler = InboxHandler(repository)
-
-                handler.handle(record(value = "{}", eventId = "ikke-en-uuid"))
-
-                repository.lagredeHendelser.size shouldBe 0
-                repository.lagredeDeadLetters.size shouldBe 1
-                repository.lagredeDeadLetters.single().feilaarsak shouldBe "UGYLDIG_EVENT_ID"
+                repository.lagredeDeadLetters.single().feilaarsak shouldBe "TOM_PAYLOAD"
             }
 
             test("Kafka-koordinater bevares på dead-letter-raden") {
