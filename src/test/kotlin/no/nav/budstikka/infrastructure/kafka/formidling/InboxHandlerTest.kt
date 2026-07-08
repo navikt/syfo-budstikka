@@ -3,7 +3,6 @@ package no.nav.budstikka.infrastructure.kafka.formidling
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.domain.formidling.FormidlingHeader
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
@@ -80,8 +79,6 @@ class InboxHandlerTest :
         }
     })
 
-// --- Test helpers ---
-
 private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestContext {
     val inboxRepository =
         FakeInboxFormidlingRepository(
@@ -103,20 +100,8 @@ private data class TestContext(
     val deadLetterRepository: FakeDeadLetterRepository,
 )
 
-// --- Fakes ---
-
-private class ThrowingFormidlingRepository : InboxFormidlingRepository {
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean = error("DB nede — transient feil")
-}
-
-// --- Helpers ---
-
 private fun validRecord(
     eventId: String = UUID.randomUUID().toString(),
-    reference: String = "ref-1",
     partition: Int = 0,
     offset: Long = 0L,
     key: String = "key",
@@ -125,7 +110,6 @@ private fun validRecord(
         """
         {
             "eventId": "$eventId",
-            "referanse": "$reference",
             "innhold": {
                 "type": "BrukervarselOpprett",
                 "personident": "12345678901",
