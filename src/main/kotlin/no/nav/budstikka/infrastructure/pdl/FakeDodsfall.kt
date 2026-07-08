@@ -1,10 +1,10 @@
-package no.nav.budstikka.fakes
+package no.nav.budstikka.infrastructure.pdl
 
 import no.nav.budstikka.domain.formidling.Personident
 import no.nav.budstikka.domain.grunnlag.DodsfallOppslag
 
 /**
- * In-memory, styrbar fake (B52) av [DodsfallOppslag] – «mock-klienten» beslutnings-workeren
+ * In-memory, styrbar fake (B52) av [no.nav.budstikka.domain.grunnlag.DodsfallOppslag] – «mock-klienten» beslutnings-workeren
  * (#20) kan wire i test/e2e i stedet for den ekte PDL-adapteren. Ingen nett, ingen tokens,
  * full kontroll.
  *
