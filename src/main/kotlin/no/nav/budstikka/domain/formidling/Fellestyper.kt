@@ -2,7 +2,7 @@ package no.nav.budstikka.domain.formidling
 
 import kotlinx.serialization.Serializable
 
-// Felles byggesteiner for kontrakten (B23). Budstikka eier sin egen nøytrale modell og
+// Fellestyper for kontrakten (B23). Budstikka eier sin egen nøytrale modell og
 // speiler ikke nedstrøms (tms/dokdist/notifikasjon-produsent-api). Intern mapping til
 // nedstrøms er et anti-corruption-lag.
 

@@ -7,6 +7,7 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 /**
@@ -45,3 +46,15 @@ object UuidSerializer : KSerializer<UUID> {
 
     override fun deserialize(decoder: Decoder): UUID = UUID.fromString(decoder.decodeString())
 }
+
+/**
+ * Kanonisk Json-oppsett for [Formidling]-kontrakten. Polymorf diskriminator er `type`
+ * (matcher `@SerialName` på hver variant). `ignoreUnknownKeys` gjør additive felt-tillegg
+ * non-breaking for eldre konsumenter/versjoner.
+ */
+val FormidlingJson: Json =
+    Json {
+        classDiscriminator = "type"
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
