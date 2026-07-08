@@ -1,0 +1,40 @@
+name: "Deploy topic"
+on:
+  push:
+    paths:
+      - nais/topics/**
+      - .github/workflows/deploy-topic.yaml
+    branches:
+      - main
+  pull_request:
+    paths:
+      - nais/topics/**
+      - .github/workflows/deploy-topic.yaml
+    branches:
+      - main
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  merge_group:
+    types: [ checks_requested ]
+  workflow_dispatch:
+concurrency:
+  group: deploy-topics-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  TOPIC_DEV_FILES: nais/topics/kafka-dev.yaml
+jobs:
+  deploy-topic-to-dev:
+    name: Deploy topic to dev
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Deploy topics to dev
+        uses: nais/deploy/actions/deploy@v2 # internal Nav action
+        env:
+          VAR: kafka-pool=nav-dev
+          CLUSTER: dev-gcp
+          RESOURCE: ${{ env.TOPIC_DEV_FILES }}
