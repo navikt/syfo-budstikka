@@ -16,55 +16,55 @@ class InboxHandlerTest :
     FunSpec({
         context("Gyldig formidling") {
             test("gyldig melding lagres i inbox og returnerer uten feil") {
-                val (handler, repository, deadRepo) = createHandler()
+                val (handler, inboxRepository, deadLetterRepository) = createHandler()
 
                 handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
 
-                repository.savedEvents.size shouldBe 1
-                repository.savedEvents.single().second shouldBe "00000000-0000-0000-0000-000000000001"
-                deadRepo.savedDeadLetters.size shouldBe 0
+                inboxRepository.savedEvents.size shouldBe 1
+                inboxRepository.savedEvents.single().second shouldBe "00000000-0000-0000-0000-000000000001"
+                deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
 
             test("duplikat (samme event_id) gir ingen ny rad og kaster ikke") {
-                val (handler, repository, deadRepo) =
+                val (handler, inboxRepository, deadLetterRepository) =
                     createHandler(
-                        skalReturnereNyRad = false,
+                        shouldReturnNewRowCreated = false,
                     )
 
                 handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
 
-                repository.savedEvents.size shouldBe 1
-                deadRepo.savedDeadLetters.size shouldBe 0
+                inboxRepository.savedEvents.size shouldBe 1
+                deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
         }
 
         context("Poison-meldinger (dead-letter)") {
             test("ugyldig JSON behandles som rå payload og lagres") {
-                val (handler, repository, deadRepo) = createHandler()
+                val (handler, inboxRepository, deadLetterRepository) = createHandler()
 
                 // invalid JSON but eventId present in header -> should be stored as raw payload
                 handler.handle(record(value = "dette er ikke json {{{", eventId = UUID.randomUUID().toString()))
 
-                repository.savedEvents.size shouldBe 1
-                deadRepo.savedDeadLetters.size shouldBe 0
+                inboxRepository.savedEvents.size shouldBe 1
+                deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
 
             test("tom payload dead-letteres og kaster ikke") {
-                val (handler, repository, deadRepo) = createHandler()
+                val (handler, inboxRepository, deadLetterRepository) = createHandler()
 
                 handler.handle(record(value = null, eventId = UUID.randomUUID().toString()))
 
-                repository.savedEvents.size shouldBe 0
-                deadRepo.savedDeadLetters.size shouldBe 1
-                deadRepo.savedDeadLetters.single().failureReason shouldBe "MISSING_PAYLOAD"
+                inboxRepository.savedEvents.size shouldBe 0
+                deadLetterRepository.savedDeadLetters.size shouldBe 1
+                deadLetterRepository.savedDeadLetters.single().failureReason shouldBe "MISSING_PAYLOAD"
             }
 
             test("Kafka-koordinater bevares på dead-letter-raden") {
-                val (handler, repository, deadRepo) = createHandler()
+                val (handler, _, deadLetterRepository) = createHandler()
 
                 handler.handle(record(value = "ugyldig", partition = 2, offset = 42L, key = "partisjon-key"))
 
-                val deadLetter = deadRepo.savedDeadLetters.single()
+                val deadLetter = deadLetterRepository.savedDeadLetters.single()
                 deadLetter.topic shouldBe TOPIC
                 deadLetter.partition shouldBe 2
                 deadLetter.kafkaOffset shouldBe 42L
@@ -74,39 +74,39 @@ class InboxHandlerTest :
 
         context("Transient DB-feil") {
             test("DB-feil ved lagreHendelse kaster og dead-letter-tabell berøres ikke") {
-                val repository = ThrowingFormidlingRepository()
-                val deadRepo = FakeDeadLetterRepository()
-                val handler = InboxHandler(repository, deadRepo)
+                val throwingRepository = ThrowingFormidlingRepository()
+                val deadLetterRepository = FakeDeadLetterRepository()
+                val handler = InboxHandler(throwingRepository, deadLetterRepository)
 
                 val result = runCatching { handler.handle(validRecord()) }
 
                 result.isFailure shouldBe true
-                deadRepo.savedDeadLetters.size shouldBe 0
+                deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
         }
     })
 
 // --- Test helpers ---
 
-private fun createHandler(skalReturnereNyRad: Boolean = true): TestContext {
-    val repository =
+private fun createHandler(shouldReturnNewRowCreated: Boolean = true): TestContext {
+    val inboxRepository =
         FakeInboxFormidlingRepository(
-            skalReturnereNyRad = skalReturnereNyRad,
+            shouldReturnNewRowCreated = shouldReturnNewRowCreated,
         )
-    val deadRepo = FakeDeadLetterRepository()
-    val handler = InboxHandler(repository, deadRepo)
+    val deadLetterRepository = FakeDeadLetterRepository()
+    val handler = InboxHandler(inboxRepository, deadLetterRepository)
 
     return TestContext(
         handler = handler,
-        repository = repository,
-        deadRepo = deadRepo,
+        inboxRepository = inboxRepository,
+        deadLetterRepository = deadLetterRepository,
     )
 }
 
 private data class TestContext(
     val handler: InboxHandler,
-    val repository: FakeInboxFormidlingRepository,
-    val deadRepo: FakeDeadLetterRepository,
+    val inboxRepository: FakeInboxFormidlingRepository,
+    val deadLetterRepository: FakeDeadLetterRepository,
 )
 
 // --- Fakes ---

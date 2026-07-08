@@ -4,7 +4,7 @@ import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingReposi
 import java.util.UUID
 
 class FakeInboxFormidlingRepository(
-    private val skalReturnereNyRad: Boolean = true,
+    private val shouldReturnNewRowCreated: Boolean = true,
 ) : InboxFormidlingRepository {
     // Pair: (payload, eventId.toString)
     val savedEvents = mutableListOf<Pair<String, String>>()
@@ -14,6 +14,6 @@ class FakeInboxFormidlingRepository(
         payload: String,
     ): Boolean {
         savedEvents += payload to eventId.toString()
-        return skalReturnereNyRad
+        return shouldReturnNewRowCreated
     }
 }
