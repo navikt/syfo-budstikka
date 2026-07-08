@@ -73,23 +73,6 @@ run = 'docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml down'
 description = "Remove local infrastructure including volumes"
 run = 'docker-compose -f docker-compose.yaml -f docker-compose.kafka.yaml down --volumes'
 
-# Kafka test messages
-[tasks."kafka:send"]
-description = "Send a local Kafka test message. Defaults to brukervarsel when no scenario is given."
-run = 'bash ./scripts/kafka/send'
-
-[tasks."kafka:brukervarsel"]
-description = "Send a local brukervarsel test message"
-run = "mise run kafka:send brukervarsel"
-
-[tasks."kafka:poison"]
-description = "Send invalid JSON to local Kafka"
-run = "mise run kafka:send poison"
-
-[tasks."kafka:duplikat"]
-description = "Send a duplicate local test message"
-run = "mise run kafka:send duplikat"
-
 # Database migrations
 [tasks."migration:info"]
 description = "Database migrations info"
