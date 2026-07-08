@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.kafka.formidling
 
-import kotlinx.serialization.json.Json
-import no.nav.budstikka.domain.formidling.FormidlingEnvelope
+import no.nav.budstikka.domain.formidling.Formidling
+import no.nav.budstikka.domain.formidling.formidlingJson
 import no.nav.budstikka.infrastructure.database.inbox.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
 import no.nav.budstikka.infrastructure.kafka.config.MessageHandler
@@ -23,7 +23,6 @@ class InboxHandler(
     private val repository: InboxRepository,
 ) : MessageHandler<String, String?> {
     private val logger = LoggerFactory.getLogger(InboxHandler::class.java)
-    private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun handle(record: ConsumerRecord<String, String?>) {
         val payload =
@@ -37,20 +36,20 @@ class InboxHandler(
                 return
             }
 
-        val envelope = parseEnvelope(record, payload) ?: return
-        saveHendelse(record, envelope, payload)
+        val formidling = parseFormidling(record, payload) ?: return
+        saveHendelse(record, formidling, payload)
     }
 
     private suspend fun saveHendelse(
         record: ConsumerRecord<String, String?>,
-        envelope: FormidlingEnvelope,
+        formidling: Formidling,
         payload: String,
     ) {
         // Transient DB-feil kaster herfra → ConsumerRunner tar seg av re-poll med backoff
         val isNewHendelse =
             repository.lagreHendelse(
-                eventId = envelope.eventId,
-                referanse = envelope.referanse,
+                eventId = formidling.eventId,
+                referanse = formidling.referanse,
                 payload = payload,
             )
         logger.info(
@@ -64,12 +63,12 @@ class InboxHandler(
         )
     }
 
-    private suspend fun parseEnvelope(
+    private suspend fun parseFormidling(
         record: ConsumerRecord<String, String?>,
         payload: String,
-    ): FormidlingEnvelope? =
+    ): Formidling? =
         try {
-            json.decodeFromString<FormidlingEnvelope>(payload)
+            formidlingJson.decodeFromString<Formidling>(payload)
         } catch (e: IllegalArgumentException) {
             // Dekodefeil og ugyldig UUID er deterministisk poison ved konsument-grensen.
             deadLetter(
