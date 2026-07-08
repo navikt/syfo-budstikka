@@ -1,32 +1,32 @@
-CREATE TABLE inbox_hendelse (
+CREATE TABLE inbox_formidling (
     event_id        UUID        NOT NULL,
     payload         TEXT        NOT NULL,
-    status          TEXT        NOT NULL DEFAULT 'MOTTATT',
-    drop_aarsak     TEXT,
-    forsok          INT         NOT NULL DEFAULT 0,
-    neste_forsok_tid TIMESTAMPTZ,
-    mottatt_tid     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    behandlet_tid   TIMESTAMPTZ,
-    feilmelding     TEXT,
-    CONSTRAINT inbox_hendelse_pkey PRIMARY KEY (event_id)
+    state          TEXT        NOT NULL DEFAULT 'RECEIVED',
+    drop_reason     TEXT,
+    attempt          INT         NOT NULL DEFAULT 0,
+    next_attempt_time TIMESTAMPTZ,
+    received_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    processed_at   TIMESTAMPTZ,
+    error_message   TEXT,
+    CONSTRAINT inbox_formidling_pkey PRIMARY KEY (event_id)
 );
 
-CREATE INDEX ON inbox_hendelse (status, neste_forsok_tid);
+CREATE INDEX ON inbox_formidling (state, next_attempt_time);
 
 -- Dead-letter for meldinger konsumenten ikke klarte å parse ved konsument-grensen.
 -- payload er text/bytea — ALDRI jsonb: tabellen finnes for å bevare mulig-ugyldige bytes.
 -- kafka_offset er Kafka-koordinaten for etterforskning/replay ("offset" er reservert ord i SQL).
-CREATE TABLE inbox_feilet (
-    id              BIGSERIAL   NOT NULL,
+CREATE TABLE dead_letter_formidling (
+    id UUID NOT NULL DEFAULT uuidv7(),
     payload         TEXT        NOT NULL,
     topic           TEXT        NOT NULL,
-    partisjon       INT         NOT NULL,
+    partition       INT         NOT NULL,
     kafka_offset    BIGINT      NOT NULL,
     kafka_key       TEXT,
-    feilaarsak      TEXT        NOT NULL,
-    feilmelding     TEXT,
-    mottatt_tid     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT inbox_feilet_pkey PRIMARY KEY (id)
+    failure_reason   TEXT        NOT NULL,
+    error_message    TEXT,
+    received_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT dead_letter_formidling_pkey PRIMARY KEY (id)
 );
 
-CREATE INDEX ON inbox_feilet (mottatt_tid);
+CREATE INDEX ON dead_letter_formidling (received_at);

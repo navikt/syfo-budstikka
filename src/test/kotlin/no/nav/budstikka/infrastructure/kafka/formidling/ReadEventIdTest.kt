@@ -19,19 +19,19 @@ class ReadEventIdTest :
 
             val resultat = record(eventId = id.toString()).readEventId()
 
-            resultat.shouldBeInstanceOf<EventId.Ok>().verdi shouldBe id
+            resultat.shouldBeInstanceOf<EventId.Valid>().value shouldBe id
         }
 
-        test("manglende header gir Ugyldig(MANGLER_EVENT_ID)") {
+        test("missing header returns Ugyldig(MISSING_EVENT_ID)") {
             val resultat = record(eventId = null).readEventId()
 
-            resultat.shouldBeInstanceOf<EventId.Ugyldig>().feilaarsak shouldBe "MANGLER_EVENT_ID"
+            resultat.shouldBeInstanceOf<EventId.Invalid>().failureReason shouldBe "MISSING_EVENT_ID"
         }
 
-        test("header som ikke er en UUID gir Ugyldig(UGYLDIG_EVENT_ID)") {
+        test("header that is not a UUID returns Ugyldig(INVALID_EVENT_ID)") {
             val resultat = record(eventId = "ikke-en-uuid").readEventId()
 
-            resultat.shouldBeInstanceOf<EventId.Ugyldig>().feilaarsak shouldBe "UGYLDIG_EVENT_ID"
+            resultat.shouldBeInstanceOf<EventId.Invalid>().failureReason shouldBe "INVALID_EVENT_ID"
         }
     })
 

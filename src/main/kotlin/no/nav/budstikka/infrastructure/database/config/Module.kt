@@ -7,8 +7,8 @@ import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.nav.budstikka.infrastructure.HealthCheck
-import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
-import no.nav.budstikka.infrastructure.database.inbox.InboxRepositoryImpl
+import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
+import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepositoryImpl
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -21,7 +21,7 @@ fun DependencyRegistry.databaseModule() {
     provide<HealthCheck> {
         dataSourceHealthCheck(resolve())
     }
-    provide<InboxRepository> { InboxRepositoryImpl(resolve()) }
+    provide<InboxFormidlingRepository> { InboxFormidlingRepositoryImpl(resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

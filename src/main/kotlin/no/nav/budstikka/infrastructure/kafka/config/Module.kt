@@ -2,13 +2,13 @@ package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.infrastructure.LivenessCheck
-import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
+import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
 
 fun DependencyRegistry.kafkaModule() {
-    provide<InboxHandler> { InboxHandler(resolve<InboxRepository>()) }
+    provide<InboxHandler> { InboxHandler(resolve<InboxFormidlingRepository>()) }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
         val enabledConsumers = kafkaConfig.consumers.filterValues { it.enabled }

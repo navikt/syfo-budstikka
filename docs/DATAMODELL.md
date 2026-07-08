@@ -16,10 +16,10 @@ erDiagram
         text        status "MOTTATT|BEHANDLET|DROPPET|FEILET"
         text        drop_aarsak "DOD | ... (nullable)"
         int         forsok
-        timestamptz neste_forsok_tid
-        timestamptz mottatt_tid
-        timestamptz behandlet_tid "nullable"
-        text        feilmelding "nullable"
+        timestamptz next_attempt_time
+        timestamptz received_at
+        timestamptz processed_at "nullable"
+        text        error_message "nullable"
     }
 
     leveranse {
@@ -33,11 +33,11 @@ erDiagram
         jsonb       payload "frosset innhold: tekst, synlig_tom, eksternVarsling, journalpostId, resolvert NL; for INAKTIVER: meldingstype/sti/ekstern_respons_id/grupperingsid fra OPPRETT (B39)"
         text        status "KLAR|SENDT|FEILET_PERMANENT|UTLOPT"
         int         forsok
-        timestamptz neste_forsok_tid
+        timestamptz next_attempt_time
         timestamptz tidligst_sending "sendevindu-gate (B25), default=opprettet"
         timestamptz frist_tid "maxLeveringsalder, kappet av synlig_tom"
         text        ekstern_respons_id "kanalens retur-id (nullable)"
-        text        feilmelding "nullable"
+        text        error_message "nullable"
         timestamptz opprettet
         timestamptz sendt_tid "nullable"
     }
@@ -49,9 +49,9 @@ erDiagram
         int         partisjon
         bigint      kafka_offset "Kafka-koordinat for etterforskning/replay (offset er reservert ord)"
         text        kafka_key "partisjonsnokkel (nullable)"
-        text        feilaarsak "f.eks. UGYLDIG_JSON | MANGLER_EVENT_ID"
-        text        feilmelding "exception-melding (nullable)"
-        timestamptz mottatt_tid
+        text        failure_reason "f.eks. UGYLDIG_JSON | MISSING_EVENT_ID"
+        text        error_message "exception-melding (nullable)"
+        timestamptz received_at
     }
 ```
 
@@ -71,7 +71,7 @@ fryses på `leveranse`. Dedup skjer på `event_id` (PK) via `INSERT … ON CONFL
 
 Manglende eller korrupt `event_id`-header (klarer ikke å hente `event_id`) er en konsument-
 grense-feil (sjelden; tiltrodd produsent + delt header-konstant) → dead-letter til
-`inbox_feilet` (`MANGLER_EVENT_ID`), ikke stille dropp. Gyldig konvolutt med ugyldig
+`inbox_feilet` (`MISSING_EVENT_ID`), ikke stille dropp. Gyldig konvolutt med ugyldig
 `innhold` lagres som `MOTTATT` og går til `FEILET` når workeren dekoder — jf. tilstands-
 maskinen under.
 
@@ -90,7 +90,7 @@ strukturelt fra konvolutten; om også den skal deferres til workeren avgjøres i
 Dette fjerner ikke `inbox_feilet`, det krymper bare triggeren. Hold to feilflater fra hverandre:
 
 - **Ingen gyldig `event_id`** (header mangler eller er korrupt) → ingen PK å inserte på →
-  fortsatt `inbox_feilet` (`MANGLER_EVENT_ID`). En header kan ikke håndheves av broker;
+  fortsatt `inbox_feilet` (`MISSING_EVENT_ID`). En header kan ikke håndheves av broker;
   «obligatorisk» er en kontrakt, ikke en garanti, og en produsent-bug kan utelate den.
 - **Konvolutt OK, `innhold` dekoder ikke** hos beslutnings-workeren →
   `inbox_hendelse.status=FEILET`, ikke `inbox_feilet`. Denne decoden er allerede utsatt til
@@ -122,7 +122,7 @@ Konsekvenser og bevisste valg:
 
 - **Ingen Kafka retry-topic.** Klassisk retry-topic håndterer *nedstrøms* transiente feil
   (PDL/KRR/DB) — de retryes hos **beslutnings-workeren** av inboxen (`MOTTATT` +
-  `neste_forsok_tid` backoff), ikke ved re-konsum fra Kafka. Ved konsument-grensen finnes
+  `next_attempt_time` backoff), ikke ved re-konsum fra Kafka. Ved konsument-grensen finnes
   bare de to klassene over.
 - **Poison retryes ikke N ganger** før dead-letter: en deterministisk feil feiler likt hver
   gang, så den dead-letteres umiddelbart.
@@ -146,7 +146,7 @@ PR.**
 ```
 MOTTATT ──(gate ok, skriv leveranser)──▶ BEHANDLET   (terminal)
 MOTTATT ──(død via PDL)───────────────▶ DROPPET      (terminal, drop_aarsak=DOD)
-MOTTATT ──(transient: PDL/KRR nede)───▶ MOTTATT      (forsok++, neste_forsok_tid backoff)
+MOTTATT ──(transient: PDL/KRR nede)───▶ MOTTATT      (forsok++, next_attempt_time backoff)
 MOTTATT ──(permanent: ugyldig payload)▶ FEILET       (terminal, alert)
 ```
 Settes utelukkende av **beslutnings-workeren**, i samme DB-tx som skriver leveranse(r)
@@ -155,7 +155,7 @@ eller dropper. Konsument skriver kun `MOTTATT`.
 ### leveranse.status
 ```
 KLAR ──(sendt ok)────────────────▶ SENDT             (terminal)
-KLAR ──(transient feil)──────────▶ KLAR              (forsok++, neste_forsok_tid backoff)
+KLAR ──(transient feil)──────────▶ KLAR              (forsok++, next_attempt_time backoff)
 KLAR ──(permanent feil, 4xx)─────▶ FEILET_PERMANENT  (terminal, alert)
 KLAR ──(frist_tid/synlig_tom)────▶ UTLOPT            (terminal, alert)
 KLAR ──(FERDIGSTILL før sending)─▶ KANSELLERT        (terminal, jf. B20)
@@ -171,14 +171,14 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
 ÉN gang; kanalspesifikt bak smalt grensesnitt.
 
 - **Beslutnings-worker** (functional core / imperative shell, B28):
-  `SELECT … FROM inbox_hendelse WHERE status='MOTTATT' AND neste_forsok_tid <= now()
+  `SELECT … FROM inbox_hendelse WHERE status='MOTTATT' AND next_attempt_time <= now()
   FOR UPDATE SKIP LOCKED`. Tre steg: (1) `Grunnlagsinnhenter` henter PDL/KRR/NL (I/O,
   betinget på hendelsestype) → immutabelt `Beslutningsgrunnlag`; (2) `decide(hendelse,
   grunnlag): Beslutning` — REN funksjon, all gate-/rutelogikk, ingen I/O; (3) effektuering:
   én tx som skriver leveranse(r) + inbox-status. Eksterne lesekall skjer i steg 1, aldri
   inne i tx-en.
 - **Outbox-worker:** `SELECT … FROM leveranse WHERE status='KLAR'
-  AND neste_forsok_tid <= now() AND tidligst_sending <= now() FOR UPDATE SKIP LOCKED`.
+  AND next_attempt_time <= now() AND tidligst_sending <= now() FOR UPDATE SKIP LOCKED`.
   Holder radlås under sending (B15), stramme klient-timeouts. Idempotensnøkkel =
   `leveranse.id` (B16). `tidligst_sending` gater sendevindu (B25) — beregnes i
   Beslutning-fasen fra `sendevindu` + NKS-kalender; budstikka sender alltid LØPENDE
@@ -187,11 +187,11 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
   `send(request)` er I/O.
 
 ## Indekser
-- `inbox_hendelse`: PK(`event_id`); idx(`status`,`neste_forsok_tid`) for plukk.
-- `leveranse`: PK(`id`); idx(`status`,`neste_forsok_tid`,`tidligst_sending`) for plukk
+- `inbox_hendelse`: PK(`event_id`); idx(`status`,`next_attempt_time`) for plukk.
+- `leveranse`: PK(`id`); idx(`status`,`next_attempt_time`,`tidligst_sending`) for plukk
   (sendevindu-gate, B25); idx(`referanse`,`mottaker_id`,`kanal`) for FERDIGSTILL-oppslag;
   idx(`inbox_event_id`).
-- `inbox_feilet`: PK(`id`); idx(`mottatt_tid`) for retensjons-sletting og nyeste-først-visning.
+- `inbox_feilet`: PK(`id`); idx(`received_at`) for retensjons-sletting og nyeste-først-visning.
 
 ## Observability-koblinger (jf. B17/B45)
 - Korrelasjon = `eventId` (B45), ingen egen `trace_id`-kolonne. Strukturert logg ved hver

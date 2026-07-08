@@ -3,8 +3,8 @@ package no.nav.budstikka.infrastructure.kafka.formidling
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.domain.formidling.FormidlingHeader
-import no.nav.budstikka.infrastructure.database.inbox.DeadLetterRecord
-import no.nav.budstikka.infrastructure.database.inbox.InboxRepository
+import no.nav.budstikka.infrastructure.database.formidling.DeadLetterRecord
+import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
@@ -17,7 +17,7 @@ class InboxHandlerTest :
     FunSpec({
         context("Gyldig formidling") {
             test("gyldig melding lagres i inbox og returnerer uten feil") {
-                val repository = FakeInboxRepository()
+                val repository = FakeInboxFormidlingRepository()
                 val handler = InboxHandler(repository)
 
                 handler.handle(gyldigRecord(eventId = "00000000-0000-0000-0000-000000000001"))
@@ -28,7 +28,7 @@ class InboxHandlerTest :
             }
 
             test("duplikat (samme event_id) gir ingen ny rad og kaster ikke") {
-                val repository = FakeInboxRepository(skalReturnereNyRad = false)
+                val repository = FakeInboxFormidlingRepository(skalReturnereNyRad = false)
                 val handler = InboxHandler(repository)
 
                 handler.handle(gyldigRecord(eventId = "00000000-0000-0000-0000-000000000001"))
@@ -40,7 +40,7 @@ class InboxHandlerTest :
 
         context("Poison-meldinger (dead-letter)") {
             test("ugyldig JSON behandles som rå payload og lagres") {
-                val repository = FakeInboxRepository()
+                val repository = FakeInboxFormidlingRepository()
                 val handler = InboxHandler(repository)
 
                 // invalid JSON but eventId present in header -> should be stored as raw payload
@@ -51,25 +51,25 @@ class InboxHandlerTest :
             }
 
             test("tom payload dead-letteres og kaster ikke") {
-                val repository = FakeInboxRepository()
+                val repository = FakeInboxFormidlingRepository()
                 val handler = InboxHandler(repository)
 
                 handler.handle(record(value = null, eventId = UUID.randomUUID().toString()))
 
                 repository.lagredeHendelser.size shouldBe 0
                 repository.lagredeDeadLetters.size shouldBe 1
-                repository.lagredeDeadLetters.single().feilaarsak shouldBe "TOM_PAYLOAD"
+                repository.lagredeDeadLetters.single().failureReason shouldBe "MISSING_PAYLOAD"
             }
 
             test("Kafka-koordinater bevares på dead-letter-raden") {
-                val repository = FakeInboxRepository()
+                val repository = FakeInboxFormidlingRepository()
                 val handler = InboxHandler(repository)
 
                 handler.handle(record(value = "ugyldig", partition = 2, offset = 42L, key = "partisjon-key"))
 
                 val deadLetter = repository.lagredeDeadLetters.single()
                 deadLetter.topic shouldBe TOPIC
-                deadLetter.partisjon shouldBe 2
+                deadLetter.partition shouldBe 2
                 deadLetter.kafkaOffset shouldBe 42L
                 deadLetter.kafkaKey shouldBe "partisjon-key"
             }
@@ -77,7 +77,7 @@ class InboxHandlerTest :
 
         context("Transient DB-feil") {
             test("DB-feil ved lagreHendelse kaster og dead-letter-tabell berøres ikke") {
-                val repository = ThrowingRepository()
+                val repository = ThrowingFormidlingRepository()
                 val handler = InboxHandler(repository)
 
                 val result = runCatching { handler.handle(gyldigRecord()) }
@@ -90,14 +90,14 @@ class InboxHandlerTest :
 
 // --- Fakes ---
 
-private class FakeInboxRepository(
+private class FakeInboxFormidlingRepository(
     private val skalReturnereNyRad: Boolean = true,
-) : InboxRepository {
+) : InboxFormidlingRepository {
     // Pair: (payload, eventId.toString)
     val lagredeHendelser = mutableListOf<Pair<String, String>>()
     val lagredeDeadLetters = mutableListOf<DeadLetterRecord>()
 
-    override suspend fun lagreHendelse(
+    override suspend fun save(
         eventId: UUID,
         payload: String,
     ): Boolean {
@@ -110,10 +110,10 @@ private class FakeInboxRepository(
     }
 }
 
-private class ThrowingRepository : InboxRepository {
+private class ThrowingFormidlingRepository : InboxFormidlingRepository {
     val lagredeDeadLetters = mutableListOf<DeadLetterRecord>()
 
-    override suspend fun lagreHendelse(
+    override suspend fun save(
         eventId: UUID,
         payload: String,
     ): Boolean = error("DB nede — transient feil")
