@@ -72,6 +72,33 @@ tiltrodd produsent + typet kontraktlib) → dead-letter til `inbox_feilet`, ikke
 Gyldig konvolutt med ugyldig `innhold` lagres som `MOTTATT` og går til `FEILET` når workeren
 dekoder — jf. tilstandsmaskinen under.
 
+### Vurdert: `event_id` som obligatorisk Kafka-header
+Åpent for vurdering under implementering (#19). I dag henter konsumenten `event_id` fra
+payloaden via strukturell JSON-lesing. Alternativet er å kreve `event_id` som Kafka-header,
+slik at konsumenten ikke parser bodyen ved mottak.
+
+Gevinst: konsumenten blir en ekte null-parse dump. `UGYLDIG_JSON`-triggeren ved ingest
+forsvinner, og dedup (`ON CONFLICT`, B4) overlever selv om body-skjemaet endrer seg eller er
+midlertidig ugyldig, fordi dedup løsrives fra payload-skjemaet.
+
+Dette fjerner ikke `inbox_feilet`, det krymper bare triggeren. Hold to feilflater fra hverandre:
+
+- **Ingen gyldig `event_id`** (header mangler eller er korrupt) → ingen PK å inserte på →
+  fortsatt `inbox_feilet` (`MANGLER_EVENT_ID`). En header kan ikke håndheves av broker;
+  «obligatorisk» er en kontrakt, ikke en garanti, og en produsent-bug kan utelate den.
+- **Konvolutt OK, `innhold` dekoder ikke** hos beslutnings-workeren →
+  `inbox_hendelse.status=FEILET`, ikke `inbox_feilet`. Denne decoden er allerede utsatt til
+  workeren by design, så utsatt deserialisering endrer ingenting her.
+
+`inbox_feilet` kan først fjernes helt hvis inbox-PK byttes fra `event_id` til et
+surrogat/Kafka-koordinat og `event_id` blir en nullable unik dedup-kolonne. Da ingester hver
+record, og poison blir bare en status. Kostnaden er at den rene B4-idempotensen (`event_id`
+PK + `ON CONFLICT DO NOTHING`) ryker, og at mulig-ugyldige bytes havner i
+hoved-operasjonstabellen i stedet for i `inbox_feilet` (`text`/`bytea`, aldri `jsonb`).
+
+Anbefaling: vurder header-varianten i #19 for å løsrive dedup fra payload-skjemaet, men
+behold `inbox_feilet` for record uten gyldig `event_id`.
+
 ## Feiltaksonomi ved konsument-grensen (best practice)
 Bransjestandard (Confluent/Spring Kafka): **klassifiser feilen, rut på klasse.** Konsumenten
 har kun to feilklasser, og de rutes ulikt:

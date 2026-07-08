@@ -24,6 +24,20 @@ sealed interface Formidlingsinnhold {
 ```
 Korrelasjon skjer på `eventId` (B45) — ingen egen header eller payload-felt.
 
+**Hvorfor er ikke `eventId` record key?** Record key har én bevisst jobb i budstikka:
+partisjonering og rekkefølge (B5). Den løses av `partisjonsnokkel` = mottakerens id, slik
+at alle hendelser for samme mottaker/prosess havner på samme partisjon og prosesseres
+ordnet — det er dette som gjør at OPPRETT og FERDIGSTILL (to ULIKE events med hver sin
+`eventId`) ikke kan race (B34, MIGRERING §33). Med `eventId` som key ville de havne på
+tilfeldig ulike partisjoner og rekkefølgegarantien lukke-mekanikken hviler på, forsvinne.
+`eventId` er dessuten allerede tildelt to andre, motstridende roller: dedup-/idempotens-
+nøkkel i inbox (produsent-oppgitt, unik per hendelse, B4) og korrelasjons-id (B45).
+Partisjonering trenger en STABIL, DELT verdi (mottaker); dedup/korrelasjon trenger en
+UNIK-per-hendelse verdi (`eventId`) — å slå dem sammen i record key tvinger én verdi til å
+gjøre to uforenlige jobber. Compaction er heller ikke aktuelt (topicet er en kommando/
+event-strøm med `cleanup.policy=delete`, ikke en keyed changelog, B26), så key er rent et
+partisjoneringsverktøy.
+
 ## Felles byggesteiner
 ```kotlin
 @JvmInline value class Personident(val value: String) { /* 11 siffer, toString="***" (B9) */ }
