@@ -1,0 +1,19 @@
+apiVersion: kafka.nais.io/v1
+kind: Topic
+metadata:
+  name: team-esyfo.formidling.v1
+  namespace: team-esyfo
+  labels:
+    team: team-esyfo
+spec:
+  pool: {{kafka-pool}}
+  config: # optional; all fields are optional too; defaults shown
+    cleanupPolicy: delete
+    minimumInSyncReplicas: 2
+    partitions: 3
+    replication: 3
+    retentionHours: 2160 # 90 days
+  acl:
+    - team: team-esyfo
+      application: syfo-budstikka
+      access: read
