@@ -56,21 +56,58 @@ erDiagram
 ```
 
 ## Konsument: rå dump (envelope-only parse)
-Konsumenten skriver **kun** til `inbox_hendelse` og gjør ingen typet decode. `eventId`
-og `referanse` ligger i konvolutten (`Formidling`, jf. `KONTRAKT.md`) og hentes ut med en
+Konsumenten skriver **kun** til `inbox_hendelse` og gjør ingen typet decode. `event_id`
+leses fra Kafka-headeren `eventId` (B54, dedup-fast-path) — ikke fra bodyen — så dedup
+(`ON CONFLICT DO NOTHING`, B4) og rå-dump er løsrevet fra payload-skjemaet. `referanse`
+ligger i konvolutten (`Formidling`, jf. `KONTRAKT.md`) og hentes fortsatt ut med en
 strukturell JSON-lesing (`Json.parseToJsonElement`) — ikke via domenetyper. Kafka-nøkkelen
-er `partisjonsnokkel` (partisjonering/rekkefølge, B5), ikke dedup-nøkkel, så `event_id`
-må leses fra payloaden. Selve payloaden lagres byte-eksakt som `text`.
+er `partisjonsnokkel` (partisjonering/rekkefølge, B5), ikke dedup-nøkkel. Payloaden er
+autoritativ kilde for `event_id` (B54) og lagres byte-eksakt som `text`.
 
 Den sealed `innhold`-delen (mottaker, operasjon/`handling`, `kanal`, tekst, ekstern
 varsling) dekodes først av **beslutnings-workeren**. Derfor bor `handling`, `kanal`,
 `mottaker_type` og `mottaker_id` ikke på `inbox_hendelse`: de utledes ved behandling og
 fryses på `leveranse`. Dedup skjer på `event_id` (PK) via `INSERT … ON CONFLICT DO NOTHING`.
 
-Malformet JSON (klarer ikke å hente `event_id`) er en konsument-grense-feil (sjelden;
-tiltrodd produsent + typet kontraktlib) → dead-letter til `inbox_feilet`, ikke stille dropp.
-Gyldig konvolutt med ugyldig `innhold` lagres som `MOTTATT` og går til `FEILET` når workeren
-dekoder — jf. tilstandsmaskinen under.
+Manglende eller korrupt `event_id`-header (klarer ikke å hente `event_id`) er en konsument-
+grense-feil (sjelden; tiltrodd produsent + delt header-konstant) → dead-letter til
+`inbox_feilet` (`MANGLER_EVENT_ID`), ikke stille dropp. Gyldig konvolutt med ugyldig
+`innhold` lagres som `MOTTATT` og går til `FEILET` når workeren dekoder — jf. tilstands-
+maskinen under.
+
+### Besluttet (B54): `event_id` som Kafka-header
+Besluttet (B54); selve header-håndteringen (lesing/validering/inbox-dump) implementeres i
+#19. Produsentene speiler `event_id` som Kafka-header `eventId` (navn festet som delt
+kontrakt-konstant `FormidlingHeader.EVENT_ID` i kontraktlib, #18), slik at konsumenten ikke
+parser bodyen ved mottak. Payloaden (`Formidling.eventId`) forblir autoritativ kilde;
+headeren er en fast-path, ikke en erstatning.
+
+Gevinst: dedup + rå-dump blir null-parse for `event_id`. `UGYLDIG_JSON`-triggeren ved ingest
+forsvinner, og dedup (`ON CONFLICT`, B4) overlever selv om body-skjemaet endrer seg eller er
+midlertidig ugyldig, fordi dedup løsrives fra payload-skjemaet. (`referanse` leses fortsatt
+strukturelt fra konvolutten; om også den skal deferres til workeren avgjøres i #19.)
+
+Dette fjerner ikke `inbox_feilet`, det krymper bare triggeren. Hold to feilflater fra hverandre:
+
+- **Ingen gyldig `event_id`** (header mangler eller er korrupt) → ingen PK å inserte på →
+  fortsatt `inbox_feilet` (`MANGLER_EVENT_ID`). En header kan ikke håndheves av broker;
+  «obligatorisk» er en kontrakt, ikke en garanti, og en produsent-bug kan utelate den.
+- **Konvolutt OK, `innhold` dekoder ikke** hos beslutnings-workeren →
+  `inbox_hendelse.status=FEILET`, ikke `inbox_feilet`. Denne decoden er allerede utsatt til
+  workeren by design, så utsatt deserialisering endrer ingenting her.
+
+Konsistens sikres ved at beslutnings-workeren, når den senere deserialiserer, verifiserer at
+`payload.eventId == header.eventId`; avvik behandles som poison. Dette lukker «to kilder»-
+divergensen som ellers følger av å bære samme id to steder.
+
+`inbox_feilet` kan først fjernes helt hvis inbox-PK byttes fra `event_id` til et
+surrogat/Kafka-koordinat og `event_id` blir en nullable unik dedup-kolonne. Da ingester hver
+record, og poison blir bare en status. Kostnaden er at den rene B4-idempotensen (`event_id`
+PK + `ON CONFLICT DO NOTHING`) ryker, og at mulig-ugyldige bytes havner i
+hoved-operasjonstabellen i stedet for i `inbox_feilet` (`text`/`bytea`, aldri `jsonb`).
+
+Beholder `inbox_feilet` for record uten gyldig `event_id`; header-varianten løsriver dedup
+fra payload-skjemaet uten å ofre den bevarte poison-flaten.
 
 ## Feiltaksonomi ved konsument-grensen (best practice)
 Bransjestandard (Confluent/Spring Kafka): **klassifiser feilen, rut på klasse.** Konsumenten

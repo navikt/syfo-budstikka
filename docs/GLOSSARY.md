@@ -66,6 +66,13 @@ ikke om varselet vises på flaten.
 
 ## Kobling og lukking
 
+**Hendelses-id (`eventId`)**:
+Produsentens unike id per hendelse. Brukes til dedup/idempotens og til å korrelere ett
+hendelsesløp i logg. Ligger autoritativt i payloaden og speiles som Kafka-header for å
+dedup-e ved inntak uten å deserialisere. Ulik referanse: `eventId` er unik per hendelse,
+referanse kobler flere hendelser (opprett→ferdigstill).
+_Unngå_: meldings-id, korrelasjons-id (i kode/logg heter feltet `eventId`)
+
 **Referanse**:
 Produsentens id som kobler en opprettet formidling til senere lukking. Budstikka matcher kun
 på den og kjenner ikke betydningen.
