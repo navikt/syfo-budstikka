@@ -30,15 +30,12 @@ class InboxFormidlingRepositoryIntegrationTest :
             repository.save(eventId, payload) shouldBe true
             repository.save(eventId, payload) shouldBe false
 
-            val rows = readInboxRows(fixture, eventId)
-
-            rows.size shouldBe 1
-
-            val row = rows.single()
-            row.eventId shouldBe eventId
-            row.payload shouldBe payload
-            row.state shouldBe "RECEIVED"
-            row.attempt shouldBe 0
+            readInboxRow(fixture, eventId).shouldMatch(
+                eventId = eventId,
+                payload = payload,
+                state = "RECEIVED",
+                attempt = 0,
+            )
         }
     })
 
@@ -49,33 +46,53 @@ private data class InboxRow(
     val attempt: Int,
 )
 
-private fun readInboxRows(
+private fun InboxRow.shouldMatch(
+    eventId: UUID,
+    payload: String,
+    state: String,
+    attempt: Int,
+) {
+    this.eventId shouldBe eventId
+    this.payload shouldBe payload
+    this.state shouldBe state
+    this.attempt shouldBe attempt
+}
+
+private fun readInboxRow(
     fixture: PostgresTestFixture,
     eventId: UUID,
-): List<InboxRow> =
+): InboxRow =
     DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
         connection
             .prepareStatement(
                 """
-                SELECT event_id, payload, state, attempt
+                SELECT
+                    ${InboxFormidlingTable.eventId.name},
+                    ${InboxFormidlingTable.payload.name},
+                    ${InboxFormidlingTable.state.name},
+                    ${InboxFormidlingTable.dropReason.name},
+                    ${InboxFormidlingTable.attempt.name},
+                    ${InboxFormidlingTable.nextAttemptTime.name},
+                    ${InboxFormidlingTable.receivedAt.name},
+                    ${InboxFormidlingTable.processedAt.name},
+                    ${InboxFormidlingTable.errorMessage.name}
                 FROM inbox_formidling
                 WHERE event_id = ?
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, eventId)
                 statement.executeQuery().use { resultSet ->
-                    buildList {
-                        while (resultSet.next()) {
-                            add(
-                                InboxRow(
-                                    eventId = resultSet.getObject("event_id", UUID::class.java),
-                                    payload = resultSet.getString("payload"),
-                                    state = resultSet.getString("state"),
-                                    attempt = resultSet.getInt("attempt"),
-                                ),
-                            )
-                        }
-                    }
+                    check(resultSet.next())
+                    val row =
+                        InboxRow(
+                            eventId = resultSet.getObject(InboxFormidlingTable.eventId.name, UUID::class.java),
+                            payload = resultSet.getString(InboxFormidlingTable.payload.name),
+                            state = resultSet.getString(InboxFormidlingTable.state.name),
+                            attempt = resultSet.getInt(InboxFormidlingTable.attempt.name),
+                        )
+
+                    check(!resultSet.next())
+                    row
                 }
             }
     }

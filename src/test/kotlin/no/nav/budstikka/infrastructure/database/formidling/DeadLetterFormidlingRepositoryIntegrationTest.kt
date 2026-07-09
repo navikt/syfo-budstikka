@@ -4,7 +4,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.PostgresTestFixture
 import java.sql.DriverManager
-import java.util.UUID
 
 class DeadLetterFormidlingRepositoryIntegrationTest :
     FunSpec({
@@ -55,21 +54,33 @@ private fun readDeadLetterRow(fixture: PostgresTestFixture): DeadLetterRecord =
             statement
                 .executeQuery(
                     """
-                    SELECT id, payload, topic, partition, kafka_offset, kafka_key, failure_reason, error_message
+                    SELECT
+                        ${DeadLetterFormidlingTable.id.name},
+                        ${DeadLetterFormidlingTable.payload.name},
+                        ${DeadLetterFormidlingTable.topic.name},
+                        ${DeadLetterFormidlingTable.partition.name},
+                        ${DeadLetterFormidlingTable.kafkaOffset.name},
+                        ${DeadLetterFormidlingTable.kafkaKey.name},
+                        ${DeadLetterFormidlingTable.failureReason.name},
+                        ${DeadLetterFormidlingTable.errorMessage.name},
+                        ${DeadLetterFormidlingTable.receivedAt.name}
                     FROM dead_letter_formidling
                     """.trimIndent(),
                 ).use { resultSet ->
                     check(resultSet.next())
+                    val row =
+                        DeadLetterRecord(
+                            payload = resultSet.getString(DeadLetterFormidlingTable.payload.name),
+                            topic = resultSet.getString(DeadLetterFormidlingTable.topic.name),
+                            partition = resultSet.getInt(DeadLetterFormidlingTable.partition.name),
+                            kafkaOffset = resultSet.getLong(DeadLetterFormidlingTable.kafkaOffset.name),
+                            kafkaKey = resultSet.getString(DeadLetterFormidlingTable.kafkaKey.name),
+                            failureReason = resultSet.getString(DeadLetterFormidlingTable.failureReason.name),
+                            errorMessage = resultSet.getString(DeadLetterFormidlingTable.errorMessage.name),
+                        )
 
-                    DeadLetterRecord(
-                        payload = resultSet.getString("payload"),
-                        topic = resultSet.getString("topic"),
-                        partition = resultSet.getInt("partition"),
-                        kafkaOffset = resultSet.getLong("kafka_offset"),
-                        kafkaKey = resultSet.getString("kafka_key"),
-                        failureReason = resultSet.getString("failure_reason"),
-                        errorMessage = resultSet.getString("error_message"),
-                    )
+                    check(!resultSet.next())
+                    row
                 }
         }
     }
