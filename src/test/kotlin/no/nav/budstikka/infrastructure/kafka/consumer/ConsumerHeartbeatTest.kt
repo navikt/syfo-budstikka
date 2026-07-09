@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.kafka.config
+package no.nav.budstikka.infrastructure.kafka.consumer
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

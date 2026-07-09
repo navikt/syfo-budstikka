@@ -4,7 +4,7 @@ import no.nav.budstikka.domain.formidling.FormidlingHeader
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
-import no.nav.budstikka.infrastructure.kafka.config.MessageHandler
+import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import java.util.UUID

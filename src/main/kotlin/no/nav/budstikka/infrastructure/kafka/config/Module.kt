@@ -4,6 +4,8 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.infrastructure.LivenessCheck
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
+import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
+import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
 import no.nav.budstikka.infrastructure.kafka.producer.KafkaMessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
