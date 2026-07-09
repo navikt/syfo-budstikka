@@ -14,7 +14,7 @@ import org.jetbrains.exposed.v1.json.jsonb
  * `inbox_formidling` (`state`/`attempt`/`next_attempt_time`/`created_at`).
  */
 object LeveranseTable : Table("leveranse") {
-    val id = javaUUID("id")
+    val id = javaUUID("id").databaseGenerated()
     val inboxEventId = javaUUID("inbox_event_id").nullable()
     val referanse = text("referanse")
     val operasjon = text("operasjon")
