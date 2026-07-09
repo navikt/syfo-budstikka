@@ -99,6 +99,19 @@ class LeveranseRepositoryIntegrationTest :
             }
         }
 
+        test("leveranse overlever hard-delete av inbox-hendelse (FK ON DELETE SET NULL, B42)") {
+            val eventId = nyInboxHendelse()
+            val innhold = BrukervarselOpprett(sykmeldt, Varseltype.OPPGAVE, "tekst")
+            val utkast = LeveranseUtkast("ref-1", Operasjon.OPPRETT, Kanal.BRUKERVARSEL, Mottaker.Person(sykmeldt), innhold)
+            LeveranseRepositoryImpl(fixture.database).lagre(eventId, listOf(utkast))
+
+            fixture.exec("DELETE FROM inbox_formidling WHERE event_id = '$eventId'")
+
+            fixture.singleRow("SELECT inbox_event_id FROM leveranse") {
+                getObject("inbox_event_id") shouldBe null
+            }
+        }
+
         test("tom liste skriver ingen rader") {
             val eventId = nyInboxHendelse()
 
@@ -122,5 +135,11 @@ private fun PostgresTestFixture.singleRow(
                 check(!resultSet.next())
             }
         }
+    }
+}
+
+private fun PostgresTestFixture.exec(sql: String) {
+    java.sql.DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
+        connection.prepareStatement(sql).use { it.executeUpdate() }
     }
 }
