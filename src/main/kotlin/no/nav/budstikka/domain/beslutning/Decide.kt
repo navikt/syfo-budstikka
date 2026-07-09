@@ -57,7 +57,8 @@ internal fun Formidlingsinnhold.gatetPerson(): Personident? =
         is DittSykefravaerInaktiver,
         is ArbeidsgivervarselOpprett,
         is ArbeidsgivervarselInaktiver,
-        is MikrofrontendDeaktiver -> null
+        is MikrofrontendDeaktiver,
+        -> null
     }
 
 private fun Formidlingsinnhold.tilLeveranseUtkast(referanse: String): LeveranseUtkast =
