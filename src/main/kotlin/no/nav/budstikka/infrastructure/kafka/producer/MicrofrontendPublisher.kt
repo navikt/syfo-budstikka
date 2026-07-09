@@ -32,11 +32,11 @@ fun microfrontendPublisher(
 
 @Serializable
 internal enum class MinSideAction {
-    @SerialName("actionEnabled")
-    ENABLED,
+    @SerialName("enable")
+    ENABLE,
 
-    @SerialName("actionDisabled")
-    DISABLED,
+    @SerialName("disable")
+    DISABLE,
 }
 
 @Serializable
@@ -52,8 +52,8 @@ private fun Mikrofrontend.toMessage() =
     MicrofrontendMessage(
         action =
             when (this) {
-                is MikrofrontendAktiver -> MinSideAction.ENABLED
-                is MikrofrontendDeaktiver -> MinSideAction.DISABLED
+                is MikrofrontendAktiver -> MinSideAction.ENABLE
+                is MikrofrontendDeaktiver -> MinSideAction.DISABLE
             },
         ident = personident.value,
         microfrontendId = mikrofrontendId,

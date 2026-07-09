@@ -26,7 +26,7 @@ class MicrofrontendPublisherTest :
 
             val expected =
                 MicrofrontendMessage(
-                    action = MinSideAction.ENABLED,
+                    action = MinSideAction.ENABLE,
                     ident = "12345678901",
                     microfrontendId = "sykmeldt-overview",
                 )
@@ -50,7 +50,7 @@ class MicrofrontendPublisherTest :
 
             val expected =
                 MicrofrontendMessage(
-                    action = MinSideAction.DISABLED,
+                    action = MinSideAction.DISABLE,
                     ident = "12345678901",
                     microfrontendId = "sykmeldt-overview",
                 )
@@ -73,7 +73,7 @@ class MicrofrontendPublisherTest :
             )
 
             val json = recording.published.single().value
-            json shouldContain "\"@action\":\"actionEnabled\""
+            json shouldContain "\"@action\":\"enable\""
             json shouldContain "\"ident\":\"12345678901\""
             json shouldContain "\"microfrontend_id\":\"sykmeldt-overview\""
             json shouldContain "\"sensitivitet\":\"high\""
