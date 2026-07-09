@@ -1,4 +1,4 @@
-package no.nav.budstikka
+package no.nav.budstikka.infrastructure.database
 
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database

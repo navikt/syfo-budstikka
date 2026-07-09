@@ -2,8 +2,9 @@ package no.nav.budstikka.infrastructure.database.formidling
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.PostgresTestFixture
-import java.sql.DriverManager
+import no.nav.budstikka.infrastructure.database.PostgresTestFixture
+import no.nav.budstikka.infrastructure.database.assertRow
+import java.sql.ResultSet
 
 class DeadLetterFormidlingRepositoryIntegrationTest :
     FunSpec({
@@ -36,51 +37,38 @@ class DeadLetterFormidlingRepositoryIntegrationTest :
 
             repository.save(record)
 
-            with(readDeadLetterRow(fixture)) {
-                payload shouldBe record.payload
-                topic shouldBe record.topic
-                partition shouldBe record.partition
-                kafkaOffset shouldBe record.kafkaOffset
-                kafkaKey shouldBe record.kafkaKey
-                failureReason shouldBe record.failureReason
-                errorMessage shouldBe record.errorMessage
+            assertRow(
+                fixture = fixture,
+                query =
+                selectQuery,
+            ) {
+                shouldContainDeadLetterFormidling(record)
             }
         }
     })
 
-private fun readDeadLetterRow(fixture: PostgresTestFixture): DeadLetterRecord =
-    DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
-        connection.createStatement().use { statement ->
-            statement
-                .executeQuery(
-                    """
-                    SELECT
-                        ${DeadLetterFormidlingTable.id.name},
-                        ${DeadLetterFormidlingTable.payload.name},
-                        ${DeadLetterFormidlingTable.topic.name},
-                        ${DeadLetterFormidlingTable.partition.name},
-                        ${DeadLetterFormidlingTable.kafkaOffset.name},
-                        ${DeadLetterFormidlingTable.kafkaKey.name},
-                        ${DeadLetterFormidlingTable.failureReason.name},
-                        ${DeadLetterFormidlingTable.errorMessage.name},
-                        ${DeadLetterFormidlingTable.receivedAt.name}
-                    FROM dead_letter_formidling
-                    """.trimIndent(),
-                ).use { resultSet ->
-                    check(resultSet.next())
-                    val row =
-                        DeadLetterRecord(
-                            payload = resultSet.getString(DeadLetterFormidlingTable.payload.name),
-                            topic = resultSet.getString(DeadLetterFormidlingTable.topic.name),
-                            partition = resultSet.getInt(DeadLetterFormidlingTable.partition.name),
-                            kafkaOffset = resultSet.getLong(DeadLetterFormidlingTable.kafkaOffset.name),
-                            kafkaKey = resultSet.getString(DeadLetterFormidlingTable.kafkaKey.name),
-                            failureReason = resultSet.getString(DeadLetterFormidlingTable.failureReason.name),
-                            errorMessage = resultSet.getString(DeadLetterFormidlingTable.errorMessage.name),
-                        )
+private fun ResultSet.shouldContainDeadLetterFormidling(record: DeadLetterRecord) {
+    getString(DeadLetterFormidlingTable.payload.name) shouldBe record.payload
+    getString(DeadLetterFormidlingTable.topic.name) shouldBe record.topic
+    getInt(DeadLetterFormidlingTable.partition.name) shouldBe record.partition
+    getLong(DeadLetterFormidlingTable.kafkaOffset.name) shouldBe record.kafkaOffset
+    getString(DeadLetterFormidlingTable.kafkaKey.name) shouldBe record.kafkaKey
+    getString(DeadLetterFormidlingTable.failureReason.name) shouldBe record.failureReason
+    getString(DeadLetterFormidlingTable.errorMessage.name) shouldBe record.errorMessage
+    check(getObject(DeadLetterFormidlingTable.receivedAt.name) != null)
+}
 
-                    check(!resultSet.next())
-                    row
-                }
-        }
-    }
+private val selectQuery =
+    """
+    SELECT
+        ${DeadLetterFormidlingTable.id.name},
+        ${DeadLetterFormidlingTable.payload.name},
+        ${DeadLetterFormidlingTable.topic.name},
+        ${DeadLetterFormidlingTable.partition.name},
+        ${DeadLetterFormidlingTable.kafkaOffset.name},
+        ${DeadLetterFormidlingTable.kafkaKey.name},
+        ${DeadLetterFormidlingTable.failureReason.name},
+        ${DeadLetterFormidlingTable.errorMessage.name},
+        ${DeadLetterFormidlingTable.receivedAt.name}
+    FROM dead_letter_formidling
+    """.trimIndent()

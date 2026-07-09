@@ -2,8 +2,10 @@ package no.nav.budstikka.infrastructure.database.formidling
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.PostgresTestFixture
-import java.sql.DriverManager
+import io.kotest.matchers.shouldNotBe
+import no.nav.budstikka.infrastructure.database.PostgresTestFixture
+import no.nav.budstikka.infrastructure.database.assertRow
+import java.sql.ResultSet
 import java.util.UUID
 
 class InboxFormidlingRepositoryIntegrationTest :
@@ -30,69 +32,41 @@ class InboxFormidlingRepositoryIntegrationTest :
             repository.save(eventId, payload) shouldBe true
             repository.save(eventId, payload) shouldBe false
 
-            readInboxRow(fixture, eventId).shouldMatch(
-                eventId = eventId,
-                payload = payload,
-                state = "RECEIVED",
-                attempt = 0,
+            assertRow(
+                fixture = fixture,
+                query =
+                selectQuery,
+                assertion = { shouldContainInboxFormidling(eventId, payload) },
             )
         }
     })
 
-private data class InboxRow(
-    val eventId: UUID,
-    val payload: String,
-    val state: String,
-    val attempt: Int,
-)
-
-private fun InboxRow.shouldMatch(
-    eventId: UUID,
+private fun ResultSet.shouldContainInboxFormidling(
+    eventId: UUID?,
     payload: String,
-    state: String,
-    attempt: Int,
 ) {
-    this.eventId shouldBe eventId
-    this.payload shouldBe payload
-    this.state shouldBe state
-    this.attempt shouldBe attempt
+    getObject(InboxFormidlingTable.eventId.name, UUID::class.java) shouldBe eventId
+    getString(InboxFormidlingTable.payload.name) shouldBe payload
+    getString(InboxFormidlingTable.state.name) shouldBe "RECEIVED"
+    getString(InboxFormidlingTable.dropReason.name) shouldBe null
+    getInt(InboxFormidlingTable.attempt.name) shouldBe 0
+    getString(InboxFormidlingTable.nextAttemptTime.name) shouldBe null
+    getObject(InboxFormidlingTable.receivedAt.name) shouldNotBe null
+    getString(InboxFormidlingTable.processedAt.name) shouldBe null
+    getString(InboxFormidlingTable.errorMessage.name) shouldBe null
 }
 
-private fun readInboxRow(
-    fixture: PostgresTestFixture,
-    eventId: UUID,
-): InboxRow =
-    DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
-        connection
-            .prepareStatement(
-                """
-                SELECT
-                    ${InboxFormidlingTable.eventId.name},
-                    ${InboxFormidlingTable.payload.name},
-                    ${InboxFormidlingTable.state.name},
-                    ${InboxFormidlingTable.dropReason.name},
-                    ${InboxFormidlingTable.attempt.name},
-                    ${InboxFormidlingTable.nextAttemptTime.name},
-                    ${InboxFormidlingTable.receivedAt.name},
-                    ${InboxFormidlingTable.processedAt.name},
-                    ${InboxFormidlingTable.errorMessage.name}
-                FROM inbox_formidling
-                WHERE event_id = ?
-                """.trimIndent(),
-            ).use { statement ->
-                statement.setObject(1, eventId)
-                statement.executeQuery().use { resultSet ->
-                    check(resultSet.next())
-                    val row =
-                        InboxRow(
-                            eventId = resultSet.getObject(InboxFormidlingTable.eventId.name, UUID::class.java),
-                            payload = resultSet.getString(InboxFormidlingTable.payload.name),
-                            state = resultSet.getString(InboxFormidlingTable.state.name),
-                            attempt = resultSet.getInt(InboxFormidlingTable.attempt.name),
-                        )
-
-                    check(!resultSet.next())
-                    row
-                }
-            }
-    }
+private val selectQuery: String =
+    """
+    SELECT
+        ${InboxFormidlingTable.eventId.name},
+        ${InboxFormidlingTable.payload.name},
+        ${InboxFormidlingTable.state.name},
+        ${InboxFormidlingTable.dropReason.name},
+        ${InboxFormidlingTable.attempt.name},
+        ${InboxFormidlingTable.nextAttemptTime.name},
+        ${InboxFormidlingTable.receivedAt.name},
+        ${InboxFormidlingTable.processedAt.name},
+        ${InboxFormidlingTable.errorMessage.name}
+    FROM inbox_formidling
+    """.trimIndent()
