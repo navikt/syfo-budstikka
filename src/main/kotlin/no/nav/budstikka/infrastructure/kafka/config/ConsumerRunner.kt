@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.time.withTimeoutOrNull
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -17,6 +18,7 @@ import org.apache.kafka.common.errors.AuthenticationException
 import org.apache.kafka.common.errors.AuthorizationException
 import org.apache.kafka.common.errors.WakeupException
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import java.lang.invoke.MethodHandles
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
@@ -68,7 +70,7 @@ class ConsumerRunner<K, V>(
         running.set(true)
         CoroutineScope(Job() + Dispatchers.IO + CoroutineName(coroutineName)).also { newScope ->
             scope = newScope
-            job = newScope.launch { runWithRestart(onFatalError) }
+            job = newScope.launch(MDCContext(mapOf(MDC_CONSUMER_KEY to coroutineName))) { runWithRestart(onFatalError) }
         }
     }
 
@@ -81,17 +83,19 @@ class ConsumerRunner<K, V>(
     fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
-        logger.info("Shutdown initiated")
-        stop()
-        val stopped = join(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS))
-        if (!stopped) {
-            logger.warn(
-                "{} did not stop within {} seconds",
-                coroutineName,
-                CLOSE_TIMEOUT_SECONDS,
-            )
+        MDC.putCloseable(MDC_CONSUMER_KEY, coroutineName).use {
+            logger.info("Shutdown initiated")
+            stop()
+            val stopped = join(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS))
+            if (!stopped) {
+                logger.warn(
+                    "{} did not stop within {} seconds",
+                    coroutineName,
+                    CLOSE_TIMEOUT_SECONDS,
+                )
+            }
+            logger.info("Shutdown complete")
         }
-        logger.info("Shutdown complete")
     }
 
     /**
@@ -186,6 +190,7 @@ class ConsumerRunner<K, V>(
     private companion object {
         const val BACKOFF_STEP_MILLIS = 200L
         const val CLOSE_TIMEOUT_SECONDS = 5L
+        const val MDC_CONSUMER_KEY = "consumer"
 
         fun isFatalByDefault(error: Throwable): Boolean =
             error is AuthenticationException ||
