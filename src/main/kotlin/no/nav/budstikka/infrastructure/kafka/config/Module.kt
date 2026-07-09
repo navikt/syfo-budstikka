@@ -5,8 +5,8 @@ import no.nav.budstikka.infrastructure.LivenessCheck
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
-import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxHandler
+import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
 import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
