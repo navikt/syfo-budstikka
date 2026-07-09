@@ -5,11 +5,27 @@ import no.nav.budstikka.infrastructure.LivenessCheck
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
+import no.nav.budstikka.infrastructure.kafka.producer.KafkaMessagePublisher
+import no.nav.budstikka.infrastructure.kafka.producer.KafkaProducerRecordSender
+import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.kafka.common.serialization.StringSerializer
 
 fun DependencyRegistry.kafkaModule() {
     provide<InboxHandler> { InboxHandler(resolve<InboxFormidlingRepository>(), resolve<DeadLetterFormidlingRepository>()) }
+    provide<KafkaProducer<String, String>> {
+        KafkaProducer(
+            PropertiesFactory(resolve<KafkaConfig>()).producer(
+                keySerializer = StringSerializer::class.java,
+                valueSerializer = StringSerializer::class.java,
+            ),
+        )
+    }.cleanup { producer -> producer.close() }
+    provide<MessagePublisher> {
+        KafkaMessagePublisher(KafkaProducerRecordSender(resolve()))
+    }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
         val enabledConsumers = kafkaConfig.consumers.filterValues { it.enabled }

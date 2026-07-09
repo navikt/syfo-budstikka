@@ -4,8 +4,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.kafka.common.serialization.StringSerializer
 
 class PropertiesFactoryTest :
     FunSpec({
@@ -80,5 +82,26 @@ class PropertiesFactoryTest :
             properties.getProperty(SslConfigs.SSL_KEY_PASSWORD_CONFIG) shouldBe "supersecret"
             properties.getProperty(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG) shouldBe "supersecret"
             properties.getProperty(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG) shouldBe "supersecret"
+        }
+
+        test("producer uses plaintext locally and enables idempotence") {
+            val properties =
+                PropertiesFactory(
+                    KafkaConfig(
+                        bootstrapServers = "localhost:9092",
+                        consumers = emptyMap(),
+                        security = SecurityConfig.Plaintext,
+                    ),
+                ).producer(
+                    keySerializer = StringSerializer::class.java,
+                    valueSerializer = StringSerializer::class.java,
+                )
+
+            properties.getProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG) shouldBe "localhost:9092"
+            properties.getProperty(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG) shouldBe "PLAINTEXT"
+            properties.getProperty(ProducerConfig.ACKS_CONFIG) shouldBe "all"
+            properties.getProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG) shouldBe "true"
+            properties.getProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG) shouldBe StringSerializer::class.java.name
+            properties.getProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG) shouldBe StringSerializer::class.java.name
         }
     })
