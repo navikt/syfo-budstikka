@@ -51,12 +51,12 @@ internal fun Formidlingsinnhold.gatetPerson(): Personident? =
         is DittSykefravaerOpprett -> personident
         is BrevOpprett -> personident
         is MikrofrontendAktiver -> personident
-        is BrukervarselInaktiver -> null
-        is LedervarselOpprett -> null
-        is LedervarselInaktiver -> null
-        is DittSykefravaerInaktiver -> null
-        is ArbeidsgivervarselOpprett -> null
-        is ArbeidsgivervarselInaktiver -> null
+        is BrukervarselInaktiver,
+        is LedervarselOpprett,
+        is LedervarselInaktiver,
+        is DittSykefravaerInaktiver,
+        is ArbeidsgivervarselOpprett,
+        is ArbeidsgivervarselInaktiver,
         is MikrofrontendDeaktiver -> null
     }
 
