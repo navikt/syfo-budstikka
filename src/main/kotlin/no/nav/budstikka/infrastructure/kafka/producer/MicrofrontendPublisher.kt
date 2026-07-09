@@ -13,19 +13,19 @@ import no.nav.budstikka.domain.formidling.formidlingJson
  * [microfrontendPublisher] ved oppstart.
  */
 fun interface MicrofrontendPublisher {
-    suspend fun publish(mikrofrontend: Mikrofrontend)
+    suspend fun publish(microfrontend: Mikrofrontend)
 }
 
 fun microfrontendPublisher(
     topic: String,
     messagePublisher: MessagePublisher,
 ): MicrofrontendPublisher =
-    MicrofrontendPublisher { mikrofrontend ->
+    MicrofrontendPublisher { microfrontend ->
         messagePublisher.publish(
             PublishedMessage(
                 topic = topic,
-                id = mikrofrontend.partisjonsnokkel,
-                value = formidlingJson.encodeToString(mikrofrontend.toMessage()),
+                id = microfrontend.partisjonsnokkel,
+                value = formidlingJson.encodeToString(microfrontend.toMessage()),
             ),
         )
     }
