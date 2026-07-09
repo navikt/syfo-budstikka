@@ -31,9 +31,19 @@ class DecideTest :
         val brukervarsel = BrukervarselOpprett(sykmeldt, Varseltype.OPPGAVE, "tekst")
 
         context("død-gate") {
-            test("brukerrettet OPPRETT til død person droppes med DOD") {
-                val beslutning = decide(envelope(brukervarsel), Beslutningsgrunnlag(mottakerErDod = true))
-                beslutning shouldBe Beslutning.Droppet(DropAarsak.DOD)
+            val gatedeOpprett =
+                listOf(
+                    "Brukervarsel" to brukervarsel,
+                    "DittSykefravaer" to DittSykefravaerOpprett(sykmeldt, "tekst"),
+                    "Brev" to BrevOpprett(sykmeldt, "jp-1"),
+                    "MikrofrontendAktiver" to MikrofrontendAktiver(sykmeldt, "mf-1"),
+                )
+
+            gatedeOpprett.forEach { (navn, innhold) ->
+                test("brukerrettet OPPRETT ($navn) til død person droppes med DOD") {
+                    val beslutning = decide(envelope(innhold), Beslutningsgrunnlag(mottakerErDod = true))
+                    beslutning shouldBe Beslutning.Droppet(DropAarsak.DOD)
+                }
             }
 
             test("levende person gir Behandlet") {

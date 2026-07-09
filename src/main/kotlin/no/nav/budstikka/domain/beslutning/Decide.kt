@@ -40,6 +40,10 @@ fun decide(
  * Personen død-gaten gjelder for, eller `null` når hendelsen ikke er en brukerrettet OPPRETT.
  * Styrer også hvilke hendelser [Grunnlagsinnhenter] i det hele tatt slår opp død for – vi kaller
  * ikke PDL når svaret uansett ikke kan gate.
+ *
+ * `when` er bevisst totalt (ingen `else`): en ny [Formidlingsinnhold]-variant skal gi kompilerings-
+ * feil her, slik at gate-beslutningen tas eksplisitt og ingen ny brukerrettet OPPRETT stille slipper
+ * forbi død-gaten.
  */
 internal fun Formidlingsinnhold.gatetPerson(): Personident? =
     when (this) {
@@ -47,7 +51,13 @@ internal fun Formidlingsinnhold.gatetPerson(): Personident? =
         is DittSykefravaerOpprett -> personident
         is BrevOpprett -> personident
         is MikrofrontendAktiver -> personident
-        else -> null
+        is BrukervarselInaktiver -> null
+        is LedervarselOpprett -> null
+        is LedervarselInaktiver -> null
+        is DittSykefravaerInaktiver -> null
+        is ArbeidsgivervarselOpprett -> null
+        is ArbeidsgivervarselInaktiver -> null
+        is MikrofrontendDeaktiver -> null
     }
 
 private fun Formidlingsinnhold.tilLeveranseUtkast(referanse: String): LeveranseUtkast =
