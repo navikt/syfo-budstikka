@@ -11,6 +11,8 @@ import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingR
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepositoryImpl
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepositoryImpl
+import no.nav.budstikka.infrastructure.database.leveranse.LeveranseRepository
+import no.nav.budstikka.infrastructure.database.leveranse.LeveranseRepositoryImpl
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -25,6 +27,7 @@ fun DependencyRegistry.databaseModule() {
     }
     provide<InboxFormidlingRepository> { InboxFormidlingRepositoryImpl(resolve()) }
     provide<DeadLetterFormidlingRepository> { DeadLetterFormidlingRepositoryImpl(resolve()) }
+    provide<LeveranseRepository> { LeveranseRepositoryImpl(resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =
