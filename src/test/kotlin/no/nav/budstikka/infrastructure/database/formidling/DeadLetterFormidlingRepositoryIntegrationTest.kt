@@ -22,7 +22,7 @@ class DeadLetterFormidlingRepositoryIntegrationTest :
             fixture.close()
         }
 
-        test("save skriver rad i dead_letter_formidling") {
+        test("saves a row in dead_letter_formidling") {
             val repository = DeadLetterFormidlingRepositoryImpl(fixture.database)
             val record =
                 DeadLetterRecord(
@@ -32,35 +32,24 @@ class DeadLetterFormidlingRepositoryIntegrationTest :
                     kafkaOffset = 42L,
                     kafkaKey = "key",
                     failureReason = "MISSING_EVENT_ID",
-                    errorMessage = "mangler header",
+                    errorMessage = "missing header",
                 )
 
             repository.save(record)
 
-            val row = readDeadLetterRow(fixture)
-
-            row.payload shouldBe record.payload
-            row.topic shouldBe record.topic
-            row.partition shouldBe record.partition
-            row.kafkaOffset shouldBe record.kafkaOffset
-            row.kafkaKey shouldBe record.kafkaKey
-            row.failureReason shouldBe record.failureReason
-            row.errorMessage shouldBe record.errorMessage
+            with(readDeadLetterRow(fixture)) {
+                payload shouldBe record.payload
+                topic shouldBe record.topic
+                partition shouldBe record.partition
+                kafkaOffset shouldBe record.kafkaOffset
+                kafkaKey shouldBe record.kafkaKey
+                failureReason shouldBe record.failureReason
+                errorMessage shouldBe record.errorMessage
+            }
         }
     })
 
-private data class DeadLetterRow(
-    val id: UUID,
-    val payload: String,
-    val topic: String,
-    val partition: Int,
-    val kafkaOffset: Long,
-    val kafkaKey: String?,
-    val failureReason: String,
-    val errorMessage: String?,
-)
-
-private fun readDeadLetterRow(fixture: PostgresTestFixture): DeadLetterRow =
+private fun readDeadLetterRow(fixture: PostgresTestFixture): DeadLetterRecord =
     DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
         connection.createStatement().use { statement ->
             statement
@@ -72,8 +61,7 @@ private fun readDeadLetterRow(fixture: PostgresTestFixture): DeadLetterRow =
                 ).use { resultSet ->
                     check(resultSet.next())
 
-                    DeadLetterRow(
-                        id = resultSet.getObject("id", UUID::class.java),
+                    DeadLetterRecord(
                         payload = resultSet.getString("payload"),
                         topic = resultSet.getString("topic"),
                         partition = resultSet.getInt("partition"),
