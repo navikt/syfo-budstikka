@@ -16,6 +16,7 @@ kotest = "6.2.1"
 testLogger = "4.0.0"
 kotlinxSerializationJson = "1.9.0"
 kafka = "4.3.1"
+testcontainers = "1.21.4"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -50,3 +51,4 @@ micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-p
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
