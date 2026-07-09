@@ -42,7 +42,7 @@ class InboxHandler(
 
         val payload = record.value()
         if (payload.isNullOrBlank()) {
-            record.deadLetter("MISSING_PAYLOAD", "Kafka-record manglet payload")
+            record.deadLetter("MISSING_PAYLOAD", "Kafka-record missing payload")
             return
         }
 
@@ -63,9 +63,9 @@ class InboxHandler(
         logger.info(
             "{} {}",
             if (isNewEvent) {
-                "Mottok formidling"
+                "Received formidling"
             } else {
-                "Duplikat ignorert (event_id allerede kjent)"
+                "Duplicate ignored (event_id already known)"
             },
             record.topicInfo,
         )
