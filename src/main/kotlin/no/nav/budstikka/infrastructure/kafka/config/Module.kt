@@ -6,7 +6,6 @@ import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingR
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
 import no.nav.budstikka.infrastructure.kafka.producer.KafkaMessagePublisher
-import no.nav.budstikka.infrastructure.kafka.producer.KafkaProducerRecordSender
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
@@ -24,7 +23,7 @@ fun DependencyRegistry.kafkaModule() {
         )
     }.cleanup { producer -> producer.close() }
     provide<MessagePublisher> {
-        KafkaMessagePublisher(KafkaProducerRecordSender(resolve()))
+        KafkaMessagePublisher(resolve())
     }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()

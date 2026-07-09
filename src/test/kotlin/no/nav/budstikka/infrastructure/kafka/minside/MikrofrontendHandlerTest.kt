@@ -3,18 +3,19 @@ package no.nav.budstikka.infrastructure.kafka.minside
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
+import no.nav.budstikka.domain.formidling.Mikrofrontend
 import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
 import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
 import no.nav.budstikka.domain.formidling.Personident
 import no.nav.budstikka.domain.formidling.formidlingJson
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
-import no.nav.budstikka.infrastructure.kafka.producer.publish
 import no.nav.budstikka.infrastructure.kafka.producer.PublishedMessage
+import no.nav.budstikka.infrastructure.kafka.producer.publish
 import kotlin.time.Instant
 
 class MikrofrontendHandlerTest :
     FunSpec({
-        test("aktivering publiseres til minside-topic med personident som nøkkel") {
+        test("publishes aktivering to minside topic keyed by personident") {
             val publisher = RecordingMessagePublisher()
             val command =
                 MikrofrontendAktiver(
@@ -29,11 +30,11 @@ class MikrofrontendHandlerTest :
                 PublishedMessage(
                     topic = MikrofrontendHandler.TOPIC,
                     id = "12345678901",
-                    value = formidlingJson.encodeToString(command),
+                    value = formidlingJson.encodeToString<Mikrofrontend>(command),
                 )
         }
 
-        test("deaktivering publiseres til minside-topic med personident som nøkkel") {
+        test("publishes deaktivering to minside topic keyed by personident") {
             val publisher = RecordingMessagePublisher()
             val command =
                 MikrofrontendDeaktiver(
@@ -47,7 +48,7 @@ class MikrofrontendHandlerTest :
                 PublishedMessage(
                     topic = MikrofrontendHandler.TOPIC,
                     id = "12345678901",
-                    value = formidlingJson.encodeToString(command),
+                    value = formidlingJson.encodeToString<Mikrofrontend>(command),
                 )
         }
     })
