@@ -6,7 +6,7 @@ import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
 
 object InboxFormidlingTable : Table("inbox_formidling") {
-    val eventId = javaUUID("event_id")
+    val eventId = javaUUID("event_id").databaseGenerated()
     val payload = text("payload")
     val state = text("state").default("RECEIVED")
     val dropReason = text("drop_reason").nullable()

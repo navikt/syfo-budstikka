@@ -1,6 +1,6 @@
 CREATE TABLE inbox_formidling
 (
-    event_id          UUID        NOT NULL,
+    event_id          UUID        NOT NULL DEFAULT  uuidv7(),
     payload           TEXT        NOT NULL,
     state             TEXT        NOT NULL DEFAULT 'RECEIVED',
     drop_reason       TEXT,

@@ -17,7 +17,7 @@ CREATE TABLE leveranse
     next_attempt_time TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     error_message     TEXT,
-    CONSTRAINT leveranse_pkey PRIMARY KEY (id)
+    CONSTRAINT leveranse_pkey     PRIMARY KEY (id)
 );
 
 -- Plukk-indeks for outbox-worker (state='KLAR' AND next_attempt_time <= now()).
