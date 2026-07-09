@@ -9,7 +9,7 @@ import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
-import no.nav.budstikka.infrastructure.kafka.producer.MikrofrontendPublisher
+import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.microfrontendPublisher
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
@@ -29,7 +29,7 @@ fun DependencyRegistry.kafkaModule() {
     provide<MessagePublisher> {
         MessagePublisherImpl(resolve())
     }
-    provide<MikrofrontendPublisher> {
+    provide<MicrofrontendPublisher> {
         val topic =
             resolve<KafkaConfig>().producers[MINSIDE_PRODUCER]?.topic
                 ?: error("Missing Kafka producer config: $MINSIDE_PRODUCER")

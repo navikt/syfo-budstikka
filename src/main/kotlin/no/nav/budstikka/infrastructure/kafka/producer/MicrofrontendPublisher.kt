@@ -12,15 +12,15 @@ import no.nav.budstikka.domain.formidling.formidlingJson
  * dette – ikke av Kafka, topic eller meldingsformatet. Transport og destinasjon bindes i
  * [microfrontendPublisher] ved oppstart.
  */
-fun interface MikrofrontendPublisher {
+fun interface MicrofrontendPublisher {
     suspend fun publish(mikrofrontend: Mikrofrontend)
 }
 
 fun microfrontendPublisher(
     topic: String,
     messagePublisher: MessagePublisher,
-): MikrofrontendPublisher =
-    MikrofrontendPublisher { mikrofrontend ->
+): MicrofrontendPublisher =
+    MicrofrontendPublisher { mikrofrontend ->
         messagePublisher.publish(
             PublishedMessage(
                 topic = topic,
