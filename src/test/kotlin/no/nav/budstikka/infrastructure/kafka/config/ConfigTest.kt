@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import io.ktor.server.config.MapApplicationConfig
 
 const val CONSUMER_NAME = "formidling"
+const val PRODUCER_NAME = "minside"
 
 class ConfigTest :
     FunSpec({
@@ -28,6 +29,18 @@ class ConfigTest :
                 config(enabled = "maybe").toKafkaConfig()
             }.message shouldBe "Invalid kafka configuration: kafka.consumers.$CONSUMER_NAME.enabled must be true or false"
         }
+
+        test("toKafkaConfig reads producer topic") {
+            val config = config(producerTopic = "min-side.aapen-microfrontend-v1").toKafkaConfig()
+
+            config.producers.getValue(PRODUCER_NAME).topic shouldBe "min-side.aapen-microfrontend-v1"
+        }
+
+        test("toKafkaConfig validates producer topic is set") {
+            shouldThrow<IllegalStateException> {
+                config(producerTopic = "").toKafkaConfig()
+            }.message shouldBe "Invalid kafka configuration: kafka.producers.$PRODUCER_NAME.topic must be set"
+        }
     })
 
 private fun config(
@@ -37,6 +50,7 @@ private fun config(
     groupId: String = "flaggskipet-sykmelding-v1",
     autoOffsetReset: String = "earliest",
     maxPollRecords: String = "100",
+    producerTopic: String = "min-side.aapen-microfrontend-v1",
     truststorePath: String = "",
     keystorePath: String = "",
     credentialStorePassword: String = "",
@@ -48,6 +62,7 @@ private fun config(
         "kafka.consumers.$CONSUMER_NAME.groupId" to groupId,
         "kafka.consumers.$CONSUMER_NAME.autoOffsetReset" to autoOffsetReset,
         "kafka.consumers.$CONSUMER_NAME.maxPollRecords" to maxPollRecords,
+        "kafka.producers.$PRODUCER_NAME.topic" to producerTopic,
         "kafka.truststorePath" to truststorePath,
         "kafka.keystorePath" to keystorePath,
         "kafka.credentialStorePassword" to credentialStorePassword,

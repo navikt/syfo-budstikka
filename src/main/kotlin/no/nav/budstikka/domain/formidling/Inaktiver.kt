@@ -69,9 +69,7 @@ data class MikrofrontendAktiver(
     override val personident: Personident,
     override val mikrofrontendId: String,
     val synligTom: Instant? = null,
-) : Mikrofrontend {
-    override val partisjonsnokkel: String get() = personident.value
-}
+) : Mikrofrontend
 
 /** Mikrofrontendens «ferdigstill» – deaktiver synlighet (B41). */
 @Serializable
@@ -79,6 +77,4 @@ data class MikrofrontendAktiver(
 data class MikrofrontendDeaktiver(
     override val personident: Personident,
     override val mikrofrontendId: String,
-) : Mikrofrontend {
-    override val partisjonsnokkel: String get() = personident.value
-}
+) : Mikrofrontend

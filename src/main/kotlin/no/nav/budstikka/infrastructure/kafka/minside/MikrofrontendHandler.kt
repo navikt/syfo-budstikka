@@ -6,8 +6,8 @@ import no.nav.budstikka.domain.formidling.Mikrofrontend
 import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
 import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
 import no.nav.budstikka.domain.formidling.formidlingJson
+import no.nav.budstikka.infrastructure.kafka.producer.OutboundMessage
 import no.nav.budstikka.infrastructure.kafka.producer.ProducerHandler
-import no.nav.budstikka.infrastructure.kafka.producer.PublishedMessage
 
 @Serializable
 internal enum class MinSideAction {
@@ -28,14 +28,11 @@ internal data class MicrofrontendMessage(
 )
 
 object MikrofrontendHandler : ProducerHandler<Mikrofrontend> {
-    override fun handle(value: Mikrofrontend): PublishedMessage =
-        PublishedMessage(
-            topic = TOPIC,
+    override fun handle(value: Mikrofrontend): OutboundMessage =
+        OutboundMessage(
             id = value.partisjonsnokkel,
             value = formidlingJson.encodeToString(value.toMessage()),
         )
-
-    const val TOPIC = "min-side.aapen-microfrontend-v1"
 }
 
 private fun Mikrofrontend.toMessage() =
