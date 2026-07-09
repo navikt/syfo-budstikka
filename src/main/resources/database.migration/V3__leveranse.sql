@@ -4,7 +4,7 @@
 -- FK inbox_event_id -> ON DELETE SET NULL (B42: inbox_hendelse slettes før leveranse ved retensjon).
 CREATE TABLE leveranse
 (
-    id                UUID        NOT NULL DEFAULT uuidv7(),
+    id                UUID        NOT NULL  DEFAULT uuidv7(),
     inbox_event_id    UUID        REFERENCES inbox_formidling (event_id) ON DELETE SET NULL,
     referanse         TEXT        NOT NULL,
     operasjon         TEXT        NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE leveranse
     mottaker_type     TEXT        NOT NULL,
     mottaker_id       TEXT        NOT NULL,
     payload           JSONB       NOT NULL,
-    state             TEXT        NOT NULL DEFAULT 'KLAR',
+    state             TEXT        NOT NULL DEFAULT 'READY',
     attempt           INT         NOT NULL DEFAULT 0,
     next_attempt_time TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -20,7 +20,7 @@ CREATE TABLE leveranse
     CONSTRAINT leveranse_pkey     PRIMARY KEY (id)
 );
 
--- Plukk-indeks for outbox-worker (state='KLAR' AND next_attempt_time <= now()).
+-- Plukk-indeks for outbox-worker (state='READY' AND next_attempt_time <= now()).
 CREATE INDEX ON leveranse (state, next_attempt_time);
 -- Oppslag på hvilke leveranser en inbox-hendelse produserte.
 CREATE INDEX ON leveranse (inbox_event_id);
