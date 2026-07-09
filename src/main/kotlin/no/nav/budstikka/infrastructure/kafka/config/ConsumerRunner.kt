@@ -81,6 +81,7 @@ class ConsumerRunner<K, V>(
     fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
+        logger.info("Shutdown initiated")
         stop()
         val stopped = join(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS))
         if (!stopped) {
@@ -90,6 +91,7 @@ class ConsumerRunner<K, V>(
                 CLOSE_TIMEOUT_SECONDS,
             )
         }
+        logger.info("Shutdown complete")
     }
 
     /**
