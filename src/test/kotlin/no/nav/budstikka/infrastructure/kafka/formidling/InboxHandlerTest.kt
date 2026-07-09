@@ -60,11 +60,12 @@ class InboxHandlerTest :
 
             handler.handle(record(value = "ugyldig", partition = 2, offset = 42L, key = "partisjon-key"))
 
-            val deadLetter = deadLetterRepository.savedDeadLetters.single()
-            deadLetter.topic shouldBe TOPIC
-            deadLetter.partition shouldBe 2
-            deadLetter.kafkaOffset shouldBe 42L
-            deadLetter.kafkaKey shouldBe "partisjon-key"
+            with(deadLetterRepository.savedDeadLetters.single()) {
+                topic shouldBe TOPIC
+                partition shouldBe 2
+                kafkaOffset shouldBe 42L
+                kafkaKey shouldBe "partisjon-key"
+            }
         }
 
         test("transient DB error during saveEvent throws and dead-letter table is not touched") {
