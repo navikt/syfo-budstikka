@@ -29,20 +29,20 @@ class InboxHandler(
 
     override suspend fun handle(record: ConsumerRecord<String, String?>) {
         val eventId =
-            when (val resultat = record.readEventId()) {
+            when (val result = record.readEventId()) {
                 is EventId.Valid -> {
-                    resultat.value
+                    result.value
                 }
 
                 is EventId.Invalid -> {
-                    record.deadLetter(resultat.failureReason, resultat.errorMessage)
+                    record.deadLetter(DeadLetter.MissingEventId)
                     return
                 }
             }
 
         val payload = record.value()
         if (payload.isNullOrBlank()) {
-            record.deadLetter("MISSING_PAYLOAD", "Kafka-record missing payload")
+            record.deadLetter(DeadLetter.MissingPayload)
             return
         }
 
@@ -72,13 +72,10 @@ class InboxHandler(
     }
 
     /** Dead-letterer recorden til dead-letter-tabellen med den rå (mulig-ugyldige) payloaden bevart. */
-    private suspend fun ConsumerRecord<String, String?>.deadLetter(
-        failureReason: String,
-        errorMessage: String?,
-    ) {
+    private suspend fun ConsumerRecord<String, String?>.deadLetter(reason: DeadLetter) {
         logger.warn(
             "Poison message dead-lettered failureReason={} {}",
-            failureReason,
+            reason.code,
             topicInfo,
         )
         deadLetterRepository.save(
@@ -88,8 +85,8 @@ class InboxHandler(
                 partition = partition(),
                 kafkaOffset = offset(),
                 kafkaKey = key(),
-                failureReason = failureReason,
-                errorMessage = errorMessage,
+                failureReason = reason.code,
+                errorMessage = reason.message,
             ),
         )
     }
@@ -120,6 +117,21 @@ internal fun ConsumerRecord<*, *>.readEventId(): EventId {
         EventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
     } catch (e: IllegalArgumentException) {
         EventId.Invalid("INVALID_EVENT_ID", e.message)
+    }
+}
+
+sealed interface DeadLetter {
+    val code: String
+    val message: String
+
+    data object MissingPayload : DeadLetter {
+        override val code = "MISSING_PAYLOAD"
+        override val message = "Kafka record missing payload"
+    }
+
+    data object MissingEventId : DeadLetter {
+        override val code = "MISSING_EVENT_ID"
+        override val message = "Kafka record missing event ID"
     }
 }
 
