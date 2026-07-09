@@ -57,13 +57,17 @@ data class ArbeidsgivervarselInaktiver(
  * tar imot nettopp dette paret – kompilatoren håndhever uttømmende `when` uten `else`.
  */
 @Serializable
-sealed interface Mikrofrontend : Formidlingsinnhold
+sealed interface Mikrofrontend : Formidlingsinnhold {
+    val personident: Personident
+    val mikrofrontendId: String
+    override val partisjonsnokkel: String get() = personident.value
+}
 
 @Serializable
 @SerialName("MikrofrontendAktiver")
 data class MikrofrontendAktiver(
-    val personident: Personident,
-    val mikrofrontendId: String,
+    override val personident: Personident,
+    override val mikrofrontendId: String,
     val synligTom: Instant? = null,
 ) : Mikrofrontend {
     override val partisjonsnokkel: String get() = personident.value
@@ -73,8 +77,8 @@ data class MikrofrontendAktiver(
 @Serializable
 @SerialName("MikrofrontendDeaktiver")
 data class MikrofrontendDeaktiver(
-    val personident: Personident,
-    val mikrofrontendId: String,
+    override val personident: Personident,
+    override val mikrofrontendId: String,
 ) : Mikrofrontend {
     override val partisjonsnokkel: String get() = personident.value
 }
