@@ -1,6 +1,5 @@
 package no.nav.budstikka.domain.formidling
 
-import kotlinx.serialization.encodeToString
 import java.util.UUID
 
 /** Delte testhjelpere for formidlingskontrakten – konvolutt-bygging og (de)serialiserings-rundtur. */

@@ -15,6 +15,7 @@ Organisasjonen skrives **Nav**, ikke «NAV» (unntak: `NAIS`, `NAVident`-claim, 
 - README, ADR-er (`docs/adr/`) og annen Markdown i repoet
 - PR-beskrivelser, release-notes og commit-meldinger
 - Terminologivalg når norsk og engelsk fagspråk blandes i Kotlin-kode og dokumentasjon
+- Tekniske feilkoder og DB-kolonnenavn bør være på engelsk; domenebegreper forblir norsk
 - Rensing av AI-markører og anglisismer i tekst du eller en agent har generert
 
 ## Fagtermer
