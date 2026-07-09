@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.kafka.minside
+package no.nav.budstikka.infrastructure.kafka.producer
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -6,19 +6,17 @@ import no.nav.budstikka.domain.formidling.Mikrofrontend
 import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
 import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
 import no.nav.budstikka.domain.formidling.formidlingJson
-import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
-import no.nav.budstikka.infrastructure.kafka.producer.PublishedMessage
 
 /**
  * Domenets inngang for å styre synlighet av en mikrofrontend på Min side (B41). Kalleren avhenger av
  * dette – ikke av Kafka, topic eller meldingsformatet. Transport og destinasjon bindes i
- * [mikrofrontendPublisher] ved oppstart.
+ * [microfrontendPublisher] ved oppstart.
  */
 fun interface MikrofrontendPublisher {
     suspend fun publish(mikrofrontend: Mikrofrontend)
 }
 
-fun mikrofrontendPublisher(
+fun microfrontendPublisher(
     topic: String,
     messagePublisher: MessagePublisher,
 ): MikrofrontendPublisher =

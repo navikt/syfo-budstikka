@@ -1,7 +1,4 @@
-package no.nav.budstikka.infrastructure.kafka.minside
-
-import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
-import no.nav.budstikka.infrastructure.kafka.producer.PublishedMessage
+package no.nav.budstikka.infrastructure.kafka.producer
 
 class RecordingMessagePublisher : MessagePublisher {
     val published = mutableListOf<PublishedMessage>()

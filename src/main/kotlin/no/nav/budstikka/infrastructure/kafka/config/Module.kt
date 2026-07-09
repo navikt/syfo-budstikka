@@ -6,11 +6,11 @@ import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingR
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
-import no.nav.budstikka.infrastructure.kafka.formidling.InboxHandler
-import no.nav.budstikka.infrastructure.kafka.minside.MikrofrontendPublisher
-import no.nav.budstikka.infrastructure.kafka.minside.mikrofrontendPublisher
-import no.nav.budstikka.infrastructure.kafka.producer.KafkaMessagePublisher
+import no.nav.budstikka.infrastructure.kafka.consumer.InboxHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
+import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
+import no.nav.budstikka.infrastructure.kafka.producer.MikrofrontendPublisher
+import no.nav.budstikka.infrastructure.kafka.producer.microfrontendPublisher
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -27,13 +27,13 @@ fun DependencyRegistry.kafkaModule() {
         )
     }.cleanup { producer -> producer.close() }
     provide<MessagePublisher> {
-        KafkaMessagePublisher(resolve())
+        MessagePublisherImpl(resolve())
     }
     provide<MikrofrontendPublisher> {
         val topic =
             resolve<KafkaConfig>().producers[MINSIDE_PRODUCER]?.topic
                 ?: error("Missing Kafka producer config: $MINSIDE_PRODUCER")
-        mikrofrontendPublisher(topic = topic, messagePublisher = resolve())
+        microfrontendPublisher(topic = topic, messagePublisher = resolve())
     }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
