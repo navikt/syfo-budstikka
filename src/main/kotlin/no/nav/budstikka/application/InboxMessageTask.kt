@@ -34,6 +34,7 @@ class InboxMessageTask(
     private fun decode(message: InboxMessage): Dispatch? =
         MDC.putCloseable(MdcKeys.EVENT_ID, message.eventId.toString()).use {
             try {
+                logger.info("Decoding inbox payload")
                 dispatchJson.decodeFromString<Dispatch>(message.payload)
             } catch (error: SerializationException) {
                 logger.warn(
