@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.time.withTimeoutOrNull
+import no.nav.budstikka.infrastructure.config.MdcKeys
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
@@ -65,7 +66,7 @@ class ConsumerRunner<K, V>(
         running.set(true)
         CoroutineScope(Job() + Dispatchers.IO + CoroutineName(coroutineName)).also { newScope ->
             scope = newScope
-            job = newScope.launch(MDCContext(mapOf(MDC_CONSUMER_KEY to coroutineName))) { runWithRestart(onFatalError) }
+            job = newScope.launch(MDCContext(mapOf(MdcKeys.CONSUMER to coroutineName))) { runWithRestart(onFatalError) }
         }
     }
 
@@ -78,7 +79,7 @@ class ConsumerRunner<K, V>(
     fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
-        MDC.putCloseable(MDC_CONSUMER_KEY, coroutineName).use {
+        MDC.putCloseable(MdcKeys.CONSUMER, coroutineName).use {
             logger.info("Shutdown initiated")
             stop()
             val stopped = join(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS))
@@ -185,7 +186,6 @@ class ConsumerRunner<K, V>(
     private companion object {
         const val BACKOFF_STEP_MILLIS = 200L
         const val CLOSE_TIMEOUT_SECONDS = 5L
-        const val MDC_CONSUMER_KEY = "consumer"
 
         fun isFatalByDefault(error: Throwable): Boolean =
             error is AuthenticationException ||

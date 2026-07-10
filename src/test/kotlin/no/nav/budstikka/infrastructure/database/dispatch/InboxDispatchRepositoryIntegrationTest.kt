@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import java.util.UUID
@@ -28,5 +29,21 @@ class InboxDispatchRepositoryIntegrationTest :
 
             repository.save(eventId, payload) shouldBe true
             repository.save(eventId, payload) shouldBe false
+        }
+
+        test("pollReceived reads received rows with limit") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000001")
+            val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000002")
+            val payload1 = """{"eventId":"$eventId1"}"""
+            val payload2 = """{"eventId":"$eventId2"}"""
+
+            repository.save(eventId1, payload1)
+            repository.save(eventId2, payload2)
+
+            val messages = repository.pollReceived(limit = 1)
+            messages.shouldHaveSize(1)
+            messages.single().eventId shouldBe eventId1
+            messages.single().payload shouldBe payload1
         }
     })

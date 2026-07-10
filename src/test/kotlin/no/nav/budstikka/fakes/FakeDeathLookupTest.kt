@@ -3,7 +3,6 @@ package no.nav.budstikka.fakes
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.infrastructure.pdl.FakeDeathLookup
 
 class FakeDeathLookupTest :
     FunSpec({

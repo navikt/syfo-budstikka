@@ -8,6 +8,7 @@ import no.nav.budstikka.infrastructure.database.config.databaseModule
 import no.nav.budstikka.infrastructure.database.config.toDatabaseConfig
 import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
 import no.nav.budstikka.infrastructure.kafka.config.toKafkaConfig
+import no.nav.budstikka.infrastructure.task.taskModule
 
 internal fun Application.installDependencyInjection() {
     val config = environment.config
@@ -17,5 +18,6 @@ internal fun Application.installDependencyInjection() {
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         databaseModule()
         kafkaModule()
+        taskModule()
     }
 }

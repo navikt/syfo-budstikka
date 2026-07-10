@@ -7,14 +7,14 @@ import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
-import no.nav.budstikka.infrastructure.pdl.FakeDeathLookup
+import no.nav.budstikka.fakes.FakeDeathLookup
 import java.util.UUID
 
 class DecisionProcessTest :
     FunSpec({
         val sykmeldt = PersonIdentifier("11111111111")
 
-        fun hendelse() =
+        fun event() =
             Dispatch(
                 eventId = UUID.randomUUID(),
                 reference = "ref-1",
@@ -23,12 +23,12 @@ class DecisionProcessTest :
 
         test("dead person -> Dropped(DEAD) end-to-end via death lookup") {
             val fake = FakeDeathLookup().apply { registerDeath(sykmeldt) }
-            val prosess = DecisionProcess(FoundationFetcher(fake))
-            prosess.process(hendelse()) shouldBe Decision.Dropped(DropReason.DEAD)
+            val process = DecisionProcess(FoundationFetcher(fake))
+            process.process(event()) shouldBe Decision.Dropped(DropReason.DEAD)
         }
 
         test("alive person -> Processed with one delivery") {
-            val prosess = DecisionProcess(FoundationFetcher(FakeDeathLookup()))
-            prosess.process(hendelse()).shouldBeInstanceOf<Decision.Processed>()
+            val process = DecisionProcess(FoundationFetcher(FakeDeathLookup()))
+            process.process(event()).shouldBeInstanceOf<Decision.Processed>()
         }
     })
