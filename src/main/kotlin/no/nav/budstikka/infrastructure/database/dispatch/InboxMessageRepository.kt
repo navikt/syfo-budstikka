@@ -6,6 +6,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -21,6 +22,13 @@ interface InboxMessageRepository {
     ): Boolean
 
     suspend fun pollReceived(limit: Int): List<InboxMessage>
+
+    suspend fun markProcessed(eventId: UUID): Boolean
+
+    suspend fun markFailed(
+        eventId: UUID,
+        reason: String,
+    ): Boolean
 }
 
 class InboxMessageRepositoryImpl(
@@ -59,7 +67,34 @@ class InboxMessageRepositoryImpl(
         }
     }
 
+    override suspend fun markProcessed(eventId: UUID): Boolean =
+        database.transact {
+            InboxMessageTable.update({
+                InboxMessageTable.eventId eq eventId
+            }) {
+                it[state] = PROCESSED_STATE
+                it[processedAt] = Clock.System.now()
+                it[errorMessage] = null
+            } > 0
+        }
+
+    override suspend fun markFailed(
+        eventId: UUID,
+        reason: String,
+    ): Boolean =
+        database.transact {
+            InboxMessageTable.update({
+                InboxMessageTable.eventId eq eventId
+            }) {
+                it[state] = FAILED_STATE
+                it[processedAt] = Clock.System.now()
+                it[errorMessage] = reason
+            } > 0
+        }
+
     private companion object {
         const val RECEIVED_STATE = "RECEIVED"
+        const val PROCESSED_STATE = "PROCESSED"
+        const val FAILED_STATE = "FAILED"
     }
 }

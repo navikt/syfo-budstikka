@@ -2,7 +2,9 @@ package no.nav.budstikka.infrastructure.task
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.InboxMessageTask
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
@@ -44,6 +46,10 @@ class InboxMessageTaskTest :
 
             repository.lastPollLimit shouldBe 10
             decodedEventIds.shouldContainExactly(validEventId)
+            repository.processedEventIds.shouldContainExactly(validEventId)
+            repository.failedMessages.shouldHaveSize(1)
+            repository.failedMessages.single().first shouldBe UUID.fromString("00000000-0000-0000-0000-000000000002")
+            repository.failedMessages.single().second.shouldNotBeBlank()
         }
 
         test("close stops polling loop") {
@@ -81,6 +87,8 @@ private class PollingInboxMessageRepository(
     var lastPollLimit: Int? = null
         private set
     val pollCount = AtomicInteger(0)
+    val processedEventIds = mutableListOf<UUID>()
+    val failedMessages = mutableListOf<Pair<UUID, String>>()
 
     override suspend fun save(
         eventId: UUID,
@@ -92,6 +100,19 @@ private class PollingInboxMessageRepository(
         pollCount.incrementAndGet()
         onPoll()
         return messages
+    }
+
+    override suspend fun markProcessed(eventId: UUID): Boolean {
+        processedEventIds += eventId
+        return true
+    }
+
+    override suspend fun markFailed(
+        eventId: UUID,
+        reason: String,
+    ): Boolean {
+        failedMessages += eventId to reason
+        return true
     }
 }
 

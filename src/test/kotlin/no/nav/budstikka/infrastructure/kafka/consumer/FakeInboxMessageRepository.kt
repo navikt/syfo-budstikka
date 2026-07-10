@@ -24,4 +24,11 @@ class FakeInboxMessageRepository(
         pollLimits += limit
         return polledMessages
     }
+
+    override suspend fun markProcessed(eventId: UUID): Boolean = true
+
+    override suspend fun markFailed(
+        eventId: UUID,
+        reason: String,
+    ): Boolean = true
 }

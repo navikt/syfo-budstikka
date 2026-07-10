@@ -11,4 +11,11 @@ class ThrowingMessageRepository : InboxMessageRepository {
     ): Boolean = error("DB nede — transient feil")
 
     override suspend fun pollReceived(limit: Int): List<InboxMessage> = emptyList()
+
+    override suspend fun markProcessed(eventId: UUID): Boolean = true
+
+    override suspend fun markFailed(
+        eventId: UUID,
+        reason: String,
+    ): Boolean = true
 }

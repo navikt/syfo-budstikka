@@ -27,24 +27,42 @@ class InboxMessageTask(
 
     internal suspend fun runOnce() {
         repository.pollReceived(config.batchSize).forEach { message ->
-            decode(message)?.let { dispatch -> onDispatch(dispatch) }
+            when (val decodeResult = decode(message)) {
+                is DecodeResult.Success -> {
+                    repository.markProcessed(message.eventId)
+                    onDispatch(decodeResult.dispatch)
+                }
+
+                is DecodeResult.Failure -> repository.markFailed(message.eventId, decodeResult.reason)
+            }
         }
     }
 
-    private fun decode(message: InboxMessage): Dispatch? =
+    private fun decode(message: InboxMessage): DecodeResult =
         MDC.putCloseable(MdcKeys.EVENT_ID, message.eventId.toString()).use {
             try {
                 logger.info("Decoding inbox payload")
-                dispatchJson.decodeFromString<Dispatch>(message.payload)
+                DecodeResult.Success(dispatchJson.decodeFromString<Dispatch>(message.payload))
             } catch (error: SerializationException) {
+                val reason = error.message ?: "Unable to decode inbox payload"
                 logger.warn(
                     "Unable to decode inbox payload eventId={}",
                     message.eventId,
                     error,
                 )
-                null
+                DecodeResult.Failure(reason)
             }
         }
+
+    private sealed interface DecodeResult {
+        data class Success(
+            val dispatch: Dispatch,
+        ) : DecodeResult
+
+        data class Failure(
+            val reason: String,
+        ) : DecodeResult
+    }
 
     private companion object {
         const val TASK_NAME = "inbox-message-task"
