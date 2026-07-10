@@ -33,14 +33,14 @@ class LeveranseRepositoryIntegrationTest :
         val sykmeldt = Personident("11111111111")
         val orgnr = Orgnummer("987654321")
 
-        suspend fun nyInboxHendelse(): UUID {
+        suspend fun newInboxEvent(): UUID {
             val eventId = UUID.randomUUID()
             InboxFormidlingRepositoryImpl(fixture.database).save(eventId, "{}")
             return eventId
         }
 
         test("skriver en Person-leveranse med frosne attributter og DB-defaults") {
-            val eventId = nyInboxHendelse()
+            val eventId = newInboxEvent()
             val innhold = BrukervarselOpprett(sykmeldt, Varseltype.OPPGAVE, "tekst")
             val utkast = LeveranseUtkast("ref-1", Operasjon.OPPRETT, Kanal.BRUKERVARSEL, Mottaker.Person(sykmeldt), innhold)
 
@@ -60,7 +60,7 @@ class LeveranseRepositoryIntegrationTest :
         }
 
         test("mapper Virksomhet-mottaker til VIRKSOMHET/orgnummer") {
-            val eventId = nyInboxHendelse()
+            val eventId = newInboxEvent()
             val innhold =
                 ArbeidsgivervarselOpprett(
                     orgnummer = orgnr,
@@ -80,7 +80,7 @@ class LeveranseRepositoryIntegrationTest :
         }
 
         test("skriver flere leveranser for samme inbox-hendelse i én batch") {
-            val eventId = nyInboxHendelse()
+            val eventId = newInboxEvent()
             val utkast =
                 listOf("ref-a", "ref-b", "ref-c").map {
                     LeveranseUtkast(
@@ -98,7 +98,7 @@ class LeveranseRepositoryIntegrationTest :
         }
 
         test("leveranse overlever hard-delete av inbox-hendelse (FK ON DELETE SET NULL, B42)") {
-            val eventId = nyInboxHendelse()
+            val eventId = newInboxEvent()
             val innhold = BrukervarselOpprett(sykmeldt, Varseltype.OPPGAVE, "tekst")
             val utkast = LeveranseUtkast("ref-1", Operasjon.OPPRETT, Kanal.BRUKERVARSEL, Mottaker.Person(sykmeldt), innhold)
             LeveranseRepositoryImpl(fixture.database).lagre(eventId, listOf(utkast))
@@ -111,7 +111,7 @@ class LeveranseRepositoryIntegrationTest :
         }
 
         test("tom liste skriver ingen rader") {
-            val eventId = nyInboxHendelse()
+            val eventId = newInboxEvent()
 
             LeveranseRepositoryImpl(fixture.database).lagre(eventId, emptyList())
 
