@@ -12,14 +12,17 @@ import java.time.Duration
 data class InboxMessageTaskConfig(
     val interval: Duration,
     val batchSize: Int,
+    val leaseDuration: Duration,
 ) {
     init {
         require(batchSize > 0) { "batchSize must be greater than 0" }
+        require(!leaseDuration.isZero && !leaseDuration.isNegative) { "leaseDuration must be positive" }
     }
 
     companion object {
         const val DEFAULT_INTERVAL_SECONDS = 5L
-        const val DEFAULT_BATCH_SIZE = 100
+        const val DEFAULT_BATCH_SIZE = 25
+        const val DEFAULT_LEASE_SECONDS = 300L
     }
 }
 
@@ -32,6 +35,7 @@ fun ApplicationConfig.toTaskConfig(): TaskConfig {
 
     val inboxIntervalSeconds = value("inboxMessage.intervalSeconds")
     val inboxBatchSize = value("inboxMessage.batchSize")
+    val inboxLeaseSeconds = value("inboxMessage.leaseSeconds")
 
     val errors =
         buildList {
@@ -40,6 +44,9 @@ fun ApplicationConfig.toTaskConfig(): TaskConfig {
             }
             if (inboxBatchSize.isNotBlank() && (inboxBatchSize.toIntOrNull()?.takeIf { it > 0 } == null)) {
                 add("tasks.inboxMessage.batchSize must be a positive integer")
+            }
+            if (inboxLeaseSeconds.isNotBlank() && (inboxLeaseSeconds.toLongOrNull()?.takeIf { it > 0 } == null)) {
+                add("tasks.inboxMessage.leaseSeconds must be a positive integer")
             }
         }
 
@@ -58,6 +65,11 @@ fun ApplicationConfig.toTaskConfig(): TaskConfig {
                 batchSize =
                     inboxBatchSize.toIntOrNull()?.takeIf { it > 0 }
                         ?: InboxMessageTaskConfig.DEFAULT_BATCH_SIZE,
+                leaseDuration =
+                    Duration.ofSeconds(
+                        inboxLeaseSeconds.toLongOrNull()?.takeIf { it > 0 }
+                            ?: InboxMessageTaskConfig.DEFAULT_LEASE_SECONDS,
+                    ),
             ),
     )
 }

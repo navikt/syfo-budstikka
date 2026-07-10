@@ -4,12 +4,19 @@ import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.plus
+import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import java.time.Duration
 import java.util.UUID
 import kotlin.time.Clock
+import kotlin.time.toKotlinDuration
 
 data class InboxMessage(
     val eventId: UUID,
@@ -22,13 +29,24 @@ interface InboxMessageRepository {
         payload: String,
     ): Boolean
 
-    suspend fun pollReceived(limit: Int): List<InboxMessage>
+    /**
+     * Griper (claimer) inntil [limit] mottatte meldinger for behandling og markerer dem CLAIMED med
+     * en lease ([lease]) i ÉN transaksjon. Bruker `FOR UPDATE SKIP LOCKED`, slik at flere replicaer
+     * får disjunkte bunker uten å blokkere hverandre (konkurrerende konsumenter, ingen leder — ADR
+     * 0004). Plukker også opp CLAIMED-rader hvis leasen er utløpt (krasj-gjenoppretting). Radene er
+     * usynlige for andre pollere til leasen løper ut eller de effektueres.
+     */
+    suspend fun claim(
+        limit: Int,
+        lease: Duration,
+    ): List<InboxMessage>
 
     /**
      * Terminal-overgangene for beslutnings-workeren. De åpner IKKE egen transaksjon — de kjøres
      * inne i [no.nav.budstikka.infrastructure.database.config.TransactionRunner.transaction], sammen
      * med delivery-skrivingen, slik at én melding effektueres alt-eller-ingenting (#56). Overgangen
-     * gjelder kun fra RECEIVED (idempotent: en allerede terminert melding gir `false`).
+     * gjelder kun fra CLAIMED (idempotent compare-and-set: en allerede terminert eller re-claimet
+     * melding gir `false`, og en taper i et lease-kappløp skriver da ingen delivery-rader).
      */
     fun markProcessedInTransaction(eventId: UUID): Boolean
 
@@ -60,22 +78,39 @@ class InboxMessageRepositoryImpl(
                 }.insertedCount > 0
         }
 
-    override suspend fun pollReceived(limit: Int): List<InboxMessage> {
+    override suspend fun claim(
+        limit: Int,
+        lease: Duration,
+    ): List<InboxMessage> {
         require(limit > 0) { "limit must be greater than 0" }
         return database.transact {
-            InboxMessageTable
-                .selectAll()
-                .where { InboxMessageTable.state eq RECEIVED_STATE }
-                .orderBy(
-                    InboxMessageTable.receivedAt to SortOrder.ASC,
-                    InboxMessageTable.eventId to SortOrder.ASC,
-                ).limit(limit)
-                .map { row ->
-                    InboxMessage(
-                        eventId = row[InboxMessageTable.eventId],
-                        payload = row[InboxMessageTable.payload],
-                    )
+            val now = Clock.System.now()
+            val claimed =
+                InboxMessageTable
+                    .selectAll()
+                    .where {
+                        (InboxMessageTable.state eq RECEIVED_STATE) or
+                            ((InboxMessageTable.state eq CLAIMED_STATE) and (InboxMessageTable.nextAttemptTime lessEq now))
+                    }.orderBy(
+                        InboxMessageTable.receivedAt to SortOrder.ASC,
+                        InboxMessageTable.eventId to SortOrder.ASC,
+                    ).limit(limit)
+                    .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate(ForUpdateOption.PostgreSQL.MODE.SKIP_LOCKED))
+                    .map { row ->
+                        InboxMessage(
+                            eventId = row[InboxMessageTable.eventId],
+                            payload = row[InboxMessageTable.payload],
+                        )
+                    }
+            if (claimed.isNotEmpty()) {
+                val leaseDeadline = now + lease.toKotlinDuration()
+                InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.eventId } }) {
+                    it[state] = CLAIMED_STATE
+                    it[nextAttemptTime] = leaseDeadline
+                    it[attempt] = attempt + 1
                 }
+            }
+            claimed
         }
     }
 
@@ -99,7 +134,7 @@ class InboxMessageRepositoryImpl(
         errorMessage: String?,
     ): Boolean =
         InboxMessageTable.update({
-            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq RECEIVED_STATE)
+            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq CLAIMED_STATE)
         }) {
             it[InboxMessageTable.state] = state
             it[InboxMessageTable.dropReason] = dropReason
@@ -109,6 +144,7 @@ class InboxMessageRepositoryImpl(
 
     private companion object {
         const val RECEIVED_STATE = "RECEIVED"
+        const val CLAIMED_STATE = "CLAIMED"
         const val PROCESSED_STATE = "PROCESSED"
         const val DROPPED_STATE = "DROPPED"
         const val FAILED_STATE = "FAILED"

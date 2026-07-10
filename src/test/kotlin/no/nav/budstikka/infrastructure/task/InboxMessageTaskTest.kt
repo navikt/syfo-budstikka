@@ -84,7 +84,7 @@ private fun taskWith(
                 inboxMessageRepository = repository,
                 deliveryRepository = RecordingDeliveryRepository(),
             ),
-        config = InboxMessageTaskConfig(interval = interval, batchSize = batchSize),
+        config = InboxMessageTaskConfig(interval = interval, batchSize = batchSize, leaseDuration = Duration.ofMinutes(5)),
     )
 
 private class PollingInboxMessageRepository(
@@ -102,7 +102,10 @@ private class PollingInboxMessageRepository(
         payload: String,
     ): Boolean = true
 
-    override suspend fun pollReceived(limit: Int): List<InboxMessage> {
+    override suspend fun claim(
+        limit: Int,
+        lease: Duration,
+    ): List<InboxMessage> {
         lastPollLimit = limit
         pollCount.incrementAndGet()
         onPoll()

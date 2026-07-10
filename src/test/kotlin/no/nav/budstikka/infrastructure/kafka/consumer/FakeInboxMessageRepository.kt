@@ -20,7 +20,10 @@ class FakeInboxMessageRepository(
         return shouldReturnNewRowCreated
     }
 
-    override suspend fun pollReceived(limit: Int): List<InboxMessage> {
+    override suspend fun claim(
+        limit: Int,
+        lease: java.time.Duration,
+    ): List<InboxMessage> {
         pollLimits += limit
         return polledMessages
     }

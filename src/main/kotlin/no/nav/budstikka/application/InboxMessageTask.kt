@@ -13,8 +13,9 @@ import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
 /**
- * Beslutnings-workeren (#56): poller mottatte inbox-meldinger, dekoder payloaden og effektuerer
- * utfallet per melding via [EffectuateDecision] (delivery + inbox-status i én DB-tx).
+ * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
+ * 0004 — flere replicaer kan kjøre samtidig), dekoder payloaden og effektuerer utfallet per melding
+ * via [EffectuateDecision] (delivery + inbox-status i én DB-tx).
  *
  * Grunnlagsinnhentingen (PDL/KRR) og den rene [no.nav.budstikka.domain.decision.decide]-rutingen er
  * ennå IKKE koblet inn — [decideFor] er en placeholder som markerer en gyldig payload som behandlet
@@ -36,7 +37,7 @@ class InboxMessageTask(
     }
 
     internal suspend fun runOnce() {
-        repository.pollReceived(config.batchSize).forEach { message ->
+        repository.claim(config.batchSize, config.leaseDuration).forEach { message ->
             effectuator.effectuate(message.eventId, decideFor(message))
         }
     }

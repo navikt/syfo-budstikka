@@ -27,8 +27,11 @@ class EffectuateDecision(
         transactionRunner.transaction {
             when (decision) {
                 is Decision.Processed -> {
-                    deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
-                    inboxMessageRepository.markProcessedInTransaction(inboxEventId)
+                    // CAS først: bare den workeren som vinner CLAIMED→PROCESSED skriver delivery-rader.
+                    // En taper i et lease-kappløp treffer 0 rader og skriver ingenting (exactly-once).
+                    if (inboxMessageRepository.markProcessedInTransaction(inboxEventId)) {
+                        deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
+                    }
                 }
 
                 is Decision.Dropped ->

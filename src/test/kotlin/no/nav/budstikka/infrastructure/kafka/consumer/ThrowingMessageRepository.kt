@@ -10,7 +10,10 @@ class ThrowingMessageRepository : InboxMessageRepository {
         payload: String,
     ): Boolean = error("DB nede — transient feil")
 
-    override suspend fun pollReceived(limit: Int): List<InboxMessage> = emptyList()
+    override suspend fun claim(
+        limit: Int,
+        lease: java.time.Duration,
+    ): List<InboxMessage> = emptyList()
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean = true
 
