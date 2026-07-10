@@ -9,9 +9,9 @@ import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Orgnummer
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import java.util.UUID

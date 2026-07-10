@@ -8,16 +8,16 @@ import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
 import no.nav.budstikka.domain.dispatch.BrevCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
+import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.NarmesteLeder
 import no.nav.budstikka.domain.dispatch.Orgnummer
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Varseltype
 import java.util.UUID
 

@@ -2,8 +2,8 @@ package no.nav.budstikka.infrastructure.task
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.application.InboxMessageTask
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import java.time.Duration
 
 fun DependencyRegistry.taskModule() {
