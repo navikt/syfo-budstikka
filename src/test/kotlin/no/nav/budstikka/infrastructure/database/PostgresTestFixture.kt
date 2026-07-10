@@ -6,7 +6,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.DriverManager
 
 class PostgresTestFixture : AutoCloseable {
-    private val postgres =
+    val postgres =
         PostgreSQLContainer("postgres:18-alpine")
             .withDatabaseName("budstikka")
             .withUsername("budstikka")
@@ -46,7 +46,7 @@ class PostgresTestFixture : AutoCloseable {
     fun reset() {
         DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
             connection.createStatement().use { statement ->
-                statement.executeUpdate("TRUNCATE TABLE inbox_formidling, dead_letter_formidling RESTART IDENTITY CASCADE")
+                statement.executeUpdate("TRUNCATE TABLE leveranse, inbox_formidling, dead_letter_formidling RESTART IDENTITY CASCADE")
             }
         }
     }
