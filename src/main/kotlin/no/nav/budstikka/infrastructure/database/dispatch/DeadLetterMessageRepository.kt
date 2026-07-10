@@ -24,7 +24,6 @@ class DeadLetterMessageRepositoryImpl(
 ) : DeadLetterMessageRepository {
     override suspend fun save(record: DeadLetterRecord) {
         database.transact {
-            val now = Clock.System.now()
             DeadLetterMessageTable.insertIgnore {
                 it[DeadLetterMessageTable.payload] = record.payload
                 it[DeadLetterMessageTable.topic] = record.topic
@@ -33,7 +32,7 @@ class DeadLetterMessageRepositoryImpl(
                 it[DeadLetterMessageTable.kafkaKey] = record.kafkaKey
                 it[DeadLetterMessageTable.failureReason] = record.failureReason
                 it[DeadLetterMessageTable.errorMessage] = record.errorMessage
-                it[DeadLetterMessageTable.receivedAt] = now
+                it[DeadLetterMessageTable.receivedAt] = Clock.System.now()
             }
         }
     }
