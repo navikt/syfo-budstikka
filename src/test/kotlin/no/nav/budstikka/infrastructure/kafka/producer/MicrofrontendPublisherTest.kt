@@ -3,10 +3,10 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import no.nav.budstikka.domain.formidling.MikrofrontendDisable
-import no.nav.budstikka.domain.formidling.MikrofrontendEnable
-import no.nav.budstikka.domain.formidling.Personident
-import no.nav.budstikka.domain.formidling.formidlingJson
+import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
+import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.domain.dispatch.dispatchJson
 import kotlin.time.Instant
 
 private const val TOPIC = "min-side.aapen-microfrontend-v1"
@@ -17,8 +17,8 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendEnable(
-                    personident = Personident("12345678901"),
+                MicrofrontendEnable(
+                    personIdentifier = PersonIdentifier("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                     visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
                 ),
@@ -34,7 +34,7 @@ class MicrofrontendPublisherTest :
                 PublishedMessage(
                     topic = TOPIC,
                     id = "12345678901",
-                    value = formidlingJson.encodeToString(expected),
+                    value = dispatchJson.encodeToString(expected),
                 )
         }
 
@@ -42,8 +42,8 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendDisable(
-                    personident = Personident("12345678901"),
+                MicrofrontendDisable(
+                    personIdentifier = PersonIdentifier("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                 ),
             )
@@ -58,7 +58,7 @@ class MicrofrontendPublisherTest :
                 PublishedMessage(
                     topic = TOPIC,
                     id = "12345678901",
-                    value = formidlingJson.encodeToString(expected),
+                    value = dispatchJson.encodeToString(expected),
                 )
         }
 
@@ -66,8 +66,8 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendEnable(
-                    personident = Personident("12345678901"),
+                MicrofrontendEnable(
+                    personIdentifier = PersonIdentifier("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                 ),
             )

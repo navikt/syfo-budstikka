@@ -18,11 +18,15 @@ Stack: Kotlin/JVM på Ktor + Netty (`io.ktor.server.netty.EngineMain`), config-d
 Regelen er enkel: **norske ord KUN på domeneord. Alt annet (mekanikk, verb, plumbing, teknisk) på engelsk.** Dette gjelder alle Kotlin-identifikatorer: klasser, funksjoner, `val`/`var`, parametere, filnavn og pakker.
 
 Domeneord er substantiver fra sykefravær/varsel-domenet. Allowlist (forblir norsk):
-`Formidling`, `Beslutning`, `Leveranse`, `Mottaker`, `Virksomhet`, `Grunnlag`, `Kanal`, `Referanse`,
-`Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `NarmesteLeder`, `Merkelapp`,
-`Sendevindu`, `Sakstilknytning`, `Brev`, `sykmeldt`, `hendelse`. Domene-enumverdier som speiler
+`Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`, `NarmesteLeder`,
+`sykmeldt`, `sykmelding`, `fnr`, `fodselsnummer`, `dialogmote`, `oppfolgingsplan`,
+`meroppfolging`, `beskjed`, `oppgave`, `Merkelapp`, `Sendevindu`, `Sakstilknytning`, `hendelse`.
+Domene-enumverdier som speiler
 eksterne kontrakter (tms/dokdist/fager), f.eks. `BESKJED`, `OPPGAVE`, `DIALOGMOETE`, `OPPFOELGING`,
 `VIKTIG`, forblir også norske.
+
+`Dispatch`, `Decision`, `Delivery`, `Recipient`, `Foundation`, `Channel` og `Reference` er tekniske
+ord i denne koden og skal være engelske.
 
 Alt annet er teknisk og skal være engelsk. Vanlige feil:
 
@@ -38,7 +42,8 @@ val erDod                                val isDead
 
 `død`/`dødsfall` er **ikke** domeneord i denne tjenesten — bruk `Death`/`isDead`.
 
-Sammensatte navn beholder domeneordet norsk og gjør resten engelsk: `mottakerErDod` → `mottakerIsDead`, `Grunnlagsinnhenter` → behold `Grunnlag`, engelsk-gjør henteren.
+Sammensatte navn beholder domeneordet norsk og gjør resten engelsk: `sykmeldtErDod` → `sykmeldtIsDead`,
+`oppfolgingsplanReferanse` → `oppfolgingsplanReference`.
 
 Norske ord som er bakt inn i **publiserte kontrakter** er breaking å endre — behandle dem som en egen
 beslutning, ikke en ren omdøping. Skill mellom **tekniske verb** (oversettes: Kafka-`Operasjon`-verdier

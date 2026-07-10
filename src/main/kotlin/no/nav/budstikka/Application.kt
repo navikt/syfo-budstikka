@@ -15,12 +15,14 @@ import kotlin.system.exitProcess
 
 private val logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
 
+const val APPLICATION_NAME = "Budstikka"
+
 fun main(args: Array<String>) {
-    logger.debug("Budstikka is starting...")
+    logger.debug("$APPLICATION_NAME is starting...")
     try {
         EngineMain.main(args)
     } catch (error: Throwable) {
-        logger.error("Budstikka failed to start or stopped due to a fatal error", error)
+        logger.error("$APPLICATION_NAME failed to start or stopped due to a fatal error", error)
         exitProcess(1)
     }
 }

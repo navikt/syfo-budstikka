@@ -3,7 +3,7 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import no.nav.budstikka.domain.formidling.FormidlingHeader
+import no.nav.budstikka.domain.dispatch.DispatchHeader
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
@@ -38,7 +38,7 @@ class ReadEventIdTest :
 private fun record(eventId: String?): ConsumerRecord<String, String?> {
     val headers = RecordHeaders()
     if (eventId != null) {
-        headers.add(FormidlingHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
+        headers.add(DispatchHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
     }
     return ConsumerRecord(TOPIC, 0, 0L, 0L, TimestampType.NO_TIMESTAMP_TYPE, -1, -1, "key", "{}", headers, Optional.empty())
 }

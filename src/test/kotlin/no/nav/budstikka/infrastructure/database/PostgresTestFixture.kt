@@ -1,12 +1,16 @@
 package no.nav.budstikka.infrastructure.database
 
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.flywaydb.core.Flyway
+import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.DriverManager
 
 class PostgresTestFixture : AutoCloseable {
-    val postgres =
+    val postgres: PostgreSQLContainer<*> =
         PostgreSQLContainer("postgres:18-alpine")
             .withDatabaseName("budstikka")
             .withUsername("budstikka")
@@ -20,6 +24,14 @@ class PostgresTestFixture : AutoCloseable {
             password = postgres.password,
         )
     }
+
+    // Add new tables in this list to check exposed mapping vs. database state.
+    val tables: List<Table> =
+        listOf(
+            InboxMessageTable,
+            DeadLetterMessageTable,
+            DeliveryTable,
+        )
 
     val jdbcUrl: String
         get() = postgres.jdbcUrl
@@ -43,10 +55,11 @@ class PostgresTestFixture : AutoCloseable {
             .migrate()
     }
 
+    @Suppress("SqlSourceToSinkFlow")
     fun reset() {
         DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
             connection.createStatement().use { statement ->
-                statement.executeUpdate("TRUNCATE TABLE leveranse, inbox_formidling, dead_letter_formidling RESTART IDENTITY CASCADE")
+                statement.executeUpdate("TRUNCATE TABLE ${tables.toConcatenateTableNameString()} RESTART IDENTITY CASCADE")
             }
         }
     }
@@ -55,3 +68,5 @@ class PostgresTestFixture : AutoCloseable {
         postgres.stop()
     }
 }
+
+private fun List<Table>.toConcatenateTableNameString(): String = this.joinToString(", ") { it.tableName }

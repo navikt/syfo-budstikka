@@ -2,7 +2,7 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.formidling.FormidlingHeader
+import no.nav.budstikka.domain.dispatch.DispatchHeader
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
@@ -69,7 +69,7 @@ class InboxHandlerTest :
         }
 
         test("transient DB error during saveEvent throws and dead-letter table is not touched") {
-            val throwingRepository = ThrowingFormidlingRepository()
+            val throwingRepository = ThrowingMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
             val handler = InboxHandler(throwingRepository, deadLetterRepository)
 
@@ -82,7 +82,7 @@ class InboxHandlerTest :
 
 private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestContext {
     val inboxRepository =
-        FakeInboxFormidlingRepository(
+        FakeInboxMessageRepository(
             shouldReturnNewRowCreated = shouldReturnNewRowCreated,
         )
     val deadLetterRepository = FakeDeadLetterRepository()
@@ -97,7 +97,7 @@ private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestCo
 
 private data class TestContext(
     val handler: InboxHandler,
-    val inboxRepository: FakeInboxFormidlingRepository,
+    val inboxRepository: FakeInboxMessageRepository,
     val deadLetterRepository: FakeDeadLetterRepository,
 )
 
@@ -131,7 +131,7 @@ private fun record(
 ): ConsumerRecord<String, String?> =
     if (eventId != null) {
         val headers = RecordHeaders()
-        headers.add(FormidlingHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
+        headers.add(DispatchHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
         ConsumerRecord(TOPIC, partition, offset, offset, TimestampType.NO_TIMESTAMP_TYPE, -1, -1, key, value, headers, Optional.empty())
     } else {
         ConsumerRecord(TOPIC, partition, offset, key, value)

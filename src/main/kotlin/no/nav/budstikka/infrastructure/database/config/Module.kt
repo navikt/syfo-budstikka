@@ -7,12 +7,12 @@ import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.nav.budstikka.infrastructure.HealthCheck
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepositoryImpl
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepositoryImpl
-import no.nav.budstikka.infrastructure.database.leveranse.LeveranseRepository
-import no.nav.budstikka.infrastructure.database.leveranse.LeveranseRepositoryImpl
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -25,9 +25,9 @@ fun DependencyRegistry.databaseModule() {
     provide<HealthCheck> {
         dataSourceHealthCheck(resolve())
     }
-    provide<InboxFormidlingRepository> { InboxFormidlingRepositoryImpl(resolve()) }
-    provide<DeadLetterFormidlingRepository> { DeadLetterFormidlingRepositoryImpl(resolve()) }
-    provide<LeveranseRepository> { LeveranseRepositoryImpl(resolve()) }
+    provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
+    provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
+    provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

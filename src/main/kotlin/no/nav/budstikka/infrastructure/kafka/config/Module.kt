@@ -2,8 +2,8 @@ package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.infrastructure.LivenessCheck
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
@@ -17,7 +17,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
 
 fun DependencyRegistry.kafkaModule() {
-    provide<InboxHandler> { InboxHandler(resolve<InboxFormidlingRepository>(), resolve<DeadLetterFormidlingRepository>()) }
+    provide<InboxHandler> { InboxHandler(resolve<InboxMessageRepository>(), resolve<DeadLetterMessageRepository>()) }
     provide<KafkaProducer<String, String>> {
         KafkaProducer(
             PropertiesFactory(resolve<KafkaConfig>()).producer(

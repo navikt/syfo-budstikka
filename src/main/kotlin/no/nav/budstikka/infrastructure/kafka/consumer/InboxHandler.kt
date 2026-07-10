@@ -1,9 +1,9 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
-import no.nav.budstikka.domain.formidling.FormidlingHeader
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterRecord
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
+import no.nav.budstikka.domain.dispatch.DispatchHeader
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -21,8 +21,8 @@ import java.util.UUID
  * (B54) og sealed content dekodes først av beslutnings-workeren.
  */
 class InboxHandler(
-    private val repository: InboxFormidlingRepository,
-    private val deadLetterRepository: DeadLetterFormidlingRepository,
+    private val repository: InboxMessageRepository,
+    private val deadLetterRepository: DeadLetterMessageRepository,
 ) : MessageHandler<String, String?> {
     private val logger = LoggerFactory.getLogger(InboxHandler::class.java)
 
@@ -110,8 +110,8 @@ internal sealed interface EventId {
  */
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
-        headers().lastHeader(FormidlingHeader.EVENT_ID)?.value()
-            ?: return EventId.Invalid("MISSING_EVENT_ID", "Kafka header '${FormidlingHeader.EVENT_ID}' missing")
+        headers().lastHeader(DispatchHeader.EVENT_ID)?.value()
+            ?: return EventId.Invalid("MISSING_EVENT_ID", "Kafka header '${DispatchHeader.EVENT_ID}' missing")
     return try {
         EventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
     } catch (e: IllegalArgumentException) {
