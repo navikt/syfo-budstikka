@@ -99,12 +99,11 @@ private fun validPayload(eventId: UUID): String =
     """
     {
       "eventId":"$eventId",
-      "referanse":"ref-1",
+      "reference":"ref-1",
       "content":{
-        "type":"BrukervarselCreate",
+        "type":"MicrofrontendEnable",
         "personIdentifier":"12345678901",
-        "varseltype":"BESKJED",
-        "text":"Hei"
+        "mikrofrontendId":"syfo-mikrofrontend"
       }
     }
     """.trimIndent()
