@@ -3,11 +3,13 @@ package no.nav.budstikka.infrastructure.database
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingTable
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingTable
 import no.nav.budstikka.infrastructure.database.leveranse.LeveranseTable
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.vendors.currentDialectMetadata
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
 
 /**
@@ -26,11 +28,13 @@ class TableDefinitionTest :
         beforeSpec { fixture.migrate() }
         afterSpec { fixture.close() }
 
-        val tables: List<Table> = listOf(
-            InboxFormidlingTable,
-            DeadLetterFormidlingTable,
-            LeveranseTable
-        )
+        // Add new tables in this list to check exposed mapping vs. database state.
+        val tables: List<Table> =
+            listOf(
+                InboxFormidlingTable,
+                DeadLetterFormidlingTable,
+                LeveranseTable,
+            )
 
         tables.forEach { table ->
             test("Exposed mapping for '${table.tableName}' mirrors the migrated schema without drift") {
@@ -41,6 +45,25 @@ class TableDefinitionTest :
 
                 withClue("Schema drift for '${table.tableName}':\n${drift.joinToString("\n")}") {
                     drift.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("every migrated table is registered in 'tables'") {
+            transaction(fixture.database) {
+                val tablesInSchema =
+                    currentDialectMetadata.allTablesNames.filter { !it.contains("flyway") }
+                val registeredTables = tables.map { "public.${it.tableName}" }
+
+                val missingFromList = tablesInSchema - registeredTables.toSet()
+                val missingMigration = registeredTables - tablesInSchema.toSet()
+
+                withClue(
+                    "Migrated schema and the 'tables' list must match.\n" +
+                        "Tables in schema but missing from 'tables': $missingFromList\n" +
+                        "Tables in 'tables' but missing a migration: $missingMigration",
+                ) {
+                    tablesInSchema shouldContainExactlyInAnyOrder registeredTables
                 }
             }
         }
