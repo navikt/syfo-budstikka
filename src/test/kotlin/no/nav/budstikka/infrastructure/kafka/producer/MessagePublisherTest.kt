@@ -16,14 +16,14 @@ class MessagePublisherTest :
                 PublishedMessage(
                     topic = "min-side.aapen-microfrontend-v1",
                     id = "12345678901",
-                    value = """{"type":"MikrofrontendAktiver"}""",
+                    value = """{"type":"MicrofrontendEnable"}""",
                 ),
             )
 
             with(producer.history().single()) {
                 topic() shouldBe "min-side.aapen-microfrontend-v1"
                 key() shouldBe "12345678901"
-                value() shouldBe """{"type":"MikrofrontendAktiver"}"""
+                value() shouldBe """{"type":"MicrofrontendEnable"}"""
             }
         }
     })

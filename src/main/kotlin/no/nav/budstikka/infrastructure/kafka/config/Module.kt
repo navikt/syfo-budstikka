@@ -2,10 +2,10 @@ package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.infrastructure.LivenessCheck
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
+import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
-import no.nav.budstikka.infrastructure.kafka.consumer.InboxHandler
+import no.nav.budstikka.infrastructure.kafka.consumer.InboxMessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
@@ -17,7 +17,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
 
 fun DependencyRegistry.kafkaModule() {
-    provide<InboxHandler> { InboxHandler(resolve<InboxFormidlingRepository>(), resolve<DeadLetterFormidlingRepository>()) }
+    provide<InboxMessageHandler> { InboxMessageHandler(resolve<InboxMessageRepository>(), resolve<DeadLetterMessageRepository>()) }
     provide<KafkaProducer<String, String>> {
         KafkaProducer(
             PropertiesFactory(resolve<KafkaConfig>()).producer(
@@ -71,6 +71,6 @@ private const val MINSIDE_PRODUCER = "minside"
 
 private suspend fun DependencyRegistry.handlerForConsumer(name: String): MessageHandler<String, String?> =
     when (name) {
-        "formidling" -> resolve<InboxHandler>()
+        "formidling" -> resolve<InboxMessageHandler>()
         else -> error("Unknown Kafka consumer: $name")
     }

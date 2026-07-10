@@ -4,10 +4,6 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingTable
-import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingTable
-import no.nav.budstikka.infrastructure.database.leveranse.LeveranseTable
-import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.vendors.currentDialectMetadata
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
@@ -28,15 +24,7 @@ class TableDefinitionTest :
         beforeSpec { fixture.migrate() }
         afterSpec { fixture.close() }
 
-        // Add new tables in this list to check exposed mapping vs. database state.
-        val tables: List<Table> =
-            listOf(
-                InboxFormidlingTable,
-                DeadLetterFormidlingTable,
-                LeveranseTable,
-            )
-
-        tables.forEach { table ->
+        fixture.tables.forEach { table ->
             test("Exposed mapping for '${table.tableName}' mirrors the migrated schema without drift") {
                 val drift =
                     transaction(fixture.database) {
@@ -53,7 +41,7 @@ class TableDefinitionTest :
             transaction(fixture.database) {
                 val tablesInSchema =
                     currentDialectMetadata.allTablesNames.filter { !it.contains("flyway") }
-                val registeredTables = tables.map { "public.${it.tableName}" }
+                val registeredTables = fixture.tables.map { "public.${it.tableName}" }
 
                 val missingFromList = tablesInSchema - registeredTables.toSet()
                 val missingMigration = registeredTables - tablesInSchema.toSet()

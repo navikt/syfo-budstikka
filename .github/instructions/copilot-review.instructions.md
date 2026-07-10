@@ -36,6 +36,10 @@ repo-spesifikke regler i andre `instructions`-filer, men overstyrer dem ikke.
    - Sjekk at nye kolonner/constraints ikke bryter eksisterende data eller rullerende deploy.
    - For Kafka: sjekk at consumer-offsets håndteres riktig, at deserialiseringsfeil ikke stopper konsumet stille, og at topic/konsumentgruppe matcher konvensjon.
 
+5. **Navnekonvensjon**
+   - Kotlin-identifikatorer skal følge regelen «norsk KUN på domeneord, alt annet engelsk» (se `kotlin.instructions.md`). Flagg norske ord på teknisk mekanikk (`lagre`→`save`, `innhent`→`fetch`, `tilKolonner`→`toColumns`, `erDod`→`isDead`).
+   - Domeneord som forblir norske: `Formidling`, `Beslutning`, `Leveranse`, `Mottaker`, `Virksomhet`, `Grunnlag`, `Kanal`, `Referanse`. Ikke flagg disse.
+
 ## Avgrensning
 
 - Denne filen beskriver kun kjernesjekker for Copilot Code Review.

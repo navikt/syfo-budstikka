@@ -2,7 +2,7 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.formidling.FormidlingHeader
+import no.nav.budstikka.domain.dispatch.DispatchHeader
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
@@ -13,7 +13,7 @@ private const val TOPIC = "team-esyfo.formidling.v1"
 
 class InboxHandlerTest :
     FunSpec({
-        test("formidling saved in inbox and returns without error") {
+        test("dispatch is saved in inbox and returns without error") {
             val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
             handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
@@ -23,7 +23,7 @@ class InboxHandlerTest :
             deadLetterRepository.savedDeadLetters.size shouldBe 0
         }
 
-        test("formidling duplicate (same event_id) yields no new row and does not throw") {
+        test("duplicate dispatch (same event_id) yields no new row and does not throw") {
             val (handler, inboxRepository, deadLetterRepository) =
                 createTestContext(
                     shouldReturnNewRowCreated = false,
@@ -69,9 +69,9 @@ class InboxHandlerTest :
         }
 
         test("transient DB error during saveEvent throws and dead-letter table is not touched") {
-            val throwingRepository = ThrowingFormidlingRepository()
+            val throwingRepository = ThrowingMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
-            val handler = InboxHandler(throwingRepository, deadLetterRepository)
+            val handler = InboxMessageHandler(throwingRepository, deadLetterRepository)
 
             val result = runCatching { handler.handle(validRecord()) }
 
@@ -82,11 +82,11 @@ class InboxHandlerTest :
 
 private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestContext {
     val inboxRepository =
-        FakeInboxFormidlingRepository(
+        FakeInboxMessageRepository(
             shouldReturnNewRowCreated = shouldReturnNewRowCreated,
         )
     val deadLetterRepository = FakeDeadLetterRepository()
-    val handler = InboxHandler(inboxRepository, deadLetterRepository)
+    val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
 
     return TestContext(
         handler = handler,
@@ -96,8 +96,8 @@ private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestCo
 }
 
 private data class TestContext(
-    val handler: InboxHandler,
-    val inboxRepository: FakeInboxFormidlingRepository,
+    val handler: InboxMessageHandler,
+    val inboxRepository: FakeInboxMessageRepository,
     val deadLetterRepository: FakeDeadLetterRepository,
 )
 
@@ -111,11 +111,11 @@ private fun validRecord(
         """
         {
             "eventId": "$eventId",
-            "innhold": {
-                "type": "BrukervarselOpprett",
+            "content": {
+                "type": "BrukervarselCreate",
                 "personident": "12345678901",
                 "varseltype": "BESKJED",
-                "tekst": "Hei"
+                "text": "Hei"
             }
         }
         """.trimIndent()
@@ -131,7 +131,7 @@ private fun record(
 ): ConsumerRecord<String, String?> =
     if (eventId != null) {
         val headers = RecordHeaders()
-        headers.add(FormidlingHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
+        headers.add(DispatchHeader.EVENT_ID, eventId.toByteArray(Charsets.UTF_8))
         ConsumerRecord(TOPIC, partition, offset, offset, TimestampType.NO_TIMESTAMP_TYPE, -1, -1, key, value, headers, Optional.empty())
     } else {
         ConsumerRecord(TOPIC, partition, offset, key, value)

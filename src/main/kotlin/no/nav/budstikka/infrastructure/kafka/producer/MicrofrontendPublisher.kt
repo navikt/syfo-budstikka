@@ -2,10 +2,10 @@ package no.nav.budstikka.infrastructure.kafka.producer
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import no.nav.budstikka.domain.formidling.Mikrofrontend
-import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
-import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
-import no.nav.budstikka.domain.formidling.formidlingJson
+import no.nav.budstikka.domain.dispatch.Microfrontend
+import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
+import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.domain.dispatch.dispatchJson
 
 /**
  * Domenets inngang for å styre synlighet av en mikrofrontend på Min side (B41). Kalleren avhenger av
@@ -13,7 +13,7 @@ import no.nav.budstikka.domain.formidling.formidlingJson
  * [microfrontendPublisher] ved oppstart.
  */
 fun interface MicrofrontendPublisher {
-    suspend fun publish(microfrontend: Mikrofrontend)
+    suspend fun publish(microfrontend: Microfrontend)
 }
 
 fun microfrontendPublisher(
@@ -24,8 +24,8 @@ fun microfrontendPublisher(
         messagePublisher.publish(
             PublishedMessage(
                 topic = topic,
-                id = microfrontend.partisjonsnokkel,
-                value = formidlingJson.encodeToString(microfrontend.toMessage()),
+                id = microfrontend.partitionKey,
+                value = dispatchJson.encodeToString(microfrontend.toMessage()),
             ),
         )
     }
@@ -51,13 +51,13 @@ internal data class MicrofrontendMessage(
     val initiatedBy: String = "team-esyfo",
 )
 
-private fun Mikrofrontend.toMessage() =
+private fun Microfrontend.toMessage() =
     MicrofrontendMessage(
         action =
             when (this) {
-                is MikrofrontendAktiver -> MinSideAction.ENABLE
-                is MikrofrontendDeaktiver -> MinSideAction.DISABLE
+                is MicrofrontendEnable -> MinSideAction.ENABLE
+                is MicrofrontendDisable -> MinSideAction.DISABLE
             },
-        ident = personident.value,
+        ident = personIdentifier.value,
         microfrontendId = mikrofrontendId,
     )

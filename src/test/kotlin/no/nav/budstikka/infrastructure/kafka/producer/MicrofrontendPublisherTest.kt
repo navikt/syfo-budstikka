@@ -3,24 +3,24 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
-import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
-import no.nav.budstikka.domain.formidling.Personident
-import no.nav.budstikka.domain.formidling.formidlingJson
+import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
+import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.domain.dispatch.dispatchJson
 import kotlin.time.Instant
 
 private const val TOPIC = "min-side.aapen-microfrontend-v1"
 
 class MicrofrontendPublisherTest :
     FunSpec({
-        test("publishes aktivering to the configured topic keyed by personident") {
+        test("publishes enable action to the configured topic keyed by personident") {
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendAktiver(
-                    personident = Personident("12345678901"),
+                MicrofrontendEnable(
+                    personIdentifier = PersonIdentifier("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
-                    synligTom = Instant.parse("2026-07-10T00:00:00Z"),
+                    visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
                 ),
             )
 
@@ -34,16 +34,16 @@ class MicrofrontendPublisherTest :
                 PublishedMessage(
                     topic = TOPIC,
                     id = "12345678901",
-                    value = formidlingJson.encodeToString(expected),
+                    value = dispatchJson.encodeToString(expected),
                 )
         }
 
-        test("publishes deaktivering to the configured topic keyed by personident") {
+        test("publishes disable action to the configured topic keyed by personident") {
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendDeaktiver(
-                    personident = Personident("12345678901"),
+                MicrofrontendDisable(
+                    personIdentifier = PersonIdentifier("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                 ),
             )
@@ -58,7 +58,7 @@ class MicrofrontendPublisherTest :
                 PublishedMessage(
                     topic = TOPIC,
                     id = "12345678901",
-                    value = formidlingJson.encodeToString(expected),
+                    value = dispatchJson.encodeToString(expected),
                 )
         }
 
@@ -66,8 +66,8 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendAktiver(
-                    personident = Personident("12345678901"),
+                MicrofrontendEnable(
+                    personIdentifier = PersonIdentifier("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                 ),
             )
