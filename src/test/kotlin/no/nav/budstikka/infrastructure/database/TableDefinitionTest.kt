@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingTable
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingTable
+import no.nav.budstikka.infrastructure.database.leveranse.LeveranseTable
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
@@ -25,7 +26,11 @@ class TableDefinitionTest :
         beforeSpec { fixture.migrate() }
         afterSpec { fixture.close() }
 
-        val tables: List<Table> = listOf(InboxFormidlingTable, DeadLetterFormidlingTable)
+        val tables: List<Table> = listOf(
+            InboxFormidlingTable,
+            DeadLetterFormidlingTable,
+            LeveranseTable
+        )
 
         tables.forEach { table ->
             test("Exposed mapping for '${table.tableName}' mirrors the migrated schema without drift") {
