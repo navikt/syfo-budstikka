@@ -1,10 +1,9 @@
-package no.nav.budstikka.infrastructure.kafka.formidling
+package no.nav.budstikka.infrastructure.kafka.consumer
 
 import no.nav.budstikka.domain.formidling.FormidlingHeader
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterFormidlingRepository
 import no.nav.budstikka.infrastructure.database.formidling.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
-import no.nav.budstikka.infrastructure.kafka.config.MessageHandler
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import java.util.UUID

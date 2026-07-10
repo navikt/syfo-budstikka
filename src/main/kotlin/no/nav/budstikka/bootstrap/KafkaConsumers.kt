@@ -3,7 +3,7 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
 import io.ktor.server.plugins.di.dependencies
-import no.nav.budstikka.infrastructure.kafka.config.ConsumerRunner
+import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 
 internal fun Application.startKafkaConsumers() {
     val runners: List<ConsumerRunner<*, *>> by dependencies

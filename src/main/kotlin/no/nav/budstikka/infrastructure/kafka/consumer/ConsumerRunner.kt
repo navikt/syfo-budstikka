@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.kafka.config
+package no.nav.budstikka.infrastructure.kafka.consumer
 
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -10,7 +10,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.time.withTimeoutOrNull
 import org.apache.kafka.clients.consumer.Consumer
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.config.ConfigException
@@ -23,10 +22,6 @@ import java.lang.invoke.MethodHandles
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.milliseconds
-
-fun interface MessageHandler<K, V> {
-    suspend fun handle(record: ConsumerRecord<K, V>)
-}
 
 /**
  * Runs a Kafka consumer in its own coroutine and keeps it alive across transient failures.

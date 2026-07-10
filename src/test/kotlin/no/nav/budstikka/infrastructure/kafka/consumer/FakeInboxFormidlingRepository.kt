@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.kafka.formidling
+package no.nav.budstikka.infrastructure.kafka.consumer
 
 import no.nav.budstikka.infrastructure.database.formidling.InboxFormidlingRepository
 import java.util.UUID

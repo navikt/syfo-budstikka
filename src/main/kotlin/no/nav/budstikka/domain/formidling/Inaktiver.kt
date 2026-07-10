@@ -53,24 +53,28 @@ data class ArbeidsgivervarselInaktiver(
 /**
  * Mikrofrontend (B41) – synlighet på Min side, holdt UTENFOR Inaktiver-mekanismen. Eget
  * aktiver/deaktiver-par: en av/på-bryter for `(person, mikrofrontendId)`, ikke en
- * leveranse-med-mottaker som matches på `referanse`.
+ * leveranse-med-mottaker som matches på `referanse`. Egen sealed subtype så produsent-siden
+ * tar imot nettopp dette paret – kompilatoren håndhever uttømmende `when` uten `else`.
  */
+@Serializable
+sealed interface Mikrofrontend : Formidlingsinnhold {
+    val personident: Personident
+    val mikrofrontendId: String
+    override val partisjonsnokkel: String get() = personident.value
+}
+
 @Serializable
 @SerialName("MikrofrontendAktiver")
 data class MikrofrontendAktiver(
-    val personident: Personident,
-    val mikrofrontendId: String,
+    override val personident: Personident,
+    override val mikrofrontendId: String,
     val synligTom: Instant? = null,
-) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = personident.value
-}
+) : Mikrofrontend
 
 /** Mikrofrontendens «ferdigstill» – deaktiver synlighet (B41). */
 @Serializable
 @SerialName("MikrofrontendDeaktiver")
 data class MikrofrontendDeaktiver(
-    val personident: Personident,
-    val mikrofrontendId: String,
-) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = personident.value
-}
+    override val personident: Personident,
+    override val mikrofrontendId: String,
+) : Mikrofrontend

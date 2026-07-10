@@ -18,13 +18,20 @@ data class ConsumerConfig(
 data class KafkaConfig(
     val bootstrapServers: String,
     val consumers: Map<String, ConsumerConfig>,
+    val producers: Map<String, ProducerConfig> = emptyMap(),
     val security: SecurityConfig,
+)
+
+data class ProducerConfig(
+    val topic: String,
 )
 
 private val supportedAutoOffsetResets = setOf("earliest", "latest", "none")
 private val supportedEnabledValues = setOf("true", "false")
 private val consumerPathPattern =
     Regex("""kafka\.consumers\.([^.]+)\.(enabled|topic|groupId|autoOffsetReset|maxPollRecords)""")
+private val producerPathPattern =
+    Regex("""kafka\.producers\.([^.]+)\.(topic)""")
 
 fun ApplicationConfig.toKafkaConfig(): KafkaConfig {
     fun value(key: String): String = stringOrEmpty("kafka.$key")
@@ -48,6 +55,12 @@ fun ApplicationConfig.toKafkaConfig(): KafkaConfig {
     val truststorePath = value("truststorePath")
     val keystorePath = value("keystorePath")
     val credentialStorePassword = value("credentialStorePassword")
+
+    val producerNames = producerNames()
+    val producers =
+        producerNames.associateWith { producerName ->
+            ProducerConfig(topic = value("producers.$producerName.topic"))
+        }
 
     val errors =
         buildList {
@@ -79,6 +92,10 @@ fun ApplicationConfig.toKafkaConfig(): KafkaConfig {
                 }
             }
 
+            producers.forEach { (producerName, producer) ->
+                if (producer.topic.isBlank()) add("kafka.producers.$producerName.topic must be set")
+            }
+
             val sslValues =
                 listOf(
                     "kafka.truststorePath" to truststorePath,
@@ -101,6 +118,7 @@ fun ApplicationConfig.toKafkaConfig(): KafkaConfig {
     return KafkaConfig(
         bootstrapServers = bootstrapServers,
         consumers = consumers,
+        producers = producers,
         security =
             SecurityConfig.from(
                 truststorePath = truststorePath,
@@ -113,6 +131,11 @@ fun ApplicationConfig.toKafkaConfig(): KafkaConfig {
 private fun ApplicationConfig.consumerNames(): Set<String> =
     keys()
         .mapNotNull { key -> consumerPathPattern.matchEntire(key)?.groupValues?.get(1) }
+        .toSortedSet()
+
+private fun ApplicationConfig.producerNames(): Set<String> =
+    keys()
+        .mapNotNull { key -> producerPathPattern.matchEntire(key)?.groupValues?.get(1) }
         .toSortedSet()
 
 sealed interface SecurityConfig {

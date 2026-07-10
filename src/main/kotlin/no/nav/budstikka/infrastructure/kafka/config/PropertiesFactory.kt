@@ -2,8 +2,10 @@ package no.nav.budstikka.infrastructure.kafka.config
 
 import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.Deserializer
+import org.apache.kafka.common.serialization.Serializer
 import java.util.Properties
 
 class PropertiesFactory(
@@ -24,6 +26,18 @@ class PropertiesFactory(
             put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false.toString())
             put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer.name)
             put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer.name)
+        }
+
+    fun producer(
+        keySerializer: Class<out Serializer<*>>,
+        valueSerializer: Class<out Serializer<*>>,
+    ): Properties =
+        Properties().apply {
+            putAll(common())
+            put(ProducerConfig.ACKS_CONFIG, "all")
+            put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true.toString())
+            put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializer.name)
+            put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer.name)
         }
 
     fun common(): Properties =
