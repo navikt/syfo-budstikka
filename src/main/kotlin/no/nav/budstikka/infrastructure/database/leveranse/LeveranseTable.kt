@@ -4,6 +4,7 @@ import no.nav.budstikka.domain.formidling.Formidlingsinnhold
 import no.nav.budstikka.domain.formidling.formidlingJson
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
+import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
@@ -25,8 +26,13 @@ object LeveranseTable : Table("leveranse") {
     val state = text("state").default("READY")
     val attempt = integer("attempt").default(0)
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
-    val createdAt = timestamp("created_at")
+    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val errorMessage = text("error_message").nullable()
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index("leveranse_state_next_attempt_time_idx", false, state, nextAttemptTime)
+        index("leveranse_inbox_event_id_idx", false, inboxEventId)
+    }
 }

@@ -15,7 +15,7 @@ CREATE TABLE leveranse
     state             TEXT        NOT NULL DEFAULT 'READY',
     attempt           INT         NOT NULL DEFAULT 0,
     next_attempt_time TIMESTAMPTZ,
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     error_message     TEXT,
     CONSTRAINT leveranse_pkey     PRIMARY KEY (id)
 );

@@ -6,7 +6,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.DriverManager
 
 class PostgresTestFixture : AutoCloseable {
-    private val postgres =
+    val postgres =
         PostgreSQLContainer("postgres:18-alpine")
             .withDatabaseName("budstikka")
             .withUsername("budstikka")
