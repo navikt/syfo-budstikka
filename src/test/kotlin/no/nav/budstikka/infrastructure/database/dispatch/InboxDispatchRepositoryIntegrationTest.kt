@@ -51,13 +51,13 @@ class InboxDispatchRepositoryIntegrationTest :
             messages.single().payload shouldBe payload1
         }
 
-        test("markProcessed updates state to PROCESSED") {
+        test("markProcessedInTransaction updates state to PROCESSED") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             val payload = """{"eventId":"$eventId"}"""
 
             repository.save(eventId, payload)
-            repository.markProcessed(eventId) shouldBe true
+            fixture.database.transact { repository.markProcessedInTransaction(eventId) } shouldBe true
 
             repository.pollReceived(limit = 10).shouldHaveSize(0)
             fixture.database.transact {
@@ -68,14 +68,14 @@ class InboxDispatchRepositoryIntegrationTest :
             }
         }
 
-        test("markFailed updates state to FAILED with reason") {
+        test("markFailedInTransaction updates state to FAILED with reason") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val payload = """{"eventId":"$eventId"}"""
             val reason = "Invalid dispatch payload"
 
             repository.save(eventId, payload)
-            repository.markFailed(eventId, reason) shouldBe true
+            fixture.database.transact { repository.markFailedInTransaction(eventId, reason) } shouldBe true
 
             repository.pollReceived(limit = 10).shouldHaveSize(0)
             fixture.database.transact {

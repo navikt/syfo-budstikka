@@ -12,9 +12,14 @@ class ThrowingMessageRepository : InboxMessageRepository {
 
     override suspend fun pollReceived(limit: Int): List<InboxMessage> = emptyList()
 
-    override suspend fun markProcessed(eventId: UUID): Boolean = true
+    override fun markProcessedInTransaction(eventId: UUID): Boolean = true
 
-    override suspend fun markFailed(
+    override fun markDroppedInTransaction(
+        eventId: UUID,
+        reason: String,
+    ): Boolean = true
+
+    override fun markFailedInTransaction(
         eventId: UUID,
         reason: String,
     ): Boolean = true

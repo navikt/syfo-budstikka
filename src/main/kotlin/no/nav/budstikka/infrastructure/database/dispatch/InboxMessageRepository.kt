@@ -2,6 +2,7 @@ package no.nav.budstikka.infrastructure.database.dispatch
 
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
@@ -23,9 +24,20 @@ interface InboxMessageRepository {
 
     suspend fun pollReceived(limit: Int): List<InboxMessage>
 
-    suspend fun markProcessed(eventId: UUID): Boolean
+    /**
+     * Terminal-overgangene for beslutnings-workeren. De åpner IKKE egen transaksjon — de kjøres
+     * inne i [no.nav.budstikka.infrastructure.database.config.TransactionRunner.transaction], sammen
+     * med delivery-skrivingen, slik at én melding effektueres alt-eller-ingenting (#56). Overgangen
+     * gjelder kun fra RECEIVED (idempotent: en allerede terminert melding gir `false`).
+     */
+    fun markProcessedInTransaction(eventId: UUID): Boolean
 
-    suspend fun markFailed(
+    fun markDroppedInTransaction(
+        eventId: UUID,
+        reason: String,
+    ): Boolean
+
+    fun markFailedInTransaction(
         eventId: UUID,
         reason: String,
     ): Boolean
@@ -67,34 +79,38 @@ class InboxMessageRepositoryImpl(
         }
     }
 
-    override suspend fun markProcessed(eventId: UUID): Boolean =
-        database.transact {
-            InboxMessageTable.update({
-                InboxMessageTable.eventId eq eventId
-            }) {
-                it[state] = PROCESSED_STATE
-                it[processedAt] = Clock.System.now()
-                it[errorMessage] = null
-            } > 0
-        }
+    override fun markProcessedInTransaction(eventId: UUID): Boolean =
+        terminate(eventId, state = PROCESSED_STATE, dropReason = null, errorMessage = null)
 
-    override suspend fun markFailed(
+    override fun markDroppedInTransaction(
         eventId: UUID,
         reason: String,
+    ): Boolean = terminate(eventId, state = DROPPED_STATE, dropReason = reason, errorMessage = null)
+
+    override fun markFailedInTransaction(
+        eventId: UUID,
+        reason: String,
+    ): Boolean = terminate(eventId, state = FAILED_STATE, dropReason = null, errorMessage = reason)
+
+    private fun terminate(
+        eventId: UUID,
+        state: String,
+        dropReason: String?,
+        errorMessage: String?,
     ): Boolean =
-        database.transact {
-            InboxMessageTable.update({
-                InboxMessageTable.eventId eq eventId
-            }) {
-                it[state] = FAILED_STATE
-                it[processedAt] = Clock.System.now()
-                it[errorMessage] = reason
-            } > 0
-        }
+        InboxMessageTable.update({
+            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq RECEIVED_STATE)
+        }) {
+            it[InboxMessageTable.state] = state
+            it[InboxMessageTable.dropReason] = dropReason
+            it[InboxMessageTable.errorMessage] = errorMessage
+            it[processedAt] = Clock.System.now()
+        } > 0
 
     private companion object {
         const val RECEIVED_STATE = "RECEIVED"
         const val PROCESSED_STATE = "PROCESSED"
+        const val DROPPED_STATE = "DROPPED"
         const val FAILED_STATE = "FAILED"
     }
 }

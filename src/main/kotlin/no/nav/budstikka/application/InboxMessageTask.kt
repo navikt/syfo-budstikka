@@ -1,6 +1,7 @@
 package no.nav.budstikka.application
 
 import kotlinx.serialization.SerializationException
+import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.dispatchJson
 import no.nav.budstikka.infrastructure.config.MdcKeys
@@ -11,10 +12,19 @@ import no.nav.budstikka.infrastructure.task.config.InboxMessageTaskConfig
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
+/**
+ * Beslutnings-workeren (#56): poller mottatte inbox-meldinger, dekoder payloaden og effektuerer
+ * utfallet per melding via [EffectuateDecision] (delivery + inbox-status i én DB-tx).
+ *
+ * Grunnlagsinnhentingen (PDL/KRR) og den rene [no.nav.budstikka.domain.decision.decide]-rutingen er
+ * ennå IKKE koblet inn — [decideFor] er en placeholder som markerer en gyldig payload som behandlet
+ * uten leveranser. Når enrichment lander, byttes placeholderen mot `DecisionProcess.process`; den
+ * atomiske effektueringen står allerede klar.
+ */
 class InboxMessageTask(
     private val repository: InboxMessageRepository,
+    private val effectuator: EffectuateDecision,
     private val config: InboxMessageTaskConfig,
-    private val onDispatch: suspend (Dispatch) -> Unit = {},
 ) : BaseTask(
         name = TASK_NAME,
         interval = config.interval,
@@ -27,22 +37,16 @@ class InboxMessageTask(
 
     internal suspend fun runOnce() {
         repository.pollReceived(config.batchSize).forEach { message ->
-            when (val decodeResult = decode(message)) {
-                is DecodeResult.Success -> {
-                    repository.markProcessed(message.eventId)
-                    onDispatch(decodeResult.dispatch)
-                }
-
-                is DecodeResult.Failure -> repository.markFailed(message.eventId, decodeResult.reason)
-            }
+            effectuator.effectuate(message.eventId, decideFor(message))
         }
     }
 
-    private fun decode(message: InboxMessage): DecodeResult =
+    private fun decideFor(message: InboxMessage): Decision =
         MDC.putCloseable(MdcKeys.EVENT_ID, message.eventId.toString()).use {
             try {
                 logger.info("Decoding inbox payload")
-                DecodeResult.Success(dispatchJson.decodeFromString<Dispatch>(message.payload))
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(message.payload)
+                placeholderDecision(dispatch)
             } catch (error: SerializationException) {
                 val reason = error.message ?: "Unable to decode inbox payload"
                 logger.warn(
@@ -50,19 +54,13 @@ class InboxMessageTask(
                     message.eventId,
                     error,
                 )
-                DecodeResult.Failure(reason)
+                Decision.Failed(reason)
             }
         }
 
-    private sealed interface DecodeResult {
-        data class Success(
-            val dispatch: Dispatch,
-        ) : DecodeResult
-
-        data class Failure(
-            val reason: String,
-        ) : DecodeResult
-    }
+    // Placeholder til enrichment/decide er koblet inn: en gyldig payload gir ingen leveranser ennå.
+    @Suppress("UNUSED_PARAMETER")
+    private fun placeholderDecision(dispatch: Dispatch): Decision = Decision.Processed(emptyList())
 
     private companion object {
         const val TASK_NAME = "inbox-message-task"

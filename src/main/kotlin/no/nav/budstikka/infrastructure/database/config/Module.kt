@@ -22,12 +22,13 @@ fun DependencyRegistry.databaseModule() {
     provide<HikariDataSource> { createDataSource(resolve()) }
         .cleanup(HikariDataSource::close)
     provide<Database> { Database.connect(resolve<DataSource>()) }
+    provide<TransactionRunner> { ExposedTransactionRunner(resolve()) }
     provide<HealthCheck> {
         dataSourceHealthCheck(resolve())
     }
     provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
     provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
-    provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
+    provide<DeliveryRepository> { DeliveryRepositoryImpl() }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =
