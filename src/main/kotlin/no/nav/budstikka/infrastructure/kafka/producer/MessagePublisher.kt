@@ -4,12 +4,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.clients.producer.ProducerRecord
+import java.util.concurrent.TimeUnit
 
 data class PublishedMessage(
     val topic: String,
     val id: String,
     val value: String,
 )
+
+const val TIMEOUT_IN_SECONDS = 10L
 
 fun interface MessagePublisher {
     suspend fun publish(message: PublishedMessage)
@@ -27,7 +30,7 @@ internal class MessagePublisherImpl(
                         message.id,
                         message.value,
                     ),
-                ).get()
+                ).get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS)
         }
     }
 }

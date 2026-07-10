@@ -41,11 +41,14 @@ internal enum class MinSideAction {
 
 @Serializable
 internal data class MicrofrontendMessage(
-    @SerialName("@action") val action: MinSideAction,
+    @SerialName("@action")
+    val action: MinSideAction,
     val ident: String,
-    @SerialName("microfrontend_id") val microfrontendId: String,
+    @SerialName("microfrontend_id")
+    val microfrontendId: String,
     val sensitivitet: String = "high",
-    @SerialName("@initiated_by") val initiatedBy: String = "team-esyfo",
+    @SerialName("@initiated_by")
+    val initiatedBy: String = "team-esyfo",
 )
 
 private fun Mikrofrontend.toMessage() =
