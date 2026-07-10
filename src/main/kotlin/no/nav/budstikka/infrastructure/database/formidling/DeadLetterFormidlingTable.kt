@@ -2,10 +2,11 @@ package no.nav.budstikka.infrastructure.database.formidling
 
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
+import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
 
 object DeadLetterFormidlingTable : Table("dead_letter_formidling") {
-    val id = javaUUID("id")
+    val id = javaUUID("id").databaseGenerated()
     val payload = text("payload")
     val topic = text("topic")
     val partition = integer("partition")
@@ -13,7 +14,11 @@ object DeadLetterFormidlingTable : Table("dead_letter_formidling") {
     val kafkaKey = text("kafka_key").nullable()
     val failureReason = text("failure_reason")
     val errorMessage = text("error_message").nullable()
-    val receivedAt = timestamp("received_at")
+    val receivedAt = timestamp("received_at").defaultExpression(CurrentTimestamp)
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index("dead_letter_formidling_received_at_idx", false, receivedAt)
+    }
 }

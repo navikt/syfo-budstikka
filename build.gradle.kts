@@ -57,6 +57,8 @@ dependencies {
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.exposed.migration.core)
+    testImplementation(libs.exposed.migration.jdbc)
 }
 
 tasks {

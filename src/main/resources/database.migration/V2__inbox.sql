@@ -6,7 +6,7 @@ CREATE TABLE inbox_formidling
     drop_reason       TEXT,
     attempt           INT         NOT NULL DEFAULT 0,
     next_attempt_time TIMESTAMPTZ,
-    received_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    received_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at      TIMESTAMPTZ,
     error_message     TEXT,
     CONSTRAINT inbox_formidling_pkey PRIMARY KEY (event_id)
@@ -27,7 +27,7 @@ CREATE TABLE dead_letter_formidling
     kafka_key      TEXT,
     failure_reason TEXT        NOT NULL,
     error_message  TEXT,
-    received_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    received_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT dead_letter_formidling_pkey PRIMARY KEY (id)
 );
 
