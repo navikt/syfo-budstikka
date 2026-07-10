@@ -6,5 +6,5 @@ package no.nav.budstikka.domain.beslutning
  * resolusjon (B24) legges til additivt når de kanalene bygges (#22/#23).
  */
 data class Beslutningsgrunnlag(
-    val mottakerErDod: Boolean = false,
+    val mottakerIsDead: Boolean = false,
 )

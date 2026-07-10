@@ -13,6 +13,38 @@ Stack: Kotlin/JVM på Ktor + Netty (`io.ktor.server.netty.EngineMain`), config-d
 - Bevar eksisterende kodestruktur og mønstre. Endre kun det oppgaven krever. Blir diffen uforholdsmessig stor mot oppgavens omfang — stopp og forklar før du fortsetter. Ikke refaktorer på siden.
 - Sjekk hvilke plugins/avhengigheter som faktisk finnes før du foreslår et mønster. Repoet er Ktor — bruk Ktor-idiomer, ikke Spring.
 
+## Navnekonvensjon — norsk kun på domeneord
+
+Regelen er enkel: **norske ord KUN på domeneord. Alt annet (mekanikk, verb, plumbing, teknisk) på engelsk.** Dette gjelder alle Kotlin-identifikatorer: klasser, funksjoner, `val`/`var`, parametere, filnavn og pakker.
+
+Domeneord er substantiver fra sykefravær/varsel-domenet. Allowlist (forblir norsk):
+`Formidling`, `Beslutning`, `Leveranse`, `Mottaker`, `Virksomhet`, `Grunnlag`, `Kanal`, `Referanse`,
+`Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `NarmesteLeder`, `Merkelapp`,
+`Sendevindu`, `Sakstilknytning`, `Brev`, `sykmeldt`, `hendelse`. Domene-enumverdier som speiler
+eksterne kontrakter (tms/dokdist/fager), f.eks. `BESKJED`, `OPPGAVE`, `DIALOGMOETE`, `OPPFOELGING`,
+`VIKTIG`, forblir også norske.
+
+Alt annet er teknisk og skal være engelsk. Vanlige feil:
+
+```kotlin
+// ❌ norsk på teknisk mekanikk          ✅ engelsk
+fun lagre(...)                           fun save(...)
+fun innhent(...)                         fun fetch(...)
+fun behandle(...)                        fun handle(...) / process(...)
+fun tilKolonner(): ...                   fun toColumns(): ...
+class DodsfallOppslag                    class DeathLookup
+val erDod                                val isDead
+```
+
+`død`/`dødsfall` er **ikke** domeneord i denne tjenesten — bruk `Death`/`isDead`.
+
+Sammensatte navn beholder domeneordet norsk og gjør resten engelsk: `mottakerErDod` → `mottakerIsDead`, `Grunnlagsinnhenter` → behold `Grunnlag`, engelsk-gjør henteren.
+
+Norske ord som er bakt inn i **publiserte kontrakter** er breaking å endre — behandle dem som en egen
+beslutning, ikke en ren omdøping. Skill mellom **tekniske verb** (oversettes: Kafka-`Operasjon`-verdier
+`OPPRETT`/`INAKTIVER` → `CREATE`/`INACTIVATE`, DB-kolonne `operasjon` → `operation`) og **domeneverdier
+bundet til eksterne kontrakter** (beholdes: tms/dokdist/fager-verdier som `BESKJED`, `DIALOGMOETE`).
+
 ## Konfigurasjon og oppstart
 
 - Hemmeligheter og miljøavhengig config kommer fra miljøvariabler injisert av NAIS, lest via Ktor `ApplicationConfig` / `application.yaml`. Ikke hardkod URL-er, secrets eller `issuer`/`audience`.

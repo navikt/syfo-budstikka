@@ -13,7 +13,7 @@ import no.nav.budstikka.domain.formidling.Formidling
  * Beslutningsutfallet ([Beslutning]) er nettopp dataen den effektueringen skal skrive.
  */
 class Beslutningsprosess(
-    private val grunnlagsinnhenter: Grunnlagsinnhenter,
+    private val grunnlagFetcher: GrunnlagFetcher,
 ) {
-    suspend fun behandle(hendelse: Formidling): Beslutning = decide(hendelse, grunnlagsinnhenter.innhent(hendelse))
+    suspend fun process(hendelse: Formidling): Beslutning = decide(hendelse, grunnlagFetcher.fetch(hendelse))
 }

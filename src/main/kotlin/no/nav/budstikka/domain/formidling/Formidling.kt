@@ -6,7 +6,7 @@ import java.util.UUID
 
 /**
  * Konvolutten på den nøytrale Kafka-kontrakten (B22, B43). Bærer korrelasjons-/dedup-id og
- * referanse; selve mottaker + operasjon ligger i [innhold] (sealed). Ingen nedstrøms-former
+ * referanse; selve mottaker + operation ligger i [content] (sealed). Ingen nedstrøms-former
  * lekker inn – kontrakten er anti-corruption-laget (B22).
  */
 @Serializable
@@ -14,18 +14,18 @@ data class Formidling(
     @Serializable(with = UuidSerializer::class)
     val eventId: UUID,
     val referanse: String,
-    val innhold: Formidlingsinnhold,
+    val content: Formidlingsinnhold,
 )
 
 /**
- * Sealed rot for alt innhold (B22). Operasjonen (OPPRETT/FERDIGSTILL/aktiver) er kodet inn i
- * typen, så B21 håndheves av kompilatoren. [partisjonsnokkel] er Kafka-record-key (B5) =
+ * Sealed rot for alt content (B22). Operasjonen (CREATE/FERDIGSTILL/aktiver) er kodet inn i
+ * typen, så B21 håndheves av kompilatoren. [partitionKey] er Kafka-record-key (B5) =
  * mottakerens id, slik at hendelser for samme mottaker havner ordnet på samme partisjon.
  * Getteren har ingen backing field og serialiseres derfor ikke.
  */
 @Serializable
 sealed interface Formidlingsinnhold {
-    val partisjonsnokkel: String
+    val partitionKey: String
 }
 
 /**

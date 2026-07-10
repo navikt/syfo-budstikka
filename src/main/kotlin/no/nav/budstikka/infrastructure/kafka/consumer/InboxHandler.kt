@@ -18,7 +18,7 @@ import java.util.UUID
  *
  * Dedup: event_id er PK (ON CONFLICT DO NOTHING) — Kafka-replay dobbeltsender ikke.
  * Payload lagres byte-eksakt som text uten deserialisering; event_id leses fra Kafka-header
- * (B54) og sealed innhold dekodes først av beslutnings-workeren.
+ * (B54) og sealed content dekodes først av beslutnings-workeren.
  */
 class InboxHandler(
     private val repository: InboxFormidlingRepository,

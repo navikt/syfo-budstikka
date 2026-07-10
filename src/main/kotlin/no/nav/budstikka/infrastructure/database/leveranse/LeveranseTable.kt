@@ -11,14 +11,14 @@ import org.jetbrains.exposed.v1.json.jsonb
 /**
  * Speiler `V3__leveranse.sql` eksakt (jf. #50-lærdommen: skjema↔mapping må stemme, ellers
  * feiler det først i runtime mot ekte Postgres). Domenekolonner beholder domenespråket
- * (`referanse`/`operasjon`/`kanal`/`mottaker_*`); infra-kolonner følger søster-tabellen
+ * (`referanse`/`operation`/`kanal`/`mottaker_*`); infra-kolonner følger søster-tabellen
  * `inbox_formidling` (`state`/`attempt`/`next_attempt_time`/`created_at`).
  */
 object LeveranseTable : Table("leveranse") {
     val id = javaUUID("id").databaseGenerated()
     val inboxEventId = javaUUID("inbox_event_id").nullable()
     val referanse = text("referanse")
-    val operasjon = text("operasjon")
+    val operation = text("operation")
     val kanal = text("kanal")
     val mottakerType = text("mottaker_type")
     val mottakerId = text("mottaker_id")

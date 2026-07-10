@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 enum class Varseltype { BESKJED, OPPGAVE }
 
 /** Ekstern varslingskanal (SMS/e-post) i tillegg til flaten. */
-enum class EksternKanal { SMS, EPOST }
+enum class EksternKanal { SMS, EMAIL }
 
 /**
  * Vår egen modell for ekstern varsling (B23), mappes internt til tms. `null`-tekster =
@@ -18,10 +18,10 @@ enum class EksternKanal { SMS, EPOST }
  */
 @Serializable
 data class EksternVarsling(
-    val kanaler: Set<EksternKanal> = setOf(EksternKanal.SMS, EksternKanal.EPOST),
-    val smsTekst: String? = null,
-    val epostTittel: String? = null,
-    val epostTekst: String? = null,
+    val kanaler: Set<EksternKanal> = setOf(EksternKanal.SMS, EksternKanal.EMAIL),
+    val smsText: String? = null,
+    val emailTitle: String? = null,
+    val emailText: String? = null,
 )
 
 /** Distribusjonstype for brev-utsending nedstrøms. */

@@ -7,47 +7,47 @@ import kotlin.time.Instant
 // FERDIGSTILL / lukking (B38, B39). Typet variant pr. lukkbar kanal – kanal er implisitt i
 // typen og matchnøkkelen er typet (bevarer PII-maskering, B9). Hendelsen er THIN: kun
 // `referanse` + typet nøkkel. Selve lukkeoperasjonen nedstrøms avledes fra den lagrede
-// OPPRETT-raden (B39), aldri fra hendelsen. Matchnøkkel = OPPRETTs partisjonsanker.
+// CREATE-raden (B39), aldri fra hendelsen. Matchnøkkel = OPPRETTs partisjonsanker.
 // BREV er urepresenterbart (ingen `BrevInaktiver`, B3/B21).
 
-/** Lukk brukervarsel; matchnøkkel = sykmeldt (OPPRETT-partisjonsanker). */
+/** Lukk brukervarsel; matchnøkkel = sykmeldt (CREATE-partisjonsanker). */
 @Serializable
-@SerialName("BrukervarselInaktiver")
-data class BrukervarselInaktiver(
+@SerialName("BrukervarselInactivate")
+data class BrukervarselInactivate(
     val referanse: String,
     val sykmeldt: Personident,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = sykmeldt.value
+    override val partitionKey: String get() = sykmeldt.value
 }
 
 /** Lukk ledervarsel; matchnøkkel = sykmeldt, IKKE NL-fnr (B24 – ukjent for konsument). */
 @Serializable
-@SerialName("LedervarselInaktiver")
-data class LedervarselInaktiver(
+@SerialName("LedervarselInactivate")
+data class LedervarselInactivate(
     val referanse: String,
     val sykmeldt: Personident,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = sykmeldt.value
+    override val partitionKey: String get() = sykmeldt.value
 }
 
 /** Lukk Ditt sykefravær-melding; matchnøkkel = sykmeldt. */
 @Serializable
-@SerialName("DittSykefravaerInaktiver")
-data class DittSykefravaerInaktiver(
+@SerialName("DittSykefravaerInactivate")
+data class DittSykefravaerInactivate(
     val referanse: String,
     val sykmeldt: Personident,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = sykmeldt.value
+    override val partitionKey: String get() = sykmeldt.value
 }
 
 /** Lukk arbeidsgivervarsel; matchnøkkel = virksomhet (B32). */
 @Serializable
-@SerialName("ArbeidsgivervarselInaktiver")
-data class ArbeidsgivervarselInaktiver(
+@SerialName("ArbeidsgivervarselInactivate")
+data class ArbeidsgivervarselInactivate(
     val referanse: String,
     val orgnummer: Orgnummer,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = orgnummer.value
+    override val partitionKey: String get() = orgnummer.value
 }
 
 /**
@@ -60,21 +60,21 @@ data class ArbeidsgivervarselInaktiver(
 sealed interface Mikrofrontend : Formidlingsinnhold {
     val personident: Personident
     val mikrofrontendId: String
-    override val partisjonsnokkel: String get() = personident.value
+    override val partitionKey: String get() = personident.value
 }
 
 @Serializable
-@SerialName("MikrofrontendAktiver")
-data class MikrofrontendAktiver(
+@SerialName("MikrofrontendEnable")
+data class MikrofrontendEnable(
     override val personident: Personident,
     override val mikrofrontendId: String,
-    val synligTom: Instant? = null,
+    val visibleUntil: Instant? = null,
 ) : Mikrofrontend
 
 /** Mikrofrontendens «ferdigstill» – deaktiver synlighet (B41). */
 @Serializable
-@SerialName("MikrofrontendDeaktiver")
-data class MikrofrontendDeaktiver(
+@SerialName("MikrofrontendDisable")
+data class MikrofrontendDisable(
     override val personident: Personident,
     override val mikrofrontendId: String,
 ) : Mikrofrontend

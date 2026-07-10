@@ -7,7 +7,7 @@ CREATE TABLE leveranse
     id                UUID        NOT NULL  DEFAULT uuidv7(),
     inbox_event_id    UUID        REFERENCES inbox_formidling (event_id) ON DELETE SET NULL,
     referanse         TEXT        NOT NULL,
-    operasjon         TEXT        NOT NULL,
+    operation         TEXT        NOT NULL,
     kanal             TEXT        NOT NULL,
     mottaker_type     TEXT        NOT NULL,
     mottaker_id       TEXT        NOT NULL,

@@ -111,11 +111,11 @@ private fun validRecord(
         """
         {
             "eventId": "$eventId",
-            "innhold": {
-                "type": "BrukervarselOpprett",
+            "content": {
+                "type": "BrukervarselCreate",
                 "personident": "12345678901",
                 "varseltype": "BESKJED",
-                "tekst": "Hei"
+                "text": "Hei"
             }
         }
         """.trimIndent()

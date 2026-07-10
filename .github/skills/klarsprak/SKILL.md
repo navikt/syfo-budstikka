@@ -16,6 +16,8 @@ Organisasjonen skrives **Nav**, ikke «NAV» (unntak: `NAIS`, `NAVident`-claim, 
 - PR-beskrivelser, release-notes og commit-meldinger
 - Terminologivalg når norsk og engelsk fagspråk blandes i Kotlin-kode og dokumentasjon
 - Tekniske feilkoder og DB-kolonnenavn bør være på engelsk; domenebegreper forblir norsk
+
+> **Kode-identifikatorer** (klasse-/funksjons-/variabelnavn i `.kt`) følger en strengere regel enn prosa: norsk KUN på domeneord, alt annet engelsk. Denne skillen dekker prosa (feilmelding, logg, docs); for navngiving i koden er `.github/instructions/kotlin.instructions.md` fasit. Merk at ord som `oppslag` er OK i norsk prosa, men i kode skal det være `lookup`.
 - Rensing av AI-markører og anglisismer i tekst du eller en agent har generert
 
 ## Fagtermer

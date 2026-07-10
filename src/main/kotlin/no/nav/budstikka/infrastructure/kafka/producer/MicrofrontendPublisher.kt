@@ -3,8 +3,8 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import no.nav.budstikka.domain.formidling.Mikrofrontend
-import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
-import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
+import no.nav.budstikka.domain.formidling.MikrofrontendDisable
+import no.nav.budstikka.domain.formidling.MikrofrontendEnable
 import no.nav.budstikka.domain.formidling.formidlingJson
 
 /**
@@ -24,7 +24,7 @@ fun microfrontendPublisher(
         messagePublisher.publish(
             PublishedMessage(
                 topic = topic,
-                id = microfrontend.partisjonsnokkel,
+                id = microfrontend.partitionKey,
                 value = formidlingJson.encodeToString(microfrontend.toMessage()),
             ),
         )
@@ -55,8 +55,8 @@ private fun Mikrofrontend.toMessage() =
     MicrofrontendMessage(
         action =
             when (this) {
-                is MikrofrontendAktiver -> MinSideAction.ENABLE
-                is MikrofrontendDeaktiver -> MinSideAction.DISABLE
+                is MikrofrontendEnable -> MinSideAction.ENABLE
+                is MikrofrontendDisable -> MinSideAction.DISABLE
             },
         ident = personident.value,
         microfrontendId = mikrofrontendId,

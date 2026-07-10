@@ -3,8 +3,8 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import no.nav.budstikka.domain.formidling.MikrofrontendAktiver
-import no.nav.budstikka.domain.formidling.MikrofrontendDeaktiver
+import no.nav.budstikka.domain.formidling.MikrofrontendDisable
+import no.nav.budstikka.domain.formidling.MikrofrontendEnable
 import no.nav.budstikka.domain.formidling.Personident
 import no.nav.budstikka.domain.formidling.formidlingJson
 import kotlin.time.Instant
@@ -17,10 +17,10 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendAktiver(
+                MikrofrontendEnable(
                     personident = Personident("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
-                    synligTom = Instant.parse("2026-07-10T00:00:00Z"),
+                    visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
                 ),
             )
 
@@ -42,7 +42,7 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendDeaktiver(
+                MikrofrontendDisable(
                     personident = Personident("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                 ),
@@ -66,7 +66,7 @@ class MicrofrontendPublisherTest :
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
-                MikrofrontendAktiver(
+                MikrofrontendEnable(
                     personident = Personident("12345678901"),
                     mikrofrontendId = "sykmeldt-overview",
                 ),

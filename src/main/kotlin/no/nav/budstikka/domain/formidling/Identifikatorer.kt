@@ -36,7 +36,7 @@ private const val MASKERT = "***"
 object FormidlingHeader {
     /**
      * `eventId` speilet som Kafka-header (samme verdi som [Formidling.eventId] i payloaden).
-     * Lar konsumenten dedup-e og lagre rå payload i innboks uten å deserialisere bodyen.
+     * Lar konsumenten dedup-e og save rå payload i innboks uten å deserialisere bodyen.
      * Payloaden forblir autoritativ kilde; headeren er en fast-path, ikke en erstatning.
      */
     const val EVENT_ID = "eventId"

@@ -4,23 +4,23 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-// OPPRETT-varianter (B22) – rike, kanalspesifikke. Kanalen er implisitt i typen; ulovlige
+// CREATE-varianter (B22) – rike, kanalspesifikke. Kanalen er implisitt i typen; ulovlige
 // (kanal, felt)-kombinasjoner er urepresenterbare. Konsumenten eier *hva* og *når* (B1).
 
 /** 1. Brukervarsel – sykmeldt, Min side. */
 @Serializable
-@SerialName("BrukervarselOpprett")
-data class BrukervarselOpprett(
+@SerialName("BrukervarselCreate")
+data class BrukervarselCreate(
     val personident: Personident,
     val varseltype: Varseltype,
-    val tekst: String,
-    val lenke: String? = null,
-    val synligTom: Instant? = null,
+    val text: String,
+    val link: String? = null,
+    val visibleUntil: Instant? = null,
     val eksternVarsling: EksternVarsling? = null,
     val brevFallback: BrevFallback? = null,
     val sendevindu: Sendevindu? = null,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = personident.value
+    override val partitionKey: String get() = personident.value
 }
 
 /**
@@ -28,47 +28,47 @@ data class BrukervarselOpprett(
  * NL-fnr; budstikka resolver nærmeste leder selv (B24). Partisjonsanker = sykmeldt.
  */
 @Serializable
-@SerialName("LedervarselOpprett")
-data class LedervarselOpprett(
+@SerialName("LedervarselCreate")
+data class LedervarselCreate(
     val sykmeldt: Personident,
     val orgnummer: Orgnummer,
-    val tekst: String,
-    val lenke: String? = null,
-    val synligTom: Instant? = null,
+    val text: String,
+    val link: String? = null,
+    val visibleUntil: Instant? = null,
     val eksternVarsling: EksternVarsling? = null,
     val sendevindu: Sendevindu? = null,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = sykmeldt.value
+    override val partitionKey: String get() = sykmeldt.value
 }
 
 /** 3. Ditt sykefravær-melding – sykmeldt. Ingen `variant`-felt (B40): nedstrøms har kun INFO. */
 @Serializable
-@SerialName("DittSykefravaerOpprett")
-data class DittSykefravaerOpprett(
+@SerialName("DittSykefravaerCreate")
+data class DittSykefravaerCreate(
     val personident: Personident,
-    val tekst: String,
-    val lenke: String? = null,
-    val synligTom: Instant? = null,
+    val text: String,
+    val link: String? = null,
+    val visibleUntil: Instant? = null,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = personident.value
+    override val partitionKey: String get() = personident.value
 }
 
 /** 4. Arbeidsgivervarsel – Min side arbeidsgiver / Altinn. */
 @Serializable
-@SerialName("ArbeidsgivervarselOpprett")
-data class ArbeidsgivervarselOpprett(
+@SerialName("ArbeidsgivervarselCreate")
+data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,
     val mottaker: AgMottaker,
     val merkelapp: Merkelapp,
-    val tekst: String,
-    val lenke: String,
+    val text: String,
+    val link: String,
     val eksternVarsling: EksternVarsling? = null,
     val meldingstype: AgMeldingstype = AgMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
-    val synligTom: Instant? = null,
+    val visibleUntil: Instant? = null,
     val sendevindu: Sendevindu? = null,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = orgnummer.value
+    override val partitionKey: String get() = orgnummer.value
 }
 
 /**
@@ -93,11 +93,11 @@ data class AltinnRessurs(
 
 /** 5. Brev – sykmeldt, fysisk. INGEN ferdigstill (B3/B21). */
 @Serializable
-@SerialName("BrevOpprett")
-data class BrevOpprett(
+@SerialName("BrevCreate")
+data class BrevCreate(
     val personident: Personident,
     val journalpostId: String,
     val distribusjonstype: Distribusjonstype = Distribusjonstype.VIKTIG,
 ) : Formidlingsinnhold {
-    override val partisjonsnokkel: String get() = personident.value
+    override val partitionKey: String get() = personident.value
 }
