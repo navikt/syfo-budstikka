@@ -18,12 +18,11 @@ Stack: Kotlin/JVM på Ktor + Netty (`io.ktor.server.netty.EngineMain`), config-d
 Regelen er enkel: **norske ord KUN på domeneord. Alt annet (mekanikk, verb, plumbing, teknisk) på engelsk.** Dette gjelder alle Kotlin-identifikatorer: klasser, funksjoner, `val`/`var`, parametere, filnavn og pakker.
 
 Domeneord er substantiver fra sykefravær/varsel-domenet. Allowlist (forblir norsk):
-`Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`, `NarmesteLeder`,
+`Altinn`, `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`, `NarmesteLeder`,
 `sykmeldt`, `sykmelding`, `fnr`, `fodselsnummer`, `dialogmote`, `oppfolgingsplan`,
-`meroppfolging`, `beskjed`, `oppgave`, `Merkelapp`, `Sendevindu`, `Sakstilknytning`, `hendelse`.
+`meroppfolging`, `beskjed`, `oppgave`, `Sakstilknytning`.
 Domene-enumverdier som speiler
-eksterne kontrakter (tms/dokdist/fager), f.eks. `BESKJED`, `OPPGAVE`, `DIALOGMOETE`, `OPPFOELGING`,
-`VIKTIG`, forblir også norske.
+eksterne kontrakter (tms/dokdist/fager), f.eks. `BESKJED`, `OPPGAVE`, `DIALOGMOETE`, `OPPFOELGING` forblir også norske.
 
 `Dispatch`, `Decision`, `Delivery`, `Recipient`, `Foundation`, `Channel` og `Reference` er tekniske
 ord i denne koden og skal være engelske.

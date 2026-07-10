@@ -59,7 +59,7 @@ data class DittSykefravaerCreate(
 data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,
     @SerialName("mottaker")
-    val recipient: AgRecipient,
+    val recipient: ArbeidsgiverRecipient,
     val tag: Tag,
     val text: String,
     val link: String,
@@ -76,21 +76,21 @@ data class ArbeidsgivervarselCreate(
  * B32: de to mottaker-stiene kombineres ALDRI → sealed valg, ikke separate hendelsesvarianter.
  */
 @Serializable
-sealed interface AgRecipient
+sealed interface ArbeidsgiverRecipient
 
 /** Personlig mottaker; budstikka resolver NL (B24) fra `(sykmeldt, orgnummer)`. */
 @Serializable
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
-) : AgRecipient
+) : ArbeidsgiverRecipient
 
 /** Alle med Altinn-rollen ved virksomheten; `ressurs` typet (B30). */
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
-) : AgRecipient
+) : ArbeidsgiverRecipient
 
 /** 5. Brev – sykmeldt, fysisk. INGEN ferdigstill (B3/B21). */
 @Serializable

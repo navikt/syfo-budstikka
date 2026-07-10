@@ -71,7 +71,7 @@ class InboxHandlerTest :
         test("transient DB error during saveEvent throws and dead-letter table is not touched") {
             val throwingRepository = ThrowingMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
-            val handler = InboxHandler(throwingRepository, deadLetterRepository)
+            val handler = InboxMessageHandler(throwingRepository, deadLetterRepository)
 
             val result = runCatching { handler.handle(validRecord()) }
 
@@ -86,7 +86,7 @@ private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestCo
             shouldReturnNewRowCreated = shouldReturnNewRowCreated,
         )
     val deadLetterRepository = FakeDeadLetterRepository()
-    val handler = InboxHandler(inboxRepository, deadLetterRepository)
+    val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
 
     return TestContext(
         handler = handler,
@@ -96,7 +96,7 @@ private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestCo
 }
 
 private data class TestContext(
-    val handler: InboxHandler,
+    val handler: InboxMessageHandler,
     val inboxRepository: FakeInboxMessageRepository,
     val deadLetterRepository: FakeDeadLetterRepository,
 )

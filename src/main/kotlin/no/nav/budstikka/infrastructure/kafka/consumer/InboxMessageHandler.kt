@@ -20,11 +20,11 @@ import java.util.UUID
  * Payload lagres byte-eksakt som text uten deserialisering; event_id leses fra Kafka-header
  * (B54) og sealed content dekodes først av beslutnings-workeren.
  */
-class InboxHandler(
+class InboxMessageHandler(
     private val repository: InboxMessageRepository,
     private val deadLetterRepository: DeadLetterMessageRepository,
 ) : MessageHandler<String, String?> {
-    private val logger = LoggerFactory.getLogger(InboxHandler::class.java)
+    private val logger = LoggerFactory.getLogger(InboxMessageHandler::class.java)
 
     override suspend fun handle(record: ConsumerRecord<String, String?>) {
         val eventId =
@@ -105,7 +105,7 @@ internal sealed interface EventId {
 
 /**
  * Ren header-lesing (B54, dedup-fast-path) uten å røre bodyen — ingen bivirkninger, så den bor
- * på filnivå og testes isolert. Skiller manglende header fra ugyldig UUID så [InboxHandler] kan
+ * på filnivå og testes isolert. Skiller manglende header fra ugyldig UUID så [InboxMessageHandler] kan
  * dead-lettere med riktig feilårsak.
  */
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
