@@ -10,23 +10,23 @@ class FakeDeathLookupTest :
         val alive = PersonIdentifier("11111111111")
         val dead = PersonIdentifier("22222222222")
 
-        test("default: ingen er død") {
+        test("default: no one is dead") {
             FakeDeathLookup().isDead(alive) shouldBe false
         }
 
-        test("mark() gjør en ident død") {
+        test("registerDeath() marks an ident as dead") {
             val fake = FakeDeathLookup()
             fake.registerDeath(dead)
             fake.isDead(dead) shouldBe true
         }
 
-        test("mark() påvirker ikke andre identer") {
+        test("registerDeath() does not affect other idents") {
             val fake = FakeDeathLookup()
             fake.registerDeath(dead)
             fake.isDead(alive) shouldBe false
         }
 
-        test("reset() fjerner alle markeringer") {
+        test("reset() clears all registrations") {
             val fake = FakeDeathLookup()
             fake.registerDeath(dead)
             fake.reset()

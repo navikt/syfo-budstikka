@@ -40,30 +40,30 @@ class DecideTest :
                 )
 
             gatedCreates.forEach { (name, content) ->
-                test("brukerrettet CREATE ($name) til død person droppes med DEAD") {
+                test("user-facing CREATE ($name) for dead person is dropped with DEAD") {
                     val beslutning = decide(envelope(content), DecisionFoundation(recipientIsDead = true))
                     beslutning shouldBe Decision.Dropped(DropReason.DEAD)
                 }
             }
 
-            test("levende person gir Processed") {
+            test("alive person returns Processed") {
                 val beslutning = decide(envelope(brukervarsel), DecisionFoundation(recipientIsDead = false))
                 beslutning.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
             }
 
-            test("lukkeoperasjon (INACTIVATE) gates ikke selv om recipient er død") {
+            test("close operation (INACTIVATE) is not gated even when recipient is dead") {
                 val inactivate = BrukervarselInactivate(reference = "ref-1", sykmeldt = sykmeldt)
                 decide(envelope(inactivate), DecisionFoundation(recipientIsDead = true))
                     .shouldBeInstanceOf<Decision.Processed>()
             }
 
-            test("mikrofrontend-deaktivering gates ikke selv om recipient er død") {
+            test("microfrontend disable is not gated even when recipient is dead") {
                 val disable = MicrofrontendDisable(personIdentifier = sykmeldt, mikrofrontendId = "mf-1")
                 decide(envelope(disable), DecisionFoundation(recipientIsDead = true))
                     .shouldBeInstanceOf<Decision.Processed>()
             }
 
-            test("ledervarsel gates ikke på den sykmeldtes død (recipient er lederen)") {
+            test("leader notification is not gated on the employee's death (recipient is the leader)") {
                 val ledervarsel = LedervarselCreate(sykmeldt = sykmeldt, orgnummer = orgnr, text = "text")
                 decide(envelope(ledervarsel), DecisionFoundation(recipientIsDead = true))
                     .shouldBeInstanceOf<Decision.Processed>()

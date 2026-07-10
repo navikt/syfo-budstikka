@@ -23,24 +23,24 @@ class FoundationFetcherTest :
 
         fun envelope(content: DispatchContent) = Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
 
-        test("brukerrettet person som er død gir recipientIsDead=true") {
+        test("dead user-facing person yields recipientIsDead=true") {
             val fake = FakeDeathLookup().apply { registerDeath(sykmeldt) }
             val foundation = FoundationFetcher(fake).fetch(envelope(BrukervarselCreate(sykmeldt, Varseltype.BESKJED, "t")))
             foundation shouldBe DecisionFoundation(recipientIsDead = true)
         }
 
-        test("brukerrettet person som lever gir recipientIsDead=false") {
+        test("alive user-facing person yields recipientIsDead=false") {
             val foundation = FoundationFetcher(FakeDeathLookup()).fetch(envelope(BrukervarselCreate(sykmeldt, Varseltype.BESKJED, "t")))
             foundation shouldBe DecisionFoundation(recipientIsDead = false)
         }
 
-        test("ledervarsel slår ikke opp død på den sykmeldte (ingen gate) selv om markert død") {
+        test("leader notification does not look up death for the employee (no gate) even when marked dead") {
             val fake = FakeDeathLookup().apply { registerDeath(sykmeldt) }
             val foundation = FoundationFetcher(fake).fetch(envelope(LedervarselCreate(sykmeldt, orgnr, "t")))
             foundation shouldBe DecisionFoundation(recipientIsDead = false)
         }
 
-        test("arbeidsgivervarsel (Altinn) har ingen person å slå opp") {
+        test("employer notification (Altinn) has no person to look up") {
             val ag =
                 ArbeidsgivervarselCreate(
                     orgnummer = orgnr,

@@ -14,7 +14,7 @@ private const val TOPIC = "team-esyfo.formidling.v1"
 
 class ReadEventIdTest :
     FunSpec({
-        test("gyldig UUID-header gir Ok med parset verdi") {
+        test("valid UUID header returns Valid with parsed value") {
             val id = UUID.randomUUID()
 
             val resultat = record(eventId = id.toString()).readEventId()
@@ -22,13 +22,13 @@ class ReadEventIdTest :
             resultat.shouldBeInstanceOf<EventId.Valid>().value shouldBe id
         }
 
-        test("missing header returns Ugyldig(MISSING_EVENT_ID)") {
+        test("missing header returns Invalid(MISSING_EVENT_ID)") {
             val resultat = record(eventId = null).readEventId()
 
             resultat.shouldBeInstanceOf<EventId.Invalid>().failureReason shouldBe "MISSING_EVENT_ID"
         }
 
-        test("header that is not a UUID returns Ugyldig(INVALID_EVENT_ID)") {
+        test("header that is not a UUID returns Invalid(INVALID_EVENT_ID)") {
             val resultat = record(eventId = "ikke-en-uuid").readEventId()
 
             resultat.shouldBeInstanceOf<EventId.Invalid>().failureReason shouldBe "INVALID_EVENT_ID"

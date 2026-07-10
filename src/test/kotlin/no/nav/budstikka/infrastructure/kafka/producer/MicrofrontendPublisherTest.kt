@@ -13,7 +13,7 @@ private const val TOPIC = "min-side.aapen-microfrontend-v1"
 
 class MicrofrontendPublisherTest :
     FunSpec({
-        test("publishes aktivering to the configured topic keyed by personident") {
+        test("publishes enable action to the configured topic keyed by personident") {
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(
@@ -38,7 +38,7 @@ class MicrofrontendPublisherTest :
                 )
         }
 
-        test("publishes deaktivering to the configured topic keyed by personident") {
+        test("publishes disable action to the configured topic keyed by personident") {
             val recording = RecordingMessagePublisher()
 
             microfrontendPublisher(TOPIC, recording).publish(

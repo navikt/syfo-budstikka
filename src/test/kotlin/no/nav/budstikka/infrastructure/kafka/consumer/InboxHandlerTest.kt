@@ -13,7 +13,7 @@ private const val TOPIC = "team-esyfo.formidling.v1"
 
 class InboxHandlerTest :
     FunSpec({
-        test("formidling saved in inbox and returns without error") {
+        test("dispatch is saved in inbox and returns without error") {
             val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
             handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
@@ -23,7 +23,7 @@ class InboxHandlerTest :
             deadLetterRepository.savedDeadLetters.size shouldBe 0
         }
 
-        test("formidling duplicate (same event_id) yields no new row and does not throw") {
+        test("duplicate dispatch (same event_id) yields no new row and does not throw") {
             val (handler, inboxRepository, deadLetterRepository) =
                 createTestContext(
                     shouldReturnNewRowCreated = false,

@@ -80,32 +80,32 @@ class DispatchSerializationTest :
                 )
 
             variants.forEach { (name, content) ->
-                test("rundtur bevarer $name") {
+                test("roundtrip preserves $name") {
                     rundtur(content) shouldBe envelope(content)
                 }
             }
         }
 
-        test("polymorf diskriminator bruker stabilt type-name") {
+        test("polymorphic discriminator uses a stable type name") {
             val json = dispatchJson.encodeToString(envelope(BrevCreate(PersonIdentifier(fnr), "jp-9")))
             json shouldContain "\"type\":\"BrevCreate\""
         }
 
-        test("partitionKey serialiseres ikke (computed getter uten backing field)") {
+        test("partitionKey is not serialized (computed getter without backing field)") {
             val json = dispatchJson.encodeToString(envelope(BrevCreate(PersonIdentifier(fnr), "jp-9")))
             json shouldNotContain "partitionKey"
         }
 
         context("PII-maskering i toString (B9)") {
-            test("Personident maskeres") {
+            test("PersonIdentifier is masked") {
                 PersonIdentifier(fnr).toString() shouldBe "***"
             }
 
-            test("Orgnummer maskeres") {
+            test("Orgnummer is masked") {
                 Orgnummer(orgnr).toString() shouldBe "***"
             }
 
-            test("data class-toString lekker ikke fnr eller orgnr") {
+            test("data class toString does not leak fnr or orgnr") {
                 val content =
                     ArbeidsgivervarselCreate(
                         orgnummer = Orgnummer(orgnr),
@@ -123,7 +123,7 @@ class DispatchSerializationTest :
             }
         }
 
-        test("serialisert payload bærer råverdien (partisjonering trenger ekte id)") {
+        test("serialized payload carries the raw value (partitioning needs a real id)") {
             val json = dispatchJson.encodeToString(envelope(BrevCreate(PersonIdentifier(fnr), "jp-9")))
             json shouldContain fnr
         }

@@ -21,13 +21,13 @@ class DecisionProcessTest :
                 content = BrukervarselCreate(sykmeldt, Varseltype.OPPGAVE, "text"),
             )
 
-        test("død person → Dropped(DEAD) ende-til-ende via død-oppslaget") {
+        test("dead person -> Dropped(DEAD) end-to-end via death lookup") {
             val fake = FakeDeathLookup().apply { registerDeath(sykmeldt) }
             val prosess = DecisionProcess(FoundationFetcher(fake))
             prosess.process(hendelse()) shouldBe Decision.Dropped(DropReason.DEAD)
         }
 
-        test("levende person → Processed med én leveranse") {
+        test("alive person -> Processed with one delivery") {
             val prosess = DecisionProcess(FoundationFetcher(FakeDeathLookup()))
             prosess.process(hendelse()).shouldBeInstanceOf<Decision.Processed>()
         }
