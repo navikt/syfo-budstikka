@@ -4,6 +4,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.longs.shouldBeExactly
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.infrastructure.Heartbeat
+import no.nav.budstikka.infrastructure.MutableClock
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.MockConsumer
@@ -180,8 +182,11 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = {
                         when (createdCount.getAndIncrement()) {
-                            0 -> FailingPollConsumer().also { createdConsumers += it }
-                            else ->
+                            0 -> {
+                                FailingPollConsumer().also { createdConsumers += it }
+                            }
+
+                            else -> {
                                 RecordingMockConsumer().also { consumer ->
                                     createdConsumers += consumer
                                     consumer.schedulePollTask {
@@ -190,6 +195,7 @@ class ConsumerRunnerTest :
                                         consumer.addRecord(ConsumerRecord(TOPIC, 0, 0L, "key", "value"))
                                     }
                                 }
+                            }
                         }
                     },
                     topics = listOf(TOPIC),
@@ -235,11 +241,11 @@ class ConsumerRunnerTest :
         }
 
         test("liveness stays fresh on empty polls because the heartbeat fires every poll round") {
-            // A quiet topic must not look dead: recordPoll() runs on every poll, including empty ones.
+            // A quiet topic must not look dead: record() runs on every poll, including empty ones.
             // The clock jumps past the stale threshold during the poll, so only the runner's
-            // recordPoll() can keep liveness green afterwards.
+            // record() can keep liveness green afterward.
             val clock = MutableClock(Instant.parse("2026-01-01T00:00:00Z"))
-            val heartbeat = ConsumerHeartbeat(clock, Duration.ofMinutes(5))
+            val heartbeat = Heartbeat(clock, Duration.ofMinutes(5))
             val consumer = RecordingMockConsumer()
             val polledOnEmptyTopic = CountDownLatch(1)
 

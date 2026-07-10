@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.time.withTimeoutOrNull
+import no.nav.budstikka.infrastructure.Heartbeat
 import no.nav.budstikka.infrastructure.config.MdcKeys
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
@@ -47,7 +48,7 @@ class ConsumerRunner<K, V>(
     private val initialBackoff: Duration = Duration.ofSeconds(1),
     private val maxBackoff: Duration = Duration.ofSeconds(30),
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
-    private val heartbeat: ConsumerHeartbeat = ConsumerHeartbeat(),
+    private val heartbeat: Heartbeat = Heartbeat(),
 ) : AutoCloseable {
     private val logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
     private val running = AtomicBoolean(false)
@@ -75,7 +76,7 @@ class ConsumerRunner<K, V>(
         activeConsumer?.wakeup()
     }
 
-    /** Liveness signal for this consumer loop; see [ConsumerHeartbeat] and docs/HELSESJEKK.md. */
+    /** Liveness signal for this consumer loop; see [Heartbeat] and docs/HELSESJEKK.md. */
     fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
@@ -166,9 +167,9 @@ class ConsumerRunner<K, V>(
     private suspend fun pollAndHandle(consumer: Consumer<K, V>) {
         val records = consumer.poll(pollTimeout)
         // Heartbeat every poll round, including empty ones: a quiet topic must not look dead. A
-        // transient broker outage surfaces as empty polls (not exceptions), so liveness stays green
+        // transient broker outage surfaces as empty polls (not exceptions), so liveness stays green,
         // and we avoid coupling the probe to broker availability.
-        heartbeat.recordPoll()
+        heartbeat.record()
         if (records.isEmpty) return
         val maxOffsets = mutableMapOf<TopicPartition, Long>()
         for (record in records) {

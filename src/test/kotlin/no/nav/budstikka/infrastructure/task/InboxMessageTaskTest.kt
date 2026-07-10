@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.InboxMessageTask
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
+import no.nav.budstikka.infrastructure.task.config.InboxMessageTaskConfig
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -34,8 +35,7 @@ class InboxMessageTaskTest :
             val task =
                 InboxMessageTask(
                     repository = repository,
-                    interval = Duration.ofSeconds(1),
-                    batchSize = 10,
+                    config = InboxMessageTaskConfig(interval = Duration.ofSeconds(1), batchSize = 10),
                 ) { dispatch ->
                     decodedEventIds += dispatch.eventId
                 }
@@ -57,7 +57,11 @@ class InboxMessageTaskTest :
             val task =
                 InboxMessageTask(
                     repository = repository,
-                    interval = Duration.ofMillis(10),
+                    config =
+                        InboxMessageTaskConfig(
+                            interval = Duration.ofMillis(10),
+                            batchSize = InboxMessageTaskConfig.DEFAULT_BATCH_SIZE,
+                        ),
                 )
 
             task.start()
