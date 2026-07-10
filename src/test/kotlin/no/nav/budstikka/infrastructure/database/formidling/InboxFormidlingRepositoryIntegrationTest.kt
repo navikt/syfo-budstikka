@@ -21,7 +21,7 @@ class InboxFormidlingRepositoryIntegrationTest :
             fixture.close()
         }
 
-        test("save skriver rad i inbox_formidling og dedupliserer på event_id") {
+        test("save writes a row to inbox_formidling and deduplicates on event_id") {
             val repository = InboxFormidlingRepositoryImpl(fixture.database)
             val eventId = UUID.randomUUID()
             val payload = """{"eventId":"$eventId"}"""

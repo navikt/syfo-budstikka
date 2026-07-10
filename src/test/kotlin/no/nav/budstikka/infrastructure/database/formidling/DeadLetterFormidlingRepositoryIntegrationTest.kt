@@ -22,7 +22,7 @@ class DeadLetterFormidlingRepositoryIntegrationTest :
             fixture.close()
         }
 
-        test("save persisterer en rad i dead_letter_formidling") {
+        test("save persists a row in dead_letter_formidling") {
             val repository = DeadLetterFormidlingRepositoryImpl(fixture.database)
             val record =
                 DeadLetterRecord(
@@ -37,7 +37,7 @@ class DeadLetterFormidlingRepositoryIntegrationTest :
 
             repository.save(record)
 
-            val antall = transaction(fixture.database) { DeadLetterFormidlingTable.selectAll().count() }
-            antall shouldBe 1L
+            val count = transaction(fixture.database) { DeadLetterFormidlingTable.selectAll().count() }
+            count shouldBe 1L
         }
     })
