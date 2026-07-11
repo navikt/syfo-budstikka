@@ -89,8 +89,11 @@ class InboxMessageRepositoryImpl(
                 InboxMessageTable
                     .selectAll()
                     .where {
-                        (InboxMessageTable.state eq RECEIVED_STATE) or
-                            ((InboxMessageTable.state eq CLAIMED_STATE) and (InboxMessageTable.nextAttemptTime lessEq now))
+                        (InboxMessageTable.state eq InboxMessageState.RECEIVED.name) or
+                            (
+                                (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+                                    (InboxMessageTable.nextAttemptTime lessEq now)
+                            )
                     }.orderBy(
                         InboxMessageTable.receivedAt to SortOrder.ASC,
                         InboxMessageTable.eventId to SortOrder.ASC,
@@ -105,7 +108,7 @@ class InboxMessageRepositoryImpl(
             if (claimed.isNotEmpty()) {
                 val leaseDeadline = now + lease.toKotlinDuration()
                 InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.eventId } }) {
-                    it[state] = CLAIMED_STATE
+                    it[state] = InboxMessageState.CLAIMED.name
                     it[nextAttemptTime] = leaseDeadline
                     it[attempt] = attempt + 1
                 }
@@ -115,38 +118,30 @@ class InboxMessageRepositoryImpl(
     }
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean =
-        terminate(eventId, state = PROCESSED_STATE, dropReason = null, errorMessage = null)
+        terminate(eventId, state = InboxMessageState.PROCESSED, dropReason = null, errorMessage = null)
 
     override fun markDroppedInTransaction(
         eventId: UUID,
         reason: String,
-    ): Boolean = terminate(eventId, state = DROPPED_STATE, dropReason = reason, errorMessage = null)
+    ): Boolean = terminate(eventId, state = InboxMessageState.DROPPED, dropReason = reason, errorMessage = null)
 
     override fun markFailedInTransaction(
         eventId: UUID,
         reason: String,
-    ): Boolean = terminate(eventId, state = FAILED_STATE, dropReason = null, errorMessage = reason)
+    ): Boolean = terminate(eventId, state = InboxMessageState.FAILED, dropReason = null, errorMessage = reason)
 
     private fun terminate(
         eventId: UUID,
-        state: String,
+        state: InboxMessageState,
         dropReason: String?,
         errorMessage: String?,
     ): Boolean =
         InboxMessageTable.update({
-            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq CLAIMED_STATE)
+            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
         }) {
-            it[InboxMessageTable.state] = state
+            it[InboxMessageTable.state] = state.name
             it[InboxMessageTable.dropReason] = dropReason
             it[InboxMessageTable.errorMessage] = errorMessage
             it[processedAt] = Clock.System.now()
         } > 0
-
-    private companion object {
-        const val RECEIVED_STATE = "RECEIVED"
-        const val CLAIMED_STATE = "CLAIMED"
-        const val PROCESSED_STATE = "PROCESSED"
-        const val DROPPED_STATE = "DROPPED"
-        const val FAILED_STATE = "FAILED"
-    }
 }

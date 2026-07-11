@@ -9,7 +9,7 @@ import org.jetbrains.exposed.v1.datetime.timestamp
 object InboxMessageTable : Table("inbox_message") {
     val eventId = javaUUID("event_id").databaseGenerated()
     val payload = text("payload")
-    val state = text("state").default("RECEIVED")
+    val state = text("state").default(InboxMessageState.RECEIVED.name)
     val dropReason = text("drop_reason").nullable()
     val attempt = integer("attempt").default(0)
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
