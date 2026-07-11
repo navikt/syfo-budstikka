@@ -11,7 +11,7 @@ import no.nav.budstikka.domain.decision.Recipient
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
-import no.nav.budstikka.infrastructure.database.config.ExposedTransactionRunner
+import no.nav.budstikka.infrastructure.database.config.TransactionRunnerImpl
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
@@ -35,7 +35,7 @@ class EffectuateDecisionIntegrationTest :
             val inbox = InboxMessageRepositoryImpl(fixture.database)
             val effectuate =
                 EffectuateDecision(
-                    transactionRunner = ExposedTransactionRunner(fixture.database),
+                    transactionRunner = TransactionRunnerImpl(fixture.database),
                     inboxMessageRepository = inbox,
                     deliveryRepository = DeliveryRepositoryImpl(),
                 )

@@ -22,7 +22,7 @@ fun DependencyRegistry.databaseModule() {
     provide<HikariDataSource> { createDataSource(resolve()) }
         .cleanup(HikariDataSource::close)
     provide<Database> { Database.connect(resolve<DataSource>()) }
-    provide<TransactionRunner> { ExposedTransactionRunner(resolve()) }
+    provide<TransactionRunner> { TransactionRunnerImpl(resolve()) }
     provide<HealthCheck> {
         dataSourceHealthCheck(resolve())
     }

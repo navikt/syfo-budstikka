@@ -1,9 +1,6 @@
 package no.nav.budstikka.infrastructure.database.config
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Unit-of-work: kjører [block] i ÉN databasetransaksjon. Grensen eies av kalleren (typisk en
@@ -19,11 +16,8 @@ interface TransactionRunner {
     suspend fun <T> transaction(block: () -> T): T
 }
 
-class ExposedTransactionRunner(
+class TransactionRunnerImpl(
     private val database: Database,
 ) : TransactionRunner {
-    override suspend fun <T> transaction(block: () -> T): T =
-        withContext(Dispatchers.IO) {
-            transaction(database) { block() }
-        }
+    override suspend fun <T> transaction(block: () -> T): T = database.transact(block)
 }
