@@ -44,7 +44,7 @@ class ConsumerRunner<K, V>(
     private val topics: List<String>,
     private val handler: MessageHandler<K, V>,
     private val pollTimeout: Duration = Duration.ofSeconds(1),
-    private val coroutineName: String = "kafka-consumer",
+    val coroutineName: String = "kafka-consumer",
     private val initialBackoff: Duration = Duration.ofSeconds(1),
     private val maxBackoff: Duration = Duration.ofSeconds(30),
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
