@@ -2,6 +2,7 @@ package no.nav.budstikka.bootstrap
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
+import no.nav.budstikka.application.DeliveryTask
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageTask
 import no.nav.budstikka.domain.decision.DeathGate
@@ -12,6 +13,7 @@ import no.nav.budstikka.infrastructure.database.config.TransactionRunner
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
+import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 import no.nav.budstikka.infrastructure.task.BaseTask
 import no.nav.budstikka.infrastructure.task.config.TaskConfig
 
@@ -34,6 +36,11 @@ fun DependencyRegistry.taskModule() {
                 effectuator = resolve<EffectuateDecision>(),
                 decisionProcess = resolve<DecisionProcess>(),
                 config = taskConfig.inboxMessage,
+            ),
+            DeliveryTask(
+                repository = resolve<DeliveryRepository>(),
+                microfrontendPublisher = resolve<MicrofrontendPublisher>(),
+                config = taskConfig.delivery,
             ),
         )
     }.cleanup { tasks ->

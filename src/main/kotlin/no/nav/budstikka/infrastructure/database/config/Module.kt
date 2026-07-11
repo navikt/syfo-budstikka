@@ -28,7 +28,7 @@ fun DependencyRegistry.databaseModule() {
     }
     provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
     provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
-    provide<DeliveryRepository> { DeliveryRepositoryImpl() }
+    provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

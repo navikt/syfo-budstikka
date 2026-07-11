@@ -8,11 +8,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageTask
+import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
+import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
@@ -175,6 +177,19 @@ private class RecordingDeliveryRepository : DeliveryRepository {
     ) {
         saved += inboxEventId to draft
     }
+
+    override suspend fun claim(
+        limit: Int,
+        lease: Duration,
+        channels: Set<Channel>,
+    ): List<ClaimedDelivery> = emptyList()
+
+    override suspend fun markSent(deliveryId: UUID): Boolean = true
+
+    override suspend fun markFailed(
+        deliveryId: UUID,
+        reason: String,
+    ): Boolean = true
 }
 
 private fun validPayload(eventId: UUID): String =
