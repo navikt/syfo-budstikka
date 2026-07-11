@@ -28,13 +28,28 @@ import no.nav.budstikka.domain.dispatch.PersonIdentifier
 fun decide(
     event: Dispatch,
     foundation: DecisionFoundation,
-): Decision {
-    val content = event.content
-    if (foundation.recipientIsDead && content.gatedPerson() != null) {
-        return Decision.Dropped(DropReason.DEAD)
+): Decision =
+    when (val content = event.content) {
+        is MicrofrontendEnable,
+        is MicrofrontendDisable,
+        -> Decision.Processed(listOf(content.toDeliveryDraft(event.reference)))
+        is BrukervarselCreate,
+        is BrukervarselInactivate,
+        is LedervarselCreate,
+        is LedervarselInactivate,
+        is DittSykefravaerCreate,
+        is DittSykefravaerInactivate,
+        is ArbeidsgivervarselCreate,
+        is ArbeidsgivervarselInactivate,
+        is BrevCreate,
+        -> {
+            if (foundation.recipientIsDead && content.gatedPerson() != null) {
+                Decision.Dropped(DropReason.DEAD)
+            } else {
+                Decision.Processed(listOf(content.toDeliveryDraft(event.reference)))
+            }
+        }
     }
-    return Decision.Processed(listOf(content.toDeliveryDraft(event.reference)))
-}
 
 /**
  * Personen død-gaten gjelder for, eller `null` når hendelsen ikke er en brukerrettet CREATE.
@@ -61,7 +76,7 @@ internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
         -> null
     }
 
-private fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
+internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
     when (this) {
         is BrukervarselCreate ->
             draft(reference, Operation.CREATE, Channel.BRUKERVARSEL, Recipient.Person(personIdentifier))

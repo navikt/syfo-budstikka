@@ -23,12 +23,12 @@ class DecisionProcessTest :
 
         test("dead person -> Dropped(DEAD) end-to-end via death lookup") {
             val fake = FakeDeathLookup().apply { registerDeath(sykmeldt) }
-            val process = DecisionProcess(FoundationFetcher(fake))
+            val process = DecisionProcess(IsAliveDecisionPolicy(fake), UnrestrictedDecisionPolicy)
             process.process(event()) shouldBe Decision.Dropped(DropReason.DEAD)
         }
 
         test("alive person -> Processed with one delivery") {
-            val process = DecisionProcess(FoundationFetcher(FakeDeathLookup()))
+            val process = DecisionProcess(IsAliveDecisionPolicy(FakeDeathLookup()), UnrestrictedDecisionPolicy)
             process.process(event()).shouldBeInstanceOf<Decision.Processed>()
         }
     })
