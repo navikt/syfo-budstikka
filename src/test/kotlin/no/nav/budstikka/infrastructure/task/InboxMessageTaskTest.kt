@@ -8,7 +8,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageTask
+import no.nav.budstikka.domain.decision.DeathGate
+import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
@@ -109,6 +112,7 @@ private fun taskWith(
                 inboxMessageRepository = repository,
                 deliveryRepository = RecordingDeliveryRepository(),
             ),
+        decisionProcess = DecisionProcess(listOf(DeathGate(FakeDeathLookup()))),
         config =
             InboxMessageTaskConfig(
                 interval = interval,

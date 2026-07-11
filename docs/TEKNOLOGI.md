@@ -38,8 +38,9 @@ aldri hardkodede versjoner.
 
 Pakker under `no.nav.syfo`:
 
-- **`domain`** — ren kjerne: modellen (`Formidling`, `Beslutning`, tilstander) og `decide()`
-  (B28 functional core). Ingen I/O, ingen rammeverk. Raske, parallelliserbare enhetstester.
+- **`domain`** — ren kjerne: modellen (`Formidling`, `Beslutning`, tilstander) og de komponerbare
+  beslutningsgatenes rene `apply` (B28/B55). Ingen I/O, ingen rammeverk. Raske,
+  parallelliserbare enhetstester.
 - **`application`** — use-case-orkestratorer: bakgrunns-workere (`InboxMessageTask`) og andre
   drivere som koordinerer `domain` og `infrastructure`-porter. Snakker bare domene og porter, ingen
   transport-typer. Kan avhenge av `domain` og `infrastructure`; ingenting innover peker hit.
@@ -66,7 +67,7 @@ Mapping til B28: `domain` = functional core · `application` og `infrastructure`
 - **Kotest** med **FunSpec**-stil som testrammeverk.
 - **MockK** for mocking.
 - **Testcontainers** via Kotest-extension for Postgres/Kafka i integrasjonstester.
-- To nivåer: (1) raske, rene **enhetstester** av `domain` (`decide()`, mapping) — ingen
+- To nivåer: (1) raske, rene **enhetstester** av `domain` (beslutningsgater, mapping) — ingen
   containere, kjøres **parallelt**; (2) **integrasjonstester** (repositories, konsument,
   ende-til-ende) med Testcontainers. Parallellitet konfigureres i Kotest.
 - **ktlint** (allerede i repoet) for kodestil. Kjør `./gradlew test` før ferdigmelding.

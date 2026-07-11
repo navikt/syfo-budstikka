@@ -91,11 +91,11 @@ Ktor MockEngine er ikke valgt (fake på for lavt abstraksjonsnivå for en domene
 
 ## Testnivåer og scope (B53)
 
-1. **Enhetstester** (`domain`, functional core B28): rene, raske, parallelle — `decide()`,
-   mapping, tilstandsoverganger. Ingen containere. (B44/TEKNOLOGI.)
+1. **Enhetstester** (`domain`, functional core B28/B55): rene, raske, parallelle — beslutningsgater
+   (`DeathGate`, `DecisionProcess`), mapping, tilstandsoverganger. Ingen containere. (B44/TEKNOLOGI.)
 2. **Integrasjons-/e2e-tester (NÅ):** Kotest FunSpec som booter hele appen (konsument +
    workers + Ktor) in-process mot Testcontainers (B51) med port-fakes (B52) wiret inn, og
-   asserter at fake-kanalene mottok forventet leveranse. Dekker inbox → `decide()` → outbox →
+   asserter at fake-kanalene mottok forventet leveranse. Dekker inbox → beslutning → outbox →
    levering ende-til-ende via de delte scenario-byggerne (B50). Async workers verifiseres med
    Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand.
 

@@ -4,13 +4,21 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageTask
+import no.nav.budstikka.domain.decision.DeathGate
+import no.nav.budstikka.domain.decision.DecisionProcess
+import no.nav.budstikka.domain.decision.DecisionRule
+import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.database.config.TransactionRunner
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
+import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
 import no.nav.budstikka.infrastructure.task.BaseTask
 import no.nav.budstikka.infrastructure.task.config.TaskConfig
 
 fun DependencyRegistry.taskModule() {
+    provide<DeathLookup> { NoopDeathLookup() }
+    provide<List<DecisionRule>> { listOf(DeathGate(resolve<DeathLookup>())) }
+    provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
     provide<EffectuateDecision> {
         EffectuateDecision(
             transactionRunner = resolve<TransactionRunner>(),
@@ -24,6 +32,7 @@ fun DependencyRegistry.taskModule() {
             InboxMessageTask(
                 repository = resolve<InboxMessageRepository>(),
                 effectuator = resolve<EffectuateDecision>(),
+                decisionProcess = resolve<DecisionProcess>(),
                 config = taskConfig.inboxMessage,
             ),
         )
