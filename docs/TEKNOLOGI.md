@@ -40,11 +40,26 @@ Pakker under `no.nav.syfo`:
 
 - **`domain`** — ren kjerne: modellen (`Formidling`, `Beslutning`, tilstander) og `decide()`
   (B28 functional core). Ingen I/O, ingen rammeverk. Raske, parallelliserbare enhetstester.
-- **`infrastructure`** — imperative shell / adaptere: Kafka, Exposed-repositories, eksterne
+- **`application`** — use-case-orkestratorer: bakgrunns-workere (`InboxMessageTask`) og andre
+  drivere som koordinerer `domain` og `infrastructure`-porter. Snakker bare domene og porter, ingen
+  transport-typer. Kan avhenge av `domain` og `infrastructure`; ingenting innover peker hit.
+- **`infrastructure`** — imperative shell og adaptere: Kafka, Exposed-repositories, eksterne
   klienter (KRR, PDL, nærmeste leder, dokdist, notifikasjon-produsent-api), DataSource, config.
+  Task-*mekanismen* (`BaseTask`, `Heartbeat`) bor her: livssyklus og plumbing uten domenekunnskap.
 - **`api`** — Ktor-routes: interne endepunkter (`/internal/isalive|isready|prometheus`), ev. admin.
 
-Mapping til B28: `domain` = functional core · `infrastructure` = imperative shell · `api` = HTTP-kant.
+Plasserings-test (adapter vs. use-case): navngir klassen en transport-type (`ConsumerRecord`,
+`ApplicationCall`, HTTP-request) er den en drivende adapter og hører til `infrastructure` (eller
+`api` for HTTP). Snakker den bare domene og porter, er den et use-case og hører til `application`.
+Ren livssyklus og plumbing hører til `infrastructure`. `InboxMessageHandler` tar `ConsumerRecord` og
+leser Kafka-headere, altså adapter i `infrastructure/kafka`; `InboxMessageTask` tar bare repository
+og config, altså use-case i `application`. En port innføres når det finnes en grunn (to eller flere
+drivere, domenelogikk som skal testes uten transport, eller kompleks orkestrering), ikke på
+spekulasjon. DI-wiring som rører `application` bor i `bootstrap` (composition root), aldri i
+`infrastructure`. Se ADR 0003.
+
+Mapping til B28: `domain` = functional core · `application` og `infrastructure` = imperative shell ·
+`api` = HTTP-kant.
 
 ## Test
 

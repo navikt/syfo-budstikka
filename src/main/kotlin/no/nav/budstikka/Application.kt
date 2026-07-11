@@ -7,6 +7,7 @@ import no.nav.budstikka.api.configureInternalApi
 import no.nav.budstikka.api.installPlugins
 import no.nav.budstikka.bootstrap.installDependencyInjection
 import no.nav.budstikka.bootstrap.startKafkaConsumers
+import no.nav.budstikka.bootstrap.startTasks
 import no.nav.budstikka.infrastructure.database.config.migrate
 import org.slf4j.LoggerFactory
 import java.lang.invoke.MethodHandles
@@ -34,5 +35,6 @@ fun Application.module() {
     val dataSource: DataSource by dependencies
     dataSource.migrate()
     startKafkaConsumers()
+    startTasks()
     configureInternalApi()
 }

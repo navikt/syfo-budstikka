@@ -5,10 +5,10 @@ import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
 import no.nav.budstikka.domain.dispatch.BrevCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
-import no.nav.budstikka.domain.dispatch.DittSykefravaerInactivate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
+import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
+import no.nav.budstikka.domain.dispatch.DittSykefravaerInactivate
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.LedervarselInactivate
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable

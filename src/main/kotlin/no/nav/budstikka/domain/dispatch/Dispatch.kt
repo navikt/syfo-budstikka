@@ -1,6 +1,5 @@
 package no.nav.budstikka.domain.dispatch
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -14,7 +13,6 @@ import java.util.UUID
 data class Dispatch(
     @Serializable(with = UuidSerializer::class)
     val eventId: UUID,
-    @SerialName("referanse")
     val reference: String,
     val content: DispatchContent,
 )

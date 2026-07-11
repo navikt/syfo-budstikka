@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.pdl
+package no.nav.budstikka.fakes
 
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.foundation.DeathLookup

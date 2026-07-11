@@ -144,13 +144,18 @@ PR.**
 
 ### inbox_hendelse.status
 ```
-MOTTATT ──(gate ok, skriv leveranser)──▶ BEHANDLET   (terminal)
-MOTTATT ──(død via PDL)───────────────▶ DROPPET      (terminal, drop_aarsak=DOD)
-MOTTATT ──(transient: PDL/KRR nede)───▶ MOTTATT      (forsok++, next_attempt_time backoff)
-MOTTATT ──(permanent: ugyldig payload)▶ FEILET       (terminal, alert)
+MOTTATT ──(claim: SKIP LOCKED + lease)─▶ CLAIMET     (in-flight, next_attempt_time=lease-frist)
+CLAIMET ──(gate ok, skriv leveranser)──▶ BEHANDLET   (terminal, CAS fra CLAIMET)
+CLAIMET ──(død via PDL)───────────────▶ DROPPET      (terminal, drop_aarsak=DOD)
+CLAIMET ──(permanent: ugyldig payload)▶ FEILET       (terminal, alert)
+CLAIMET ──(lease utløpt / krasj)──────▶ CLAIMET      (re-claimbar, forsok++)
 ```
-Settes utelukkende av **beslutnings-workeren**, i samme DB-tx som skriver leveranse(r)
-eller dropper. Konsument skriver kun `MOTTATT`.
+Konkurrerende konsumenter uten leder (ADR 0004): claim markerer `MOTTATT→CLAIMET` med en lease
+(`next_attempt_time`) i én tx via `FOR UPDATE SKIP LOCKED`, så flere replicaer får disjunkte bunker.
+Terminal-overgangen er en atomisk compare-and-set fra `CLAIMET` i samme DB-tx som skriver
+leveranse(r) — bare vinneren skriver, så levering er exactly-once selv om en lease utløper.
+Konsument skriver kun `MOTTATT`. (Faktiske kolonneverdier er engelske: RECEIVED/CLAIMED/PROCESSED/
+DROPPED/FAILED.)
 
 ### leveranse.status
 ```
@@ -170,13 +175,15 @@ Topologi: én generisk dyp modul + tynn `Kanalhandler`-seam (dispatch på `kanal
 B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikker) bor
 ÉN gang; kanalspesifikt bak smalt grensesnitt.
 
-- **Beslutnings-worker** (functional core / imperative shell, B28):
-  `SELECT … FROM inbox_hendelse WHERE status='MOTTATT' AND next_attempt_time <= now()
-  FOR UPDATE SKIP LOCKED`. Tre steg: (1) `Grunnlagsinnhenter` henter PDL/KRR/NL (I/O,
-  betinget på hendelsestype) → immutabelt `Beslutningsgrunnlag`; (2) `decide(hendelse,
-  grunnlag): Beslutning` — REN funksjon, all gate-/rutelogikk, ingen I/O; (3) effektuering:
-  én tx som skriver leveranse(r) + inbox-status. Eksterne lesekall skjer i steg 1, aldri
-  inne i tx-en.
+- **Beslutnings-worker** (functional core / imperative shell, B28): claim + lease, ikke holdt
+  radlås over I/O (ADR 0004). (0) **Claim** (én tx):
+  `SELECT … FROM inbox_hendelse WHERE status='MOTTATT' OR (status='CLAIMET' AND next_attempt_time
+  <= now()) … FOR UPDATE SKIP LOCKED` → `UPDATE status='CLAIMET', forsok++, next_attempt_time=lease`.
+  Så, utenfor tx: (1) `Grunnlagsinnhenter` henter PDL/KRR/NL (I/O, betinget på hendelsestype) →
+  immutabelt `Beslutningsgrunnlag`; (2) `decide(hendelse, grunnlag): Beslutning` — REN funksjon, all
+  gate-/rutelogikk, ingen I/O; (3) effektuering: én tx per melding som via compare-and-set fra
+  `CLAIMET` skriver leveranse(r) + inbox-status. Eksterne lesekall skjer i steg 1, aldri inne i en tx;
+  radlåsen holdes aldri over nettverks-I/O.
 - **Outbox-worker:** `SELECT … FROM leveranse WHERE status='KLAR'
   AND next_attempt_time <= now() AND tidligst_sending <= now() FOR UPDATE SKIP LOCKED`.
   Holder radlås under sending (B15), stramme klient-timeouts. Idempotensnøkkel =

@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.kafka.consumer
+package no.nav.budstikka.infrastructure
 
 import java.time.Clock
 import java.time.Instant
