@@ -37,7 +37,7 @@ class EffectuateDecisionIntegrationTest :
                 EffectuateDecision(
                     transactionRunner = TransactionRunnerImpl(fixture.database),
                     inboxMessageRepository = inbox,
-                    deliveryRepository = DeliveryRepositoryImpl(),
+                    deliveryRepository = DeliveryRepositoryImpl(fixture.database),
                 )
             return effectuate to inbox
         }
