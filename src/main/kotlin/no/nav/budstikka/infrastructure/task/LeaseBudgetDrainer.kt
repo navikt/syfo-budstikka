@@ -1,5 +1,7 @@
 package no.nav.budstikka.infrastructure.task
 
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import no.nav.budstikka.infrastructure.config.MdcKeys
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
@@ -47,7 +49,9 @@ class LeaseBudgetDrainer(
             }
             val closeable = eventId(item)?.let { MDC.putCloseable(MdcKeys.EVENT_ID, it) }
             closeable.use { _ ->
-                process(item)
+                withContext(MDCContext()) {
+                    process(item)
+                }
             }
         }
     }

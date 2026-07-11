@@ -3,9 +3,13 @@ package no.nav.budstikka.infrastructure.task
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import no.nav.budstikka.infrastructure.config.MdcKeys
 import org.slf4j.MDC
 import java.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 class LeaseBudgetDrainerTest :
     FunSpec({
@@ -64,5 +68,24 @@ class LeaseBudgetDrainerTest :
             )
 
             sawKey shouldBe null
+        }
+
+        test("keeps eventId in MDC across suspension points") {
+            val seen = mutableListOf<String?>()
+            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+
+            withContext(MDCContext(mapOf(MdcKeys.TASK to "inbox-message-task"))) {
+                drainer.drain(
+                    leaseDuration = Duration.ofMinutes(5),
+                    eventId = { "event-$it" },
+                    claim = { listOf(1, 2) },
+                    process = {
+                        delay(1.milliseconds)
+                        seen += MDC.get(MdcKeys.EVENT_ID)
+                    },
+                )
+            }
+
+            seen.shouldContainExactly("event-1", "event-2")
         }
     })
