@@ -1,22 +1,19 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
-import no.nav.budstikka.domain.dispatch.DittSykefravaerInactivate
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.LedervarselInactivate
-import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 
 /**
- * Imperativt skall (B28) rundt den rene beslutningen: ruter til riktig policy, lar policyen hente
- * sitt eget grunnlag (I/O) og fatter beslutning for én hendelse.
+ * Imperativt skall (B28) rundt de rene beslutningsgatene: seeder leveranse-utkastet fra hendelsen,
+ * henter grunnlaget for alle [DecisionRule]-gater KONKURRENT ([DecisionRule.resolve] i `async`), og
+ * folder deretter de rene [ResolvedRule]-avgjørelsene SEKVENSIELT over leveransene. Første ikke-
+ * [Decision.Processed]-utfall (Dropped/Failed) short-circuiter resten (komponerbare gater, B55).
+ *
+ * Rekkefølgen i [rules] er anvendelses-rekkefølgen: sett billigst/mest droppende gate først. Parallell
+ * grunnlagsinnhenting sparer latens når flere gater gjør nett-kall, men short-circuiter ikke selve
+ * I/O-en – et tidlig dropp betyr at et samtidig oppslag var forgjeves (bevisst avveining).
  *
  * Bevisst UTENFOR denne slicen (utsatt til #19-fundamentet finnes):
  * - poll-løkka mot `inbox_hendelse` (`FOR UPDATE SKIP LOCKED`),
@@ -25,29 +22,18 @@ import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
  * Decisionsutfallet ([Decision]) er nettopp dataen den effektueringen skal skrive.
  */
 class DecisionProcess internal constructor(
-    private val isAliveDecisionPolicy: IsAliveDecisionPolicy,
-    private val unrestrictedDecisionPolicy: UnrestrictedDecisionPolicy,
+    private val rules: List<DecisionRule>,
 ) {
     suspend fun process(event: Dispatch): Decision =
-        when (val content = event.content) {
-            is MicrofrontendEnable,
-            is MicrofrontendDisable,
-            -> decideWithPolicy(event.reference, content, unrestrictedDecisionPolicy)
-            is BrukervarselCreate,
-            is BrukervarselInactivate,
-            is LedervarselCreate,
-            is LedervarselInactivate,
-            is DittSykefravaerCreate,
-            is DittSykefravaerInactivate,
-            is ArbeidsgivervarselCreate,
-            is ArbeidsgivervarselInactivate,
-            is BrevCreate,
-            -> decideWithPolicy(event.reference, content, isAliveDecisionPolicy)
+        coroutineScope {
+            val resolved = rules.map { async { it.resolve(event) } }.awaitAll()
+            var deliveries = listOf(event.content.toDeliveryDraft(event.reference))
+            for (rule in resolved) {
+                when (val outcome = rule.apply(deliveries)) {
+                    is Decision.Processed -> deliveries = outcome.deliveries
+                    else -> return@coroutineScope outcome
+                }
+            }
+            Decision.Processed(deliveries)
         }
-
-    private suspend fun <T : DispatchContent, F> decideWithPolicy(
-        reference: String,
-        content: T,
-        policy: DecisionPolicy<T, F>,
-    ): Decision = policy.decide(reference, content, policy.fetchFoundation(content))
 }

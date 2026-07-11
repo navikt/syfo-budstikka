@@ -5,7 +5,6 @@ import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
 import no.nav.budstikka.domain.dispatch.BrevCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
 import no.nav.budstikka.domain.dispatch.DittSykefravaerInactivate
@@ -15,50 +14,20 @@ import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
-/**
- * Den rene beslutningskjernen (functional core, B28): ingen I/O, total og deterministisk.
- * All gate- og rutelogikk bor her, slik at den kan enhetstestes uten containere.
- *
- * Død-gaten (B-nivå: «ikke send til død person») dropper en brukerrettet CREATE når [foundation]
- * sier mottakeren er død. Lukkeoperasjoner (INACTIVATE/deaktiver) gates IKKE – de sender ikke til
- * personen, men rydder opp. Ledervarsel/arbeidsgivervarsel gates heller ikke på den sykmeldtes
- * død her: mottakeren er lederen/virksomheten, og NL-resolusjon (B24) mangler ennå – den
- * semantikken er en åpen beslutning som tas når de kanalene bygges (#22/#23).
+/*
+ * Ren mapping fra [DispatchContent] til rute-attributtene på et [DeliveryDraft] (kanal, operasjon,
+ * mottaker), samt hvilken person en person-gate (f.eks. [DeathGate]) eventuelt gjelder for. Ingen
+ * I/O, total og deterministisk – testes med rene data.
  */
-fun decide(
-    event: Dispatch,
-    foundation: DecisionFoundation,
-): Decision =
-    when (val content = event.content) {
-        is MicrofrontendEnable,
-        is MicrofrontendDisable,
-        -> Decision.Processed(listOf(content.toDeliveryDraft(event.reference)))
-        is BrukervarselCreate,
-        is BrukervarselInactivate,
-        is LedervarselCreate,
-        is LedervarselInactivate,
-        is DittSykefravaerCreate,
-        is DittSykefravaerInactivate,
-        is ArbeidsgivervarselCreate,
-        is ArbeidsgivervarselInactivate,
-        is BrevCreate,
-        -> {
-            if (foundation.recipientIsDead && content.gatedPerson() != null) {
-                Decision.Dropped(DropReason.DEAD)
-            } else {
-                Decision.Processed(listOf(content.toDeliveryDraft(event.reference)))
-            }
-        }
-    }
 
 /**
- * Personen død-gaten gjelder for, eller `null` når hendelsen ikke er en brukerrettet CREATE.
- * Styrer også hvilke hendelser [FoundationFetcher] i det hele tatt slår opp død for – vi kaller
- * ikke PDL når svaret uansett ikke kan gate.
+ * Personen en person-gate gjelder for, eller `null` når hendelsen ikke er en brukerrettet CREATE.
+ * Gatene bruker dette til self-selection: en gate uten gated person slipper leveransen uendret
+ * gjennom, og [DeathGate] slår ikke opp PDL når svaret uansett ikke kan gate.
  *
  * `when` er bevisst totalt (ingen `else`): en ny [DispatchContent]-variant skal gi kompilerings-
  * feil her, slik at gate-beslutningen tas eksplisitt og ingen ny brukerrettet CREATE stille slipper
- * forbi død-gaten.
+ * forbi person-gatene.
  */
 internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
     when (this) {

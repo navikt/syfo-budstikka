@@ -4,9 +4,9 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageTask
+import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
-import no.nav.budstikka.domain.decision.IsAliveDecisionPolicy
-import no.nav.budstikka.domain.decision.UnrestrictedDecisionPolicy
+import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.database.config.TransactionRunner
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
@@ -17,14 +17,8 @@ import no.nav.budstikka.infrastructure.task.config.TaskConfig
 
 fun DependencyRegistry.taskModule() {
     provide<DeathLookup> { NoopDeathLookup() }
-    provide<IsAliveDecisionPolicy> { IsAliveDecisionPolicy(resolve<DeathLookup>()) }
-    provide<UnrestrictedDecisionPolicy> { UnrestrictedDecisionPolicy }
-    provide<DecisionProcess> {
-        DecisionProcess(
-            isAliveDecisionPolicy = resolve<IsAliveDecisionPolicy>(),
-            unrestrictedDecisionPolicy = resolve<UnrestrictedDecisionPolicy>(),
-        )
-    }
+    provide<List<DecisionRule>> { listOf(DeathGate(resolve<DeathLookup>())) }
+    provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
     provide<EffectuateDecision> {
         EffectuateDecision(
             transactionRunner = resolve<TransactionRunner>(),

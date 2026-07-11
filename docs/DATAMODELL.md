@@ -179,9 +179,10 @@ B27. Generisk maskineri (poll, radlås, retry/backoff, status, tracing, metrikke
   radlås over I/O (ADR 0004). (0) **Claim** (én tx):
   `SELECT … FROM inbox_hendelse WHERE status='MOTTATT' OR (status='CLAIMET' AND next_attempt_time
   <= now()) … FOR UPDATE SKIP LOCKED` → `UPDATE status='CLAIMET', forsok++, next_attempt_time=lease`.
-  Så, utenfor tx: (1) `Grunnlagsinnhenter` henter PDL/KRR/NL (I/O, betinget på hendelsestype) →
-  immutabelt `Beslutningsgrunnlag`; (2) `decide(hendelse, grunnlag): Beslutning` — REN funksjon, all
-  gate-/rutelogikk, ingen I/O; (3) effektuering: én tx per melding som via compare-and-set fra
+  Så, utenfor tx: (1) hver komponerbar gate henter sitt EGET grunnlag (PDL/KRR/NL, I/O, betinget på
+  hendelsestype) KONKURRENT via `resolve` — ingen delt `Beslutningsgrunnlag`; (2) de rene
+  `ResolvedRule.apply` foldes SEKVENSIELT over leveranse-utkastene: all gate-/rutelogikk, ingen I/O,
+  kan endre kanal eller droppe (B55); (3) effektuering: én tx per melding som via compare-and-set fra
   `CLAIMET` skriver leveranse(r) + inbox-status. Eksterne lesekall skjer i steg 1, aldri inne i en tx;
   radlåsen holdes aldri over nettverks-I/O.
 - **Outbox-worker:** `SELECT … FROM leveranse WHERE status='KLAR'
