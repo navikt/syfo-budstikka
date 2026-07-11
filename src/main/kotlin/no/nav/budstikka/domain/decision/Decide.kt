@@ -50,13 +50,13 @@ internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
         is BrukervarselCreate -> personIdentifier
         is DittSykefravaerCreate -> personIdentifier
         is BrevCreate -> personIdentifier
-        is MicrofrontendEnable -> personIdentifier
         is BrukervarselInactivate,
         is LedervarselCreate,
         is LedervarselInactivate,
         is DittSykefravaerInactivate,
         is ArbeidsgivervarselCreate,
         is ArbeidsgivervarselInactivate,
+        is MicrofrontendEnable,
         is MicrofrontendDisable,
         -> null
     }

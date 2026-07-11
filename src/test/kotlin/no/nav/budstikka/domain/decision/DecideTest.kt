@@ -36,7 +36,6 @@ class DecideTest :
                     "Brukervarsel" to brukervarsel,
                     "DittSykefravaer" to DittSykefravaerCreate(sykmeldt, "text"),
                     "Brev" to BrevCreate(sykmeldt, "jp-1"),
-                    "MicrofrontendEnable" to MicrofrontendEnable(sykmeldt, "mf-1"),
                 )
 
             gatedCreates.forEach { (name, content) ->
@@ -60,6 +59,12 @@ class DecideTest :
             test("microfrontend disable is not gated even when recipient is dead") {
                 val disable = MicrofrontendDisable(personIdentifier = sykmeldt, mikrofrontendId = "mf-1")
                 decide(envelope(disable), DecisionFoundation(recipientIsDead = true))
+                    .shouldBeInstanceOf<Decision.Processed>()
+            }
+
+            test("microfrontend enable is not gated even when recipient is dead") {
+                val enable = MicrofrontendEnable(personIdentifier = sykmeldt, mikrofrontendId = "mf-1")
+                decide(envelope(enable), DecisionFoundation(recipientIsDead = true))
                     .shouldBeInstanceOf<Decision.Processed>()
             }
 
@@ -127,6 +132,13 @@ class DecideTest :
                         "BrukervarselInactivate",
                         BrukervarselInactivate("ref-1", sykmeldt),
                         Channel.BRUKERVARSEL,
+                        Operation.INACTIVATE,
+                        Recipient.Person(sykmeldt),
+                    ),
+                    Case(
+                        "MicrofrontendDisable",
+                        MicrofrontendDisable(sykmeldt, "mf-1"),
+                        Channel.MICROFRONTEND,
                         Operation.INACTIVATE,
                         Recipient.Person(sykmeldt),
                     ),
