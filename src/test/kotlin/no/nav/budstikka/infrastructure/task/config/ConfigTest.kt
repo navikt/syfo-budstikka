@@ -44,14 +44,14 @@ class ConfigTest :
                     deliveryLeaseBudgetFraction = "",
                 ).toTaskConfig()
 
-            config.inboxMessage.interval shouldBe Duration.ofSeconds(InboxMessageTaskConfig.DEFAULT_INTERVAL_SECONDS)
-            config.inboxMessage.batchSize shouldBe InboxMessageTaskConfig.DEFAULT_BATCH_SIZE
-            config.inboxMessage.leaseDuration shouldBe Duration.ofSeconds(InboxMessageTaskConfig.DEFAULT_LEASE_SECONDS)
-            config.inboxMessage.leaseBudgetFraction shouldBe InboxMessageTaskConfig.DEFAULT_LEASE_BUDGET_FRACTION
-            config.delivery.interval shouldBe Duration.ofSeconds(DeliveryTaskConfig.DEFAULT_INTERVAL_SECONDS)
-            config.delivery.batchSize shouldBe DeliveryTaskConfig.DEFAULT_BATCH_SIZE
-            config.delivery.leaseDuration shouldBe Duration.ofSeconds(DeliveryTaskConfig.DEFAULT_LEASE_SECONDS)
-            config.delivery.leaseBudgetFraction shouldBe DeliveryTaskConfig.DEFAULT_LEASE_BUDGET_FRACTION
+            config.inboxMessage.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
+            config.inboxMessage.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
+            config.inboxMessage.leaseDuration shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_LEASE_SECONDS)
+            config.inboxMessage.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
+            config.delivery.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
+            config.delivery.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
+            config.delivery.leaseDuration shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_LEASE_SECONDS)
+            config.delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
         }
 
         test("toTaskConfig validates interval is a positive integer") {

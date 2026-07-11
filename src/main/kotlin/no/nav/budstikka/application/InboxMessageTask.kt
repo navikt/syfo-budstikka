@@ -5,15 +5,12 @@ import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.dispatchJson
-import no.nav.budstikka.infrastructure.config.MdcKeys
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.infrastructure.task.BaseTask
-import no.nav.budstikka.infrastructure.task.config.InboxMessageTaskConfig
+import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer
+import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
 import org.slf4j.LoggerFactory
-import org.slf4j.MDC
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
@@ -23,15 +20,16 @@ import kotlin.time.Duration.Companion.milliseconds
  * Beslutningen delegeres til [DecisionProcess], som ruter til policy per meldingstype og lar hver
  * policy hente sitt eget grunnlag (f.eks. PDL for isAlive-gaten).
  *
- * For å unngå at en treg batch krysser leasen (og dermed at en peer re-enricher samme melding), stopper
- * [runOnce] å starte nye meldinger når [InboxMessageTaskConfig.leaseBudgetFraction] av leasen er brukt.
- * Uberørte claimede meldinger blir stående til leasen utløper og plukkes opp av en senere poll.
+ * Lease-budsjett-draineringen deles med outbox-workeren via [LeaseBudgetDrainer]: workeren slutter å
+ * starte nye meldinger når budsjettandelen av leasen er brukt, så en treg batch ikke krysser leasen
+ * (og en peer re-enricher samme melding). Uberørte claimede meldinger blir stående til leasen utløper.
  */
 class InboxMessageTask(
     private val repository: InboxMessageRepository,
     private val effectuator: EffectuateDecision,
     private val decisionProcess: DecisionProcess,
-    private val config: InboxMessageTaskConfig,
+    private val drainer: LeaseBudgetDrainer,
+    private val config: LeaseDrainConfig,
 ) : BaseTask(
         name = TASK_NAME,
         interval = config.interval,
@@ -43,26 +41,15 @@ class InboxMessageTask(
     }
 
     internal suspend fun runOnce() {
-        val startedAt = Clock.System.now()
-        val budget = (config.leaseDuration.toMillis() * config.leaseBudgetFraction).toLong().milliseconds
-        val claimed = repository.claim(config.batchSize, config.leaseDuration)
-        for ((index, message) in claimed.withIndex()) {
-            MDC.putCloseable(MdcKeys.EVENT_ID, message.eventId.toString()).use {
-                if (Clock.System.now() - startedAt >= budget) {
-                    logger.warn(
-                        "Stopping batch drain at {}% of lease budget with {} of {} claimed message(s) unprocessed; " +
-                            "their lease expires so a later poll reclaims them. Recurring hits mean batchSize is too " +
-                            "high or enrichment/downstream is too slow.",
-                        (config.leaseBudgetFraction * 100).toInt(),
-                        claimed.size - index,
-                        claimed.size,
-                    )
-                    break
-                }
+        drainer.drain(
+            leaseDuration = config.leaseDuration,
+            eventId = { it.eventId.toString() },
+            claim = { repository.claim(config.batchSize, config.leaseDuration) },
+            process = { message ->
                 effectuator.effectuate(message.eventId, decideFor(message))
                 logger.info("Message processed successfully")
-            }
-        }
+            },
+        )
     }
 
     private suspend fun decideFor(message: InboxMessage): Decision =

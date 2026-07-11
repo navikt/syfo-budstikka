@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.DeliveryTask
+import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
@@ -17,7 +18,7 @@ import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
-import no.nav.budstikka.infrastructure.task.config.DeliveryTaskConfig
+import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -126,9 +127,10 @@ private fun taskWith(
 ): DeliveryTask =
     DeliveryTask(
         repository = repository,
-        microfrontendPublisher = publisher,
+        handlers = mapOf(Channel.MICROFRONTEND to MicrofrontendChannelHandler(publisher)),
+        drainer = LeaseBudgetDrainer(leaseBudgetFraction),
         config =
-            DeliveryTaskConfig(
+            LeaseDrainConfig(
                 interval = interval,
                 batchSize = batchSize,
                 leaseDuration = leaseDuration,

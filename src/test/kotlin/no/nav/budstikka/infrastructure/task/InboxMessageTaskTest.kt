@@ -18,7 +18,7 @@ import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
-import no.nav.budstikka.infrastructure.task.config.InboxMessageTaskConfig
+import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -86,7 +86,7 @@ class InboxMessageTaskTest :
                 taskWith(
                     repository,
                     interval = Duration.ofMillis(10),
-                    batchSize = InboxMessageTaskConfig.DEFAULT_BATCH_SIZE,
+                    batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE,
                 )
 
             task.start()
@@ -115,8 +115,9 @@ private fun taskWith(
                 deliveryRepository = RecordingDeliveryRepository(),
             ),
         decisionProcess = DecisionProcess(listOf(DeathGate(FakeDeathLookup()))),
+        drainer = LeaseBudgetDrainer(leaseBudgetFraction),
         config =
-            InboxMessageTaskConfig(
+            LeaseDrainConfig(
                 interval = interval,
                 batchSize = batchSize,
                 leaseDuration = leaseDuration,
