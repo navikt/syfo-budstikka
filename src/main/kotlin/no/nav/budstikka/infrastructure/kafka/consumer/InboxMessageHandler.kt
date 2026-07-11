@@ -1,11 +1,13 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
 import no.nav.budstikka.domain.dispatch.DispatchHeader
+import no.nav.budstikka.infrastructure.config.MdcKeys
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import java.util.UUID
 
 /**
@@ -38,14 +40,15 @@ class InboxMessageHandler(
                     return
                 }
             }
+        MDC.putCloseable(MdcKeys.EVENT_ID, eventId.toString()).use {
+            val payload = record.value()
+            if (payload.isNullOrBlank()) {
+                record.deadLetter(DeadLetter.MissingPayload)
+                return
+            }
 
-        val payload = record.value()
-        if (payload.isNullOrBlank()) {
-            record.deadLetter(DeadLetter.MissingPayload)
-            return
+            saveEvent(record, eventId, payload)
         }
-
-        saveEvent(record, eventId, payload)
     }
 
     private suspend fun saveEvent(
@@ -62,7 +65,7 @@ class InboxMessageHandler(
         logger.info(
             "{} {}",
             if (isNewEvent) {
-                "Received formidling"
+                "Received inbox message"
             } else {
                 "Duplicate ignored (event_id already known)"
             },
@@ -73,7 +76,7 @@ class InboxMessageHandler(
     /** Dead-letterer recorden til dead-letter-tabellen med den rå (mulig-ugyldige) payloaden bevart. */
     private suspend fun ConsumerRecord<String, String?>.deadLetter(reason: DeadLetter) {
         logger.warn(
-            "Poison message dead-lettered failureReason={} {}",
+            "Poison inbox message dead-lettered failureReason={} {}",
             reason.code,
             topicInfo,
         )
