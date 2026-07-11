@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.task
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -46,6 +47,28 @@ class InboxMessageTaskTest :
                 .shouldNotBeBlank()
         }
 
+        test("runOnce stops draining when the lease budget is exhausted") {
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
+                            InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
+                        ),
+                )
+            val task =
+                taskWith(
+                    repository,
+                    leaseDuration = Duration.ofMillis(1),
+                    leaseBudgetFraction = 0.1,
+                )
+
+            task.runOnce()
+
+            repository.processedEventIds.shouldBeEmpty()
+            repository.failedMessages.shouldBeEmpty()
+        }
+
         test("close stops polling loop") {
             val polled = CountDownLatch(2)
             val repository =
@@ -75,6 +98,8 @@ private fun taskWith(
     repository: PollingInboxMessageRepository,
     interval: Duration = Duration.ofSeconds(1),
     batchSize: Int = 10,
+    leaseDuration: Duration = Duration.ofMinutes(5),
+    leaseBudgetFraction: Double = 0.8,
 ): InboxMessageTask =
     InboxMessageTask(
         repository = repository,
@@ -84,7 +109,13 @@ private fun taskWith(
                 inboxMessageRepository = repository,
                 deliveryRepository = RecordingDeliveryRepository(),
             ),
-        config = InboxMessageTaskConfig(interval = interval, batchSize = batchSize, leaseDuration = Duration.ofMinutes(5)),
+        config =
+            InboxMessageTaskConfig(
+                interval = interval,
+                batchSize = batchSize,
+                leaseDuration = leaseDuration,
+                leaseBudgetFraction = leaseBudgetFraction,
+            ),
     )
 
 private class PollingInboxMessageRepository(
