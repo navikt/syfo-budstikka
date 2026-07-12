@@ -14,7 +14,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.time.Duration
@@ -63,18 +63,19 @@ class DeliveryRepositoryImpl(
         inboxEventId: UUID,
         draft: List<DeliveryDraft>,
     ) {
-        draft.forEach { draftEntry ->
+        if(draft.isEmpty()) {
+            return
+        }
+        DeliveryTable.batchInsert(draft) { draftEntry ->
+            this[DeliveryTable.inboxEventId] = inboxEventId
+            this[DeliveryTable.reference] = draftEntry.reference
+            this[DeliveryTable.operation] = draftEntry.operation.name
+            this[DeliveryTable.channel] = draftEntry.channel.name
             val (type, id) = draftEntry.recipient.toColumns()
-            DeliveryTable.insert {
-                it[DeliveryTable.inboxEventId] = inboxEventId
-                it[DeliveryTable.reference] = draftEntry.reference
-                it[DeliveryTable.operation] = draftEntry.operation.name
-                it[DeliveryTable.channel] = draftEntry.channel.name
-                it[DeliveryTable.recipientType] = type
-                it[DeliveryTable.recipientId] = id
-                it[DeliveryTable.payload] = draftEntry.content
-                it[DeliveryTable.createdAt] = Clock.System.now()
-            }
+            this[DeliveryTable.recipientType] = type
+            this[DeliveryTable.recipientId] = id
+            this[DeliveryTable.payload] = draftEntry.content
+            this[DeliveryTable.createdAt] = Clock.System.now()
         }
     }
 
