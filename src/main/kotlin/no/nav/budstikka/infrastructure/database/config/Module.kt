@@ -6,8 +6,8 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.infrastructure.HealthCheck
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl

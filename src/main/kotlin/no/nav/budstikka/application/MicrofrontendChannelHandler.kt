@@ -1,7 +1,7 @@
 package no.nav.budstikka.application
 
+import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.domain.dispatch.Microfrontend
-import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
 import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 
 /**

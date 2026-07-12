@@ -1,6 +1,6 @@
 package no.nav.budstikka.application
 
-import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
+import no.nav.budstikka.application.port.ClaimedDelivery
 
 /**
  * Kanalspesifikk utsending bak et smalt grensesnitt (B27). [DeliveryTask] avhenger av et
