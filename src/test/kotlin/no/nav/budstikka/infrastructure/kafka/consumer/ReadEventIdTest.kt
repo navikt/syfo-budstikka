@@ -27,14 +27,14 @@ class ReadEventIdTest :
             record(eventId = null)
                 .readEventId()
                 .shouldBeInstanceOf<EventId.Invalid>()
-                .reason shouldBe "MISSING_EVENT_ID"
+                .reason shouldBe DeadLetter.MissingEventId
         }
 
         test("header that is not a UUID returns Invalid(INVALID_EVENT_ID)") {
             record(eventId = "ikke-en-uuid")
                 .readEventId()
                 .shouldBeInstanceOf<EventId.Invalid>()
-                .reason shouldBe "INVALID_EVENT_ID"
+                .reason shouldBe DeadLetter.InvalidEventId
         }
     })
 
