@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +49,7 @@ class ConsumerRunner<K, V>(
     val coroutineName: String = "kafka-consumer",
     private val initialBackoff: Duration = Duration.ofSeconds(1),
     private val maxBackoff: Duration = Duration.ofSeconds(30),
+    private val healthyResetThreshold: Duration = Duration.ofMinutes(5),
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
     private val heartbeat: Heartbeat = Heartbeat(),
 ) : AutoCloseable {
@@ -115,20 +117,39 @@ class ConsumerRunner<K, V>(
     private suspend fun runWithRestart(onFatalError: (Throwable) -> Unit) {
         var backoffMillis = initialBackoff.toMillis()
         while (running.get()) {
-            val consumer = consumerFactory()
-            activeConsumer = consumer
+            var consumer: Consumer<K, V>? = null
+            val lifecycleStart = System.nanoTime()
             try {
+                // Inside the try: a throwing factory (e.g. broken consumer config) must go through
+                // the same fatal/transient classification as a poll failure — not escape the loop
+                // and kill the coroutine without invoking onFatalError.
+                consumer = consumerFactory()
+                activeConsumer = consumer
                 consumer.subscribe(topics)
                 pollLoop(consumer)
                 // Clean exit: pollLoop only returns when running is false.
             } catch (_: WakeupException) {
                 // wakeup() is only called from stop(), so this is a requested shutdown.
+            } catch (error: CancellationException) {
+                // Cooperative cancellation is not a consumer failure: propagate so the coroutine
+                // completes as canceled instead of logging a misleading restart.
+                throw error
             } catch (error: Throwable) {
                 if (isFatal(error)) {
                     logger.error("{} hit a fatal error and will not restart", coroutineName, error)
                     running.set(false)
                     onFatalError(error)
                 } else {
+                    val lifecycleDuration = System.nanoTime() - lifecycleStart
+                    if (lifecycleDuration > healthyResetThreshold.toNanos()) {
+                        backoffMillis = initialBackoff.toMillis()
+                        logger.info(
+                            "{} was healthy for {}ms, resetting backoff to {}ms",
+                            coroutineName,
+                            Duration.ofNanos(lifecycleDuration).toMillis(),
+                            backoffMillis,
+                        )
+                    }
                     logger.warn(
                         "{} failed, restarting after {}ms",
                         coroutineName,
@@ -139,7 +160,7 @@ class ConsumerRunner<K, V>(
             } finally {
                 // The polling coroutine is the sole owner of each consumer's lifecycle.
                 activeConsumer = null
-                consumer.close()
+                consumer?.close()
             }
 
             if (running.get()) {
@@ -187,10 +208,18 @@ class ConsumerRunner<K, V>(
     private companion object {
         const val BACKOFF_STEP_MILLIS = 200L
         const val CLOSE_TIMEOUT_SECONDS = 5L
+        const val MAX_CAUSE_DEPTH = 10
 
+        // Walks the cause chain (bounded, in case of a cycle): KafkaConsumer's constructor wraps
+        // e.g. ConfigException in KafkaException("Failed to construct kafka consumer"), and a
+        // wrapped bad-credentials/config error is just as unrecoverable as a direct one.
         fun isFatalByDefault(error: Throwable): Boolean =
-            error is AuthenticationException ||
-                error is AuthorizationException ||
-                error is ConfigException
+            generateSequence(error, Throwable::cause)
+                .take(MAX_CAUSE_DEPTH)
+                .any {
+                    it is AuthenticationException ||
+                        it is AuthorizationException ||
+                        it is ConfigException
+                }
     }
 }

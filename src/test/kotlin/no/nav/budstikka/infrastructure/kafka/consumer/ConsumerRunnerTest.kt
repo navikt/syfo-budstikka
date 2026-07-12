@@ -10,7 +10,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.MockConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.config.ConfigException
 import org.apache.kafka.common.errors.AuthenticationException
 import java.time.Duration
 import java.time.Instant
@@ -270,6 +272,75 @@ class ConsumerRunnerTest :
             createdConsumers.single().closed() shouldBe true
         }
 
+        test("a fatal consumer factory failure invokes onFatalError and stops the runner") {
+            // KafkaConsumer's constructor wraps config errors in KafkaException("Failed to
+            // construct kafka consumer"); the runner must classify the wrapped cause as fatal
+            // instead of letting the exception escape the restart loop.
+            val built = AtomicInteger(0)
+            val fatalErrors = mutableListOf<Throwable>()
+
+            val runner =
+                ConsumerRunner<String, String>(
+                    consumerFactory = {
+                        built.incrementAndGet()
+                        throw KafkaException(
+                            "Failed to construct kafka consumer",
+                            ConfigException("No resolvable bootstrap urls"),
+                        )
+                    },
+                    topics = listOf(TOPIC),
+                    pollTimeout = Duration.ofMillis(1),
+                    initialBackoff = Duration.ofMillis(1),
+                    maxBackoff = Duration.ofMillis(1),
+                    handler = BatchMessageHandler {},
+                )
+
+            runner.start { error -> fatalErrors += error }
+            runner.join(Duration.ofSeconds(5)) shouldBe true
+
+            built.get() shouldBe 1
+            fatalErrors.size shouldBe 1
+            (fatalErrors.single().cause is ConfigException) shouldBe true
+        }
+
+        test("a transient consumer factory failure is retried with backoff") {
+            val partition = TopicPartition(TOPIC, 0)
+            val built = AtomicInteger(0)
+            val handledOffsets = mutableListOf<Long>()
+
+            lateinit var runner: ConsumerRunner<String, String>
+            runner =
+                ConsumerRunner(
+                    consumerFactory = {
+                        if (built.getAndIncrement() == 0) {
+                            error("transient factory boom")
+                        }
+                        RecordingMockConsumer().also { consumer ->
+                            consumer.schedulePollTask {
+                                consumer.rebalance(listOf(partition))
+                                consumer.updateBeginningOffsets(mapOf(partition to 0L))
+                                consumer.addRecord(ConsumerRecord(TOPIC, 0, 0L, "key", "value"))
+                            }
+                        }
+                    },
+                    topics = listOf(TOPIC),
+                    pollTimeout = Duration.ofMillis(1),
+                    initialBackoff = Duration.ofMillis(1),
+                    maxBackoff = Duration.ofMillis(1),
+                    handler =
+                        perRecordHandler { record ->
+                            handledOffsets += record.offset()
+                            runner.stop()
+                        },
+                )
+
+            runner.start()
+            runner.join(Duration.ofSeconds(5)) shouldBe true
+
+            built.get() shouldBe 2
+            handledOffsets.shouldContainExactly(0L)
+        }
+
         test("liveness stays fresh on empty polls because the heartbeat fires every poll round") {
             // A quiet topic must not look dead: record() runs on every poll, including empty ones.
             // The clock jumps past the stale threshold during the poll, so only the runner's
@@ -404,6 +475,68 @@ class ConsumerRunnerTest :
 
             stoppedInTime shouldBe true
             consumer.closed() shouldBe true
+        }
+
+        test("backoff resets after a long-lived consumer fails") {
+            // Consumer 1 fails immediately (lifecycle < threshold) → backoff doubles to 100ms.
+            // Consumer 2 runs for 2 ms (lifecycle > threshold) → backoff resets to initialBackoff.
+            // Consumer 3 fails immediately → delay before it should use reset backoff (~50ms),
+            // not the doubled one (~100ms).
+            //
+            // We verify this by comparing delays: delay(2nd,3rd) should be roughly equal to
+            // delay(1st,2nd) (both use ~50ms backoff after reset). Without the reset, the 2nd
+            // backoff would be ~100ms, making delay(2nd,3rd) noticeably larger.
+            val partition = TopicPartition(TOPIC, 0)
+            val createdConsumers = mutableListOf<RecordingMockConsumer>()
+            val handlerTimestamps = mutableListOf<Long>()
+            val handlerAttempts = CountDownLatch(3)
+            val consumerCount = AtomicInteger(0)
+
+            val runner =
+                ConsumerRunner(
+                    consumerFactory = {
+                        val attempt = consumerCount.getAndIncrement()
+                        RecordingMockConsumer().also { consumer ->
+                            createdConsumers += consumer
+                            consumer.schedulePollTask {
+                                consumer.rebalance(listOf(partition))
+                                consumer.updateBeginningOffsets(mapOf(partition to 0L))
+                                if (attempt == 1) {
+                                    // Second consumer: sleep so lifecycle exceeds healthyResetThreshold.
+                                    Thread.sleep(2)
+                                }
+                                consumer.addRecord(ConsumerRecord(TOPIC, 0, 0L, "key", "value"))
+                            }
+                        }
+                    },
+                    topics = listOf(TOPIC),
+                    pollTimeout = Duration.ofMillis(1),
+                    initialBackoff = Duration.ofMillis(50),
+                    maxBackoff = Duration.ofMillis(200),
+                    healthyResetThreshold = Duration.ofMillis(1),
+                    handler =
+                        perRecordHandler {
+                            handlerTimestamps += System.currentTimeMillis()
+                            handlerAttempts.countDown()
+                            error("transient boom")
+                        },
+                )
+
+            runner.start()
+            handlerAttempts.await(5, TimeUnit.SECONDS) shouldBe true
+            runner.stop()
+            runner.join()
+
+            createdConsumers.size shouldBe 3
+            createdConsumers.all { it.closed() } shouldBe true
+            handlerTimestamps.size shouldBe 3
+
+            val delay1to2 = handlerTimestamps[1] - handlerTimestamps[0]
+            val delay2to3 = handlerTimestamps[2] - handlerTimestamps[1]
+            // With reset, both delays use ~50ms backoff, so delay2to3 ≈ delay1to2.
+            // Without reset, delay2to3 would be ~50ms larger (100ms backoff vs 50ms).
+            // Allow 30ms margin for scheduling jitter.
+            (delay2to3 < delay1to2 + 30) shouldBe true
         }
 
         test("start twice throws") {
