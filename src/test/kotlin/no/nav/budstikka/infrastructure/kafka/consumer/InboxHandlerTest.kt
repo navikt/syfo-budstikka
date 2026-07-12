@@ -68,6 +68,24 @@ class InboxHandlerTest :
             }
         }
 
+        test("poison records are persisted in one dead-letter batch per poll round") {
+            val (handler, inboxRepository, deadLetterRepository) = createTestContext()
+            val validEventId = "00000000-0000-0000-0000-000000000111"
+
+            handler.handleBatch(
+                listOf(
+                    record(value = "mangler-event-id"),
+                    record(value = null, eventId = "00000000-0000-0000-0000-000000000222"),
+                    validRecord(eventId = validEventId),
+                ),
+            )
+
+            inboxRepository.savedEvents.size shouldBe 1
+            inboxRepository.savedEvents.single().second shouldBe validEventId
+            deadLetterRepository.savedDeadLetters.size shouldBe 2
+            deadLetterRepository.saveBatchCalls shouldBe 1
+        }
+
         test("transient DB error during saveEvent throws and dead-letter table is not touched") {
             val throwingRepository = ThrowingMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
@@ -100,6 +118,10 @@ private data class TestContext(
     val inboxRepository: FakeInboxMessageRepository,
     val deadLetterRepository: FakeDeadLetterRepository,
 )
+
+private suspend fun InboxMessageHandler.handle(record: ConsumerRecord<String, String?>) {
+    handleBatch(listOf(record))
+}
 
 private fun validRecord(
     eventId: String = UUID.randomUUID().toString(),

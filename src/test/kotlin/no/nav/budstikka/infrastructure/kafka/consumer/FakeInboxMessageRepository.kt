@@ -12,13 +12,21 @@ class FakeInboxMessageRepository(
     val savedEvents = mutableListOf<Pair<String, String>>()
     val pollLimits = mutableListOf<Int>()
 
+    override suspend fun saveBatch(events: List<Pair<UUID, String>>): Int {
+        events.forEach { (eventId, payload) ->
+            savedEvents += payload to eventId.toString()
+        }
+        return if (shouldReturnNewRowCreated) {
+            events.size
+        } else {
+            0
+        }
+    }
+
     override suspend fun save(
         eventId: UUID,
         payload: String,
-    ): Boolean {
-        savedEvents += payload to eventId.toString()
-        return shouldReturnNewRowCreated
-    }
+    ): Boolean = saveBatch(listOf(eventId to payload)) > 0
 
     override suspend fun claim(
         limit: Int,

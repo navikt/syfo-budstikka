@@ -1,13 +1,11 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
 import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.infrastructure.config.MdcKeys
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 import java.util.UUID
 
 /**
@@ -23,72 +21,89 @@ import java.util.UUID
  * (B54) og sealed content dekodes først av beslutnings-workeren.
  */
 class InboxMessageHandler(
-    private val repository: InboxMessageRepository,
+    private val inboxMessageRepository: InboxMessageRepository,
     private val deadLetterRepository: DeadLetterMessageRepository,
-) : MessageHandler<String, String?> {
+) : BatchMessageHandler<String, String?> {
     private val logger = LoggerFactory.getLogger(InboxMessageHandler::class.java)
 
-    override suspend fun handle(record: ConsumerRecord<String, String?>) {
-        val eventId =
-            when (val result = record.readEventId()) {
-                is EventId.Valid -> {
-                    result.value
-                }
+    override suspend fun handleBatch(records: List<ConsumerRecord<String, String?>>) {
+        if (records.isEmpty()) {
+            return
+        }
+        val candidates = records.map { it.toInboxCandidate() }
+        val validEvents =
+            candidates
+                .filterIsInstance<InboxCandidate.Valid>()
+                .map(InboxCandidate.Valid::event)
+        handleValidEvents(validEvents)
+        val deadLetters =
+            candidates
+                .filterIsInstance<InboxCandidate.DeadLetter>()
+                .map(InboxCandidate.DeadLetter::record)
+        handleDeadLetters(deadLetters)
+    }
 
-                is EventId.Invalid -> {
-                    record.deadLetter(DeadLetter.MissingEventId)
-                    return
-                }
-            }
-        MDC.putCloseable(MdcKeys.EVENT_ID, eventId.toString()).use {
-            val payload = record.value()
-            if (payload.isNullOrBlank()) {
-                record.deadLetter(DeadLetter.MissingPayload)
-                return
-            }
-
-            saveEvent(record, eventId, payload)
+    private suspend fun handleDeadLetters(deadLetters: List<DeadLetterRecord>) {
+        if (deadLetters.isEmpty()) {
+            return
+        }
+        deadLetterRepository.saveBatch(deadLetters)
+        deadLetters.forEach { deadLetter ->
+            logger.warn(
+                "Poison inbox message dead-lettered failureReason={} topic={} partition={} offset={}",
+                deadLetter.failureReason,
+                deadLetter.topic,
+                deadLetter.partition,
+                deadLetter.kafkaOffset,
+            )
         }
     }
 
-    private suspend fun saveEvent(
-        record: ConsumerRecord<String, String?>,
-        eventId: UUID,
-        payload: String,
-    ) {
-        // Transient DB-feil kaster herfra → ConsumerRunner tar seg av re-poll med backoff
-        val isNewEvent =
-            repository.save(
-                eventId = eventId,
-                payload = payload,
+    private suspend fun handleValidEvents(validEvents: List<InboxMessage>) {
+        if (validEvents.isEmpty()) {
+            return
+        }
+        inboxMessageRepository.saveBatch(validEvents.map { it.eventId to it.payload })
+        validEvents.forEach { event ->
+            logger.info(
+                "Inbox message handled eventId={} topic={} partition={} offset={}",
+                event.eventId,
+                event.topic,
+                event.partition,
+                event.kafkaOffset,
             )
-        logger.info(
-            "{} {}",
-            if (isNewEvent) {
-                "Received inbox message"
-            } else {
-                "Duplicate ignored (event_id already known)"
-            },
-            record.topicInfo,
-        )
+        }
     }
 
-    /** Dead-letterer recorden til dead-letter-tabellen med den rå (mulig-ugyldige) payloaden bevart. */
-    private suspend fun ConsumerRecord<String, String?>.deadLetter(reason: DeadLetter) {
-        logger.warn(
-            "Poison inbox message dead-lettered failureReason={} {}",
-            reason.code,
-            topicInfo,
+    /** Mapper poison record til dead-letter-rad med rå payload bevart. */
+    private fun ConsumerRecord<String, String?>.toDeadLetter(reason: DeadLetter): DeadLetterRecord =
+        DeadLetterRecord(
+            payload = value().orEmpty(),
+            topic = topic(),
+            partition = partition(),
+            kafkaOffset = offset(),
+            kafkaKey = key(),
+            failureReason = reason.code,
+            errorMessage = reason.message,
         )
-        deadLetterRepository.save(
-            DeadLetterRecord(
-                payload = value().orEmpty(),
+
+    private fun ConsumerRecord<String, String?>.toInboxCandidate(): InboxCandidate {
+        val eventId =
+            when (val eventIdResult = readEventId()) {
+                is EventId.Valid -> eventIdResult.value
+                is EventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.MissingEventId))
+            }
+        val payload = value()
+        if (payload.isNullOrBlank()) {
+            return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.MissingPayload))
+        }
+        return InboxCandidate.Valid(
+            InboxMessage(
+                eventId = eventId,
+                payload = payload,
                 topic = topic(),
                 partition = partition(),
                 kafkaOffset = offset(),
-                kafkaKey = key(),
-                failureReason = reason.code,
-                errorMessage = reason.message,
             ),
         )
     }
@@ -137,5 +152,20 @@ sealed interface DeadLetter {
     }
 }
 
-private val ConsumerRecord<*, *>.topicInfo
-    get() = "topic=${topic()} partition=${partition()} offset=${offset()}"
+private data class InboxMessage(
+    val eventId: UUID,
+    val payload: String,
+    val topic: String,
+    val partition: Int,
+    val kafkaOffset: Long,
+)
+
+private sealed interface InboxCandidate {
+    data class Valid(
+        val event: InboxMessage,
+    ) : InboxCandidate
+
+    data class DeadLetter(
+        val record: DeadLetterRecord,
+    ) : InboxCandidate
+}

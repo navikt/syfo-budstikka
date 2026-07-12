@@ -48,6 +48,25 @@ class InboxDispatchRepositoryIntegrationTest :
             repository.save(eventId, payload) shouldBe false
         }
 
+        test("saveBatch writes rows in one call and ignores duplicates on event_id") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000020")
+            val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000021")
+            val insertedCount =
+                repository.saveBatch(
+                    listOf(
+                        eventId1 to """{"eventId":"$eventId1"}""",
+                        eventId2 to """{"eventId":"$eventId2"}""",
+                        eventId1 to """{"eventId":"$eventId1"}""",
+                    ),
+                )
+
+            insertedCount shouldBe 2
+            fixture.database.transact {
+                InboxMessageTable.selectAll().count() shouldBe 2
+            }
+        }
+
         test("claim reads received rows in order, respects the limit and marks them CLAIMED") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000001")
