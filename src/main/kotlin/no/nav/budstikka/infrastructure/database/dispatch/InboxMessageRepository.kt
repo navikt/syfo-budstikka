@@ -26,11 +26,6 @@ data class InboxMessage(
 interface InboxMessageRepository {
     suspend fun saveBatch(events: List<Pair<UUID, String>>): Int
 
-    suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean
-
     /**
      * Griper (claimer) inntil [limit] mottatte meldinger for behandling og markerer dem CLAIMED med
      * en lease ([lease]) i ÉN transaksjon. Bruker `FOR UPDATE SKIP LOCKED`, slik at flere replicaer
@@ -91,11 +86,6 @@ class InboxMessageRepositoryImpl(
             }
         }
     }
-
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean = saveBatch(listOf(eventId to payload)) > 0
 
     override suspend fun claim(
         limit: Int,

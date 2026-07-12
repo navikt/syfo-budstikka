@@ -137,11 +137,6 @@ private class PollingInboxMessageRepository(
 
     override suspend fun saveBatch(events: List<Pair<UUID, String>>): Int = events.size
 
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean = saveBatch(listOf(eventId to payload)) > 0
-
     override suspend fun claim(
         limit: Int,
         lease: Duration,

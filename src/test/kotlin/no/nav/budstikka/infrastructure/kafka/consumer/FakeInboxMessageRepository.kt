@@ -23,11 +23,6 @@ class FakeInboxMessageRepository(
         }
     }
 
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean = saveBatch(listOf(eventId to payload)) > 0
-
     override suspend fun claim(
         limit: Int,
         lease: java.time.Duration,
