@@ -34,15 +34,16 @@ import kotlin.time.Duration.Companion.milliseconds
  * not retried: they invoke the `onFatalError` callback passed to [start] and stop the runner, leaving
  * the rest of the application (e.g. the HTTP server) untouched.
  *
- * Offsets are committed only after every record in a poll batch has been handled. If [handler] throws,
- * the exception propagates, the offset is not advanced, and the batch is re-polled from the last commit
- * after a backoff. This is deliberate inbox semantics: a message is never dropped, and a record that can
- * never be handled halts the partition (visible as consumer lag) rather than being silently skipped.
+ * Offsets are committed only after [handler] has handled a full poll batch. If [handler] throws,
+ * the exception propagates, the offset is not advanced,
+ * and the batch is re-polled from the last commit after a backoff. This is deliberate inbox semantics:
+ * a message is never dropped, and a record that can never be handled halts the partition (visible as
+ * consumer lag) rather than being silently skipped.
  */
 class ConsumerRunner<K, V>(
     private val consumerFactory: () -> Consumer<K, V>,
     private val topics: List<String>,
-    private val handler: MessageHandler<K, V>,
+    private val handler: BatchMessageHandler<K, V>,
     private val pollTimeout: Duration = Duration.ofSeconds(1),
     val coroutineName: String = "kafka-consumer",
     private val initialBackoff: Duration = Duration.ofSeconds(1),
@@ -171,11 +172,10 @@ class ConsumerRunner<K, V>(
         // and we avoid coupling the probe to broker availability.
         heartbeat.record()
         if (records.isEmpty) return
+        val batch = records.toList()
+        handler.handleBatch(batch)
         val maxOffsets = mutableMapOf<TopicPartition, Long>()
-        for (record in records) {
-            // A throw here propagates out of the poll loop: the offset is not committed and
-            // runWithRestart re-polls the same batch after a backoff. The inbox never drops a message.
-            handler.handle(record)
+        for (record in batch) {
             maxOffsets.merge(
                 TopicPartition(record.topic(), record.partition()),
                 record.offset() + 1,

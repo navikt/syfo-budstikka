@@ -31,10 +31,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler =
-                        MessageHandler { record ->
-                            handledOffsets += record.offset()
-                        },
+                    handler = perRecordHandler { record -> handledOffsets += record.offset() },
                 )
 
             consumer.schedulePollTask {
@@ -63,10 +60,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler =
-                        MessageHandler { record ->
-                            handledOffsets += record.offset()
-                        },
+                    handler = perRecordHandler { record -> handledOffsets += record.offset() },
                 )
 
             consumer.schedulePollTask {
@@ -86,6 +80,42 @@ class ConsumerRunnerTest :
             handledOffsets.shouldContainExactly(0L, 1L, 2L)
             consumer.committedOffsets[partition]?.offset()!!.shouldBeExactly(3L)
             consumer.commitCount.shouldBeExactly(1L)
+        }
+
+        test("runner invokes batch handler once per poll batch") {
+            val partition = TopicPartition(TOPIC, 0)
+            val consumer = RecordingMockConsumer()
+            val handledOffsets = mutableListOf<Long>()
+            var batchInvocations = 0
+            val batchCapableHandler =
+                BatchMessageHandler<String, String> { records ->
+                    batchInvocations++
+                    handledOffsets += records.map { it.offset() }
+                }
+            val runner =
+                ConsumerRunner(
+                    consumerFactory = { consumer },
+                    topics = listOf(TOPIC),
+                    pollTimeout = Duration.ofMillis(1),
+                    handler = batchCapableHandler,
+                )
+
+            consumer.schedulePollTask {
+                consumer.rebalance(listOf(partition))
+                consumer.updateBeginningOffsets(mapOf(partition to 0L))
+                consumer.addRecord(ConsumerRecord(TOPIC, 0, 0L, "key", "value-0"))
+                consumer.addRecord(ConsumerRecord(TOPIC, 0, 1L, "key", "value-1"))
+            }
+            consumer.schedulePollTask {
+                runner.stop()
+            }
+
+            runner.start()
+            runner.join()
+
+            batchInvocations shouldBe 1
+            handledOffsets.shouldContainExactly(0L, 1L)
+            consumer.committedOffsets[partition]?.offset()!!.shouldBeExactly(2L)
         }
 
         test("a failing handler never commits and the record is re-polled on every restart") {
@@ -113,7 +143,7 @@ class ConsumerRunnerTest :
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
                     handler =
-                        MessageHandler {
+                        perRecordHandler {
                             handledAttempts.countDown()
                             error("persistent boom")
                         },
@@ -151,7 +181,7 @@ class ConsumerRunnerTest :
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
                     handler =
-                        MessageHandler {
+                        perRecordHandler {
                             if (attempts.getAndIncrement() == 0) {
                                 error("transient boom")
                             }
@@ -203,7 +233,7 @@ class ConsumerRunnerTest :
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
                     handler =
-                        MessageHandler { record ->
+                        perRecordHandler { record ->
                             handledOffsets += record.offset()
                             runner.stop()
                         },
@@ -228,7 +258,7 @@ class ConsumerRunnerTest :
                     pollTimeout = Duration.ofMillis(1),
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             runner.start { error -> fatalErrors += error }
@@ -255,7 +285,7 @@ class ConsumerRunnerTest :
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
                     heartbeat = heartbeat,
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             consumer.schedulePollTask {
@@ -280,7 +310,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             consumer.schedulePollTask {
@@ -304,7 +334,7 @@ class ConsumerRunnerTest :
                     },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             runner.stop()
@@ -320,7 +350,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             // Signal once the consumer is actually polling so stop() cannot race the loop startup.
@@ -342,7 +372,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             runner.start()
@@ -362,7 +392,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             consumer.schedulePollTask {
@@ -383,7 +413,7 @@ class ConsumerRunnerTest :
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
                     pollTimeout = Duration.ofMillis(1),
-                    handler = MessageHandler {},
+                    handler = BatchMessageHandler {},
                 )
 
             runner.start()
@@ -391,6 +421,11 @@ class ConsumerRunnerTest :
             runner.stop()
         }
     })
+
+private fun perRecordHandler(block: (ConsumerRecord<String, String>) -> Unit): BatchMessageHandler<String, String> =
+    BatchMessageHandler { records ->
+        records.forEach(block)
+    }
 
 private open class RecordingMockConsumer : MockConsumer<String, String>("earliest") {
     val committedOffsets: MutableMap<TopicPartition, OffsetAndMetadata> = mutableMapOf()

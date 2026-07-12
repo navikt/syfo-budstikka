@@ -37,7 +37,7 @@ class DeliveryRepositoryIntegrationTest :
             draft: DeliveryDraft,
         ) {
             val inboxEventId = UUID.randomUUID()
-            InboxMessageRepositoryImpl(fixture.database).save(inboxEventId, """{"eventId":"$inboxEventId"}""")
+            InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxEventId to """{"eventId":"$inboxEventId"}"""))
             fixture.database.transact {
                 DeliveryRepositoryImpl(fixture.database).saveInTransaction(inboxEventId, listOf(draft.copy(reference = reference)))
             }

@@ -10,7 +10,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.time.Duration
@@ -24,10 +24,7 @@ data class InboxMessage(
 )
 
 interface InboxMessageRepository {
-    suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean
+    suspend fun saveBatch(events: List<Pair<UUID, String>>)
 
     /**
      * Griper (claimer) inntil [limit] mottatte meldinger for behandling og markerer dem CLAIMED med
@@ -64,19 +61,19 @@ interface InboxMessageRepository {
 class InboxMessageRepositoryImpl(
     private val database: Database,
 ) : InboxMessageRepository {
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean =
+    override suspend fun saveBatch(events: List<Pair<UUID, String>>) {
+        if (events.isEmpty()) {
+            return
+        }
         database.transact {
             val now = Clock.System.now()
-            InboxMessageTable
-                .insertIgnore {
-                    it[InboxMessageTable.eventId] = eventId
-                    it[InboxMessageTable.payload] = payload
-                    it[InboxMessageTable.receivedAt] = now
-                }.insertedCount > 0
+            InboxMessageTable.batchInsert(events, ignore = true) { (eventId, payload) ->
+                this[InboxMessageTable.eventId] = eventId
+                this[InboxMessageTable.payload] = payload
+                this[InboxMessageTable.receivedAt] = now
+            }
         }
+    }
 
     override suspend fun claim(
         limit: Int,

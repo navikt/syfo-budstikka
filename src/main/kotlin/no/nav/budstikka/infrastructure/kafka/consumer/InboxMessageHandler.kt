@@ -1,13 +1,11 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
 import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.infrastructure.config.MdcKeys
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 import java.util.UUID
 
 /**
@@ -23,86 +21,112 @@ import java.util.UUID
  * (B54) og sealed content dekodes først av beslutnings-workeren.
  */
 class InboxMessageHandler(
-    private val repository: InboxMessageRepository,
+    private val inboxMessageRepository: InboxMessageRepository,
     private val deadLetterRepository: DeadLetterMessageRepository,
-) : MessageHandler<String, String?> {
+) : BatchMessageHandler<String, String?> {
     private val logger = LoggerFactory.getLogger(InboxMessageHandler::class.java)
 
-    override suspend fun handle(record: ConsumerRecord<String, String?>) {
+    override suspend fun handleBatch(records: List<ConsumerRecord<String, String?>>) {
+        if (records.isEmpty()) {
+            return
+        }
+        val candidates = records.map { it.toInboxCandidate() }
+        val validEvents =
+            candidates
+                .filterIsInstance<InboxCandidate.Valid>()
+                .map(InboxCandidate.Valid::event)
+        handleValidEvents(validEvents)
+        val deadLetters =
+            candidates
+                .filterIsInstance<InboxCandidate.DeadLetter>()
+                .map(InboxCandidate.DeadLetter::record)
+        handleDeadLetters(deadLetters)
+    }
+
+    private suspend fun handleDeadLetters(deadLetters: List<DeadLetterRecord>) {
+        if (deadLetters.isEmpty()) {
+            return
+        }
+        deadLetterRepository.saveBatch(deadLetters)
+        deadLetters.forEach { deadLetter ->
+            logger.warn(
+                "Poison inbox message dead-lettered failureReason={} topic={} partition={} offset={}",
+                deadLetter.failureReason,
+                deadLetter.topic,
+                deadLetter.partition,
+                deadLetter.kafkaOffset,
+            )
+        }
+    }
+
+    private suspend fun handleValidEvents(validEvents: List<InboxMessage>) {
+        if (validEvents.isEmpty()) {
+            return
+        }
+        inboxMessageRepository.saveBatch(validEvents.map { it.eventId to it.payload })
+        validEvents.forEach { event ->
+            logger.info(
+                "Inbox message handled eventId={} topic={} partition={} offset={}",
+                event.eventId,
+                event.topic,
+                event.partition,
+                event.kafkaOffset,
+            )
+        }
+    }
+
+    /** Mapper poison record til dead-letter-rad med rå payload bevart. */
+    private fun ConsumerRecord<String, String?>.toDeadLetter(reason: DeadLetter): DeadLetterRecord =
+        DeadLetterRecord(
+            payload = value().orEmpty(),
+            topic = topic(),
+            partition = partition(),
+            kafkaOffset = offset(),
+            kafkaKey = key(),
+            failureReason = reason.code,
+            errorMessage = reason.message,
+        )
+
+    private fun ConsumerRecord<String, String?>.toInboxCandidate(): InboxCandidate {
         val eventId =
-            when (val result = record.readEventId()) {
+            when (val result = readEventId()) {
                 is EventId.Valid -> {
                     result.value
                 }
 
                 is EventId.Invalid -> {
-                    record.deadLetter(DeadLetter.MissingEventId)
-                    return
+                    return InboxCandidate.DeadLetter(
+                        toDeadLetter(result.reason),
+                    )
                 }
             }
-        MDC.putCloseable(MdcKeys.EVENT_ID, eventId.toString()).use {
-            val payload = record.value()
-            if (payload.isNullOrBlank()) {
-                record.deadLetter(DeadLetter.MissingPayload)
-                return
-            }
 
-            saveEvent(record, eventId, payload)
+        val payload = value()
+        if (payload.isNullOrBlank()) {
+            return InboxCandidate.DeadLetter(
+                toDeadLetter(DeadLetter.MissingPayload),
+            )
         }
-    }
 
-    private suspend fun saveEvent(
-        record: ConsumerRecord<String, String?>,
-        eventId: UUID,
-        payload: String,
-    ) {
-        // Transient DB-feil kaster herfra → ConsumerRunner tar seg av re-poll med backoff
-        val isNewEvent =
-            repository.save(
+        return InboxCandidate.Valid(
+            InboxMessage(
                 eventId = eventId,
                 payload = payload,
-            )
-        logger.info(
-            "{} {}",
-            if (isNewEvent) {
-                "Received inbox message"
-            } else {
-                "Duplicate ignored (event_id already known)"
-            },
-            record.topicInfo,
-        )
-    }
-
-    /** Dead-letterer recorden til dead-letter-tabellen med den rå (mulig-ugyldige) payloaden bevart. */
-    private suspend fun ConsumerRecord<String, String?>.deadLetter(reason: DeadLetter) {
-        logger.warn(
-            "Poison inbox message dead-lettered failureReason={} {}",
-            reason.code,
-            topicInfo,
-        )
-        deadLetterRepository.save(
-            DeadLetterRecord(
-                payload = value().orEmpty(),
                 topic = topic(),
                 partition = partition(),
                 kafkaOffset = offset(),
-                kafkaKey = key(),
-                failureReason = reason.code,
-                errorMessage = reason.message,
             ),
         )
     }
 }
 
-/** Resultat av å lese event_id fra Kafka-headeren: enten en gyldig UUID eller en dead-letter-grunn. */
 internal sealed interface EventId {
     data class Valid(
         val value: UUID,
     ) : EventId
 
     data class Invalid(
-        val failureReason: String,
-        val errorMessage: String?,
+        val reason: DeadLetter,
     ) : EventId
 }
 
@@ -114,11 +138,11 @@ internal sealed interface EventId {
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()
-            ?: return EventId.Invalid("MISSING_EVENT_ID", "Kafka header '${DispatchHeader.EVENT_ID}' missing")
+            ?: return EventId.Invalid(DeadLetter.MissingEventId)
     return try {
         EventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
-    } catch (e: IllegalArgumentException) {
-        EventId.Invalid("INVALID_EVENT_ID", e.message)
+    } catch (_: IllegalArgumentException) {
+        EventId.Invalid(DeadLetter.InvalidEventId)
     }
 }
 
@@ -133,9 +157,29 @@ sealed interface DeadLetter {
 
     data object MissingEventId : DeadLetter {
         override val code = "MISSING_EVENT_ID"
-        override val message = "Kafka record missing event ID"
+        override val message = "Kafka record missing event ID header"
+    }
+
+    data object InvalidEventId : DeadLetter {
+        override val code = "INVALID_EVENT_ID"
+        override val message = "Kafka event ID header is not a valid UUID"
     }
 }
 
-private val ConsumerRecord<*, *>.topicInfo
-    get() = "topic=${topic()} partition=${partition()} offset=${offset()}"
+private data class InboxMessage(
+    val eventId: UUID,
+    val payload: String,
+    val topic: String,
+    val partition: Int,
+    val kafkaOffset: Long,
+)
+
+private sealed interface InboxCandidate {
+    data class Valid(
+        val event: InboxMessage,
+    ) : InboxCandidate
+
+    data class DeadLetter(
+        val record: DeadLetterRecord,
+    ) : InboxCandidate
+}

@@ -135,10 +135,7 @@ private class PollingInboxMessageRepository(
     val processedEventIds = mutableListOf<UUID>()
     val failedMessages = mutableListOf<Pair<UUID, String>>()
 
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean = true
+    override suspend fun saveBatch(events: List<Pair<UUID, String>>) = Unit
 
     override suspend fun claim(
         limit: Int,

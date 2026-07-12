@@ -3,9 +3,9 @@ package no.nav.budstikka.infrastructure.kafka.config
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
+import no.nav.budstikka.infrastructure.kafka.consumer.BatchMessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxMessageHandler
-import no.nav.budstikka.infrastructure.kafka.consumer.MessageHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
 import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
@@ -64,7 +64,7 @@ fun DependencyRegistry.kafkaModule() {
 
 private const val MINSIDE_PRODUCER = "minside"
 
-private suspend fun DependencyRegistry.handlerForConsumer(name: String): MessageHandler<String, String?> =
+private suspend fun DependencyRegistry.handlerForConsumer(name: String): BatchMessageHandler<String, String?> =
     when (name) {
         "formidling" -> resolve<InboxMessageHandler>()
         else -> error("Unknown Kafka consumer: $name")

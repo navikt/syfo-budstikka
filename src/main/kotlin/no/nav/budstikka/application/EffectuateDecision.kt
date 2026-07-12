@@ -14,6 +14,8 @@ import java.util.UUID
  *
  * Per-melding atomisk er en hard invariant: én meldings feil ruller aldri tilbake en annens. Eksterne
  * oppslag (grunnlagsinnhenting) skjer FØR denne kalles, utenfor transaksjonen.
+ *
+ * [EffectuateDecision] utfører effectuate i en transaksjon.
  */
 class EffectuateDecision(
     private val transactionRunner: TransactionRunner,

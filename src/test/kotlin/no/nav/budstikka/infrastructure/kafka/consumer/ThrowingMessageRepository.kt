@@ -5,10 +5,7 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import java.util.UUID
 
 class ThrowingMessageRepository : InboxMessageRepository {
-    override suspend fun save(
-        eventId: UUID,
-        payload: String,
-    ): Boolean = error("DB nede — transient feil")
+    override suspend fun saveBatch(events: List<Pair<UUID, String>>) = error("DB nede — transient feil")
 
     override suspend fun claim(
         limit: Int,

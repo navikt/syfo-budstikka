@@ -41,7 +41,6 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.call.id)
-    implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.di)
     implementation(libs.hikari)
     implementation(libs.exposed.core)

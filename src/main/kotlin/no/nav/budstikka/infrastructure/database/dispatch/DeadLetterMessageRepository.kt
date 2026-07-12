@@ -2,7 +2,7 @@ package no.nav.budstikka.infrastructure.database.dispatch
 
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import kotlin.time.Clock
 
 data class DeadLetterRecord(
@@ -16,23 +16,27 @@ data class DeadLetterRecord(
 )
 
 interface DeadLetterMessageRepository {
-    suspend fun save(record: DeadLetterRecord)
+    suspend fun saveBatch(records: List<DeadLetterRecord>)
 }
 
 class DeadLetterMessageRepositoryImpl(
     private val database: Database,
 ) : DeadLetterMessageRepository {
-    override suspend fun save(record: DeadLetterRecord) {
+    override suspend fun saveBatch(records: List<DeadLetterRecord>) {
+        if (records.isEmpty()) {
+            return
+        }
         database.transact {
-            DeadLetterMessageTable.insertIgnore {
-                it[DeadLetterMessageTable.payload] = record.payload
-                it[DeadLetterMessageTable.topic] = record.topic
-                it[DeadLetterMessageTable.partition] = record.partition
-                it[DeadLetterMessageTable.kafkaOffset] = record.kafkaOffset
-                it[DeadLetterMessageTable.kafkaKey] = record.kafkaKey
-                it[DeadLetterMessageTable.failureReason] = record.failureReason
-                it[DeadLetterMessageTable.errorMessage] = record.errorMessage
-                it[DeadLetterMessageTable.receivedAt] = Clock.System.now()
+            val now = Clock.System.now()
+            DeadLetterMessageTable.batchInsert(records) { record ->
+                this[DeadLetterMessageTable.payload] = record.payload
+                this[DeadLetterMessageTable.topic] = record.topic
+                this[DeadLetterMessageTable.partition] = record.partition
+                this[DeadLetterMessageTable.kafkaOffset] = record.kafkaOffset
+                this[DeadLetterMessageTable.kafkaKey] = record.kafkaKey
+                this[DeadLetterMessageTable.failureReason] = record.failureReason
+                this[DeadLetterMessageTable.errorMessage] = record.errorMessage
+                this[DeadLetterMessageTable.receivedAt] = now
             }
         }
     }
