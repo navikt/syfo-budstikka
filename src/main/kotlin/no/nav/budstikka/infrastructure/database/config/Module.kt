@@ -7,11 +7,11 @@ import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.HealthCheck
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database

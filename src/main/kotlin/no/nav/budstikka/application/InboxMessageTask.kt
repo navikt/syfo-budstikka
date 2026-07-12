@@ -2,12 +2,12 @@ package no.nav.budstikka.application
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
+import no.nav.budstikka.application.port.InboxMessage
+import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.dispatchJson
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import no.nav.budstikka.infrastructure.task.BaseTask
 import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer
 import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig

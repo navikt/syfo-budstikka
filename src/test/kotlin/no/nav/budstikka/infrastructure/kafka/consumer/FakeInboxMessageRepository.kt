@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessage
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
+import no.nav.budstikka.application.port.InboxMessage
+import no.nav.budstikka.application.port.InboxMessageRepository
 import java.util.UUID
 
 class FakeInboxMessageRepository(
