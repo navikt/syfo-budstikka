@@ -27,7 +27,7 @@ class DeliveryTask(
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
 ) : BaseTask(
-        name = TASK_NAME,
+        name = "delivery-task",
         interval = config.interval,
     ) {
     private val logger = LoggerFactory.getLogger(DeliveryTask::class.java)
@@ -78,9 +78,5 @@ class DeliveryTask(
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
         }
-    }
-
-    private companion object {
-        const val TASK_NAME = "delivery-task"
     }
 }

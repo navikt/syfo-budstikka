@@ -1,5 +1,6 @@
 package no.nav.budstikka.application
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
@@ -31,7 +32,7 @@ class InboxMessageTask(
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
 ) : BaseTask(
-        name = TASK_NAME,
+        name = "inbox-message-task",
         interval = config.interval,
     ) {
     private val logger = LoggerFactory.getLogger(InboxMessageTask::class.java)
@@ -52,23 +53,24 @@ class InboxMessageTask(
         )
     }
 
-    private suspend fun decideFor(message: InboxMessage): Decision =
+    private suspend fun decideFor(message: InboxMessage): Decision {
+        logger.debug("Decoding inbox payload")
+        val dispatch =
+            try {
+                dispatchJson.decodeFromString<Dispatch>(message.payload)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: SerializationException) {
+                return decodeFailedDecision(error)
+            } catch (error: IllegalArgumentException) {
+                return decodeFailedDecision(error)
+            }
+        return decisionProcess.process(dispatch)
+    }
 
-        try {
-            logger.debug("Decoding inbox payload")
-            val dispatch = dispatchJson.decodeFromString<Dispatch>(message.payload)
-            decisionProcess.process(dispatch)
-        } catch (error: SerializationException) {
-            val reason = error.message ?: "Unable to decode inbox payload"
-            logger.warn(
-                "Unable to decode inbox payload eventId={}",
-                message.eventId,
-                error,
-            )
-            Decision.Failed(reason)
-        }
-
-    private companion object {
-        const val TASK_NAME = "inbox-message-task"
+    private fun decodeFailedDecision(error: Throwable): Decision.Failed {
+        val reason = error.message ?: "Unable to decode inbox message"
+        logger.warn("Failed to decode inbox message", error)
+        return Decision.Failed(reason)
     }
 }
