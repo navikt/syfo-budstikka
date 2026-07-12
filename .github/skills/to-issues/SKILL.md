@@ -7,7 +7,7 @@ description: "Bruk når en plan, et design, en PRD eller `.grill/PLAN.md` skal b
 
 Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i tjenesten, ikke et horisontalt snitt av ett lag.
 
-Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` (+ `docs/CONTEXT.md` og `docs/adr/`), output er issues på `navikt/syfo-budstikka` som er klare for plukking.
+Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` (+ `docs/context.md` og `docs/adr/`), output er issues på `navikt/syfo-budstikka` som er klare for plukking.
 
 ## Arbeidsflyt
 
@@ -16,15 +16,15 @@ Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkk
 Jobb fra det som allerede er i samtalen. Prioritert kilderekkefølge:
 
 - `.grill/PLAN.md` — den vedtatte planen fra plan-fasen
-- `docs/CONTEXT.md` — valgt tilnærming og rammer fra design-fasen
+- `docs/context.md` — valgt tilnærming og rammer fra design-fasen
 - `docs/adr/` — beslutninger som binder issue-innholdet (respekter dem; ikke reåpne avgjorte valg)
-- `docs/GLOSSARY.md` — domenespråk som issue-titler og -beskrivelser skal bruke
+- `docs/glossary.md` — domenespråk som issue-titler og -beskrivelser skal bruke
 
 Hvis brukeren oppgir en issue-referanse (nummer, URL) som argument, hent issuet fra GitHub og les body + kommentarer. Det blir parent-issue for snittene.
 
 ### 2. Utforsk kodebasen (ved behov)
 
-Har du ikke allerede kartlagt koden, gjør det nå for å forstå utgangspunktet. Issue-titler og -beskrivelser skal bruke domenespråket fra `docs/GLOSSARY.md` og respektere ADR-ene i området du rører.
+Har du ikke allerede kartlagt koden, gjør det nå for å forstå utgangspunktet. Issue-titler og -beskrivelser skal bruke domenespråket fra `docs/glossary.md` og respektere ADR-ene i området du rører.
 
 Se etter **prefaktorering** som gjør implementeringen enklere: "gjør endringen lett, så gjør den lette endringen." Prefaktorering blir egne issues som plukkes først.
 

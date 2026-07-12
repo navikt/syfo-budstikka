@@ -13,7 +13,7 @@ Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke
 
 - Sikkerhetsrelevante avveininger → `docs/adr/` (én ADR per beslutning, ikke reåpne avgjorte valg).
 - Funn og bevis (trivy/zizmor-output, exit-koder) → `.grill/VERIFICATION.md`.
-- Rammer og klassifisering av data tjenesten behandler → `docs/CONTEXT.md`.
+- Rammer og klassifisering av data tjenesten behandler → `docs/context.md`.
 
 ## PII-klassifisering i NAV
 
@@ -132,7 +132,7 @@ Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk o
 
 ## Sjekkliste (NAV-fokus)
 
-- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og notert i `docs/CONTEXT.md`
+- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og notert i `docs/context.md`
 - [ ] Ingen FNR, navn, helse- eller sensitive ytelsesdata i standardlogger
 - [ ] CEF-auditlogg dekker visning av personopplysninger til NAV-ansatte
 - [ ] `accessPolicy.inbound` er eksplisitt og speiler auth-kodens validering

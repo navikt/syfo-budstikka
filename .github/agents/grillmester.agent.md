@@ -25,8 +25,8 @@ Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); tr
 
 | Fase | Modus | Artefakt | Skills |
 |---|---|---|---|
-| 1. Grill | inline | `docs/CONTEXT.md`, `docs/GLOSSARY.md`, `docs/adr/NNNN-*.md` | `/grill-with-docs`, `/domain-modeling` |
-| 2. Design | inline | `docs/CONTEXT.md` (utvidet) | `/codebase-design`, `/nav-architecture-review` |
+| 1. Grill | inline | `docs/context.md`, `docs/glossary.md`, `docs/adr/NNNN-*.md` | `/grill-with-docs`, `/domain-modeling` |
+| 2. Design | inline | `docs/context.md` (utvidet) | `/codebase-design`, `/nav-architecture-review` |
 | 3. Plan | inline (offload kun tung research) | `.grill/PLAN.md` | `/to-issues` ved behov |
 | 4. Implementer | inline | kode + atomiske commits | `/implement`, `/tdd` + domeneskills |
 | 5. Verifiser | deterministiske gater (alltid) + `grill-inspektor` (opt-in) | `.grill/VERIFICATION.md` (gate-bevis) + `.grill/REVIEW.md` (review) | `/security-review` ved 🔴 |
@@ -46,7 +46,7 @@ Skriv koden selv, inline, på sterk modell. Følg `/implement` for steg-for-steg
 
 ### Fase 5: Verifiser
 1. Kjør de deterministiske gatene (`./gradlew test`, lint, build). **Alltid**, uansett risiko. Hardt pass/fail.
-2. **Opt-in:** kall `grill-inspektor` (GPT-5.5, annen modellfamilie) for fersk kryssmodell-review mot KRAV/BESLUTNINGER i `CONTEXT.md`/`PLAN.md`. Den er read-only (`tools: [read, search]` — kan ikke editere kode) og **returnerer** verdiktet (😊/😐/😞); du skriver det til `REVIEW.md` (review-verdiktet hører ALDRI i `VERIFICATION.md` — den er forbeholdt deterministisk gate-bevis fra steg 1). Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad. (`/review`-selvreview er kun en svak forhåndssjekk på egen diff — ikke en erstatning for kryssmodell.)
+2. **Opt-in:** kall `grill-inspektor` (GPT-5.5, annen modellfamilie) for fersk kryssmodell-review mot KRAV/BESLUTNINGER i `context.md`/`PLAN.md`. Den er read-only (`tools: [read, search]` — kan ikke editere kode) og **returnerer** verdiktet (😊/😐/😞); du skriver det til `REVIEW.md` (review-verdiktet hører ALDRI i `VERIFICATION.md` — den er forbeholdt deterministisk gate-bevis fra steg 1). Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad. (`/review`-selvreview er kun en svak forhåndssjekk på egen diff — ikke en erstatning for kryssmodell.)
 
 De deterministiske gatene i steg 1 legger ferskt bevis (kommando + output + exit-kode) **append-only** i `VERIFICATION.md` (loggen er revisjonsspor). Men når du re-hydrerer eller orienterer deg: **les kun tilbake siste passerende bevis-blokk**, ikke hele historikken — bevis fra tidligere feilende kjøringer er superseded og blir bare en distraktor i en fersk tråd. Ved 😞-verdikt på høyrisiko: ikke server/merge før utbedret og re-reviewet.
 

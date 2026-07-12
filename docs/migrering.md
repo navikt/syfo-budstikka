@@ -2,7 +2,7 @@
 
 Hvordan vi flytter varsel-produksjon fra `navikt/esyfovarsel` til syfo-budstikka uten
 dobbeltvarsling, tapte lukkinger eller spøkelses-data. Beslutninger er festet som B34–B37
-i `CONTEXT.md`. Grunnlaget er en kildekode-kartlegging av esyfovarsel (2026-07, HEAD
+i `context.md`. Grunnlaget er en kildekode-kartlegging av esyfovarsel (2026-07, HEAD
 `3ac54de`), se §«Type-inventar».
 
 ## Kjernespenning

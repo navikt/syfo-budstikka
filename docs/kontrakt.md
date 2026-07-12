@@ -1,6 +1,6 @@
 # Kontrakt / kanal-DTO-er — syfo-budstikka
 
-> **Status: FERDIG-GRILLET (designområde 3 lukket).** Struktur (sealed + operasjon i
+> **Status: FERDIG-GRILLET (designområde 3 lukket).** Struktur (sealed + operation i
 > typen, B22), alle kanal-DTO-er, Inaktiver-typing (B38–B39) og tekstmodell/enums
 > (B40–B41) er låst. Alle åpne spørsmål (⟡) er løst — se § nederst. Feltdetaljer kan
 > justeres non-breaking ved implementering; nye kanaler/felt legges til additivt.
@@ -12,19 +12,19 @@ har det. Intern mapping til nedstrøms er et anti-corruption-lag.
 
 ## Konvolutt
 ```kotlin
-data class Formidling(
+data class Dispatch(
     val eventId: UUID,            // dedup (B4)
     val referanse: String,        // kobler OPPRETT/FERDIGSTILL (B4)
-    val innhold: Formidlingsinnhold // sealed — bærer mottaker + operasjon
+    val innhold: DispatchContent // sealed — bærer mottaker + operation
 )
 
-sealed interface Formidlingsinnhold {
+sealed interface DispatchContent {
     val partisjonsnokkel: String  // accessor for Kafka-nøkkel (B5), ikke delt Mottaker-hierarki (B9)
 }
 ```
 Korrelasjon skjer på `eventId` (B45) — ingen egen korrelasjons-header eller -payloadfelt ut
 over `eventId` selv. `eventId` speiles i tillegg som Kafka-header (B54, navn:
-`FormidlingHeader.EVENT_ID`) som en dedup-fast-path ved inntak; payloaden forblir autoritativ
+`DispatchHeader.EVENT_ID`) som en dedup-fast-path ved inntak; payloaden forblir autoritativ
 kilde, headeren er ikke en erstatning.
 
 **Hvorfor er ikke `eventId` record key?** Record key har én bevisst jobb i budstikka:
@@ -43,7 +43,7 @@ partisjoneringsverktøy.
 
 ## Felles byggesteiner
 ```kotlin
-@JvmInline value class Personident(val value: String) { /* 11 siffer, toString="***" (B9) */ }
+@JvmInline value class PersonIdentifier(val value: String) { /* 11 siffer, toString="***" (B9) */ }
 @JvmInline value class Orgnummer(val value: String)   { /* 9 siffer */ }
 
 data class EksternVarsling(                    // vår egen modell (B23), mappes til tms
@@ -60,20 +60,20 @@ data class BrevFallback(                        // B8: tilstedeværelse = send b
 )
 enum class Distribusjonstype { VIKTIG, ANNET }
 
-// Sendevindu (B25) — nøytralt begrep, self-operasjonalisert i outbox.
+// SendingWindow (B25) — nøytralt begrep, self-operasjonalisert i outbox.
 // Default settes av budstikka: NKS_AAPNINGSTID for eksternbærende leveranser,
 // LOEPENDE for brev/mikrofrontend/ren in-app. Konsument kan overstyre pr. hendelse.
-enum class Sendevindu { LOEPENDE, NKS_AAPNINGSTID }   // utvidbar (DAGTID, ...)
+enum class SendingWindow { LOEPENDE, NKS_AAPNINGSTID }   // utvidbar (DAGTID, ...)
 
-// Merkelapp (B30) — typet LUKKET enum i delt kontraktlib. KATEGORI, ikke oppførsel:
+// Tag (B30) — typet LUKKET enum i delt kontraktlib. KATEGORI, ikke oppførsel:
 // budstikka forgrener ALDRI på den (ingen when(merkelapp)), bærer den kun til produsent-api.
 // Lukket form tvinger fager-registrering (PRODUSENT_REGISTER.tillatteMerkelapper) og
 // budstikka-onboarding til å skje sammen → holder listene i synk. Utvides ved onboarding.
-enum class Merkelapp { DIALOGMOETE, OPPFOELGING }     // mappes til produsent-api-streng (B23)
+enum class Tag { DIALOGMOETE, OPPFOELGING }     // mappes til produsent-api-streng (B23)
 
 enum class AltinnRessursId { DIALOGMOETE }            // B32: → produsent-api ressursId "nav_syfo_dialogmote"; register-håndhevet (B30-logikk)
 
-enum class AgMeldingstype { BESKJED, OPPGAVE }        // B33: nøytral, separat fra Brukervarsels Varseltype; frist/påminnelse utsatt
+enum class ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }        // B33: nøytral, separat fra Brukervarsels Varseltype; frist/påminnelse utsatt
 
 enum class Varseltype { BESKJED, OPPGAVE }            // B40: brukervarsel; tms støtter også Innboks, men esyfovarsel bruker den aldri → utelatt (YAGNI, utvidbar)
 
@@ -86,29 +86,29 @@ data class Sakstilknytning(                            // B31: konsumenten eier 
 
 ### 1. Brukervarsel — sykmeldt, Min side
 ```kotlin
-data class BrukervarselOpprett(
-    val personident: Personident,
+data class BrukervarselCreate(
+    val personident: PersonIdentifier,
     val varseltype: Varseltype,                // BESKJED | OPPGAVE (vår enum)
     val tekst: String,                         // skjermtekst på Min side
     val lenke: String? = null,
     val synligTom: Instant? = null,            // konsument eier (B1)
-    val eksternVarsling: EksternVarsling? = null,  // null = kun Min side
+    val externalVarsling: EksternVarsling? = null,  // null = kun Min side
     val brevFallback: BrevFallback? = null,    // B8
-    val sendevindu: Sendevindu? = null,        // B25: null = budstikka-default
-) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
+    val sendevindu: SendingWindow? = null,        // B25: null = budstikka-default
+) : DispatchContent { override val partisjonsnokkel get() = personident.value }
 ```
 
 ### 2. Ledervarsel — nærmeste leder, Dine Sykmeldte
 ```kotlin
-data class LedervarselOpprett(
-    val sykmeldt: Personident,
+data class LedervarselCreate(
+    val sykmeldt: PersonIdentifier,
     val orgnummer: Orgnummer,
     val tekst: String,
     val lenke: String? = null,
     val synligTom: Instant? = null,
-    val eksternVarsling: EksternVarsling? = null,
-    val sendevindu: Sendevindu? = null,        // B25
-) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+    val externalVarsling: EksternVarsling? = null,
+    val sendevindu: SendingWindow? = null,        // B25
+) : DispatchContent { override val partisjonsnokkel get() = sykmeldt.value }
 ```
 **B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
 — IKKE NL-fnr. Budstikka slår opp aktiv leder i narmesteleder-registeret i Beslutning-
@@ -117,12 +117,12 @@ publisering og kan byttes). Eliminerer dagens dobbeltoppslag i esyfovarsel.
 
 ### 3. Ditt sykefravær-melding — sykmeldt
 ```kotlin
-data class DittSykefravaerOpprett(
-    val personident: Personident,
+data class DittSykefravaerCreate(
+    val personident: PersonIdentifier,
     val tekst: String,
     val lenke: String? = null,
     val synligTom: Instant? = null,
-) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
+) : DispatchContent { override val partisjonsnokkel get() = personident.value }
 ```
 **B40:** ingen `variant`-felt — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum
 har kun `INFO` (verifisert i esyfovarsel). Budstikka sender alltid INFO. Legges til
@@ -130,22 +130,22 @@ non-breaking senere hvis flex utvider.
 
 ### 4. Arbeidsgivervarsel — Min side arbeidsgiver / Altinn
 ```kotlin
-data class ArbeidsgivervarselOpprett(
+data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,                       // virksomhet (underenhet) — alltid til stede
     val mottaker: AgMottaker,                       // B32: sealed valg (stiene kombineres aldri)
-    val merkelapp: Merkelapp,                        // B30: typet LUKKET enum (kategori)
+    val merkelapp: Tag,                        // B30: typet LUKKET enum (kategori)
     val tekst: String,                              // skjermtekst (bjella / sak-tidslinje)
     val lenke: String,
-    val eksternVarsling: EksternVarsling? = null,   // B29: epostTittel/epostTekst/smsTekst (ren tekst, budstikka saniterer)
-    val meldingstype: AgMeldingstype = AgMeldingstype.BESKJED,  // B33 (OPPGAVE-lukking → Inaktiver, ⟡ #3)
+    val externalVarsling: EksternVarsling? = null,   // B29: epostTittel/epostTekst/smsTekst (ren tekst, budstikka saniterer)
+    val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,  // B33 (OPPGAVE-lukking → Inaktiver, ⟡ #3)
     val sakstilknytning: Sakstilknytning? = null,   // B31: konsumentens sak (→ grupperingsid); konsument eier saken
     val synligTom: Instant? = null,
-    val sendevindu: Sendevindu? = null,             // B25
-) : Formidlingsinnhold { override val partisjonsnokkel get() = orgnummer.value }
+    val sendevindu: SendingWindow? = null,             // B25
+) : DispatchContent { override val partisjonsnokkel get() = orgnummer.value }
 
 // B32 — de to stiene kombineres ALDRI (research) → sealed valg, ikke separate hendelsesvarianter.
 sealed interface AgMottaker
-data class NarmesteLeder(val sykmeldt: Personident) : AgMottaker   // budstikka resolver NL (B24) fra (sykmeldt, orgnummer); én personlig mottaker
+data class NarmesteLeder(val sykmeldt: PersonIdentifier) : AgMottaker   // budstikka resolver NL (B24) fra (sykmeldt, orgnummer); én personlig mottaker
 data class AltinnRessurs(val ressurs: AltinnRessursId) : AgMottaker // → alle med Altinn-rollen ved virksomheten; ressursId typet (B30)
 // Opt-in altinnFallback (NL→Altinn ved manglende leder) er BESLUTTET men UTSATT (fase 2,
 // nice-to-have — esyfovarsel har det ikke i dag). Legges til NarmesteLeder som valgfritt felt
@@ -154,15 +154,15 @@ data class AltinnRessurs(val ressurs: AltinnRessursId) : AgMottaker // → alle 
 ```
 **Løst:**
 - E-post (B29): budstikka eier ikke mal; konsument oppgir ren-tekst `epostTittel`/`epostTekst`/
-  `smsTekst` via `eksternVarsling`; budstikka saniterer; plattformen nedstrøms brander.
-- Merkelapp (B30): typet LUKKET enum i delt kontraktlib (kategori, ingen oppførsel); fager-
+  `smsTekst` via `externalVarsling`; budstikka saniterer; plattformen nedstrøms brander.
+- Tag (B30): typet LUKKET enum i delt kontraktlib (kategori, ingen oppførsel); fager-
   registeret er håndhevelsen (`kanSendeTil`), enumen er DX-laget; lukket form tvinger synk.
 - Sak (B31): konsumenten eier saken → valgfri `sakstilknytning` (sakId → grupperingsid).
 - Mottaker-modell (B32): sealed `AgMottaker` = `NarmesteLeder` | `AltinnRessurs` (aldri kombinert).
   NL resolveres av budstikka (B24); `ressursId` typet (B30). Opt-in Altinn-fallback ved manglende
   NL er BESLUTTET (mottaker-utvidelse ≠ brevFallback → konsument eier samtykke) men UTSATT (fase 2);
   v1 = observerbar drop.
-- Meldingstype (B33): nøytral `AgMeldingstype { BESKJED, OPPGAVE }`, separat fra Brukervarsel;
+- Meldingstype (B33): nøytral `ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }`, separat fra Brukervarsel;
   frist/påminnelse utsatt (YAGNI).
 
 **AG ferdig-grillet.** Eneste rest er en kobling til felles Inaktiver (⟡ #3): en OPPGAVE lukkes
@@ -189,24 +189,24 @@ trolig via `oppgaveUtført` (ikke `hardDelete`) — løses i Inaktiver-grillinge
 ### 5. Brev — sykmeldt, fysisk  (INGEN ferdigstill, jf. B3/B21)
 ```kotlin
 data class BrevOpprett(
-    val personident: Personident,
+    val personident: PersonIdentifier,
     val journalpostId: String,                 // konsument har opprettet journalpost
     val distribusjonstype: Distribusjonstype = Distribusjonstype.VIKTIG,
-) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
+) : DispatchContent { override val partisjonsnokkel get() = personident.value }
 ```
 
 ### 6. Mikrofrontend — sykmeldt, synlighet på Min side
 ```kotlin
-data class MikrofrontendAktiver(
-    val personident: Personident,
+data class MicrofrontendEnable(
+    val personident: PersonIdentifier,
     val mikrofrontendId: String,               // konsument oppgir hvilken (domeneblind)
     val synligTom: Instant? = null,
-) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
+) : DispatchContent { override val partisjonsnokkel get() = personident.value }
 
-data class MikrofrontendDeaktiver(             // mikrofrontendens «ferdigstill»
-    val personident: Personident,
+data class MicrofrontendDisable(             // mikrofrontendens «ferdigstill»
+    val personident: PersonIdentifier,
     val mikrofrontendId: String,
-) : Formidlingsinnhold { override val partisjonsnokkel get() = personident.value }
+) : DispatchContent { override val partisjonsnokkel get() = personident.value }
 ```
 **B41: mikrofrontend holdes utenfor Inaktiver-mekanismen** — eget aktiver/deaktiver-par.
 Det er synlighet på Min side, ikke en leveranse-med-mottaker: `Deaktiver` matcher ikke en
@@ -221,28 +221,28 @@ Hendelsen er THIN: kun `referanse` + typet nøkkel. Lukkeoperasjonen nedstrøms 
 av hendelsen — budstikka avleder den fra den lagrede OPPRETT-raden (B39).
 
 ```kotlin
-data class BrukervarselInaktiver(
+data class BrukervarselInactivate(
     val referanse: String,
-    val sykmeldt: Personident,                  // matchnøkkel = OPPRETT-partisjonsanker
-) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+    val sykmeldt: PersonIdentifier,                  // matchnøkkel = OPPRETT-partisjonsanker
+) : DispatchContent { override val partisjonsnokkel get() = sykmeldt.value }
 
-data class LedervarselInaktiver(
+data class LedervarselInactivate(
     val referanse: String,
-    val sykmeldt: Personident,                  // B24: sykmeldt, IKKE NL-fnr (ukjent for konsument)
-) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+    val sykmeldt: PersonIdentifier,                  // B24: sykmeldt, IKKE NL-fnr (ukjent for konsument)
+) : DispatchContent { override val partisjonsnokkel get() = sykmeldt.value }
 
-data class DittSykefravaerInaktiver(
+data class DittSykefravaerInactivate(
     val referanse: String,
-    val sykmeldt: Personident,
-) : Formidlingsinnhold { override val partisjonsnokkel get() = sykmeldt.value }
+    val sykmeldt: PersonIdentifier,
+) : DispatchContent { override val partisjonsnokkel get() = sykmeldt.value }
 
-data class ArbeidsgivervarselInaktiver(
+data class ArbeidsgivervarselInactivate(
     val referanse: String,
     val orgnummer: Orgnummer,                   // matchnøkkel = virksomhet (B32)
-) : Formidlingsinnhold { override val partisjonsnokkel get() = orgnummer.value }
+) : DispatchContent { override val partisjonsnokkel get() = orgnummer.value }
 ```
 **Matchnøkkel** = OPPRETTs partisjonsanker (det konsumenten kjenner ved OPPRETT), ikke den
-faktiske resolverte mottakeren. Match mot lagret rad: `(referanse, mottaker_id, kanal)`.
+faktiske resolverte mottakeren. Match mot lagret rad: `(referanse, recipient_id, kanal)`.
 BREV er urepresenterbart (ingen `BrevInaktiver` — B3/B21). Mikrofrontend har egne
 aktiver/deaktiver-varianter (§ over), utenfor denne mekanismen.
 

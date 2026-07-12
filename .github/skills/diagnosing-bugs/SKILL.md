@@ -7,7 +7,7 @@ description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, 
 
 En disiplin for vanskelige feil. Hopp over faser kun når du eksplisitt kan begrunne det.
 
-Les `docs/CONTEXT.md` (hvis den finnes) for en skarp mental modell av de relevante modulene, og sjekk `docs/adr/` for beslutninger i området du rører. For ikke-trivielle fikser sporer du arbeidet i `.grill/` (`STATE.md` leses først) på linje med @grillmester sin faseløkke.
+Les `docs/context.md` (hvis den finnes) for en skarp mental modell av de relevante modulene, og sjekk `docs/adr/` for beslutninger i området du rører. For ikke-trivielle fikser sporer du arbeidet i `.grill/` (`STATE.md` leses først) på linje med @grillmester sin faseløkke.
 
 Er symptomet et **runtime-/plattformproblem** (appen kjører, men feiler i drift) — start i symptom-tabellen nederst og følg det diagnostiske treet i `/nav-troubleshoot` (som eier trærne), deretter tilbake hit for fikse-disiplinen.
 

@@ -15,7 +15,7 @@ internal fun Application.startKafkaConsumers() {
             runner.start { error ->
                 // Unrecoverable errors (bad credentials/config) stop the consumer loop. Once it stops
                 // updating its heartbeat, is_alive reports stale and the platform restarts the pod;
-                // restarting in-process would just keep hitting the same fault. See docs/HELSESJEKK.md.
+                // restarting in-process would just keep hitting the same fault. See docs/helsesjekk.md.
                 log.error("Kafka consumer hit a fatal error; loop stopped, liveness will report stale", error)
             }
         }

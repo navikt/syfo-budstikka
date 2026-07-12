@@ -117,6 +117,6 @@ Vi har besluttet å {konkret valg}.
 - Hold ADR-er korte og fokuserte — én beslutning per ADR.
 - «Gjøre ingenting» er alltid et alternativ.
 - Skriv for fremtidige lesere (og @grillmester i en senere tråd) som ikke kjenner konteksten.
-- Bruk domenets ord fra `docs/GLOSSARY.md`, ikke ad-hoc-navn.
+- Bruk domenets ord fra `docs/glossary.md`, ikke ad-hoc-navn.
 - Oppdater status når beslutningen er tatt; «Erstattet av NNNN» når en beslutning revideres.
 - Ikke legg PII eller hemmeligheter i selve ADR-en — referer til riktig kilde i stedet.

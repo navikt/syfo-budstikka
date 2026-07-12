@@ -18,7 +18,7 @@ aldri hardkodede versjoner.
   Parameteriserte spørringer ivaretas av DSL-en. Må uttrykke `FOR UPDATE SKIP LOCKED`
   for worker-radlåsen (B15/B27). **HikariCP** som connection pool.
 - **Flyway** for skjemaendringer (`src/main/resources/db/migration/V<n>__*.sql`), additivt.
-- **UUID v7** (tidssortert) for interne id-er som `leveranse.id` (B16). Gir bedre B-tree-lokalitet
+- **UUID v7** (tidssortert) for interne id-er som `delivery.id` (B16). Gir bedre B-tree-lokalitet
   enn v4 og hjelper alders-baserte retensjons-`DELETE` (B42). **Postgres 18 har `uuidv7()` innebygd**
   → id-en genereres av databasen med `DEFAULT uuidv7()` (settes i Flyway-migreringen), ingen app-side
   generator. **Standard i budstikka: `java.util.UUID` via `javaUUID("id")`** (pakke
@@ -36,24 +36,24 @@ aldri hardkodede versjoner.
 
 ## Prosjektstruktur (DDD / ports & adapters)
 
-Pakker under `no.nav.syfo`:
+Pakker under `no.nav.budstikka`:
 
-- **`domain`** — ren kjerne: modellen (`Formidling`, `Beslutning`, tilstander) og de komponerbare
+- **`domain`** — ren kjerne: modellen (`Dispatch`, `Decision`, tilstander) og de komponerbare
   beslutningsgatenes rene `apply` (B28/B55). Ingen I/O, ingen rammeverk. Raske,
   parallelliserbare enhetstester.
-- **`application`** — use-case-orkestratorer: bakgrunns-workere (`InboxMessageTask`) og andre
+- **`application`** — use-case-orkestratorer: bakgrunns-workere (`InboxMessageWorker`, `DeliveryWorker`) og andre
   drivere som koordinerer `domain` og `infrastructure`-porter. Snakker bare domene og porter, ingen
   transport-typer. Kan avhenge av `domain` og `infrastructure`; ingenting innover peker hit.
 - **`infrastructure`** — imperative shell og adaptere: Kafka, Exposed-repositories, eksterne
   klienter (KRR, PDL, nærmeste leder, dokdist, notifikasjon-produsent-api), DataSource, config.
-  Task-*mekanismen* (`BaseTask`, `Heartbeat`) bor her: livssyklus og plumbing uten domenekunnskap.
+  Worker-*mekanismen* (`BackgroundLoop`, `Heartbeat`) bor her: livssyklus og plumbing uten domenekunnskap.
 - **`api`** — Ktor-routes: interne endepunkter (`/internal/isalive|isready|prometheus`), ev. admin.
 
 Plasserings-test (adapter vs. use-case): navngir klassen en transport-type (`ConsumerRecord`,
 `ApplicationCall`, HTTP-request) er den en drivende adapter og hører til `infrastructure` (eller
 `api` for HTTP). Snakker den bare domene og porter, er den et use-case og hører til `application`.
 Ren livssyklus og plumbing hører til `infrastructure`. `InboxMessageHandler` tar `ConsumerRecord` og
-leser Kafka-headere, altså adapter i `infrastructure/kafka`; `InboxMessageTask` tar bare repository
+leser Kafka-headere, altså adapter i `infrastructure/kafka`; `InboxMessageWorker` tar bare repository
 og config, altså use-case i `application`. En port innføres når det finnes en grunn (to eller flere
 drivere, domenelogikk som skal testes uten transport, eller kompleks orkestrering), ikke på
 spekulasjon. DI-wiring som rører `application` bor i `bootstrap` (composition root), aldri i
@@ -72,4 +72,4 @@ Mapping til B28: `domain` = functional core · `application` og `infrastructure`
   ende-til-ende) med Testcontainers. Parallellitet konfigureres i Kotest.
 - **ktlint** (allerede i repoet) for kodestil. Kjør `./gradlew test` før ferdigmelding.
 - Lokal test/e2e-strategi (delt substrat i `src/test`, prod-grense via build, port-fakes, utsatt
-  interaktivt løp): se `TESTSTRATEGI.md` (B50–B53).
+  interaktivt løp): se `teststrategi.md` (B50–B53).

@@ -11,7 +11,7 @@ import java.util.UUID
 /**
  * Konsumerer nøytrale formidlinger fra topic og persisterer dem idempotent i inbox_hendelse.
  *
- * Feiltaksonomi (jf. docs/DATAMODELL.md):
+ * Feiltaksonomi (jf. docs/datamodell.md):
  * - **Poison** (mangler/ugyldig event_id-header, eller tom payload): dead-letter til inbox_feilet,
  *   returner normalt → offset committes, partisjon flyter videre.
  * - **Transient** (DB nede): kast → ConsumerRunner committer ikke, re-poller med backoff.

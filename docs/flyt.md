@@ -1,7 +1,7 @@
 # Overordnet flyt — syfo-budstikka
 
 Domeneblind varselruter. Konsument eier *hva/når*, budstikka eier *hvordan det leveres*.
-Tre faser: **Inbox → Beslutning → Outbox**, decoupled workers med radlås.
+Tre faser: **Inbox → Beslutning → Delivery**, decoupled workers med radlås.
 
 ```mermaid
 flowchart TB
@@ -20,8 +20,8 @@ flowchart TB
         INBOX[("inbox<br/>dedup på eventId")]
         BESL["Beslutnings-worker<br/>(poller, radlås)"]
         ELIG{"Eligibility-gate"}
-        OUTBOX[("outbox<br/>1 rad pr. konkret leveranse<br/>status + neste_forsok")]
-        OWORK["Outbox-worker<br/>(poller, radlås)<br/>backoff + maxLeveringsalder"]
+        DELIVERY[("delivery<br/>1 rad pr. konkret delivery<br/>state + next_attempt_time")]
+        DWORK["Delivery-worker<br/>(poller, radlås)<br/>claim + lease"]
         DROP[("droppet/død-logg<br/>+ metrikk")]
         FEILET[("feilet<br/>permanent + alert")]
     end
@@ -29,13 +29,11 @@ flowchart TB
     TOPIC --> CONS --> INBOX
     INBOX --> BESL --> ELIG
     ELIG -->|"død (PDL)"| DROP
-    ELIG -->|"frys kanalvalg<br/>(KRR/reservasjon)<br/>1 DB-tx: skriv outbox + marker inbox"| OUTBOX
-    OUTBOX --> OWORK
+    ELIG -->|"frys kanalvalg<br/>(KRR/reservasjon)<br/>1 DB-tx: skriv delivery + marker inbox"| DELIVERY
+    DELIVERY --> DWORK
 
-    OWORK -->|"transient feil"| RETRY{"innen<br/>maxLeveringsalder<br/>& synligTom?"}
-    RETRY -->|"ja"| OUTBOX
-    RETRY -->|"nei"| UTLOPT[("UTLOPT<br/>+ metrikk/alert")]
-    OWORK -->|"permanent feil"| FEILET
+    DWORK -->|"handler kaster"| DELIVERY
+    DWORK -->|"utfall=FAILED"| FEILET
 
     subgraph KRRPDL["Eksterne oppslag (Azure AD M2M)"]
         KRR["digdir-krr-proxy<br/>(reservasjon/digital)"]
@@ -53,17 +51,17 @@ flowchart TB
         MF["Mikrofrontend<br/>(Kafka)"]
     end
 
-    OWORK -->|"levér / ferdigstill<br/>(idempotent pr. leveranse-id)"| MS & DS & DSF & AG & BREV & MF
-    OWORK -->|"suksess → sendt + metrikk"| OK([" "])
+    DWORK -->|"levér / ferdigstill<br/>(idempotent pr. delivery-id)"| MS & DS & DSF & AG & BREV & MF
+    DWORK -->|"suksess → SENT + metrikk"| OK([" "])
 
-    TRACE["korrelasjon = eventId (B45):<br/>produsent-oppgitt → inbox/leveranse → workers → levering → logg/Grafana;<br/>OTel trace_id/span_id per hopp (Tempo)"]
+    TRACE["korrelasjon = eventId (B45):<br/>produsent-oppgitt → inbox/delivery → workers → levering → logg/Grafana;<br/>OTel trace_id/span_id per hopp (Tempo)"]
 ```
 
 ## Lesehjelp
 - **Konsument → inbox:** rask, idempotent (dedup på `eventId`). KRR/PDL-treghet gir ikke Kafka-lag.
 - **Beslutnings-worker:** kjører eligibility-gate. Død → droppet-logg. Ellers fryses kanalvalg
   (reservasjon påvirker kun ekstern varsling / brev-fallback) til konkrete outbox-rader i én DB-tx.
-- **Outbox-worker:** «dum» utfører + retryer pr. leveranse. Transient → backoff til frist; permanent → feilet.
+- **Delivery-worker:** claimer READY-rader, leverer, og setter SENT/FAILED. Kaster en handler, blir raden stående CLAIMED til lease utløper og kan re-claimes.
 - **FERDIGSTILL:** egen hendelse, samme flyt; leveransen lukker tidligere varsel matchet på `referanse`
   (brev kan ikke lukkes).
 - **Skalering:** radlås (`FOR UPDATE SKIP LOCKED`) lar flere podder dele last uten dobbeltlevering.

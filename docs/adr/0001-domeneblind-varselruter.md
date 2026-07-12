@@ -27,16 +27,16 @@ budstikka eier *hvordan det leveres*.
   (kobler FERDIGSTILL→OPPRETT). Partisjonsnøkkel = mottakerens id.
 - Budstikka eier en alltid-på eligibility-gate (død → dropp + registrer; KRR/
   reservasjon → styrer kun ekstern varsling) og leveringsrobusthet.
-- Arkitektur i tre faser: **Inbox → Beslutning (frys kanalvalg) → Outbox**
-  (én rad pr. konkret leveranse, worker utfører + retryer).
-- Sentral retry: eksponentiell backoff + `maxLeveringsalder`; `synligTom` kapper
-  fristen tidligere. Transient vs permanent feil skilles. Aldri stille dropp.
+- Arkitektur i tre faser: **Inbox → Beslutning (frys kanalvalg) → Delivery**
+  (én rad pr. konkret delivery, worker utfører via claim/lease).
+- Retry drives av claim/lease: transient feil signaliseres ved exception og re-claim
+  etter lease-utløp; permanent feil markeres terminalt.
 
 ## Konsekvenser
 
 - ➕ Budstikka kan eies og endres uten domenekunnskap; nye domener krever ingen
   kodeendring, bare en ny konsument som sender riktig kanal/tekst.
-- ➕ Idempotens og leveringsgaranti er strukturelt forankret (inbox/outbox), ikke
+- ➕ Idempotens og leveringsgaranti er strukturelt forankret (inbox/delivery), ikke
   ad hoc cron-resend.
 - ➖ Domeneappene må nå eie tekst, utløp og kanalvalg selv (flyttet ansvar).
 - ➖ «Send brev hvis reservert» krever at brukernotifikasjons-hendelsen bærer

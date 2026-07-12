@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * application worker's `runOnce` as [iteration]); this class owns only the lifecycle: coroutine
  * scope, safe error isolation and liveness ([isAlive]).
  *
- * Liveness follows docs/HELSESJEKK.md: the loop [records][Heartbeat.record] once per round, before
+ * Liveness follows docs/helsesjekk.md: the loop [records][Heartbeat.record] once per round, before
  * the work runs, so an idle or persistently-failing round still counts as "the loop is cycling".
  * Only a hung or dead coroutine goes stale. The stale threshold scales with [interval] (a slow
  * loop, e.g. an hourly cleanup, must not report stale between healthy rounds). A config-broken

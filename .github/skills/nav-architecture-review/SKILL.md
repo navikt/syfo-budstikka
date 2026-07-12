@@ -23,7 +23,7 @@ Typiske signaler:
 - Plattform-migrering eller opprydding i teknisk gjeld som flytter en søm.
 - Avvik fra NAV-standardmønstre eller introduksjon av ny teknologi i stacken.
 
-Lettere valg (biblioteksvalg innenfor eksisterende stack, intern refaktor uten ny søm) trenger ikke formell ADR — bare et notat i `docs/CONTEXT.md`.
+Lettere valg (biblioteksvalg innenfor eksisterende stack, intern refaktor uten ny søm) trenger ikke formell ADR — bare et notat i `docs/context.md`.
 
 ## Stacken er gitt — forslag skal matche den
 
@@ -53,8 +53,8 @@ Korte ADR-er er best — én beslutning per ADR. Oppdater status når beslutning
 
 ## Kobling til faseløkka
 
-- **Input:** funn fra grill-/design-fasen og fra `/improve-codebase-architecture` mater hit. Les `docs/CONTEXT.md` og `docs/GLOSSARY.md` så ADR-en bruker domenets egne ord, ikke ad-hoc-navn.
-- **Output:** skriv den valgte tilnærmingen til `docs/CONTEXT.md` og selve beslutningen til `docs/adr/`. Konkrete aksjonspunkter brytes ned i `.grill/PLAN.md` (evt. via `/to-issues`), og hva som beviser at valget holder, fanges i `.grill/VERIFICATION.md`.
+- **Input:** funn fra grill-/design-fasen og fra `/improve-codebase-architecture` mater hit. Les `docs/context.md` og `docs/glossary.md` så ADR-en bruker domenets egne ord, ikke ad-hoc-navn.
+- **Output:** skriv den valgte tilnærmingen til `docs/context.md` og selve beslutningen til `docs/adr/`. Konkrete aksjonspunkter brytes ned i `.grill/PLAN.md` (evt. via `/to-issues`), og hva som beviser at valget holder, fanges i `.grill/VERIFICATION.md`.
 
 ## Relaterte skills
 

@@ -9,9 +9,9 @@ Tar samtalekonteksten + det som ligger i `.grill/` og produserer et PRD som publ
 
 ## Forutsetning: les arbeidsminnet først
 Dette er et seint steg i Grillmester sin faseløkke. Før du skriver, les det som allerede er avklart:
-- `docs/CONTEXT.md` — valgt tilnærming fra design-fasen
+- `docs/context.md` — valgt tilnærming fra design-fasen
 - `docs/adr/*.md` — beslutninger som er vanskelige å reversere
-- `docs/GLOSSARY.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
+- `docs/glossary.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
 - `.grill/PLAN.md` og `.grill/VERIFICATION.md` hvis de finnes — implementerings- og verifikasjonskontrakt
 
 PRD-et skal være en trofast syntese av dette, ikke en ny idé.

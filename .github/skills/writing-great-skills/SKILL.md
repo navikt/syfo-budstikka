@@ -62,9 +62,9 @@ Før kroppen: list **trigger-signalene**. Én per reell gren, ledende ord først
 
 ### 3. Plasser innholdet på stigen
 Skriv stegene/kontraktene som hver gren trenger inline. Skyv tung referanse (full kode, lange tabeller, edge-case-kataloger) til `references/<navn>.md` med en presis kontekst-peker. Bind skillen til `.grill/`-artefakter der den henger sammen med faseløkka:
-- `docs/CONTEXT.md` — valgt tilnærming, så skillen bruker samme vokabular.
+- `docs/context.md` — valgt tilnærming, så skillen bruker samme vokabular.
 - `docs/adr/` — beslutninger skillen må respektere (ikke reåpne avgjorte valg).
-- `docs/GLOSSARY.md` — domenespråk skillen skal skrive i.
+- `docs/glossary.md` — domenespråk skillen skal skrive i.
 - `.grill/PLAN.md` / `.grill/VERIFICATION.md` / `.grill/STATE.md` — input/utfall for skills som lever i @grillmester sin faseløkke (jf. `to-issues`, `tdd`).
 
 ### 4. Sett sjekkbare fullføringskriterier

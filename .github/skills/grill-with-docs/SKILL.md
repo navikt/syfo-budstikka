@@ -22,7 +22,7 @@ Velg arketype først, og still domene-spørsmålene som hører til. Den korte ve
 - **Arkitekturbeslutning?** → utløs ADR via `/nav-architecture-review`.
 
 For **ny tjeneste, ny arketype eller modernisering** — kjør den fulle kravavdekkingen (dybden ligger i references, lastes ved behov):
-- [references/nav-arketyper.md](references/nav-arketyper.md) — arketype-valg, domene-spørsmål per personvern/plattform/observerbarhet/team, brownfield endringskonsekvens, modernisering, og hva som oppsummeres i `docs/CONTEXT.md`.
+- [references/nav-arketyper.md](references/nav-arketyper.md) — arketype-valg, domene-spørsmål per personvern/plattform/observerbarhet/team, brownfield endringskonsekvens, modernisering, og hva som oppsummeres i `docs/context.md`.
 - [references/blind-spots.md](references/blind-spots.md) — full sjekkliste (auth, DB, Kafka, observerbarhet, sikkerhet) med konsekvens + spørsmål å stille.
 - [references/data-classification.md](references/data-classification.md) — NAVs klassifiseringsnivåer, PII-kategorier og arkitekturkonsekvenser.
 
@@ -30,7 +30,7 @@ For **ny tjeneste, ny arketype eller modernisering** — kjør den fulle kravavd
 For hver beslutning som er vanskelig å reversere, overraskende uten kontekst, og resultatet av en reell avveining, skriv `docs/adr/NNNN-<kort-tittel>.md` med det kanoniske ADR-formatet — se `/domain-modeling` (ADR-FORMAT.md). Én beslutning per ADR.
 
 ## Glossar-kontrakt
-Hvert domenebegrep som dukker opp avklares i `docs/GLOSSARY.md` (én linje: `term → presis definisjon i NAV-kontekst`). Konsistent språk er en del av designet, ikke pynt.
+Hvert domenebegrep som dukker opp avklares i `docs/glossary.md` (én linje: `term → presis definisjon i NAV-kontekst`). Konsistent språk er en del av designet, ikke pynt.
 
 ## Utfall
-Når treet er gjennomgått og bruker har bekreftet: oppsummer beslutningene, pek på ADR-ene og glossaret, og skriv den valgte tilnærmingen til `docs/CONTEXT.md`. Det er input til plan- og implementeringsfasen.
+Når treet er gjennomgått og bruker har bekreftet: oppsummer beslutningene, pek på ADR-ene og glossaret, og skriv den valgte tilnærmingen til `docs/context.md`. Det er input til plan- og implementeringsfasen.

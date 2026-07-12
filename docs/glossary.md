@@ -28,7 +28,7 @@ _Unngå_: bedrift, org
 
 ## Kjernebegreper
 
-**Formidling**:
+**Dispatch**:
 Det en produsent ber budstikka nå ut med til en mottaker. Paraply over alle former — varsel,
 brev, e-post og mikrofrontend-flate — uavhengig av kanal.
 _Unngå_: varselbestilling, bestilling, melding
@@ -96,7 +96,7 @@ Budstikkas lukking av en formidling på én kanal, avledet fra den lagrede oppre
 **Leveranse**:
 Én formidling til én mottaker på én kanal, som budstikka utfører og sporer til den er terminal.
 
-**Sendevindu**:
+**SendingWindow**:
 Tidsrommet en formidling faktisk sendes i — løpende, eller innenfor NKS' åpningstid.
 
 **Død-gate**:

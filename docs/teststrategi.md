@@ -1,7 +1,7 @@
 # Teststrategi og lokal kjøring — syfo-budstikka
 
 Hvordan vi tester budstikka ende-til-ende og (senere) kjører hele flyten lokalt.
-Beslutninger: B50–B53 i `CONTEXT.md`. Bygger på ports & adapters (B28) og teknologivalg (B44).
+Beslutninger: B50–B53 i `context.md`. Bygger på ports & adapters (B28) og teknologivalg (B44).
 
 ## Grunnidé: ett delt substrat (B50)
 
@@ -55,7 +55,7 @@ Kafka + Postgres startes programmatisk via Testcontainers — **samme oppsett** 
 integrasjonstestene bruker. Ingen `docker-compose` (unngår en separat fil som drifter fra
 test-konfigen).
 
-- DB-tabellene (`inbox`/`leveranse`) er **fullt inspiserbare mens prosessen kjører**:
+- DB-tabellene (`inbox`/`delivery`) er **fullt inspiserbare mens prosessen kjører**:
   containeren mapper Postgres-porten til `localhost`. Logg JDBC-URL ved oppstart (evt. pinn
   en fast host-port) og koble psql/DataGrip/pgweb til.
 - Ferskt miljø per kjøring; data overlever ikke en prosess-restart. Live-inspeksjon under
@@ -76,9 +76,9 @@ minne, styrbare:
 
 ```kotlin
 class FakeDodsfall : DodsfallOppslag {
-    private val dode = mutableSetOf<Personident>()
-    fun marker(ident: Personident) { dode += ident }   // «gjør denne personen død»
-    override suspend fun erDod(ident: Personident) = ident in dode
+    private val dode = mutableSetOf<PersonIdentifier>()
+    fun marker(ident: PersonIdentifier) { dode += ident }   // «gjør denne personen død»
+    override suspend fun erDod(ident: PersonIdentifier) = ident in dode
 }
 ```
 
