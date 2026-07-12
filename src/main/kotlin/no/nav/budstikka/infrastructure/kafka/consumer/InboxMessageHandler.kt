@@ -89,14 +89,25 @@ class InboxMessageHandler(
 
     private fun ConsumerRecord<String, String?>.toInboxCandidate(): InboxCandidate {
         val eventId =
-            when (val eventIdResult = readEventId()) {
-                is EventId.Valid -> eventIdResult.value
-                is EventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.MissingEventId))
+            when (val result = readEventId()) {
+                is EventId.Valid -> {
+                    result.value
+                }
+
+                is EventId.Invalid -> {
+                    return InboxCandidate.DeadLetter(
+                        toDeadLetter(result.reason),
+                    )
+                }
             }
+
         val payload = value()
         if (payload.isNullOrBlank()) {
-            return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.MissingPayload))
+            return InboxCandidate.DeadLetter(
+                toDeadLetter(DeadLetter.MissingPayload),
+            )
         }
+
         return InboxCandidate.Valid(
             InboxMessage(
                 eventId = eventId,
@@ -109,15 +120,13 @@ class InboxMessageHandler(
     }
 }
 
-/** Resultat av å lese event_id fra Kafka-headeren: enten en gyldig UUID eller en dead-letter-grunn. */
 internal sealed interface EventId {
     data class Valid(
         val value: UUID,
     ) : EventId
 
     data class Invalid(
-        val failureReason: String,
-        val errorMessage: String?,
+        val reason: DeadLetter,
     ) : EventId
 }
 
@@ -129,11 +138,11 @@ internal sealed interface EventId {
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()
-            ?: return EventId.Invalid("MISSING_EVENT_ID", "Kafka header '${DispatchHeader.EVENT_ID}' missing")
+            ?: return EventId.Invalid(DeadLetter.MissingEventId)
     return try {
         EventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
-    } catch (e: IllegalArgumentException) {
-        EventId.Invalid("INVALID_EVENT_ID", e.message)
+    } catch (_: IllegalArgumentException) {
+        EventId.Invalid(DeadLetter.InvalidEventId)
     }
 }
 
@@ -148,7 +157,12 @@ sealed interface DeadLetter {
 
     data object MissingEventId : DeadLetter {
         override val code = "MISSING_EVENT_ID"
-        override val message = "Kafka record missing event ID"
+        override val message = "Kafka record missing event ID header"
+    }
+
+    data object InvalidEventId : DeadLetter {
+        override val code = "INVALID_EVENT_ID"
+        override val message = "Kafka event ID header is not a valid UUID"
     }
 }
 

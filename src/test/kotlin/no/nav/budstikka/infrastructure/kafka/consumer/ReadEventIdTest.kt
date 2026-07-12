@@ -17,21 +17,24 @@ class ReadEventIdTest :
         test("valid UUID header returns Valid with parsed value") {
             val id = UUID.randomUUID()
 
-            val resultat = record(eventId = id.toString()).readEventId()
-
-            resultat.shouldBeInstanceOf<EventId.Valid>().value shouldBe id
+            record(eventId = id.toString())
+                .readEventId()
+                .shouldBeInstanceOf<EventId.Valid>()
+                .value shouldBe id
         }
 
         test("missing header returns Invalid(MISSING_EVENT_ID)") {
-            val resultat = record(eventId = null).readEventId()
-
-            resultat.shouldBeInstanceOf<EventId.Invalid>().failureReason shouldBe "MISSING_EVENT_ID"
+            record(eventId = null)
+                .readEventId()
+                .shouldBeInstanceOf<EventId.Invalid>()
+                .reason shouldBe "MISSING_EVENT_ID"
         }
 
         test("header that is not a UUID returns Invalid(INVALID_EVENT_ID)") {
-            val resultat = record(eventId = "ikke-en-uuid").readEventId()
-
-            resultat.shouldBeInstanceOf<EventId.Invalid>().failureReason shouldBe "INVALID_EVENT_ID"
+            record(eventId = "ikke-en-uuid")
+                .readEventId()
+                .shouldBeInstanceOf<EventId.Invalid>()
+                .reason shouldBe "INVALID_EVENT_ID"
         }
     })
 
