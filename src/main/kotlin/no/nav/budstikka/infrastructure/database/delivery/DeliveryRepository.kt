@@ -63,7 +63,7 @@ class DeliveryRepositoryImpl(
         inboxEventId: UUID,
         draft: List<DeliveryDraft>,
     ) {
-        if(draft.isEmpty()) {
+        if (draft.isEmpty()) {
             return
         }
         DeliveryTable.batchInsert(draft) { draftEntry ->

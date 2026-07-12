@@ -142,10 +142,11 @@ class ConsumerRunnerTest :
                     pollTimeout = Duration.ofMillis(1),
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
-                    handler = perRecordHandler {
-                        handledAttempts.countDown()
-                        error("persistent boom")
-                    },
+                    handler =
+                        perRecordHandler {
+                            handledAttempts.countDown()
+                            error("persistent boom")
+                        },
                 )
 
             runner.start()
@@ -179,12 +180,13 @@ class ConsumerRunnerTest :
                     pollTimeout = Duration.ofMillis(1),
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
-                    handler = perRecordHandler {
-                        if (attempts.getAndIncrement() == 0) {
-                            error("transient boom")
-                        }
-                        runner.stop()
-                    },
+                    handler =
+                        perRecordHandler {
+                            if (attempts.getAndIncrement() == 0) {
+                                error("transient boom")
+                            }
+                            runner.stop()
+                        },
                 )
 
             runner.start()
@@ -230,10 +232,11 @@ class ConsumerRunnerTest :
                     pollTimeout = Duration.ofMillis(1),
                     initialBackoff = Duration.ofMillis(1),
                     maxBackoff = Duration.ofMillis(1),
-                    handler = perRecordHandler { record ->
-                        handledOffsets += record.offset()
-                        runner.stop()
-                    },
+                    handler =
+                        perRecordHandler { record ->
+                            handledOffsets += record.offset()
+                            runner.stop()
+                        },
                 )
 
             runner.start()
