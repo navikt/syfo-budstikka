@@ -10,6 +10,7 @@ import no.nav.budstikka.application.DeliveryTask
 import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
@@ -17,7 +18,6 @@ import no.nav.budstikka.domain.dispatch.Microfrontend
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
-import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
 import java.time.Duration
 import java.util.UUID

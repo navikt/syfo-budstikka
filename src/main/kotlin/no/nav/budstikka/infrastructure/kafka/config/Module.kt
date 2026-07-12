@@ -2,13 +2,13 @@ package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.BatchMessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxMessageHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
-import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.microfrontendPublisher
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer

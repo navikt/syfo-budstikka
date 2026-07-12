@@ -1,8 +1,8 @@
 package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.domain.dispatch.Microfrontend
-import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 
 /**
  * [ChannelHandler] for MICROFRONTEND-kanalen (B41): styrer av/på-synlighet på Min side via
