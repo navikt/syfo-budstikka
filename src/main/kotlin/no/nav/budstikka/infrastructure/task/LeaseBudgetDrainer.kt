@@ -2,7 +2,7 @@ package no.nav.budstikka.infrastructure.task
 
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import no.nav.budstikka.infrastructure.config.MdcKeys
+import no.nav.budstikka.application.MdcKeys
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.time.Duration

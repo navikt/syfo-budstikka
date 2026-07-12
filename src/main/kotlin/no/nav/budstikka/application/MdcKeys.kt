@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.config
+package no.nav.budstikka.application
 
 object MdcKeys {
     const val DELIVERY_CHANNEL = "delivery_channel"

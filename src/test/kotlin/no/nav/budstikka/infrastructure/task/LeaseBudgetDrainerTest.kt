@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import no.nav.budstikka.infrastructure.config.MdcKeys
+import no.nav.budstikka.application.MdcKeys
 import org.slf4j.MDC
 import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds

@@ -3,7 +3,6 @@ package no.nav.budstikka.application
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.infrastructure.config.MdcKeys
 import no.nav.budstikka.infrastructure.task.BaseTask
 import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer
 import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig

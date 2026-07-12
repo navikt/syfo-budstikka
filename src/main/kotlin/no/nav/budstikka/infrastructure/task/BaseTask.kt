@@ -13,8 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.time.withTimeoutOrNull
+import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
-import no.nav.budstikka.infrastructure.config.MdcKeys
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.time.Duration

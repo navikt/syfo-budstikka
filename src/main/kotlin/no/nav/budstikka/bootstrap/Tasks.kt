@@ -3,7 +3,7 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
 import io.ktor.server.plugins.di.dependencies
-import no.nav.budstikka.infrastructure.config.MdcKeys
+import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.task.BaseTask
 import org.slf4j.MDC
 
