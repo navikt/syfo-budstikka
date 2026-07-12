@@ -19,7 +19,7 @@ import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
-import no.nav.budstikka.infrastructure.worker.config.TaskConfig
+import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
     provide<DeathLookup> { NoopDeathLookup() }
@@ -40,31 +40,31 @@ fun DependencyRegistry.workerModule() {
     // Composition seam (jf. H3): application-workerne eier én runde (`runOnce`), infrastruktur-
     // løkka eier livssyklusen. Kun bootstrap ser begge lag.
     provide<List<BackgroundLoop>> {
-        val taskConfig = resolve<TaskConfig>()
+        val workerConfig = resolve<WorkerConfig>()
         val inboxMessageWorker =
             InboxMessageWorker(
                 repository = resolve<InboxMessageRepository>(),
                 effectuator = resolve<EffectuateDecision>(),
                 decisionProcess = resolve<DecisionProcess>(),
-                drainer = LeaseBudgetDrainer(taskConfig.inboxMessage.leaseBudgetFraction),
-                config = taskConfig.inboxMessage,
+                drainer = LeaseBudgetDrainer(workerConfig.inboxMessage.leaseBudgetFraction),
+                config = workerConfig.inboxMessage,
             )
         val deliveryWorker =
             DeliveryWorker(
                 repository = resolve<DeliveryRepository>(),
                 handlers = resolve<Map<Channel, ChannelHandler>>(),
-                drainer = LeaseBudgetDrainer(taskConfig.delivery.leaseBudgetFraction),
-                config = taskConfig.delivery,
+                drainer = LeaseBudgetDrainer(workerConfig.delivery.leaseBudgetFraction),
+                config = workerConfig.delivery,
             )
         listOf(
             BackgroundLoop(
                 name = "inbox-message",
-                interval = taskConfig.inboxMessage.interval,
+                interval = workerConfig.inboxMessage.interval,
                 iteration = inboxMessageWorker::runOnce,
             ),
             BackgroundLoop(
                 name = "delivery",
-                interval = taskConfig.delivery.interval,
+                interval = workerConfig.delivery.interval,
                 iteration = deliveryWorker::runOnce,
             ),
         )

@@ -5,18 +5,18 @@ import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.stringOrEmpty
 import java.time.Duration
 
-// Operational knobs for the claim-lease-drain tasks (inbox and delivery), resolved from
+// Operational knobs for the claim-lease-drain workers (inbox and delivery), resolved from
 // application.conf like KafkaConfig and DatabaseConfig so intervals and batch sizes are env-tunable
 // without a redeploy. Both workers share the same shape, so they share [LeaseDrainConfig] (the
 // value type lives in `application`; this file owns only the HOCON parsing).
 
-data class TaskConfig(
+data class WorkerConfig(
     val inboxMessage: LeaseDrainConfig,
     val delivery: LeaseDrainConfig,
 )
 
-fun ApplicationConfig.toTaskConfig(): TaskConfig {
-    fun value(key: String): String = stringOrEmpty("tasks.$key").trim()
+fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
+    fun value(key: String): String = stringOrEmpty("workers.$key").trim()
 
     val inboxIntervalSeconds = value("inboxMessage.intervalSeconds")
     val inboxBatchSize = value("inboxMessage.batchSize")
@@ -29,17 +29,17 @@ fun ApplicationConfig.toTaskConfig(): TaskConfig {
 
     val errors =
         buildList {
-            validateTaskConfig(
+            validateWorkerConfig(
                 errors = this,
-                keyPrefix = "tasks.inboxMessage",
+                keyPrefix = "workers.inboxMessage",
                 intervalSeconds = inboxIntervalSeconds,
                 batchSize = inboxBatchSize,
                 leaseSeconds = inboxLeaseSeconds,
                 leaseBudgetFraction = inboxLeaseBudgetFraction,
             )
-            validateTaskConfig(
+            validateWorkerConfig(
                 errors = this,
-                keyPrefix = "tasks.delivery",
+                keyPrefix = "workers.delivery",
                 intervalSeconds = deliveryIntervalSeconds,
                 batchSize = deliveryBatchSize,
                 leaseSeconds = deliveryLeaseSeconds,
@@ -48,10 +48,10 @@ fun ApplicationConfig.toTaskConfig(): TaskConfig {
         }
 
     check(errors.isEmpty()) {
-        "Invalid tasks configuration: ${errors.joinToString(", ")}"
+        "Invalid workers configuration: ${errors.joinToString(", ")}"
     }
 
-    return TaskConfig(
+    return WorkerConfig(
         inboxMessage =
             LeaseDrainConfig(
                 interval =
@@ -93,7 +93,7 @@ fun ApplicationConfig.toTaskConfig(): TaskConfig {
     )
 }
 
-private fun validateTaskConfig(
+private fun validateWorkerConfig(
     errors: MutableList<String>,
     keyPrefix: String,
     intervalSeconds: String,

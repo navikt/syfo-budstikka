@@ -7,12 +7,12 @@ import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import org.slf4j.MDC
 
-internal fun Application.startTasks() {
-    val tasks: List<BackgroundLoop> by dependencies
-    tasks.forEach { task ->
-        MDC.putCloseable(MdcKeys.WORKER, task.name).use {
+internal fun Application.startWorkers() {
+    val workers: List<BackgroundLoop> by dependencies
+    workers.forEach { worker ->
+        MDC.putCloseable(MdcKeys.WORKER, worker.name).use {
             log.info("Starting worker")
-            task.start()
+            worker.start()
         }
     }
 }

@@ -15,7 +15,7 @@ import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 fun DependencyRegistry.livenessModule() {
     provide<LivenessCheck> {
         val runners = resolve<List<ConsumerRunner<*, *>>>()
-        val tasks = resolve<List<BackgroundLoop>>()
-        LivenessCheck { runners.all { it.isAlive() } && tasks.all { it.isAlive() } }
+        val workers = resolve<List<BackgroundLoop>>()
+        LivenessCheck { runners.all { it.isAlive() } && workers.all { it.isAlive() } }
     }
 }

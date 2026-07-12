@@ -16,7 +16,7 @@ class BackgroundLoopTest :
             val heartbeat = Heartbeat(clock, Duration.ofMinutes(5))
             val ranOnce = CountDownLatch(1)
             val loop =
-                BackgroundLoop("test-task", Duration.ofMillis(10), heartbeat) {
+                BackgroundLoop("test-worker", Duration.ofMillis(10), heartbeat) {
                     ranOnce.countDown()
                 }
 
@@ -35,7 +35,7 @@ class BackgroundLoopTest :
             val heartbeat = Heartbeat(clock, Duration.ofMinutes(5))
             val failed = CountDownLatch(1)
             val loop =
-                BackgroundLoop("failing-task", Duration.ofMillis(10), heartbeat) {
+                BackgroundLoop("failing-worker", Duration.ofMillis(10), heartbeat) {
                     failed.countDown()
                     error("boom")
                 }
@@ -47,7 +47,7 @@ class BackgroundLoopTest :
         }
 
         test("default stale threshold scales with slow intervals") {
-            // An hourly loop (e.g. the future cleanup task, B42) must not be declared dead between
+            // An hourly loop (e.g. the future cleanup worker, B42) must not be declared dead between
             // healthy rounds: the derived threshold covers at least two missed rounds.
             BackgroundLoop.defaultStaleThreshold(Duration.ofHours(1)) shouldBe Duration.ofHours(2)
             // Fast loops keep the conservative floor so a slow-but-healthy round is not flagged.

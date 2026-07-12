@@ -97,7 +97,7 @@ class DeliveryWorkerTest :
                 }
             val publisher = RecordingMicrofrontendPublisher()
             val worker = workerWith(repository, publisher)
-            val loop = BackgroundLoop("delivery-task", Duration.ofMillis(10), iteration = worker::runOnce)
+            val loop = BackgroundLoop("delivery-worker", Duration.ofMillis(10), iteration = worker::runOnce)
 
             loop.start()
             claimed.await(5, TimeUnit.SECONDS) shouldBe true

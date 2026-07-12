@@ -14,7 +14,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * brukt. Uberørte claimede rader blir stående til leasen utløper og plukkes opp av en senere poll
  * (evt. av en peer, ADR 0004). Hver rad prosesseres med sin eventId i MDC for korrelasjon.
  *
- * Cleanup-tasken (B42) bruker IKKE denne — den er en advisory-lock-gatet batch-DELETE, en annen form.
+ * Cleanup-workeren (B42) bruker IKKE denne — den er en advisory-lock-gatet batch-DELETE, en annen form.
  */
 class LeaseBudgetDrainer(
     private val leaseBudgetFraction: Double,

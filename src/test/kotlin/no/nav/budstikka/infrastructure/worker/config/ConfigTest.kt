@@ -9,7 +9,7 @@ import java.time.Duration
 
 class ConfigTest :
     FunSpec({
-        test("toTaskConfig reads inbox-message and delivery settings") {
+        test("toWorkerConfig reads inbox-message and delivery settings") {
             val config =
                 config(
                     intervalSeconds = "10",
@@ -20,7 +20,7 @@ class ConfigTest :
                     deliveryBatchSize = "30",
                     deliveryLeaseSeconds = "90",
                     deliveryLeaseBudgetFraction = "0.6",
-                ).toTaskConfig()
+                ).toWorkerConfig()
 
             config.inboxMessage.interval shouldBe Duration.ofSeconds(10)
             config.inboxMessage.batchSize shouldBe 50
@@ -32,7 +32,7 @@ class ConfigTest :
             config.delivery.leaseBudgetFraction shouldBe 0.6
         }
 
-        test("toTaskConfig falls back to defaults when unset") {
+        test("toWorkerConfig falls back to defaults when unset") {
             val config =
                 config(
                     intervalSeconds = "",
@@ -43,7 +43,7 @@ class ConfigTest :
                     deliveryBatchSize = "",
                     deliveryLeaseSeconds = "",
                     deliveryLeaseBudgetFraction = "",
-                ).toTaskConfig()
+                ).toWorkerConfig()
 
             config.inboxMessage.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
             config.inboxMessage.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
@@ -55,34 +55,34 @@ class ConfigTest :
             config.delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
         }
 
-        test("toTaskConfig validates interval is a positive integer") {
+        test("toWorkerConfig validates interval is a positive integer") {
             shouldThrow<IllegalStateException> {
-                config(intervalSeconds = "0").toTaskConfig()
-            }.message shouldBe "Invalid tasks configuration: tasks.inboxMessage.intervalSeconds must be a positive integer"
+                config(intervalSeconds = "0").toWorkerConfig()
+            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.intervalSeconds must be a positive integer"
         }
 
-        test("toTaskConfig validates batch size is a positive integer") {
+        test("toWorkerConfig validates batch size is a positive integer") {
             shouldThrow<IllegalStateException> {
-                config(batchSize = "-1").toTaskConfig()
-            }.message shouldBe "Invalid tasks configuration: tasks.inboxMessage.batchSize must be a positive integer"
+                config(batchSize = "-1").toWorkerConfig()
+            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.batchSize must be a positive integer"
         }
 
-        test("toTaskConfig validates lease is a positive integer") {
+        test("toWorkerConfig validates lease is a positive integer") {
             shouldThrow<IllegalStateException> {
-                config(leaseSeconds = "0").toTaskConfig()
-            }.message shouldBe "Invalid tasks configuration: tasks.inboxMessage.leaseSeconds must be a positive integer"
+                config(leaseSeconds = "0").toWorkerConfig()
+            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.leaseSeconds must be a positive integer"
         }
 
-        test("toTaskConfig validates lease budget fraction is within (0.0, 1.0]") {
+        test("toWorkerConfig validates lease budget fraction is within (0.0, 1.0]") {
             shouldThrow<IllegalStateException> {
-                config(leaseBudgetFraction = "1.5").toTaskConfig()
-            }.message shouldBe "Invalid tasks configuration: tasks.inboxMessage.leaseBudgetFraction must be a number in (0.0, 1.0]"
+                config(leaseBudgetFraction = "1.5").toWorkerConfig()
+            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.leaseBudgetFraction must be a number in (0.0, 1.0]"
         }
 
-        test("toTaskConfig validates delivery interval is a positive integer") {
+        test("toWorkerConfig validates delivery interval is a positive integer") {
             shouldThrow<IllegalStateException> {
-                config(deliveryIntervalSeconds = "0").toTaskConfig()
-            }.message shouldBe "Invalid tasks configuration: tasks.delivery.intervalSeconds must be a positive integer"
+                config(deliveryIntervalSeconds = "0").toWorkerConfig()
+            }.message shouldBe "Invalid workers configuration: workers.delivery.intervalSeconds must be a positive integer"
         }
     })
 
@@ -97,12 +97,12 @@ private fun config(
     deliveryLeaseBudgetFraction: String = "",
 ): MapApplicationConfig =
     MapApplicationConfig(
-        "tasks.inboxMessage.intervalSeconds" to intervalSeconds,
-        "tasks.inboxMessage.batchSize" to batchSize,
-        "tasks.inboxMessage.leaseSeconds" to leaseSeconds,
-        "tasks.inboxMessage.leaseBudgetFraction" to leaseBudgetFraction,
-        "tasks.delivery.intervalSeconds" to deliveryIntervalSeconds,
-        "tasks.delivery.batchSize" to deliveryBatchSize,
-        "tasks.delivery.leaseSeconds" to deliveryLeaseSeconds,
-        "tasks.delivery.leaseBudgetFraction" to deliveryLeaseBudgetFraction,
+        "workers.inboxMessage.intervalSeconds" to intervalSeconds,
+        "workers.inboxMessage.batchSize" to batchSize,
+        "workers.inboxMessage.leaseSeconds" to leaseSeconds,
+        "workers.inboxMessage.leaseBudgetFraction" to leaseBudgetFraction,
+        "workers.delivery.intervalSeconds" to deliveryIntervalSeconds,
+        "workers.delivery.batchSize" to deliveryBatchSize,
+        "workers.delivery.leaseSeconds" to deliveryLeaseSeconds,
+        "workers.delivery.leaseBudgetFraction" to deliveryLeaseBudgetFraction,
     )

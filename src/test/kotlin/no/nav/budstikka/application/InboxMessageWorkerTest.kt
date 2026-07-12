@@ -81,7 +81,7 @@ class InboxMessageWorkerTest :
                     polled.countDown()
                 }
             val worker = workerWith(repository, batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE)
-            val loop = BackgroundLoop("inbox-message-task", Duration.ofMillis(10), iteration = worker::runOnce)
+            val loop = BackgroundLoop("inbox-message-worker", Duration.ofMillis(10), iteration = worker::runOnce)
 
             loop.start()
             polled.await(5, TimeUnit.SECONDS) shouldBe true

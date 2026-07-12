@@ -75,7 +75,7 @@ class LeaseBudgetDrainerTest :
             val seen = mutableListOf<String?>()
             val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
 
-            withContext(MDCContext(mapOf(MdcKeys.WORKER to "inbox-message-task"))) {
+            withContext(MDCContext(mapOf(MdcKeys.WORKER to "inbox-message-worker"))) {
                 drainer.drain(
                     leaseDuration = Duration.ofMinutes(5),
                     eventId = { "event-$it" },
