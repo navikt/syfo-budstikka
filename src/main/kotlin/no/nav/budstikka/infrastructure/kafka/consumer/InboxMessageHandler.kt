@@ -1,9 +1,9 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
+import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.domain.dispatch.DispatchHeader
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import java.util.UUID

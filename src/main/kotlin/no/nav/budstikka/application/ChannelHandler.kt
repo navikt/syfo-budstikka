@@ -1,9 +1,9 @@
 package no.nav.budstikka.application
 
-import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
+import no.nav.budstikka.application.port.ClaimedDelivery
 
 /**
- * Kanalspesifikk utsending bak et smalt grensesnitt (B27). [DeliveryTask] avhenger av et
+ * Kanalspesifikk utsending bak et smalt grensesnitt (B27). [DeliveryWorker] avhenger av et
  * `Map<Channel, ChannelHandler>` — ikke av konkrete publishers — så en ny kanal er én handler +
  * registrering, uten å røre workeren.
  *

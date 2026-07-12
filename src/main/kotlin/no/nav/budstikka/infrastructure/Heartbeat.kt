@@ -5,7 +5,7 @@ import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Self-reported liveness signal for a single background loop — a Kafka consumer or a [task][no.nav.budstikka.infrastructure.task.BaseTask]
+ * Self-reported liveness signal for a single background loop — a Kafka consumer or a [loop][no.nav.budstikka.infrastructure.worker.BackgroundLoop]
  * (see docs/HELSESJEKK.md). The loop calls [record] every round, including idle ones, so a quiet loop
  * is not mistaken for a dead one. [isAlive] reports stale once no round has run within [staleThreshold]
  * — i.e. the loop has hung or exited. Never couple this to broker availability, downstream health,

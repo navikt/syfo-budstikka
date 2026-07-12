@@ -1,9 +1,9 @@
 package no.nav.budstikka.application
 
+import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Decision
-import no.nav.budstikka.infrastructure.database.config.TransactionRunner
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepository
 import java.util.UUID
 
 /**

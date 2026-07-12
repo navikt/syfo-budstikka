@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.application
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -6,26 +6,22 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import no.nav.budstikka.application.DeliveryTask
-import no.nav.budstikka.application.MicrofrontendChannelHandler
+import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.Microfrontend
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
-import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepository
-import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
-import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
+import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-class DeliveryTaskTest :
+class DeliveryWorkerTest :
     FunSpec({
         test("runOnce sends microfrontend deliveries and marks them SENT") {
             val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000201")
@@ -34,9 +30,9 @@ class DeliveryTaskTest :
                     deliveries = listOf(validMicrofrontendDelivery(deliveryId)),
                 )
             val publisher = RecordingMicrofrontendPublisher()
-            val task = taskWith(repository, publisher, batchSize = 10)
+            val worker = workerWith(repository, publisher, batchSize = 10)
 
-            task.runOnce()
+            worker.runOnce()
 
             repository.lastClaimLimit shouldBe 10
             repository.lastClaimChannels.single() shouldBe Channel.MICROFRONTEND
@@ -52,9 +48,9 @@ class DeliveryTaskTest :
                     deliveries = listOf(nonMicrofrontendPayload(deliveryId)),
                 )
             val publisher = RecordingMicrofrontendPublisher()
-            val task = taskWith(repository, publisher)
+            val worker = workerWith(repository, publisher)
 
-            task.runOnce()
+            worker.runOnce()
 
             publisher.published.shouldBeEmpty()
             repository.sentDeliveryIds.shouldBeEmpty()
@@ -76,22 +72,22 @@ class DeliveryTaskTest :
                         ),
                 )
             val publisher = RecordingMicrofrontendPublisher()
-            val task =
-                taskWith(
+            val worker =
+                workerWith(
                     repository = repository,
                     publisher = publisher,
                     leaseDuration = Duration.ofMillis(1),
                     leaseBudgetFraction = 0.1,
                 )
 
-            task.runOnce()
+            worker.runOnce()
 
             publisher.published.shouldBeEmpty()
             repository.sentDeliveryIds.shouldBeEmpty()
             repository.failedDeliveries.shouldBeEmpty()
         }
 
-        test("close stops polling loop") {
+        test("closing the composed loop stops polling") {
             val claimed = CountDownLatch(2)
             val repository =
                 PollingDeliveryRepository(
@@ -100,16 +96,12 @@ class DeliveryTaskTest :
                     claimed.countDown()
                 }
             val publisher = RecordingMicrofrontendPublisher()
-            val task =
-                taskWith(
-                    repository = repository,
-                    publisher = publisher,
-                    interval = Duration.ofMillis(10),
-                )
+            val worker = workerWith(repository, publisher)
+            val loop = BackgroundLoop("delivery-worker", Duration.ofMillis(10), iteration = worker::runOnce)
 
-            task.start()
+            loop.start()
             claimed.await(5, TimeUnit.SECONDS) shouldBe true
-            task.close()
+            loop.close()
 
             val claimCountAfterClose = repository.claimCount.get()
             Thread.sleep(100)
@@ -117,21 +109,20 @@ class DeliveryTaskTest :
         }
     })
 
-private fun taskWith(
+private fun workerWith(
     repository: PollingDeliveryRepository,
     publisher: RecordingMicrofrontendPublisher,
-    interval: Duration = Duration.ofSeconds(1),
     batchSize: Int = 10,
     leaseDuration: Duration = Duration.ofMinutes(5),
     leaseBudgetFraction: Double = 0.8,
-): DeliveryTask =
-    DeliveryTask(
+): DeliveryWorker =
+    DeliveryWorker(
         repository = repository,
         handlers = mapOf(Channel.MICROFRONTEND to MicrofrontendChannelHandler(publisher)),
         drainer = LeaseBudgetDrainer(leaseBudgetFraction),
         config =
             LeaseDrainConfig(
-                interval = interval,
+                interval = Duration.ofSeconds(1),
                 batchSize = batchSize,
                 leaseDuration = leaseDuration,
                 leaseBudgetFraction = leaseBudgetFraction,
@@ -178,14 +169,6 @@ private class PollingDeliveryRepository(
     ): Boolean {
         failedDeliveries += deliveryId to reason
         return true
-    }
-}
-
-private class RecordingMicrofrontendPublisher : MicrofrontendPublisher {
-    val published = mutableListOf<Microfrontend>()
-
-    override suspend fun publish(microfrontend: Microfrontend) {
-        published += microfrontend
     }
 }
 

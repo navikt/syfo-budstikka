@@ -1,0 +1,74 @@
+package no.nav.budstikka.bootstrap
+
+import io.ktor.server.plugins.di.DependencyRegistry
+import io.ktor.server.plugins.di.resolve
+import no.nav.budstikka.application.ChannelHandler
+import no.nav.budstikka.application.DeliveryWorker
+import no.nav.budstikka.application.EffectuateDecision
+import no.nav.budstikka.application.InboxMessageWorker
+import no.nav.budstikka.application.LeaseBudgetDrainer
+import no.nav.budstikka.application.MicrofrontendChannelHandler
+import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.MicrofrontendPublisher
+import no.nav.budstikka.application.port.TransactionRunner
+import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.DeathGate
+import no.nav.budstikka.domain.decision.DecisionProcess
+import no.nav.budstikka.domain.decision.DecisionRule
+import no.nav.budstikka.domain.foundation.DeathLookup
+import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
+import no.nav.budstikka.infrastructure.worker.BackgroundLoop
+import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
+
+fun DependencyRegistry.workerModule() {
+    provide<DeathLookup> { NoopDeathLookup() }
+    provide<List<DecisionRule>> { listOf(DeathGate(resolve<DeathLookup>())) }
+    provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
+    provide<EffectuateDecision> {
+        EffectuateDecision(
+            transactionRunner = resolve<TransactionRunner>(),
+            inboxMessageRepository = resolve<InboxMessageRepository>(),
+            deliveryRepository = resolve<DeliveryRepository>(),
+        )
+    }
+    provide<Map<Channel, ChannelHandler>> {
+        mapOf(
+            Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
+        )
+    }
+    // Composition seam (jf. H3): application-workerne eier én runde (`runOnce`), infrastruktur-
+    // løkka eier livssyklusen. Kun bootstrap ser begge lag.
+    provide<List<BackgroundLoop>> {
+        val workerConfig = resolve<WorkerConfig>()
+        val inboxMessageWorker =
+            InboxMessageWorker(
+                repository = resolve<InboxMessageRepository>(),
+                effectuator = resolve<EffectuateDecision>(),
+                decisionProcess = resolve<DecisionProcess>(),
+                drainer = LeaseBudgetDrainer(workerConfig.inboxMessage.leaseBudgetFraction),
+                config = workerConfig.inboxMessage,
+            )
+        val deliveryWorker =
+            DeliveryWorker(
+                repository = resolve<DeliveryRepository>(),
+                handlers = resolve<Map<Channel, ChannelHandler>>(),
+                drainer = LeaseBudgetDrainer(workerConfig.delivery.leaseBudgetFraction),
+                config = workerConfig.delivery,
+            )
+        listOf(
+            BackgroundLoop(
+                name = "inbox-message",
+                interval = workerConfig.inboxMessage.interval,
+                iteration = inboxMessageWorker::runOnce,
+            ),
+            BackgroundLoop(
+                name = "delivery",
+                interval = workerConfig.delivery.interval,
+                iteration = deliveryWorker::runOnce,
+            ),
+        )
+    }.cleanup { loops ->
+        loops.forEach(AutoCloseable::close)
+    }
+}

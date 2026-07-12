@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.infrastructure.worker
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -6,7 +6,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import no.nav.budstikka.infrastructure.config.MdcKeys
+import no.nav.budstikka.application.LeaseBudgetDrainer
+import no.nav.budstikka.application.MdcKeys
 import org.slf4j.MDC
 import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -74,7 +75,7 @@ class LeaseBudgetDrainerTest :
             val seen = mutableListOf<String?>()
             val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
 
-            withContext(MDCContext(mapOf(MdcKeys.TASK to "inbox-message-task"))) {
+            withContext(MDCContext(mapOf(MdcKeys.WORKER to "inbox-message-worker"))) {
                 drainer.drain(
                     leaseDuration = Duration.ofMinutes(5),
                     eventId = { "event-$it" },

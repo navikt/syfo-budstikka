@@ -6,15 +6,13 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.Microfrontend
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
-import no.nav.budstikka.infrastructure.database.delivery.ClaimedDelivery
-import no.nav.budstikka.infrastructure.kafka.producer.MicrofrontendPublisher
 import java.util.UUID
 
 class MicrofrontendChannelHandlerTest :
@@ -60,11 +58,3 @@ private fun delivery(payload: DispatchContent): ClaimedDelivery =
         channel = Channel.MICROFRONTEND,
         payload = payload,
     )
-
-private class RecordingMicrofrontendPublisher : MicrofrontendPublisher {
-    val published = mutableListOf<Microfrontend>()
-
-    override suspend fun publish(microfrontend: Microfrontend) {
-        published += microfrontend
-    }
-}

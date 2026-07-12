@@ -11,7 +11,7 @@ interface HealthCheck {
 
 /**
  * Liveness signal for the pod's is_alive probe. Reports whether every background loop — the Kafka
- * consumer runner(s) and the background task workers — is still cycling. Must never depend on broker
+ * consumer runner(s) and the background workers — is still cycling. Must never depend on broker
  * availability, consumer lag or processing success; see docs/HELSESJEKK.md.
  */
 fun interface LivenessCheck {

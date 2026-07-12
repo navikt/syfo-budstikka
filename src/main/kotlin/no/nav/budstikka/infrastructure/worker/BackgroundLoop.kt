@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.infrastructure.worker
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -13,27 +13,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.time.withTimeoutOrNull
+import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
-import no.nav.budstikka.infrastructure.config.MdcKeys
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Base for a background loop that runs [runIteration] every [interval] until Ktor shuts down and
- * [close] cancels it. Subclasses (inbox, delivery, cleanup) only implement one round of work; this
- * base owns the lifecycle: coroutine scope, safe error isolation and liveness ([isAlive]).
+ * A background loop that runs [iteration] every [interval] until Ktor shuts down and [close]
+ * cancels it. The work itself is composed in at the composition root (bootstrap wires an
+ * application worker's `runOnce` as [iteration]); this class owns only the lifecycle: coroutine
+ * scope, safe error isolation and liveness ([isAlive]).
  *
  * Liveness follows docs/HELSESJEKK.md: the loop [records][Heartbeat.record] once per round, before
  * the work runs, so an idle or persistently-failing round still counts as "the loop is cycling".
- * Only a hung or dead coroutine goes stale. A config-broken task that spins forever stays alive on
- * purpose — a restart would not help; surface that via logs and metrics, not liveness.
+ * Only a hung or dead coroutine goes stale. The stale threshold scales with [interval] (a slow
+ * loop, e.g. an hourly cleanup, must not report stale between healthy rounds). A config-broken
+ * iteration that spins forever stays alive on purpose — a restart would not help; surface that via
+ * logs and metrics, not liveness.
  */
-abstract class BaseTask(
+class BackgroundLoop(
     val name: String,
     private val interval: Duration,
-    private val heartbeat: Heartbeat = Heartbeat(),
+    private val heartbeat: Heartbeat = Heartbeat(staleThreshold = defaultStaleThreshold(interval)),
+    private val iteration: suspend () -> Unit,
 ) : AutoCloseable {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private var scope: CoroutineScope? = null
@@ -50,7 +54,7 @@ abstract class BaseTask(
         check(job == null) { "$name is already started" }
         CoroutineScope(Job() + Dispatchers.IO + CoroutineName(name)).also { newScope ->
             scope = newScope
-            job = newScope.launch(MDCContext(mapOf(MdcKeys.TASK to name))) { pollLoop() }
+            job = newScope.launch(MDCContext(mapOf(MdcKeys.WORKER to name))) { pollLoop() }
         }
     }
 
@@ -58,7 +62,7 @@ abstract class BaseTask(
         val activeScope = scope ?: return
         val activeJob = job ?: return
 
-        MDC.putCloseable(MdcKeys.TASK, name).use {
+        MDC.putCloseable(MdcKeys.WORKER, name).use {
             logger.info("Shutdown initiated")
             activeScope.cancel()
             val stopped = runBlocking { withTimeoutOrNull(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)) { activeJob.join() } != null }
@@ -85,17 +89,24 @@ abstract class BaseTask(
 
     private suspend fun runIterationSafely() {
         try {
-            runIteration()
+            iteration()
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            logger.error("{} failed in runIteration", name, error)
+            logger.error("{} failed in iteration", name, error)
         }
     }
 
-    protected abstract suspend fun runIteration()
+    companion object {
+        private const val CLOSE_TIMEOUT_SECONDS = 5L
+        private const val STALE_THRESHOLD_INTERVALS = 2L
 
-    private companion object {
-        const val CLOSE_TIMEOUT_SECONDS = 5L
+        /**
+         * Stale threshold derived from the loop interval: at least [Heartbeat.DEFAULT_STALE_THRESHOLD],
+         * but never tighter than a couple of missed rounds — so a slow-interval loop (hourly cleanup)
+         * is not declared dead between perfectly healthy rounds.
+         */
+        fun defaultStaleThreshold(interval: Duration): Duration =
+            maxOf(interval.multipliedBy(STALE_THRESHOLD_INTERVALS), Heartbeat.DEFAULT_STALE_THRESHOLD)
     }
 }

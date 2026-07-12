@@ -1,6 +1,4 @@
-package no.nav.budstikka.infrastructure.database.config
-
-import org.jetbrains.exposed.v1.jdbc.Database
+package no.nav.budstikka.application.port
 
 /**
  * Unit-of-work: kjører [block] i ÉN databasetransaksjon. Grensen eies av kalleren (typisk en
@@ -14,10 +12,4 @@ import org.jetbrains.exposed.v1.jdbc.Database
  */
 interface TransactionRunner {
     suspend fun <T> transaction(block: () -> T): T
-}
-
-class TransactionRunnerImpl(
-    private val database: Database,
-) : TransactionRunner {
-    override suspend fun <T> transaction(block: () -> T): T = database.transact(block)
 }
