@@ -12,8 +12,4 @@ class FakeDeadLetterRepository : DeadLetterMessageRepository {
         saveBatchCalls++
         savedDeadLetters += records
     }
-
-    override suspend fun save(record: DeadLetterRecord) {
-        saveBatch(listOf(record))
-    }
 }

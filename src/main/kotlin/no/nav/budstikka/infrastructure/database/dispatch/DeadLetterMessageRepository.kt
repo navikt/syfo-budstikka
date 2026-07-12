@@ -17,8 +17,6 @@ data class DeadLetterRecord(
 
 interface DeadLetterMessageRepository {
     suspend fun saveBatch(records: List<DeadLetterRecord>)
-
-    suspend fun save(record: DeadLetterRecord)
 }
 
 class DeadLetterMessageRepositoryImpl(
@@ -42,6 +40,4 @@ class DeadLetterMessageRepositoryImpl(
             }
         }
     }
-
-    override suspend fun save(record: DeadLetterRecord) = saveBatch(listOf(record))
 }
