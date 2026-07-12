@@ -16,7 +16,7 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
-import no.nav.budstikka.infrastructure.task.BackgroundLoop
+import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch

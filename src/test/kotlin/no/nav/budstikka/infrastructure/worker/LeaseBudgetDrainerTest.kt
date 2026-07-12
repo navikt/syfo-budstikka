@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.infrastructure.worker
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -75,7 +75,7 @@ class LeaseBudgetDrainerTest :
             val seen = mutableListOf<String?>()
             val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
 
-            withContext(MDCContext(mapOf(MdcKeys.TASK to "inbox-message-task"))) {
+            withContext(MDCContext(mapOf(MdcKeys.WORKER to "inbox-message-task"))) {
                 drainer.drain(
                     leaseDuration = Duration.ofMinutes(5),
                     eventId = { "event-$it" },

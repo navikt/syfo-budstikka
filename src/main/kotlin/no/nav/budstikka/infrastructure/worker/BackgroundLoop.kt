@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.infrastructure.worker
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -54,7 +54,7 @@ class BackgroundLoop(
         check(job == null) { "$name is already started" }
         CoroutineScope(Job() + Dispatchers.IO + CoroutineName(name)).also { newScope ->
             scope = newScope
-            job = newScope.launch(MDCContext(mapOf(MdcKeys.TASK to name))) { pollLoop() }
+            job = newScope.launch(MDCContext(mapOf(MdcKeys.WORKER to name))) { pollLoop() }
         }
     }
 
@@ -62,7 +62,7 @@ class BackgroundLoop(
         val activeScope = scope ?: return
         val activeJob = job ?: return
 
-        MDC.putCloseable(MdcKeys.TASK, name).use {
+        MDC.putCloseable(MdcKeys.WORKER, name).use {
             logger.info("Shutdown initiated")
             activeScope.cancel()
             val stopped = runBlocking { withTimeoutOrNull(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)) { activeJob.join() } != null }

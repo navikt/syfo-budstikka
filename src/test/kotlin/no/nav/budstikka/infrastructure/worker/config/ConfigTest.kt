@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task.config
+package no.nav.budstikka.infrastructure.worker.config
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec

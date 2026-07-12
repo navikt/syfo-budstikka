@@ -18,10 +18,10 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
-import no.nav.budstikka.infrastructure.task.BackgroundLoop
-import no.nav.budstikka.infrastructure.task.config.TaskConfig
+import no.nav.budstikka.infrastructure.worker.BackgroundLoop
+import no.nav.budstikka.infrastructure.worker.config.TaskConfig
 
-fun DependencyRegistry.taskModule() {
+fun DependencyRegistry.workerModule() {
     provide<DeathLookup> { NoopDeathLookup() }
     provide<List<DecisionRule>> { listOf(DeathGate(resolve<DeathLookup>())) }
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
@@ -58,12 +58,12 @@ fun DependencyRegistry.taskModule() {
             )
         listOf(
             BackgroundLoop(
-                name = "inbox-message-task",
+                name = "inbox-message",
                 interval = taskConfig.inboxMessage.interval,
                 iteration = inboxMessageWorker::runOnce,
             ),
             BackgroundLoop(
-                name = "delivery-task",
+                name = "delivery",
                 interval = taskConfig.delivery.interval,
                 iteration = deliveryWorker::runOnce,
             ),

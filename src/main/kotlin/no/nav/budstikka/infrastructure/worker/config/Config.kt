@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task.config
+package no.nav.budstikka.infrastructure.worker.config
 
 import io.ktor.server.config.ApplicationConfig
 import no.nav.budstikka.application.LeaseDrainConfig

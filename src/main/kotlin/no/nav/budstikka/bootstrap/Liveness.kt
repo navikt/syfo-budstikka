@@ -4,7 +4,7 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.infrastructure.LivenessCheck
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
-import no.nav.budstikka.infrastructure.task.BackgroundLoop
+import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 
 /**
  * The pod's is_alive probe is green only while every background loop is still cycling: the Kafka

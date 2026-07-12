@@ -14,7 +14,7 @@ import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
-import no.nav.budstikka.infrastructure.task.BackgroundLoop
+import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
