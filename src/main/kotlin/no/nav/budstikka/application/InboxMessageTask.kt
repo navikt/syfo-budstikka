@@ -48,7 +48,7 @@ class InboxMessageTask(
             claim = { repository.claim(config.batchSize, config.leaseDuration) },
             process = { message ->
                 effectuator.effectuate(message.eventId, decideFor(message))
-                logger.info("Message processed successfully")
+                logger.info("Message processed")
             },
         )
     }
