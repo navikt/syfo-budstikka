@@ -3,9 +3,6 @@ package no.nav.budstikka.application
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.infrastructure.task.BaseTask
-import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer
-import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
@@ -20,22 +17,15 @@ import org.slf4j.MDC
  * stående CLAIMED og plukkes opp når leasen utløper. Lease-budsjett-draineringen deles med
  * inbox-workeren via [LeaseBudgetDrainer].
  */
-class DeliveryTask(
+class DeliveryWorker(
     private val repository: DeliveryRepository,
     private val handlers: Map<Channel, ChannelHandler>,
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
-) : BaseTask(
-        name = "delivery-task",
-        interval = config.interval,
-    ) {
-    private val logger = LoggerFactory.getLogger(DeliveryTask::class.java)
+) {
+    private val logger = LoggerFactory.getLogger(DeliveryWorker::class.java)
 
-    override suspend fun runIteration() {
-        runOnce()
-    }
-
-    internal suspend fun runOnce() {
+    suspend fun runOnce() {
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.inboxEventId?.toString() ?: it.id.toString() },

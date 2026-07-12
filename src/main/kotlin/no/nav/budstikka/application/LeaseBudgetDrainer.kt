@@ -1,8 +1,7 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.application
 
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import no.nav.budstikka.application.MdcKeys
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.time.Duration

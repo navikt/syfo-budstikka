@@ -4,6 +4,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.server.config.MapApplicationConfig
+import no.nav.budstikka.application.LeaseDrainConfig
 import java.time.Duration
 
 class ConfigTest :

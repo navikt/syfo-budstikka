@@ -3,9 +3,10 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.application.ChannelHandler
-import no.nav.budstikka.application.DeliveryTask
+import no.nav.budstikka.application.DeliveryWorker
 import no.nav.budstikka.application.EffectuateDecision
-import no.nav.budstikka.application.InboxMessageTask
+import no.nav.budstikka.application.InboxMessageWorker
+import no.nav.budstikka.application.LeaseBudgetDrainer
 import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
@@ -17,8 +18,7 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
-import no.nav.budstikka.infrastructure.task.BaseTask
-import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer
+import no.nav.budstikka.infrastructure.task.BackgroundLoop
 import no.nav.budstikka.infrastructure.task.config.TaskConfig
 
 fun DependencyRegistry.taskModule() {
@@ -37,24 +37,38 @@ fun DependencyRegistry.taskModule() {
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
         )
     }
-    provide<List<BaseTask>> {
+    // Composition seam (jf. H3): application-workerne eier én runde (`runOnce`), infrastruktur-
+    // løkka eier livssyklusen. Kun bootstrap ser begge lag.
+    provide<List<BackgroundLoop>> {
         val taskConfig = resolve<TaskConfig>()
-        listOf(
-            InboxMessageTask(
+        val inboxMessageWorker =
+            InboxMessageWorker(
                 repository = resolve<InboxMessageRepository>(),
                 effectuator = resolve<EffectuateDecision>(),
                 decisionProcess = resolve<DecisionProcess>(),
                 drainer = LeaseBudgetDrainer(taskConfig.inboxMessage.leaseBudgetFraction),
                 config = taskConfig.inboxMessage,
-            ),
-            DeliveryTask(
+            )
+        val deliveryWorker =
+            DeliveryWorker(
                 repository = resolve<DeliveryRepository>(),
                 handlers = resolve<Map<Channel, ChannelHandler>>(),
                 drainer = LeaseBudgetDrainer(taskConfig.delivery.leaseBudgetFraction),
                 config = taskConfig.delivery,
+            )
+        listOf(
+            BackgroundLoop(
+                name = "inbox-message-task",
+                interval = taskConfig.inboxMessage.interval,
+                iteration = inboxMessageWorker::runOnce,
+            ),
+            BackgroundLoop(
+                name = "delivery-task",
+                interval = taskConfig.delivery.interval,
+                iteration = deliveryWorker::runOnce,
             ),
         )
-    }.cleanup { tasks ->
-        tasks.forEach(AutoCloseable::close)
+    }.cleanup { loops ->
+        loops.forEach(AutoCloseable::close)
     }
 }

@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.task
+package no.nav.budstikka.application
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -6,8 +6,6 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import no.nav.budstikka.application.EffectuateDecision
-import no.nav.budstikka.application.InboxMessageTask
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessage
@@ -18,14 +16,14 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
-import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
+import no.nav.budstikka.infrastructure.task.BackgroundLoop
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-class InboxMessageTaskTest :
+class InboxMessageWorkerTest :
     FunSpec({
         test("runOnce marks valid payloads processed and invalid payloads failed") {
             val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -38,9 +36,9 @@ class InboxMessageTaskTest :
                             InboxMessage(eventId = invalidEventId, payload = "{not valid json"),
                         ),
                 )
-            val task = taskWith(repository, batchSize = 10)
+            val worker = workerWith(repository, batchSize = 10)
 
-            task.runOnce()
+            worker.runOnce()
 
             repository.lastPollLimit shouldBe 10
             repository.processedEventIds.shouldContainExactly(validEventId)
@@ -61,20 +59,20 @@ class InboxMessageTaskTest :
                             InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
                         ),
                 )
-            val task =
-                taskWith(
+            val worker =
+                workerWith(
                     repository,
                     leaseDuration = Duration.ofMillis(1),
                     leaseBudgetFraction = 0.1,
                 )
 
-            task.runOnce()
+            worker.runOnce()
 
             repository.processedEventIds.shouldBeEmpty()
             repository.failedMessages.shouldBeEmpty()
         }
 
-        test("close stops polling loop") {
+        test("closing the composed loop stops polling") {
             val polled = CountDownLatch(2)
             val repository =
                 PollingInboxMessageRepository(
@@ -82,16 +80,12 @@ class InboxMessageTaskTest :
                 ) {
                     polled.countDown()
                 }
-            val task =
-                taskWith(
-                    repository,
-                    interval = Duration.ofMillis(10),
-                    batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE,
-                )
+            val worker = workerWith(repository, batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE)
+            val loop = BackgroundLoop("inbox-message-task", Duration.ofMillis(10), iteration = worker::runOnce)
 
-            task.start()
+            loop.start()
             polled.await(5, TimeUnit.SECONDS) shouldBe true
-            task.close()
+            loop.close()
 
             val pollCountAfterClose = repository.pollCount.get()
             Thread.sleep(100)
@@ -99,14 +93,13 @@ class InboxMessageTaskTest :
         }
     })
 
-private fun taskWith(
+private fun workerWith(
     repository: PollingInboxMessageRepository,
-    interval: Duration = Duration.ofSeconds(1),
     batchSize: Int = 10,
     leaseDuration: Duration = Duration.ofMinutes(5),
     leaseBudgetFraction: Double = 0.8,
-): InboxMessageTask =
-    InboxMessageTask(
+): InboxMessageWorker =
+    InboxMessageWorker(
         repository = repository,
         effectuator =
             EffectuateDecision(
@@ -118,7 +111,7 @@ private fun taskWith(
         drainer = LeaseBudgetDrainer(leaseBudgetFraction),
         config =
             LeaseDrainConfig(
-                interval = interval,
+                interval = Duration.ofSeconds(1),
                 batchSize = batchSize,
                 leaseDuration = leaseDuration,
                 leaseBudgetFraction = leaseBudgetFraction,

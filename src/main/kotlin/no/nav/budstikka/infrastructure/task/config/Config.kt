@@ -1,35 +1,14 @@
 package no.nav.budstikka.infrastructure.task.config
 
 import io.ktor.server.config.ApplicationConfig
+import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.stringOrEmpty
 import java.time.Duration
 
 // Operational knobs for the claim-lease-drain tasks (inbox and delivery), resolved from
 // application.conf like KafkaConfig and DatabaseConfig so intervals and batch sizes are env-tunable
-// without a redeploy. Both workers share the same shape, so they share [LeaseDrainConfig]; a future
-// cleanup task carries a retention window (not a batch size) and gets its own type.
-
-data class LeaseDrainConfig(
-    val interval: Duration,
-    val batchSize: Int,
-    val leaseDuration: Duration,
-    val leaseBudgetFraction: Double,
-) {
-    init {
-        require(batchSize > 0) { "batchSize must be greater than 0" }
-        require(!leaseDuration.isZero && !leaseDuration.isNegative) { "leaseDuration must be positive" }
-        require(leaseBudgetFraction > 0.0 && leaseBudgetFraction <= 1.0) {
-            "leaseBudgetFraction must be in (0.0, 1.0]"
-        }
-    }
-
-    companion object {
-        const val DEFAULT_INTERVAL_SECONDS = 5L
-        const val DEFAULT_BATCH_SIZE = 25
-        const val DEFAULT_LEASE_SECONDS = 300L
-        const val DEFAULT_LEASE_BUDGET_FRACTION = 0.8
-    }
-}
+// without a redeploy. Both workers share the same shape, so they share [LeaseDrainConfig] (the
+// value type lives in `application`; this file owns only the HOCON parsing).
 
 data class TaskConfig(
     val inboxMessage: LeaseDrainConfig,

@@ -8,9 +8,6 @@ import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.dispatchJson
-import no.nav.budstikka.infrastructure.task.BaseTask
-import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer
-import no.nav.budstikka.infrastructure.task.config.LeaseDrainConfig
 import org.slf4j.LoggerFactory
 
 /**
@@ -21,27 +18,22 @@ import org.slf4j.LoggerFactory
  * Beslutningen delegeres til [DecisionProcess], som ruter til policy per meldingstype og lar hver
  * policy hente sitt eget grunnlag (f.eks. PDL for isAlive-gaten).
  *
- * Lease-budsjett-draineringen deles med outbox-workeren via [LeaseBudgetDrainer]: workeren slutter å
- * starte nye meldinger når budsjettandelen av leasen er brukt, så en treg batch ikke krysser leasen
- * (og en peer re-enricher samme melding). Uberørte claimede meldinger blir stående til leasen utløper.
+ * Workeren eier én runde ([runOnce]); selve løkke-livssyklusen (intervall, heartbeat, shutdown)
+ * komponeres rundt den i bootstrap via `BackgroundLoop`. Lease-budsjett-draineringen deles med
+ * outbox-workeren via [LeaseBudgetDrainer]: workeren slutter å starte nye meldinger når
+ * budsjettandelen av leasen er brukt, så en treg batch ikke krysser leasen (og en peer re-enricher
+ * samme melding). Uberørte claimede meldinger blir stående til leasen utløper.
  */
-class InboxMessageTask(
+class InboxMessageWorker(
     private val repository: InboxMessageRepository,
     private val effectuator: EffectuateDecision,
     private val decisionProcess: DecisionProcess,
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
-) : BaseTask(
-        name = "inbox-message-task",
-        interval = config.interval,
-    ) {
-    private val logger = LoggerFactory.getLogger(InboxMessageTask::class.java)
+) {
+    private val logger = LoggerFactory.getLogger(InboxMessageWorker::class.java)
 
-    override suspend fun runIteration() {
-        runOnce()
-    }
-
-    internal suspend fun runOnce() {
+    suspend fun runOnce() {
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.eventId.toString() },
