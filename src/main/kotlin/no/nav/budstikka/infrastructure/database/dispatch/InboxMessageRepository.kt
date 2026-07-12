@@ -10,8 +10,8 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.update
 import java.time.Duration
 import java.util.UUID
@@ -24,7 +24,7 @@ data class InboxMessage(
 )
 
 interface InboxMessageRepository {
-    suspend fun saveBatch(events: List<Pair<UUID, String>>): Int
+    suspend fun saveBatch(events: List<Pair<UUID, String>>)
 
     /**
      * Griper (claimer) inntil [limit] mottatte meldinger for behandling og markerer dem CLAIMED med
@@ -61,28 +61,16 @@ interface InboxMessageRepository {
 class InboxMessageRepositoryImpl(
     private val database: Database,
 ) : InboxMessageRepository {
-    override suspend fun saveBatch(events: List<Pair<UUID, String>>): Int {
+    override suspend fun saveBatch(events: List<Pair<UUID, String>>) {
         if (events.isEmpty()) {
-            return 0
+            return
         }
-        return database.transact {
-            val placeholders = List(events.size) { "(?, ?)" }.joinToString(", ")
-            val sql =
-                """
-                INSERT INTO inbox_message (event_id, payload)
-                VALUES $placeholders
-                ON CONFLICT (event_id) DO NOTHING
-                """.trimIndent()
-            val statement = TransactionManager.current().connection.prepareStatement(sql, false)
-            try {
-                var parameterIndex = 1
-                events.forEach { (eventId, payload) ->
-                    statement.set(parameterIndex++, eventId, InboxMessageTable.eventId.columnType)
-                    statement.set(parameterIndex++, payload, InboxMessageTable.payload.columnType)
-                }
-                statement.executeUpdate()
-            } finally {
-                statement.closeIfPossible()
+        database.transact {
+            val now = Clock.System.now()
+            InboxMessageTable.batchInsert(events, ignore = true) { (eventId, payload) ->
+                this[InboxMessageTable.eventId] = eventId
+                this[InboxMessageTable.payload] = payload
+                this[InboxMessageTable.receivedAt] = now
             }
         }
     }

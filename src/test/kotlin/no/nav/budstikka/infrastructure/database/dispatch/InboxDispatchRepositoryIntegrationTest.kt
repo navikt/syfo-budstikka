@@ -44,24 +44,25 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.randomUUID()
             val payload = """{"eventId":"$eventId"}"""
 
-            repository.saveBatch(listOf(eventId to payload)) shouldBe 1
-            repository.saveBatch(listOf(eventId to payload)) shouldBe 0
+            repository.saveBatch(listOf(eventId to payload))
+            repository.saveBatch(listOf(eventId to payload))
+
+            fixture.database.transact {
+                InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.count() shouldBe 1
+            }
         }
 
         test("saveBatch writes rows in one call and ignores duplicates on event_id") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000020")
             val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000021")
-            val insertedCount =
-                repository.saveBatch(
-                    listOf(
-                        eventId1 to """{"eventId":"$eventId1"}""",
-                        eventId2 to """{"eventId":"$eventId2"}""",
-                        eventId1 to """{"eventId":"$eventId1"}""",
-                    ),
-                )
-
-            insertedCount shouldBe 2
+            repository.saveBatch(
+                listOf(
+                    eventId1 to """{"eventId":"$eventId1"}""",
+                    eventId2 to """{"eventId":"$eventId2"}""",
+                    eventId1 to """{"eventId":"$eventId1"}""",
+                ),
+            )
             fixture.database.transact {
                 InboxMessageTable.selectAll().count() shouldBe 2
             }

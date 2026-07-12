@@ -24,10 +24,7 @@ class InboxHandlerTest :
         }
 
         test("duplicate dispatch (same event_id) yields no new row and does not throw") {
-            val (handler, inboxRepository, deadLetterRepository) =
-                createTestContext(
-                    shouldReturnNewRowCreated = false,
-                )
+            val (handler, inboxRepository, deadLetterRepository) = createTestContext()
 
             handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
 
@@ -98,11 +95,9 @@ class InboxHandlerTest :
         }
     })
 
-private fun createTestContext(shouldReturnNewRowCreated: Boolean = true): TestContext {
+private fun createTestContext(): TestContext {
     val inboxRepository =
-        FakeInboxMessageRepository(
-            shouldReturnNewRowCreated = shouldReturnNewRowCreated,
-        )
+        FakeInboxMessageRepository()
     val deadLetterRepository = FakeDeadLetterRepository()
     val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
 
