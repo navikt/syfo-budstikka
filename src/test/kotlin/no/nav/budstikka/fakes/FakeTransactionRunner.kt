@@ -1,6 +1,6 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.infrastructure.database.config.TransactionRunner
+import no.nav.budstikka.application.port.TransactionRunner
 
 /**
  * Kjører blokken direkte uten en ekte databasetransaksjon. Lar enhetstester verifisere at

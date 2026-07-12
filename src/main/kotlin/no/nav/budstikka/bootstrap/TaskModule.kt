@@ -10,12 +10,12 @@ import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.MicrofrontendPublisher
+import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.foundation.DeathLookup
-import no.nav.budstikka.infrastructure.database.config.TransactionRunner
 import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
 import no.nav.budstikka.infrastructure.task.BaseTask
 import no.nav.budstikka.infrastructure.task.LeaseBudgetDrainer

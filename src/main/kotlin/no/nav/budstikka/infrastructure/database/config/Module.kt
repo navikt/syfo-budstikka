@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.infrastructure.HealthCheck
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
