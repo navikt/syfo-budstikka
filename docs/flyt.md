@@ -36,10 +36,12 @@ flowchart TB
     DWORK -->|"Failed(reason)"| FAILED["state=FAILED"]
     DWORK -->|"exception"| RECLAIM["står CLAIMED til lease utløper"]
 
-    subgraph Outbound["Kanaler ut (wired nå)"]
-        MF["MICROFRONTEND → min-side.aapen-microfrontend-v1"]
+    subgraph Outbound["Channel endpoints"]
+        CH1["Channel endpoint 1"]
+        CH2["Channel endpoint 2"]
     end
-    DWORK --> MF
+    DWORK --> CH1
+    DWORK --> CH2
 ```
 
 ## Claim og lease
@@ -88,4 +90,4 @@ Kanal velges og brukes i to ulike maps:
    handler som faktisk kan levere claimed rader.
 
 Delivery-claim filtrerer på `handlers.keys`, så workeren henter bare kanaler som er registrert i
-map-et. Per nå er `MICROFRONTEND` koblet opp.
+map-et. Nye kanaler legges til ved å registrere en `ChannelHandler` i dette map-et.
