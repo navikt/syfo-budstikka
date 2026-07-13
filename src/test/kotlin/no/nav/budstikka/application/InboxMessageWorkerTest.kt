@@ -115,6 +115,7 @@ private fun workerWith(
                 batchSize = batchSize,
                 leaseDuration = leaseDuration,
                 leaseBudgetFraction = leaseBudgetFraction,
+                maxAttempts = LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
             ),
     )
 
@@ -133,6 +134,7 @@ private class PollingInboxMessageRepository(
     override suspend fun claim(
         limit: Int,
         lease: Duration,
+        maxAttempts: Int,
     ): List<InboxMessage> {
         lastPollLimit = limit
         pollCount.incrementAndGet()
@@ -172,6 +174,7 @@ private class RecordingDeliveryRepository : DeliveryRepository {
     override suspend fun claim(
         limit: Int,
         lease: Duration,
+        maxAttempts: Int,
         channels: Set<Channel>,
     ): List<ClaimedDelivery> = emptyList()
 

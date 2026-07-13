@@ -39,6 +39,19 @@ class InboxDispatchRepositoryIntegrationTest :
             }
         }
 
+        suspend fun makePoison(
+            eventId: UUID,
+            attempt: Int,
+        ) {
+            fixture.database.transact {
+                InboxMessageTable.update({ InboxMessageTable.eventId eq eventId }) {
+                    it[state] = InboxMessageState.CLAIMED.name
+                    it[InboxMessageTable.attempt] = attempt
+                    it[nextAttemptTime] = Clock.System.now() - 1.minutes
+                }
+            }
+        }
+
         test("saveBatch writes a row to inbox_message and deduplicates on event_id") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.randomUUID()
@@ -75,7 +88,7 @@ class InboxDispatchRepositoryIntegrationTest :
             repository.saveBatch(listOf(eventId1 to """{"eventId":"$eventId1"}"""))
             repository.saveBatch(listOf(eventId2 to """{"eventId":"$eventId2"}"""))
 
-            val claimed = repository.claim(limit = 1, lease = lease)
+            val claimed = repository.claim(limit = 1, lease = lease, maxAttempts = 10)
 
             claimed.shouldHaveSize(1)
             claimed.single().eventId shouldBe eventId1
@@ -92,8 +105,8 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
             repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
 
-            repository.claim(limit = 10, lease = lease).shouldHaveSize(1)
-            repository.claim(limit = 10, lease = lease).shouldHaveSize(0)
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(0)
         }
 
         test("claim reclaims a CLAIMED row after its lease has expired") {
@@ -101,10 +114,10 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
             repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
 
-            repository.claim(limit = 10, lease = lease).shouldHaveSize(1)
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
             expireLease(eventId)
 
-            val reclaimed = repository.claim(limit = 10, lease = lease)
+            val reclaimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10)
             reclaimed.shouldHaveSize(1)
             reclaimed.single().eventId shouldBe eventId
             fixture.database.transact {
@@ -117,7 +130,7 @@ class InboxDispatchRepositoryIntegrationTest :
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
-            repository.claim(limit = 10, lease = lease).shouldHaveSize(1)
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
 
             fixture.database.transact { repository.markProcessedInTransaction(eventId) } shouldBe true
 
@@ -142,7 +155,7 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val reason = "Invalid dispatch payload"
             repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
-            repository.claim(limit = 10, lease = lease).shouldHaveSize(1)
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
 
             fixture.database.transact { repository.markFailedInTransaction(eventId, reason) } shouldBe true
 
@@ -151,6 +164,50 @@ class InboxDispatchRepositoryIntegrationTest :
                 row[InboxMessageTable.state] shouldBe "FAILED"
                 row[InboxMessageTable.errorMessage] shouldBe reason
                 row[InboxMessageTable.processedAt] shouldNotBe null
+            }
+        }
+
+        test("claim fails a poison row that reached maxAttempts instead of reclaiming it") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000030")
+            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            val maxAttempts = 3
+
+            // Drive the row through maxAttempts claims without terminating it (simulates a
+            // deterministic processing failure that always leaves the row CLAIMED).
+            repeat(maxAttempts) {
+                repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).shouldHaveSize(1)
+                expireLease(eventId)
+            }
+
+            // The next poll must terminate the poison row instead of reclaiming it forever.
+            repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).shouldHaveSize(0)
+
+            fixture.database.transact {
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "FAILED"
+                row[InboxMessageTable.attempt] shouldBe maxAttempts
+                row[InboxMessageTable.nextAttemptTime] shouldBe null
+                row[InboxMessageTable.processedAt] shouldNotBe null
+                row[InboxMessageTable.errorMessage] shouldNotBe null
+            }
+        }
+
+        test("a poison row at the head of the queue does not block a healthy newer row") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val poisonEventId = UUID.fromString("00000000-0000-0000-0000-000000000040")
+            val healthyEventId = UUID.fromString("00000000-0000-0000-0000-000000000041")
+            // Poison saved first, so it sorts to the head of the queue (receivedAt ASC).
+            repository.saveBatch(listOf(poisonEventId to """{"eventId":"$poisonEventId"}"""))
+            repository.saveBatch(listOf(healthyEventId to """{"eventId":"$healthyEventId"}"""))
+            makePoison(poisonEventId, attempt = 3)
+
+            val claimed = repository.claim(limit = 1, lease = lease, maxAttempts = 3)
+
+            claimed.map { it.eventId } shouldBe listOf(healthyEventId)
+            fixture.database.transact {
+                val poison = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq poisonEventId }.single()
+                poison[InboxMessageTable.state] shouldBe "FAILED"
             }
         }
     })

@@ -29,6 +29,7 @@ interface DeliveryRepository {
     suspend fun claim(
         limit: Int,
         lease: Duration,
+        maxAttempts: Int,
         channels: Set<Channel>,
     ): List<ClaimedDelivery>
 

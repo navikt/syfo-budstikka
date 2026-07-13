@@ -37,7 +37,7 @@ class InboxMessageWorker(
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.eventId.toString() },
-            claim = { repository.claim(config.batchSize, config.leaseDuration) },
+            claim = { repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts) },
             process = { message ->
                 effectuator.effectuate(message.eventId, decideFor(message))
                 logger.info("Message processed")

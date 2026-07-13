@@ -22,10 +22,12 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
     val inboxBatchSize = value("inboxMessage.batchSize")
     val inboxLeaseSeconds = value("inboxMessage.leaseSeconds")
     val inboxLeaseBudgetFraction = value("inboxMessage.leaseBudgetFraction")
+    val inboxMaxAttempts = value("inboxMessage.maxAttempts")
     val deliveryIntervalSeconds = value("delivery.intervalSeconds")
     val deliveryBatchSize = value("delivery.batchSize")
     val deliveryLeaseSeconds = value("delivery.leaseSeconds")
     val deliveryLeaseBudgetFraction = value("delivery.leaseBudgetFraction")
+    val deliveryMaxAttempts = value("delivery.maxAttempts")
 
     val errors =
         buildList {
@@ -36,6 +38,7 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
                 batchSize = inboxBatchSize,
                 leaseSeconds = inboxLeaseSeconds,
                 leaseBudgetFraction = inboxLeaseBudgetFraction,
+                maxAttempts = inboxMaxAttempts,
             )
             validateWorkerConfig(
                 errors = this,
@@ -44,6 +47,7 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
                 batchSize = deliveryBatchSize,
                 leaseSeconds = deliveryLeaseSeconds,
                 leaseBudgetFraction = deliveryLeaseBudgetFraction,
+                maxAttempts = deliveryMaxAttempts,
             )
         }
 
@@ -70,6 +74,9 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
                 leaseBudgetFraction =
                     inboxLeaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 }
                         ?: LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION,
+                maxAttempts =
+                    inboxMaxAttempts.toIntOrNull()?.takeIf { it > 0 }
+                        ?: LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
             ),
         delivery =
             LeaseDrainConfig(
@@ -89,6 +96,9 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
                 leaseBudgetFraction =
                     deliveryLeaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 }
                         ?: LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION,
+                maxAttempts =
+                    deliveryMaxAttempts.toIntOrNull()?.takeIf { it > 0 }
+                        ?: LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
             ),
     )
 }
@@ -100,6 +110,7 @@ private fun validateWorkerConfig(
     batchSize: String,
     leaseSeconds: String,
     leaseBudgetFraction: String,
+    maxAttempts: String,
 ) {
     if (intervalSeconds.isNotBlank() && (intervalSeconds.toLongOrNull()?.takeIf { it > 0 } == null)) {
         errors += "$keyPrefix.intervalSeconds must be a positive integer"
@@ -114,5 +125,8 @@ private fun validateWorkerConfig(
         (leaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 } == null)
     ) {
         errors += "$keyPrefix.leaseBudgetFraction must be a number in (0.0, 1.0]"
+    }
+    if (maxAttempts.isNotBlank() && (maxAttempts.toIntOrNull()?.takeIf { it > 0 } == null)) {
+        errors += "$keyPrefix.maxAttempts must be a positive integer"
     }
 }

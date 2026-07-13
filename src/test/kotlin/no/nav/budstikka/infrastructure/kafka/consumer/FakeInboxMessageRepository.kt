@@ -20,6 +20,7 @@ class FakeInboxMessageRepository(
     override suspend fun claim(
         limit: Int,
         lease: java.time.Duration,
+        maxAttempts: Int,
     ): List<InboxMessage> {
         pollLimits += limit
         return polledMessages

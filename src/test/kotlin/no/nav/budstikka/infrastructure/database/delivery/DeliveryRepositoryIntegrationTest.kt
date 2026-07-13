@@ -56,12 +56,25 @@ class DeliveryRepositoryIntegrationTest :
             }
         }
 
+        suspend fun makePoison(
+            deliveryId: UUID,
+            attempt: Int,
+        ) {
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.id eq deliveryId }) {
+                    it[state] = DeliveryState.CLAIMED.name
+                    it[DeliveryTable.attempt] = attempt
+                    it[nextAttemptTime] = Clock.System.now() - 1.minutes
+                }
+            }
+        }
+
         test("claim picks only requested channels and marks rows CLAIMED") {
             val repository = DeliveryRepositoryImpl(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
             saveDraft("bruker-ref", brukervarselDraft())
 
-            val claimed = repository.claim(limit = 10, lease = lease, channels = setOf(Channel.MICROFRONTEND))
+            val claimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
 
             claimed.shouldHaveSize(1)
             claimed.single().channel shouldBe Channel.MICROFRONTEND
@@ -76,12 +89,12 @@ class DeliveryRepositoryIntegrationTest :
             val repository = DeliveryRepositoryImpl(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
 
-            val initialClaim = repository.claim(limit = 10, lease = lease, channels = setOf(Channel.MICROFRONTEND))
+            val initialClaim = repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
             initialClaim.shouldHaveSize(1)
             val deliveryId = initialClaim.single().id
             expireLease(deliveryId)
 
-            val reclaimed = repository.claim(limit = 10, lease = lease, channels = setOf(Channel.MICROFRONTEND))
+            val reclaimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
 
             reclaimed.shouldHaveSize(1)
             reclaimed.single().id shouldBe deliveryId
@@ -91,7 +104,15 @@ class DeliveryRepositoryIntegrationTest :
         test("markSent transitions a CLAIMED row to SENT") {
             val repository = DeliveryRepositoryImpl(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
-            val deliveryId = repository.claim(limit = 10, lease = lease, channels = setOf(Channel.MICROFRONTEND)).single().id
+            val deliveryId =
+                repository
+                    .claim(
+                        limit = 10,
+                        lease = lease,
+                        maxAttempts = 10,
+                        channels = setOf(Channel.MICROFRONTEND),
+                    ).single()
+                    .id
 
             repository.markSent(deliveryId) shouldBe true
 
@@ -104,7 +125,15 @@ class DeliveryRepositoryIntegrationTest :
         test("markFailed transitions a CLAIMED row to FAILED with reason") {
             val repository = DeliveryRepositoryImpl(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
-            val deliveryId = repository.claim(limit = 10, lease = lease, channels = setOf(Channel.MICROFRONTEND)).single().id
+            val deliveryId =
+                repository
+                    .claim(
+                        limit = 10,
+                        lease = lease,
+                        maxAttempts = 10,
+                        channels = setOf(Channel.MICROFRONTEND),
+                    ).single()
+                    .id
             val reason = "Invalid microfrontend payload"
 
             repository.markFailed(deliveryId, reason) shouldBe true
@@ -113,6 +142,40 @@ class DeliveryRepositoryIntegrationTest :
             row[DeliveryTable.state] shouldBe "FAILED"
             row[DeliveryTable.nextAttemptTime] shouldBe null
             row[DeliveryTable.errorMessage] shouldBe reason
+        }
+
+        test("claim fails a poison delivery that reached maxAttempts instead of reclaiming it") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft("poison-ref", microfrontendDraft())
+            val maxAttempts = 3
+            val channels = setOf(Channel.MICROFRONTEND)
+
+            repeat(maxAttempts) {
+                val claimed = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels)
+                claimed.shouldHaveSize(1)
+                expireLease(claimed.single().id)
+            }
+
+            repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels).shouldHaveSize(0)
+
+            val row = rowForReference("poison-ref")
+            row[DeliveryTable.state] shouldBe "FAILED"
+            row[DeliveryTable.attempt] shouldBe maxAttempts
+            row[DeliveryTable.nextAttemptTime] shouldBe null
+            row[DeliveryTable.errorMessage] shouldNotBe null
+        }
+
+        test("a poison delivery does not block a healthy newer delivery on the same channel") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft("poison-ref", microfrontendDraft())
+            saveDraft("healthy-ref", microfrontendDraft())
+            val poisonId = rowForReference("poison-ref")[DeliveryTable.id]
+            makePoison(poisonId, attempt = 3)
+
+            val claimed = repository.claim(limit = 1, lease = lease, maxAttempts = 3, channels = setOf(Channel.MICROFRONTEND))
+
+            claimed.map { it.id } shouldBe listOf(rowForReference("healthy-ref")[DeliveryTable.id])
+            rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
         }
     })
 
