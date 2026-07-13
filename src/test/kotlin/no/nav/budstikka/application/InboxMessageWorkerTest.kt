@@ -98,6 +98,7 @@ private fun workerWith(
     batchSize: Int = 10,
     leaseDuration: Duration = Duration.ofMinutes(5),
     leaseBudgetFraction: Double = 0.8,
+    maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
 ): InboxMessageWorker =
     InboxMessageWorker(
         repository = repository,
@@ -108,7 +109,11 @@ private fun workerWith(
                 deliveryRepository = RecordingDeliveryRepository(),
             ),
         decisionProcess = DecisionProcess(listOf(DeathGate(FakeDeathLookup()))),
-        drainer = LeaseBudgetDrainer(leaseBudgetFraction),
+        drainer =
+            LeaseBudgetDrainer(
+                leaseBudgetFraction = leaseBudgetFraction,
+                maxConsecutiveItemFailures = maxConsecutiveItemFailures,
+            ),
         config =
             LeaseDrainConfig(
                 interval = Duration.ofSeconds(1),
@@ -116,6 +121,7 @@ private fun workerWith(
                 leaseDuration = leaseDuration,
                 leaseBudgetFraction = leaseBudgetFraction,
                 maxAttempts = LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
+                maxConsecutiveItemFailures = maxConsecutiveItemFailures,
             ),
     )
 

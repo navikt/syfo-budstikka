@@ -115,11 +115,16 @@ private fun workerWith(
     batchSize: Int = 10,
     leaseDuration: Duration = Duration.ofMinutes(5),
     leaseBudgetFraction: Double = 0.8,
+    maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
 ): DeliveryWorker =
     DeliveryWorker(
         repository = repository,
         handlers = mapOf(Channel.MICROFRONTEND to MicrofrontendChannelHandler(publisher)),
-        drainer = LeaseBudgetDrainer(leaseBudgetFraction),
+        drainer =
+            LeaseBudgetDrainer(
+                leaseBudgetFraction = leaseBudgetFraction,
+                maxConsecutiveItemFailures = maxConsecutiveItemFailures,
+            ),
         config =
             LeaseDrainConfig(
                 interval = Duration.ofSeconds(1),
@@ -127,6 +132,7 @@ private fun workerWith(
                 leaseDuration = leaseDuration,
                 leaseBudgetFraction = leaseBudgetFraction,
                 maxAttempts = LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
+                maxConsecutiveItemFailures = maxConsecutiveItemFailures,
             ),
     )
 

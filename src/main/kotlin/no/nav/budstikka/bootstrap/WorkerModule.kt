@@ -46,14 +46,22 @@ fun DependencyRegistry.workerModule() {
                 repository = resolve<InboxMessageRepository>(),
                 effectuator = resolve<EffectuateDecision>(),
                 decisionProcess = resolve<DecisionProcess>(),
-                drainer = LeaseBudgetDrainer(workerConfig.inboxMessage.leaseBudgetFraction),
+                drainer =
+                    LeaseBudgetDrainer(
+                        leaseBudgetFraction = workerConfig.inboxMessage.leaseBudgetFraction,
+                        maxConsecutiveItemFailures = workerConfig.inboxMessage.maxConsecutiveItemFailures,
+                    ),
                 config = workerConfig.inboxMessage,
             )
         val deliveryWorker =
             DeliveryWorker(
                 repository = resolve<DeliveryRepository>(),
                 handlers = resolve<Map<Channel, ChannelHandler>>(),
-                drainer = LeaseBudgetDrainer(workerConfig.delivery.leaseBudgetFraction),
+                drainer =
+                    LeaseBudgetDrainer(
+                        leaseBudgetFraction = workerConfig.delivery.leaseBudgetFraction,
+                        maxConsecutiveItemFailures = workerConfig.delivery.maxConsecutiveItemFailures,
+                    ),
                 config = workerConfig.delivery,
             )
         listOf(
