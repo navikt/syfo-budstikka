@@ -25,7 +25,7 @@ interface InboxMessageRepository {
 
     /**
      * Terminal-overgangene for beslutnings-workeren. De åpner IKKE egen transaksjon — de kjøres
-     * inne i [no.nav.budstikka.infrastructure.database.config.TransactionRunner.transaction], sammen
+     * inne i [TransactionRunner.transaction], sammen
      * med delivery-skrivingen, slik at én melding effektueres alt-eller-ingenting (#56). Overgangen
      * gjelder kun fra CLAIMED (idempotent compare-and-set: en allerede terminert eller re-claimet
      * melding gir `false`, og en taper i et lease-kappløp skriver da ingen delivery-rader).
