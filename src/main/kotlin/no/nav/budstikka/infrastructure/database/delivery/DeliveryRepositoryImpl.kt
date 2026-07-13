@@ -21,11 +21,10 @@ import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
-import java.time.Duration
 import java.util.UUID
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Instant
-import kotlin.time.toKotlinDuration
 
 class DeliveryRepositoryImpl(
     private val database: Database,
@@ -96,10 +95,9 @@ class DeliveryRepositoryImpl(
                         )
                     }
             if (claimed.isNotEmpty()) {
-                val leaseDeadline = now + lease.toKotlinDuration()
                 DeliveryTable.update({ DeliveryTable.id inList claimed.map { it.id } }) {
                     it[state] = DeliveryState.CLAIMED.name
-                    it[nextAttemptTime] = leaseDeadline
+                    it[nextAttemptTime] = now + lease
                     it[attempt] = attempt + 1
                 }
             }

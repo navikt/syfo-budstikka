@@ -5,9 +5,8 @@ import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
-import java.time.Duration
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration
 
 /**
  * Delt maskineri for claim-lease-workerne (inbox og delivery): claim en bunke, prosesser hver rad
@@ -22,6 +21,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class LeaseBudgetDrainer(
     private val leaseBudgetFraction: Double,
     private val maxConsecutiveItemFailures: Int,
+    private val clock: Clock = Clock.System,
 ) {
     private val logger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java)
 
@@ -40,12 +40,12 @@ class LeaseBudgetDrainer(
         claim: suspend () -> List<T>,
         process: suspend (T) -> Unit,
     ) {
-        val startedAt = Clock.System.now()
-        val budget = (leaseDuration.toMillis() * leaseBudgetFraction).toLong().milliseconds
+        val startedAt = clock.now()
+        val budget = leaseDuration * leaseBudgetFraction
         val claimed = claim()
         var consecutiveItemFailures = 0
         for ((index, item) in claimed.withIndex()) {
-            if (Clock.System.now() - startedAt >= budget) {
+            if (clock.now() - startedAt >= budget) {
                 logger.warn(
                     "Stopping batch drain at {}% of lease budget with {} of {} claimed row(s) unprocessed; their lease expires so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow.",
                     (leaseBudgetFraction * 100).toInt(),

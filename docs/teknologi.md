@@ -11,6 +11,11 @@ aldri hardkodede versjoner.
 - **DI: Ktors innebygde dependency injection** (Ktor 3.2+), ikke Koin, ikke Spring.
   Konstruktør-injeksjon, wiring i `Application.*Module()`. Holder `domain` fri for rammeverk.
 
+## Koding
+
+- `kotlin.time.Duration` som standard for tidsintervaller, ikke `java.time.Duration`. Unntak: `java.time.Duration`kun
+  der Kafka-APIet krever det (`Consumer.poll()`).
+
 ## Data
 
 - **Postgres 18** (esyfovarsel kjørte 17) — Cloud SQL via NAIS.

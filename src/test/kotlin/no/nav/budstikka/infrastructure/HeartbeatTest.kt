@@ -2,13 +2,14 @@ package no.nav.budstikka.infrastructure
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import java.time.Duration
-import java.time.Instant
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class HeartbeatTest :
     FunSpec({
         val start = Instant.parse("2026-01-01T00:00:00Z")
-        val threshold = Duration.ofMinutes(5)
+        val threshold = 5.minutes
 
         test("is alive immediately after construction") {
             val heartbeat = Heartbeat(MutableClock(start), threshold)
@@ -21,7 +22,7 @@ class HeartbeatTest :
             val heartbeat = Heartbeat(clock, threshold)
 
             heartbeat.record()
-            clock.current = start.plus(threshold)
+            clock.current = start + threshold
 
             heartbeat.isAlive() shouldBe true
         }
@@ -31,7 +32,7 @@ class HeartbeatTest :
             val heartbeat = Heartbeat(clock, threshold)
 
             heartbeat.record()
-            clock.current = start.plus(threshold).plusSeconds(1)
+            clock.current = start + threshold + 1.seconds
 
             heartbeat.isAlive() shouldBe false
         }
@@ -40,7 +41,7 @@ class HeartbeatTest :
             val clock = MutableClock(start)
             val heartbeat = Heartbeat(clock, threshold)
 
-            clock.current = start.plus(Duration.ofMinutes(10))
+            clock.current = start + 10.minutes
             heartbeat.isAlive() shouldBe false
 
             heartbeat.record()

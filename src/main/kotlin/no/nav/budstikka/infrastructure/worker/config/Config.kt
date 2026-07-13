@@ -3,11 +3,11 @@ package no.nav.budstikka.infrastructure.worker.config
 import io.ktor.server.config.ApplicationConfig
 import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.stringOrEmpty
-import java.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 // Operational knobs for the claim-lease workers (inbox and delivery), resolved from
 // application.conf like KafkaConfig and DatabaseConfig so intervals and batch sizes are env-tunable
-// without a redeploy. Both workers share the same shape, so they share [LeaseDrainConfig] (the
+// without a redeployment. Both workers share the same shape, so they share [LeaseDrainConfig] (the
 // value type lives in `application`; this file owns only the HOCON parsing).
 
 data class WorkerConfig(
@@ -57,20 +57,17 @@ private fun ApplicationConfig.leaseDrainConfig(prefix: String): LeaseDrainConfig
 
     return LeaseDrainConfig(
         interval =
-            Duration.ofSeconds(
-                intervalSeconds.toLongOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS,
-            ),
+            (intervalSeconds.toLongOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS).seconds,
         batchSize = batchSize.toIntOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_BATCH_SIZE,
         leaseDuration =
-            Duration.ofSeconds(
-                leaseSeconds.toLongOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_LEASE_SECONDS,
-            ),
+            (leaseSeconds.toLongOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_LEASE_SECONDS).seconds,
         leaseBudgetFraction =
             leaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0 && it <= 1 }
                 ?: LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION,
         maxAttempts = maxAttempts.toIntOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
         maxConsecutiveItemFailures =
             maxConsecutiveItemFailures.toIntOrNull()?.takeIf { it > 0 }
+
                 ?: LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     )
 }

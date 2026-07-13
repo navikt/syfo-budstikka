@@ -15,10 +15,13 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.config.ConfigException
 import org.apache.kafka.common.errors.AuthenticationException
 import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class ConsumerRunnerTest :
     FunSpec({
@@ -30,7 +33,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = perRecordHandler { record -> handledOffsets += record.offset() },
                 )
 
@@ -59,7 +62,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = perRecordHandler { record -> handledOffsets += record.offset() },
                 )
 
@@ -96,7 +99,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = batchCapableHandler,
                 )
 
@@ -139,9 +142,9 @@ class ConsumerRunnerTest :
                         }
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(1),
-                    maxBackoff = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 1.milliseconds,
+                    maxBackoff = 1.milliseconds,
                     handler =
                         perRecordHandler {
                             handledAttempts.countDown()
@@ -177,9 +180,9 @@ class ConsumerRunnerTest :
                         }
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(1),
-                    maxBackoff = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 1.milliseconds,
+                    maxBackoff = 1.milliseconds,
                     handler =
                         perRecordHandler {
                             if (attempts.getAndIncrement() == 0) {
@@ -190,7 +193,7 @@ class ConsumerRunnerTest :
                 )
 
             runner.start()
-            runner.join(Duration.ofSeconds(5)) shouldBe true
+            runner.join(5.seconds) shouldBe true
 
             attempts.get() shouldBe 2
             createdConsumers.first().committedOffsets[partition] shouldBe null
@@ -229,9 +232,9 @@ class ConsumerRunnerTest :
                         }
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(1),
-                    maxBackoff = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 1.milliseconds,
+                    maxBackoff = 1.milliseconds,
                     handler =
                         perRecordHandler { record ->
                             handledOffsets += record.offset()
@@ -240,7 +243,7 @@ class ConsumerRunnerTest :
                 )
 
             runner.start()
-            runner.join(Duration.ofSeconds(5)) shouldBe true
+            runner.join(5.seconds) shouldBe true
 
             handledOffsets.shouldContainExactly(0L)
             (createdConsumers.size >= 2) shouldBe true
@@ -255,14 +258,14 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { FatalPollConsumer().also { createdConsumers += it } },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(1),
-                    maxBackoff = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 1.milliseconds,
+                    maxBackoff = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
             runner.start { error -> fatalErrors += error }
-            runner.join(Duration.ofSeconds(5)) shouldBe true
+            runner.join(5.seconds) shouldBe true
 
             createdConsumers.size shouldBe 1
             fatalErrors.size shouldBe 1
@@ -287,14 +290,14 @@ class ConsumerRunnerTest :
                         )
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(1),
-                    maxBackoff = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 1.milliseconds,
+                    maxBackoff = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
             runner.start { error -> fatalErrors += error }
-            runner.join(Duration.ofSeconds(5)) shouldBe true
+            runner.join(5.seconds) shouldBe true
 
             built.get() shouldBe 1
             fatalErrors.size shouldBe 1
@@ -322,9 +325,9 @@ class ConsumerRunnerTest :
                         }
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(1),
-                    maxBackoff = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 1.milliseconds,
+                    maxBackoff = 1.milliseconds,
                     handler =
                         perRecordHandler { record ->
                             handledOffsets += record.offset()
@@ -333,7 +336,7 @@ class ConsumerRunnerTest :
                 )
 
             runner.start()
-            runner.join(Duration.ofSeconds(5)) shouldBe true
+            runner.join(5.seconds) shouldBe true
 
             built.get() shouldBe 2
             handledOffsets.shouldContainExactly(0L)
@@ -344,7 +347,7 @@ class ConsumerRunnerTest :
             // The clock jumps past the stale threshold during the poll, so only the runner's
             // record() can keep liveness green afterward.
             val clock = MutableClock(Instant.parse("2026-01-01T00:00:00Z"))
-            val heartbeat = Heartbeat(clock, Duration.ofMinutes(5))
+            val heartbeat = Heartbeat(clock, 5.milliseconds)
             val consumer = RecordingMockConsumer()
             val polledOnEmptyTopic = CountDownLatch(1)
 
@@ -352,13 +355,13 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     heartbeat = heartbeat,
                     handler = BatchMessageHandler {},
                 )
 
             consumer.schedulePollTask {
-                clock.current = clock.current.plus(Duration.ofMinutes(10))
+                clock.current = clock.current.plus(10.minutes)
                 polledOnEmptyTopic.countDown()
             }
 
@@ -378,7 +381,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
@@ -402,7 +405,7 @@ class ConsumerRunnerTest :
                         RecordingMockConsumer()
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
@@ -418,7 +421,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
@@ -440,12 +443,12 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
             runner.start()
-            val stoppedInTime = runner.join(Duration.ofMillis(50))
+            val stoppedInTime = runner.join(50.milliseconds)
 
             stoppedInTime shouldBe false
 
@@ -460,7 +463,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 
@@ -469,7 +472,7 @@ class ConsumerRunnerTest :
             }
 
             runner.start()
-            val stoppedInTime = runner.join(Duration.ofSeconds(2))
+            val stoppedInTime = runner.join(2.seconds)
 
             stoppedInTime shouldBe true
             consumer.closed() shouldBe true
@@ -508,10 +511,10 @@ class ConsumerRunnerTest :
                         }
                     },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
-                    initialBackoff = Duration.ofMillis(50),
-                    maxBackoff = Duration.ofMillis(200),
-                    healthyResetThreshold = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
+                    initialBackoff = 50.milliseconds,
+                    maxBackoff = 200.milliseconds,
+                    healthyResetThreshold = 1.milliseconds,
                     handler =
                         perRecordHandler {
                             handlerTimestamps += System.currentTimeMillis()
@@ -543,7 +546,7 @@ class ConsumerRunnerTest :
                 ConsumerRunner(
                     consumerFactory = { consumer },
                     topics = listOf(TOPIC),
-                    pollTimeout = Duration.ofMillis(1),
+                    pollTimeout = 1.milliseconds,
                     handler = BatchMessageHandler {},
                 )
 

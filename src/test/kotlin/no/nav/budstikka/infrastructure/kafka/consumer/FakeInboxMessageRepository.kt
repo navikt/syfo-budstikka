@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import java.util.UUID
+import kotlin.time.Duration
 
 class FakeInboxMessageRepository(
     private val polledMessages: List<InboxMessage> = emptyList(),
@@ -19,7 +20,7 @@ class FakeInboxMessageRepository(
 
     override suspend fun claim(
         limit: Int,
-        lease: java.time.Duration,
+        lease: Duration,
         maxAttempts: Int,
     ): List<InboxMessage> {
         pollLimits += limit

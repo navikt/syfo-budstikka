@@ -5,7 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.server.config.MapApplicationConfig
 import no.nav.budstikka.application.LeaseDrainConfig
-import java.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class ConfigTest :
     FunSpec({
@@ -26,15 +26,15 @@ class ConfigTest :
                     deliveryMaxConsecutiveItemFailures = "5",
                 ).toWorkerConfig()
 
-            config.inboxMessage.interval shouldBe Duration.ofSeconds(10)
+            config.inboxMessage.interval shouldBe 10.seconds
             config.inboxMessage.batchSize shouldBe 50
-            config.inboxMessage.leaseDuration shouldBe Duration.ofSeconds(120)
+            config.inboxMessage.leaseDuration shouldBe 120.seconds
             config.inboxMessage.leaseBudgetFraction shouldBe 0.5
             config.inboxMessage.maxAttempts shouldBe 7
             config.inboxMessage.maxConsecutiveItemFailures shouldBe 4
-            config.delivery.interval shouldBe Duration.ofSeconds(7)
+            config.delivery.interval shouldBe 7.seconds
             config.delivery.batchSize shouldBe 30
-            config.delivery.leaseDuration shouldBe Duration.ofSeconds(90)
+            config.delivery.leaseDuration shouldBe 90.seconds
             config.delivery.leaseBudgetFraction shouldBe 0.6
             config.delivery.maxAttempts shouldBe 8
             config.delivery.maxConsecutiveItemFailures shouldBe 5
@@ -57,15 +57,15 @@ class ConfigTest :
                     deliveryMaxConsecutiveItemFailures = "",
                 ).toWorkerConfig()
 
-            config.inboxMessage.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
+            config.inboxMessage.interval shouldBe LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS.seconds
             config.inboxMessage.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
-            config.inboxMessage.leaseDuration shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_LEASE_SECONDS)
+            config.inboxMessage.leaseDuration shouldBe LeaseDrainConfig.DEFAULT_LEASE_SECONDS.seconds
             config.inboxMessage.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
             config.inboxMessage.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
             config.inboxMessage.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
-            config.delivery.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
+            config.delivery.interval shouldBe LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS.seconds
             config.delivery.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
-            config.delivery.leaseDuration shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_LEASE_SECONDS)
+            config.delivery.leaseDuration shouldBe LeaseDrainConfig.DEFAULT_LEASE_SECONDS.seconds
             config.delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
             config.delivery.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
             config.delivery.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES

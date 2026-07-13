@@ -1,6 +1,6 @@
 package no.nav.budstikka.application
 
-import java.time.Duration
+import kotlin.time.Duration
 
 /**
  * Operasjonelle knotter for én claim-lease-drain-worker (inbox eller delivery). Ren verdi-type i
@@ -18,7 +18,7 @@ data class LeaseDrainConfig(
 ) {
     init {
         require(batchSize > 0) { "batchSize must be greater than 0" }
-        require(!leaseDuration.isZero && !leaseDuration.isNegative) { "leaseDuration must be positive" }
+        require(leaseDuration.isPositive()) { "leaseDuration must be positive" }
         require(leaseBudgetFraction > 0.0 && leaseBudgetFraction <= 1.0) {
             "leaseBudgetFraction must be in (0.0, 1.0]"
         }

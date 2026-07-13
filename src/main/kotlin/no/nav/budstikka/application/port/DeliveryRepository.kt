@@ -3,8 +3,8 @@ package no.nav.budstikka.application.port
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.dispatch.DispatchContent
-import java.time.Duration
 import java.util.UUID
+import kotlin.time.Duration
 
 data class ClaimedDelivery(
     val id: UUID,

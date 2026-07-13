@@ -10,9 +10,11 @@ import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.LeaseBudgetDrainer
 import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.infrastructure.MutableClock
 import org.slf4j.MDC
-import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant.Companion.fromEpochMilliseconds
 
 class LeaseBudgetDrainerTest :
     FunSpec({
@@ -25,7 +27,7 @@ class LeaseBudgetDrainerTest :
                 )
 
             drainer.drain(
-                leaseDuration = Duration.ofMinutes(5),
+                leaseDuration = 5.minutes,
                 eventId = { null },
                 claim = { listOf(1, 2, 3) },
                 process = { processed += it },
@@ -36,16 +38,21 @@ class LeaseBudgetDrainerTest :
 
         test("stops draining once the lease budget is exhausted") {
             val processed = mutableListOf<Int>()
+            val clock = MutableClock(fromEpochMilliseconds(0))
             val drainer =
                 LeaseBudgetDrainer(
                     leaseBudgetFraction = 0.1,
                     maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                    clock = clock,
                 )
 
             drainer.drain(
-                leaseDuration = Duration.ofMillis(1),
+                leaseDuration = 1.milliseconds,
                 eventId = { null },
-                claim = { listOf(1, 2, 3) },
+                claim = {
+                    clock.current += 1.milliseconds
+                    listOf(1, 2, 3)
+                },
                 process = { processed += it },
             )
 
@@ -61,7 +68,7 @@ class LeaseBudgetDrainerTest :
                 )
 
             drainer.drain(
-                leaseDuration = Duration.ofMinutes(5),
+                leaseDuration = 5.minutes,
                 eventId = { "event-$it" },
                 claim = { listOf(1, 2) },
                 process = { seen += MDC.get(MdcKeys.EVENT_ID) },
@@ -80,7 +87,7 @@ class LeaseBudgetDrainerTest :
                 )
 
             drainer.drain(
-                leaseDuration = Duration.ofMinutes(5),
+                leaseDuration = 5.minutes,
                 eventId = { null },
                 claim = { listOf(1) },
                 process = { sawKey = MDC.get(MdcKeys.EVENT_ID) },
@@ -98,7 +105,7 @@ class LeaseBudgetDrainerTest :
                 )
 
             drainer.drain(
-                leaseDuration = Duration.ofMinutes(5),
+                leaseDuration = 5.minutes,
                 eventId = { "event-$it" },
                 claim = { listOf(1, 2, 3) },
                 process = {
@@ -122,7 +129,7 @@ class LeaseBudgetDrainerTest :
 
             shouldThrow<IllegalStateException> {
                 drainer.drain(
-                    leaseDuration = Duration.ofMinutes(5),
+                    leaseDuration = 5.minutes,
                     eventId = { "event-$it" },
                     claim = { listOf(1, 2, 3) },
                     process = {
@@ -147,7 +154,7 @@ class LeaseBudgetDrainerTest :
 
             withContext(MDCContext(mapOf(MdcKeys.WORKER to "inbox-message-worker"))) {
                 drainer.drain(
-                    leaseDuration = Duration.ofMinutes(5),
+                    leaseDuration = 5.minutes,
                     eventId = { "event-$it" },
                     claim = { listOf(1, 2) },
                     process = {
