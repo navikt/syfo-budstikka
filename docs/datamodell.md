@@ -54,7 +54,7 @@ erDiagram
 
 - Konsumenten lagrer gyldige meldinger i `inbox_message` med dedup på `event_id`.
 - `eventId` leses fra Kafka-header `DispatchHeader.EVENT_ID` (`eventId`), mens payload lagres rå.
-- Melding som ikke kan behandles ved inntak (f.eks. manglende/ugyldig header) skrives til
+- Melding som ikke kan behandles ved inntak (f.eks. manglende/ugyldig header, manglende payload) skrives til
   `dead_letter_message`.
 
 ## Worker-flyt og state-overganger
