@@ -6,7 +6,7 @@
 
 ## Kontekst
 
-Budstikka konsumerer `team-esyfo.formidling.v1` og må dedup-e idempotent (B4) fordi
+Budstikka konsumerer `team-esyfo.budstikka.v1` og må dedup-e idempotent (B4) fordi
 Kafka-replay (bounded 90d retention, B26) kan dobbeltsende. Spørsmålet var *hvor*
 dedup-nøkkelen og feilhåndteringen forankres:
 

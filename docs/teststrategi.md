@@ -102,7 +102,7 @@ Ktor MockEngine er ikke valgt (fake på for lavt abstraksjonsnivå for en domene
 ### Utsatt: interaktivt lokalt HTTP-løp
 
 Et interaktivt løp der du starter `main()` én gang og fyrer scenarier over HTTP
-(`POST /dev/formidling`, fake-toggle-endepunkter, navngitte scenarier) + live-inspeksjon via
+(`POST /dev/dispatch`, fake-toggle-endepunkter, navngitte scenarier) + live-inspeksjon via
 kafka-ui/pgweb er **utsatt** til behovet melder seg. Det bygges da som et **tynt lag oppå
 samme substrat** — samme fakes og scenario-byggere, ingen ny build-kompleksitet, aldri i
 `src/main`.

@@ -16,7 +16,7 @@ Budstikka er en Ktor-backend for å håndtere kommunikasjon fra våre apper til 
 sequenceDiagram
     autonumber
     participant producer as Domeneapp
-    participant kafka as Kafka-topic team-esyfo.formidling.v1
+    participant kafka as Kafka-topic team-esyfo.budstikka.v1
     participant consumer as Inbox-consumer<br/>(ConsumerRunner + InboxMessageHandler)
     participant inbox as inbox_message (db)
     participant iworker as InboxMessageWorker

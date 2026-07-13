@@ -10,7 +10,7 @@ flowchart TB
         P2["..."]
     end
 
-    P1 & P2 -->|"Dispatch(eventId, reference, content)"| TOPIC{{"team-esyfo.formidling.v1"}}
+    P1 & P2 -->|"Dispatch(eventId, reference, content)"| TOPIC{{"team-esyfo.budstikka.v1"}}
 
     subgraph Budstikka["syfo-budstikka"]
         direction TB
