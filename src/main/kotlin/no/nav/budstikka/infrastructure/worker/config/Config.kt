@@ -15,112 +15,70 @@ data class WorkerConfig(
     val delivery: LeaseDrainConfig,
 )
 
-fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
-    val inboxMessage = readLeaseDrainWorkerConfig("workers.inboxMessage")
-    val delivery = readLeaseDrainWorkerConfig("workers.delivery")
+fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
+    WorkerConfig(
+        inboxMessage = leaseDrainConfig("workers.inboxMessage"),
+        delivery = leaseDrainConfig("workers.delivery"),
+    )
+
+private fun ApplicationConfig.leaseDrainConfig(prefix: String): LeaseDrainConfig {
+    val intervalSeconds = stringOrEmpty("$prefix.intervalSeconds").trim()
+    val batchSize = stringOrEmpty("$prefix.batchSize").trim()
+    val leaseSeconds = stringOrEmpty("$prefix.leaseSeconds").trim()
+    val leaseBudgetFraction = stringOrEmpty("$prefix.leaseBudgetFraction").trim()
+    val maxAttempts = stringOrEmpty("$prefix.maxAttempts").trim()
 
     val errors =
         buildList {
-            addAll(inboxMessage.errors)
-            addAll(delivery.errors)
+            if (intervalSeconds.isNotBlank() && !intervalSeconds.isPositiveLong()) {
+                add("$prefix.intervalSeconds must be a positive integer")
+            }
+            if (batchSize.isNotBlank() && !batchSize.isPositiveInt()) {
+                add("$prefix.batchSize must be a positive integer")
+            }
+            if (leaseSeconds.isNotBlank() && !leaseSeconds.isPositiveLong()) {
+                add("$prefix.leaseSeconds must be a positive integer")
+            }
+            if (leaseBudgetFraction.isNotBlank() && !leaseBudgetFraction.isPositiveDouble()) {
+                add("$prefix.leaseBudgetFraction must be a number in (0.0, 1.0]")
+            }
+            if (maxAttempts.isNotBlank() && !maxAttempts.isPositiveInt()) {
+                add("$prefix.maxAttempts must be a positive integer")
+            }
         }
 
     check(errors.isEmpty()) {
         "Invalid workers configuration: ${errors.joinToString(", ")}"
     }
 
-    return WorkerConfig(
-        inboxMessage = inboxMessage.config,
-        delivery = delivery.config,
-    )
-}
-
-private data class ParsedLeaseDrainWorkerConfig(
-    val config: LeaseDrainConfig,
-    val errors: List<String>,
-)
-
-private fun ApplicationConfig.readLeaseDrainWorkerConfig(section: String): ParsedLeaseDrainWorkerConfig {
-    val intervalSeconds = readWorkerValue(section, "intervalSeconds")
-    val batchSize = readWorkerValue(section, "batchSize")
-    val leaseSeconds = readWorkerValue(section, "leaseSeconds")
-    val leaseBudgetFraction = readWorkerValue(section, "leaseBudgetFraction")
-    val maxAttempts = readWorkerValue(section, "maxAttempts")
-
-    val errors =
-        buildList {
-            validateLeaseDrainWorkerConfig(
-                errors = this,
-                keyPrefix = section,
-                intervalSeconds = intervalSeconds,
-                batchSize = batchSize,
-                leaseSeconds = leaseSeconds,
-                leaseBudgetFraction = leaseBudgetFraction,
-                maxAttempts = maxAttempts,
-            )
-        }
-
-    return ParsedLeaseDrainWorkerConfig(
-        config =
-            LeaseDrainConfig(
-                interval =
-                    Duration.ofSeconds(
-                        intervalSeconds.positiveLongOrDefault(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS),
-                    ),
-                batchSize =
-                    batchSize.positiveIntOrDefault(LeaseDrainConfig.DEFAULT_BATCH_SIZE),
-                leaseDuration =
-                    Duration.ofSeconds(
-                        leaseSeconds.positiveLongOrDefault(LeaseDrainConfig.DEFAULT_LEASE_SECONDS),
-                    ),
-                leaseBudgetFraction =
-                    leaseBudgetFraction.positiveDoubleOrDefault(LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION),
-                maxAttempts =
-                    maxAttempts.positiveIntOrDefault(LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS),
+    return LeaseDrainConfig(
+        interval =
+            Duration.ofSeconds(
+                intervalSeconds.toPositiveLongOrDefault(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS),
             ),
-        errors = errors,
+        batchSize = batchSize.toPositiveIntOrDefault(LeaseDrainConfig.DEFAULT_BATCH_SIZE),
+        leaseDuration =
+            Duration.ofSeconds(
+                leaseSeconds.toPositiveLongOrDefault(LeaseDrainConfig.DEFAULT_LEASE_SECONDS),
+            ),
+        leaseBudgetFraction =
+            leaseBudgetFraction.toPositiveDoubleOrDefault(LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION),
+        maxAttempts = maxAttempts.toPositiveIntOrDefault(LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS),
     )
 }
 
-private fun validateLeaseDrainWorkerConfig(
-    errors: MutableList<String>,
-    keyPrefix: String,
-    intervalSeconds: String,
-    batchSize: String,
-    leaseSeconds: String,
-    leaseBudgetFraction: String,
-    maxAttempts: String,
-) {
-    if (intervalSeconds.isNotBlank() && intervalSeconds.positiveLongOrNull() == null) {
-        errors += "$keyPrefix.intervalSeconds must be a positive integer"
-    }
-    if (batchSize.isNotBlank() && batchSize.positiveIntOrNull() == null) {
-        errors += "$keyPrefix.batchSize must be a positive integer"
-    }
-    if (leaseSeconds.isNotBlank() && leaseSeconds.positiveLongOrNull() == null) {
-        errors += "$keyPrefix.leaseSeconds must be a positive integer"
-    }
-    if (leaseBudgetFraction.isNotBlank() && leaseBudgetFraction.positiveDoubleOrNull() == null) {
-        errors += "$keyPrefix.leaseBudgetFraction must be a number in (0.0, 1.0]"
-    }
-    if (maxAttempts.isNotBlank() && maxAttempts.positiveIntOrNull() == null) {
-        errors += "$keyPrefix.maxAttempts must be a positive integer"
-    }
-}
+private fun String.isPositiveLong(): Boolean = toLongOrNull()?.positive() == true
 
-private fun ApplicationConfig.readWorkerValue(
-    section: String,
-    key: String,
-): String = stringOrEmpty("$section.$key").trim()
+private fun String.isPositiveInt(): Boolean = toIntOrNull()?.positive() == true
 
-private fun String.positiveLongOrNull(): Long? = toLongOrNull()?.takeIf { it > 0 }
+private fun String.isPositiveDouble(): Boolean = toDoubleOrNull()?.let { it > 0 && it <= 1 } == true
 
-private fun String.positiveIntOrNull(): Int? = toIntOrNull()?.takeIf { it > 0 }
+private fun Long.positive() = this > 0
 
-private fun String.positiveDoubleOrNull(): Double? = toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 }
+private fun Int.positive() = this > 0
 
-private fun String.positiveLongOrDefault(defaultValue: Long): Long = positiveLongOrNull() ?: defaultValue
+private fun String.toPositiveLongOrDefault(default: Long): Long = toLongOrNull()?.takeIf { it > 0 } ?: default
 
-private fun String.positiveIntOrDefault(defaultValue: Int): Int = positiveIntOrNull() ?: defaultValue
+private fun String.toPositiveIntOrDefault(default: Int): Int = toIntOrNull()?.takeIf { it > 0 } ?: default
 
-private fun String.positiveDoubleOrDefault(defaultValue: Double): Double = positiveDoubleOrNull() ?: defaultValue
+private fun String.toPositiveDoubleOrDefault(default: Double): Double = toDoubleOrNull()?.takeIf { it > 0 && it <= 1 } ?: default
