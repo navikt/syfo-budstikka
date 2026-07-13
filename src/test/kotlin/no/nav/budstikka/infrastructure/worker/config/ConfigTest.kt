@@ -64,37 +64,37 @@ class ConfigTest :
         }
 
         test("toWorkerConfig validates interval is a positive integer") {
-            shouldThrow<IllegalStateException> {
+            shouldThrow<IllegalArgumentException> {
                 config(inboxIntervalSeconds = "0").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.inboxMessage.intervalSeconds must be a positive integer"
         }
 
         test("toWorkerConfig validates batch size is a positive integer") {
-            shouldThrow<IllegalStateException> {
+            shouldThrow<IllegalArgumentException> {
                 config(inboxBatchSize = "-1").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.inboxMessage.batchSize must be a positive integer"
         }
 
         test("toWorkerConfig validates lease is a positive integer") {
-            shouldThrow<IllegalStateException> {
+            shouldThrow<IllegalArgumentException> {
                 config(inboxLeaseSeconds = "0").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.inboxMessage.leaseSeconds must be a positive integer"
         }
 
         test("toWorkerConfig validates lease budget fraction is within (0.0, 1.0]") {
-            shouldThrow<IllegalStateException> {
+            shouldThrow<IllegalArgumentException> {
                 config(inboxLeaseBudgetFraction = "1.5").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.inboxMessage.leaseBudgetFraction must be a number in (0.0, 1.0]"
         }
 
         test("toWorkerConfig validates max attempts is a positive integer") {
-            shouldThrow<IllegalStateException> {
+            shouldThrow<IllegalArgumentException> {
                 config(inboxMaxAttempts = "0").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.inboxMessage.maxAttempts must be a positive integer"
         }
 
         test("toWorkerConfig validates delivery interval is a positive integer") {
-            shouldThrow<IllegalStateException> {
+            shouldThrow<IllegalArgumentException> {
                 config(deliveryIntervalSeconds = "0").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.delivery.intervalSeconds must be a positive integer"
         }
