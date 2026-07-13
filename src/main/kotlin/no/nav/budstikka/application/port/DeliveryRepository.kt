@@ -16,7 +16,7 @@ data class ClaimedDelivery(
 /**
  * Skriver frosne [DeliveryDraft] som `delivery`-rader. Én inbox-hendelse gir 0..N leveranser.
  * Åpner IKKE egen transaksjon: kjøres inne i
- * [no.nav.budstikka.infrastructure.database.config.TransactionRunner.transaction] sammen med inbox-
+ * [TransactionRunner.transaction] sammen med inbox-
  * status-overgangen, slik at beslutnings-workeren (#56) effektuerer én melding alt-eller-ingenting.
  * `id`/`state`/`attempt` fylles av DB-defaults (uuidv7 / 'READY' / 0).
  */
