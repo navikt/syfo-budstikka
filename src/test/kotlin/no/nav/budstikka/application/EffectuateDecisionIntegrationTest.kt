@@ -19,13 +19,13 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryI
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import java.time.Duration
 import java.util.UUID
+import kotlin.time.Duration.Companion.minutes
 
 class EffectuateDecisionIntegrationTest :
     FunSpec({
         val fixture = PostgresTestFixture()
-        val lease = Duration.ofMinutes(5)
+        val lease = 5.minutes
 
         beforeSpec { fixture.migrate() }
         afterTest { fixture.reset() }

@@ -16,12 +16,18 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
+import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
-import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class InboxMessageWorkerTest :
     FunSpec({
@@ -51,6 +57,7 @@ class InboxMessageWorkerTest :
         }
 
         test("runOnce stops draining when the lease budget is exhausted") {
+            val clock = MutableClock(Instant.fromEpochSeconds(0))
             val repository =
                 PollingInboxMessageRepository(
                     messages =
@@ -58,12 +65,17 @@ class InboxMessageWorkerTest :
                             InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
                             InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
                         ),
+                    onPoll = {
+                        // advance the clock to exhaust the lease budget after the first poll
+                        clock.current += 1.milliseconds
+                    },
                 )
             val worker =
                 workerWith(
                     repository,
-                    leaseDuration = Duration.ofMillis(1),
+                    leaseDuration = 1.milliseconds,
                     leaseBudgetFraction = 0.1,
+                    clock = clock,
                 )
 
             worker.runOnce()
@@ -81,7 +93,7 @@ class InboxMessageWorkerTest :
                     polled.countDown()
                 }
             val worker = workerWith(repository, batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE)
-            val loop = BackgroundLoop("inbox-message-worker", Duration.ofMillis(10), iteration = worker::runOnce)
+            val loop = BackgroundLoop("inbox-message-worker", 10.milliseconds, iteration = worker::runOnce)
 
             loop.start()
             polled.await(5, TimeUnit.SECONDS) shouldBe true
@@ -96,9 +108,10 @@ class InboxMessageWorkerTest :
 private fun workerWith(
     repository: PollingInboxMessageRepository,
     batchSize: Int = 10,
-    leaseDuration: Duration = Duration.ofMinutes(5),
+    leaseDuration: Duration = 5.minutes,
     leaseBudgetFraction: Double = 0.8,
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+    clock: Clock = Clock.System,
 ): InboxMessageWorker =
     InboxMessageWorker(
         repository = repository,
@@ -113,10 +126,11 @@ private fun workerWith(
             LeaseBudgetDrainer(
                 leaseBudgetFraction = leaseBudgetFraction,
                 maxConsecutiveItemFailures = maxConsecutiveItemFailures,
+                clock = clock,
             ),
         config =
             LeaseDrainConfig(
-                interval = Duration.ofSeconds(1),
+                interval = 1.seconds,
                 batchSize = batchSize,
                 leaseDuration = leaseDuration,
                 leaseBudgetFraction = leaseBudgetFraction,

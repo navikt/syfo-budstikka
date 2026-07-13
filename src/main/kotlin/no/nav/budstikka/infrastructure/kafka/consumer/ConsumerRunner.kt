@@ -9,7 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
-import kotlinx.coroutines.time.withTimeoutOrNull
+import kotlinx.coroutines.withTimeoutOrNull
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.apache.kafka.clients.consumer.Consumer
@@ -22,9 +22,11 @@ import org.apache.kafka.common.errors.WakeupException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.lang.invoke.MethodHandles
-import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Runs a Kafka consumer in its own coroutine and keeps it alive across transient failures.
@@ -45,11 +47,11 @@ class ConsumerRunner<K, V>(
     private val consumerFactory: () -> Consumer<K, V>,
     private val topics: List<String>,
     private val handler: BatchMessageHandler<K, V>,
-    private val pollTimeout: Duration = Duration.ofSeconds(1),
+    pollTimeout: Duration = 1.seconds,
     val coroutineName: String = "kafka-consumer",
-    private val initialBackoff: Duration = Duration.ofSeconds(1),
-    private val maxBackoff: Duration = Duration.ofSeconds(30),
-    private val healthyResetThreshold: Duration = Duration.ofMinutes(5),
+    private val initialBackoff: Duration = 1.seconds,
+    private val maxBackoff: Duration = 30.seconds,
+    private val healthyResetThreshold: Duration = 5.minutes,
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
     private val heartbeat: Heartbeat = Heartbeat(),
 ) : AutoCloseable {
@@ -57,6 +59,7 @@ class ConsumerRunner<K, V>(
     private val running = AtomicBoolean(false)
     private var scope: CoroutineScope? = null
     private var job: Job? = null
+    private val pollTimeoutJava: java.time.Duration = java.time.Duration.ofMillis(pollTimeout.inWholeMilliseconds)
 
     @Volatile
     private var activeConsumer: Consumer<K, V>? = null
@@ -86,7 +89,7 @@ class ConsumerRunner<K, V>(
         MDC.putCloseable(MdcKeys.CONSUMER, coroutineName).use {
             logger.info("Shutdown initiated")
             stop()
-            val stopped = join(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS))
+            val stopped = join(CLOSE_TIMEOUT_SECONDS.seconds)
             if (!stopped) {
                 logger.warn(
                     "{} did not stop within {} seconds",
@@ -115,7 +118,7 @@ class ConsumerRunner<K, V>(
     }
 
     private suspend fun runWithRestart(onFatalError: (Throwable) -> Unit) {
-        var backoffMillis = initialBackoff.toMillis()
+        var backoffMillis = initialBackoff.inWholeMilliseconds
         while (running.get()) {
             var consumer: Consumer<K, V>? = null
             val lifecycleStart = System.nanoTime()
@@ -140,13 +143,13 @@ class ConsumerRunner<K, V>(
                     running.set(false)
                     onFatalError(error)
                 } else {
-                    val lifecycleDuration = System.nanoTime() - lifecycleStart
-                    if (lifecycleDuration > healthyResetThreshold.toNanos()) {
-                        backoffMillis = initialBackoff.toMillis()
+                    val lifecycleNanos = System.nanoTime() - lifecycleStart
+                    if (lifecycleNanos > healthyResetThreshold.inWholeNanoseconds) {
+                        backoffMillis = initialBackoff.inWholeMilliseconds
                         logger.info(
                             "{} was healthy for {}ms, resetting backoff to {}ms",
                             coroutineName,
-                            Duration.ofNanos(lifecycleDuration).toMillis(),
+                            lifecycleNanos / 1_000_000,
                             backoffMillis,
                         )
                     }
@@ -165,7 +168,7 @@ class ConsumerRunner<K, V>(
 
             if (running.get()) {
                 backoffDelay(backoffMillis)
-                backoffMillis = minOf(backoffMillis * 2, maxBackoff.toMillis())
+                backoffMillis = minOf(backoffMillis * 2, maxBackoff.inWholeMilliseconds)
             }
         }
     }
@@ -187,7 +190,7 @@ class ConsumerRunner<K, V>(
     }
 
     private suspend fun pollAndHandle(consumer: Consumer<K, V>) {
-        val records = consumer.poll(pollTimeout)
+        val records = consumer.poll(pollTimeoutJava)
         // Heartbeat every poll round, including empty ones: a quiet topic must not look dead. A
         // transient broker outage surfaces as empty polls (not exceptions), so liveness stays green,
         // and we avoid coupling the probe to broker availability.

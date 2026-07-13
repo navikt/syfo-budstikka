@@ -3,13 +3,14 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import java.util.UUID
+import kotlin.time.Duration
 
 class ThrowingMessageRepository : InboxMessageRepository {
     override suspend fun saveBatch(events: List<Pair<UUID, String>>) = error("DB nede — transient feil")
 
     override suspend fun claim(
         limit: Int,
-        lease: java.time.Duration,
+        lease: Duration,
         maxAttempts: Int,
     ): List<InboxMessage> = emptyList()
 

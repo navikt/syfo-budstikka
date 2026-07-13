@@ -1,7 +1,7 @@
 package no.nav.budstikka.application.port
 
-import java.time.Duration
 import java.util.UUID
+import kotlin.time.Duration
 
 data class InboxMessage(
     val eventId: UUID,

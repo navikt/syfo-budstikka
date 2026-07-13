@@ -12,13 +12,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
-import kotlinx.coroutines.time.withTimeoutOrNull
+import kotlinx.coroutines.withTimeoutOrNull
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
-import java.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * A background loop that runs [iteration] every [interval] until Ktor shuts down and [close]
@@ -45,7 +45,7 @@ class BackgroundLoop(
 
     init {
         require(name.isNotBlank()) { "name must not be blank" }
-        require(!interval.isNegative && !interval.isZero) { "interval must be greater than zero" }
+        require(interval.isPositive()) { "interval must be greater than zero" }
     }
 
     fun isAlive(): Boolean = heartbeat.isAlive()
@@ -65,7 +65,7 @@ class BackgroundLoop(
         MDC.putCloseable(MdcKeys.WORKER, name).use {
             logger.info("Shutdown initiated")
             activeScope.cancel()
-            val stopped = runBlocking { withTimeoutOrNull(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)) { activeJob.join() } != null }
+            val stopped = runBlocking { withTimeoutOrNull(CLOSE_TIMEOUT_SECONDS.seconds) { activeJob.join() } != null }
             if (!stopped) {
                 logger.warn(
                     "{} did not stop within {} seconds",
@@ -83,7 +83,7 @@ class BackgroundLoop(
         while (currentCoroutineContext().isActive) {
             heartbeat.record()
             runIterationSafely()
-            delay(interval.toMillis().milliseconds)
+            delay(interval)
         }
     }
 
@@ -99,7 +99,7 @@ class BackgroundLoop(
 
     companion object {
         private const val CLOSE_TIMEOUT_SECONDS = 5L
-        private const val STALE_THRESHOLD_INTERVALS = 2L
+        private const val STALE_THRESHOLD_INTERVALS = 2
 
         /**
          * Stale threshold derived from the loop interval: at least [Heartbeat.DEFAULT_STALE_THRESHOLD],
@@ -107,6 +107,6 @@ class BackgroundLoop(
          * is not declared dead between perfectly healthy rounds.
          */
         fun defaultStaleThreshold(interval: Duration): Duration =
-            maxOf(interval.multipliedBy(STALE_THRESHOLD_INTERVALS), Heartbeat.DEFAULT_STALE_THRESHOLD)
+            maxOf(interval * STALE_THRESHOLD_INTERVALS, Heartbeat.DEFAULT_STALE_THRESHOLD)
     }
 }
