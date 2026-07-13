@@ -43,7 +43,7 @@ RIKTIG (vertikalt):
 
 ### 1. Planlegg
 
-Les `docs/CONTEXT.md` hvis den finnes, så testnavn og grensesnittvokabular matcher domenespråket. Respekter besluttede valg i `docs/adr/` for området du rører. Følger du en plan fra `@grillmester`, hold deg til `.grill/PLAN.md` og kryss av atferdene der.
+Les `docs/context.md` hvis den finnes, så testnavn og grensesnittvokabular matcher domenespråket. Respekter besluttede valg i `docs/adr/` for området du rører. Følger du en plan fra `@grillmester`, hold deg til `.grill/PLAN.md` og kryss av atferdene der.
 
 Før du skriver kode:
 

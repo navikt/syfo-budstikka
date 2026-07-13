@@ -131,4 +131,4 @@ Dette gir rask tilbakemelding på at migrasjonsrekkefølge, SQL-syntaks og Flywa
 
 ## Kobling til faseløkken
 
-Når en migrering inngår i en planlagt endring, noter schema-beslutninger (ny tabell/indeks, backfill-strategi, rollback) i `docs/CONTEXT.md`, og fang varige valg (f.eks. UUID vs. bigserial, concurrently-indeksering) som en ADR under `docs/adr/`. Verifiser at migreringen kjører grønt via Testcontainers og legg evidensen i `.grill/VERIFICATION.md` før PR. For endringer som rører migreringer er det verdt å kjøre en ekstra review (`grill-inspektor`) før merge.
+Når en migrering inngår i en planlagt endring, noter schema-beslutninger (ny tabell/indeks, backfill-strategi, rollback) i `docs/context.md`, og fang varige valg (f.eks. UUID vs. bigserial, concurrently-indeksering) som en ADR under `docs/adr/`. Verifiser at migreringen kjører grønt via Testcontainers og legg evidensen i `.grill/VERIFICATION.md` før PR. For endringer som rører migreringer er det verdt å kjøre en ekstra review (`grill-inspektor`) før merge.

@@ -1,6 +1,6 @@
 # NAV-arketyper og domene-spørsmål
 
-Strukturert kravavdekking for NAV-prosjekter. Velg arketype, still domene-spesifikke spørsmål, oppsummer funn i `docs/CONTEXT.md`. Dette repoet er et **Ktor-backend** — vekt på de backend-rettede arketypene, men menyen er full fordi en tjeneste kan ha BFF/fullstack-flater.
+Strukturert kravavdekking for NAV-prosjekter. Velg arketype, still domene-spesifikke spørsmål, oppsummer funn i `docs/context.md`. Dette repoet er et **Ktor-backend** — vekt på de backend-rettede arketypene, men menyen er full fordi en tjeneste kan ha BFF/fullstack-flater.
 
 ## Steg 1: Arketype
 
@@ -82,7 +82,7 @@ Se [data-classification.md](./data-classification.md) for NAVs klassifiseringsni
 | K8 | Endres API-kontrakter (eksplisitte eller implisitte)? | Kontraktsbrudd |
 | K9 | Testtilstand for koden som endres? | Endringssikkerhet |
 
-## Steg 4: Oppsummer i `docs/CONTEXT.md`
+## Steg 4: Oppsummer i `docs/context.md`
 
 Skriv valgt arketype, scope (inkl. ikke-mål), dataklassifisering, de sentrale arkitekturbeslutningene (auth, sync/async, database, observerbarhet), migrasjonsstrategi (ved modernisering), identifiserte risikoer og endringskonsekvenser. Vanskelig-å-reversere beslutninger festes som `docs/adr/NNNN-*.md`.
 

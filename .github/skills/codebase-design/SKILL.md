@@ -9,7 +9,7 @@ Design **dype moduler**: mye oppførsel bak et lite grensesnitt, plassert ved en
 
 **Rolle:** dette _designer_ grensesnittet og eier dyp-modul-vokabularet (under) — andre skills låner det herfra. Beslektet: `/improve-codebase-architecture` finner hva som bør fordypes, `/grill-with-docs` avhører valget, `/nav-architecture-review` formaliserer det som ADR.
 
-Designbeslutninger som er vanskelige å reversere skrives som ADR i `docs/adr/NNNN-*.md`, og den valgte modulformen havner i `docs/CONTEXT.md` (se `/grill-with-docs`). Skarpe domenebegrep i `docs/GLOSSARY.md` (se `/domain-modeling`).
+Designbeslutninger som er vanskelige å reversere skrives som ADR i `docs/adr/NNNN-*.md`, og den valgte modulformen havner i `docs/context.md` (se `/grill-with-docs`). Skarpe domenebegrep i `docs/glossary.md` (se `/domain-modeling`).
 
 ## Vokabular
 

@@ -2,7 +2,7 @@
 
 - Status: besluttet (implementerer B54, issue #19)
 - Dato: 2026-07-08
-- Relatert: ADR 0001 (domeneblind varselruter), beslutning B54 og B26 i `docs/CONTEXT.md`
+- Relatert: ADR 0001 (domeneblind varselruter), beslutning B54 og B26 i `docs/context.md`
 
 ## Kontekst
 
@@ -11,7 +11,7 @@ Kafka-replay (bounded 90d retention, B26) kan dobbeltsende. Spørsmålet var *hv
 dedup-nøkkelen og feilhåndteringen forankres:
 
 - `eventId` ligger både i payload-konvolutten (autoritativ, B4/B43) og speiles som
-  Kafka-header (`FormidlingHeader.EVENT_ID`, kontraktkonstant fra #18).
+  Kafka-header (`DispatchHeader.EVENT_ID`, kontraktkonstant fra #18).
 - Å parse bodyen ved ingest binder dedup til payload-skjemaet: en ikke-relatert
   schema-endring eller en `UGYLDIG_JSON` ville da kunne blokkere selve dedup-en.
 - En Kafka-consumer må skille feil som skal **retryes** (transient) fra feil som
@@ -25,15 +25,15 @@ Ingest gjør **null body-parsing**. Konkret:
 1. **`eventId` leses fra Kafka-headeren**, ikke fra bodyen, som dedup-nøkkel
    (fast-path per B54). Payloaden forblir autoritativ og valideres av
    beslutnings-workeren senere (`payload.eventId == header.eventId`).
-2. **Rå payload lagres byte-eksakt** som `text` i `inbox_formidling` uten
+2. **Rå payload lagres byte-eksakt** som `text` i `inbox_message` uten
    deserialisering. Dedup løsrives fra skjemaet; `UGYLDIG_JSON`-triggeren ved
    ingest forsvinner.
-3. **`referanse` deferres til workeren** (B54 lot dette stå åpent for #19). Ingest
-   trenger den ikke; den leses strukturelt først når innholdet dekodes.
+3. **`reference` deferres til workeren** (B54 lot dette stå åpent for #19). Ingest
+   trenger den ikke; den leses strukturelt først når `content` dekodes.
 4. **Dedup via `event_id` som PK** (`insertIgnore` / ON CONFLICT DO NOTHING).
 5. **Feiltaksonomi:**
    - *Poison* (manglende/ugyldig `event_id`-header, tom payload): dead-letteres til
-     egen tabell (`DeadLetterFormidlingTable`), og offset committes → partisjonen
+     egen tabell (`DeadLetterMessageTable`), og offset committes → partisjonen
      flyter videre.
    - *Transient* (DB nede): unntak kastes → ConsumerRunner committer ikke og
      re-poller med backoff.

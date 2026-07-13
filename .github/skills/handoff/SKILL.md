@@ -20,7 +20,7 @@ Venter du til vinduet er fullt, har modellen allerede mistet detaljene du trenge
 ## Kontrakt
 
 1. **Skriv til `.grill/STATE.md`** — én fil, fast plass. Ikke til OS-temp, ikke et tilfeldig navn. Neste tråd leser `STATE.md` først (samme konvensjon som `/diagnosing-bugs`).
-2. **Ikke dupliser det som allerede ligger i artefakter.** `docs/CONTEXT.md` (mental modell), `docs/adr/` (beslutninger), `.grill/PLAN.md` (planen), `.grill/VERIFICATION.md` (ferskt grønt bevis), GitHub-issues, commits og diff bærer sin egen tilstand. **Referér dem med sti/URL** — ikke kopier innholdet inn.
+2. **Ikke dupliser det som allerede ligger i artefakter.** `docs/context.md` (mental modell), `docs/adr/` (beslutninger), `.grill/PLAN.md` (planen), `.grill/VERIFICATION.md` (ferskt grønt bevis), GitHub-issues, commits og diff bærer sin egen tilstand. **Referér dem med sti/URL** — ikke kopier innholdet inn.
 3. **STATE.md er flyktig og overskrivbar.** Den fanger _hvor vi er akkurat nå_. Varige beslutninger hører hjemme i ADR, ikke her — oppstår en ny vanskelig-reversibel beslutning, løft den til `docs/adr/` via `/nav-architecture-review` og referér den.
 4. **Redaksjon (NAV) — håndhevet av gate, ikke bare oppfordring.** Aldri fnr, tokens, passord, navn eller særlige kategorier i `STATE.md`. Logg ID-er/correlation (`callId`, `Nav-Call-Id`), branch-navn, issue-nummer, filstier — ikke personopplysninger eller hemmeligheter. `.grill/` er gitignorert (`.gitignore`), men behandles som om den var offentlig (defense-in-depth). Dette håndheves av pre-commit-gaten `scripts/scan-grill-pii.sh` (aktiveres med `git config core.hooksPath .githooks`), som skanner `.grill/` og alt som stages, og blokkerer commit ved mistanke om PII/hemmelighet.
 5. **Handlingsrettet, ikke referat.** Neste tråd skal kunne ta neste steg fra første avsnitt. Kutt prosa om hva som ble diskutert; behold hva som ble besluttet og hva som gjenstår.
@@ -52,7 +52,7 @@ Branch: <navn>  ·  Issue/PR: <#nr / URL>
 - Uncommitted endringer: <ja/nei — hva> (`git status`)
 
 ## Referanser (ikke duplisert her)
-- Mental modell: `docs/CONTEXT.md`
+- Mental modell: `docs/context.md`
 - Plan: `.grill/PLAN.md`
 - Beslutninger: `docs/adr/`
 - Verifikasjon: `.grill/VERIFICATION.md`

@@ -43,7 +43,7 @@ repo-spesifikke regler i andre `instructions`-filer, men overstyrer dem ikke.
 ## Avgrensning
 
 - Denne filen beskriver kun kjernesjekker for Copilot Code Review.
-- Dype arkitektur- og domenereviews håndteres av egne agenter og skills, koblet til `@grillmester`-faseløkka og `.grill/`-artefakter (`CONTEXT.md`, `adr/`, `PLAN.md`, `VERIFICATION.md`).
+- Dype arkitektur- og domenereviews håndteres av egne agenter og skills, koblet til `@grillmester`-faseløkka og `.grill/`-artefakter (`context.md`, `adr/`, `PLAN.md`, `VERIFICATION.md`).
 - Reviewkommentarer skal være handlingsrettede, med tydelig risiko og anbefalt endring.
 
 ## Prioritering i kommentarer

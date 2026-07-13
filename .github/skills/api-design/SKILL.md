@@ -59,7 +59,7 @@ Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsp
 3. **Avtal overgangsvindu** — typisk 1–3 måneder der begge versjoner lever parallelt.
 4. **Versjoner URL-en** — nytt route-prefiks (`/api/v1/` → `/api/v2/`) i `Routing.kt`, gammel rute beholdes til vinduet er ute.
 5. **Deprecering først**: merk gammel versjon som deprecated (gjerne `Deprecation`/`Sunset`-header), gi konsumentene tid.
-6. **Logg beslutningen** som ADR i `docs/adr/` og oppdater `docs/CONTEXT.md` hvis kontrakten er en del av domenespråket.
+6. **Logg beslutningen** som ADR i `docs/adr/` og oppdater `docs/context.md` hvis kontrakten er en del av domenespråket.
 
 ### Ikke-brudd-endringer (trygge)
 - Legge til nye felter i response.

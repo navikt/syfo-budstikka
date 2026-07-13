@@ -10,6 +10,51 @@
 
 Budstikka er en Ktor-backend for å håndtere kommunikasjon fra våre apper til flere eksterne og interne kanaler.
 
+## Big picture
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant producer as Domeneapp
+    participant kafka as Kafka-topic team-esyfo.formidling.v1
+    participant consumer as Inbox-consumer<br/>(ConsumerRunner + InboxMessageHandler)
+    participant inbox as inbox_message (db)
+    participant iworker as InboxMessageWorker
+    participant decision as Decision + effectuate<br/>(in-process komponent)
+    participant delivery as delivery (db)
+    participant dworker as DeliveryWorker
+    participant channel as Channel<br/>(via ChannelHandler)
+    participant target as Channel endpoint
+
+    producer->>kafka: publish Dispatch(eventId, reference, content)
+    consumer->>kafka: consume records
+    consumer->>inbox: saveBatch (batchInsert, dedup på eventId)
+    iworker->>inbox: claim(limit, lease)
+    iworker->>decision: process(dispatch) + effectuate(eventId, decision)
+    decision->>inbox: markProcessed/markDropped/markFailed
+    decision->>delivery: saveInTransaction(...) ved Processed
+    dworker->>delivery: claim(limit, lease, channels)
+    dworker->>channel: deliver(claimed delivery)
+    channel->>target: send
+    channel-->>dworker: Sent | Failed(reason)
+    dworker->>delivery: markSent | markFailed
+```
+
+## Beslutningsmønster
+
+Beslutningsmotoren er en in-process komponent som kalles fra `InboxMessageWorker`, ikke en egen worker/task. Figuren viser den som én boks (`Decision + effectuate`) for å holde hovedflyten enkel.
+
+I kode er den delt i `DecisionProcess` og `EffectuateDecision`, og kjører i to steg:
+
+1. `DecisionRule.resolve(event)` henter grunnlag i parallell.
+2. `ResolvedRule.apply(deliveries)` foldes sekvensielt, med short-circuit ved `Dropped`/`Failed`.
+
+Dette gir lavere ventetid på oppslag og samtidig forutsigbar regelrekkefølge.
+
+## Arkitekturoversikt
+
+Se [overordnet flyt](docs/flyt.md) for claim/lease, batch insert, kanal-mapping og flere detaljer.
+
 ## For Nav-ansatte
 
 Spørsmål om tjenesten kan tas i [#esyfo på Slack](https://nav-it.slack.com/archives/C012X796B4L).

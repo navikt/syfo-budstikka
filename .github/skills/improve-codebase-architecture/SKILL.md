@@ -11,7 +11,7 @@ Avdekk arkitektonisk friksjon i dette repoet og foreslå **fordypningsmuligheter
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
 
-- `docs/GLOSSARY.md` gir navn til gode sømmer i domenet; `docs/CONTEXT.md` gir den valgte tilnærmingen; ADR-er i `docs/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
+- `docs/glossary.md` gir navn til gode sømmer i domenet; `docs/context.md` gir den valgte tilnærmingen; ADR-er i `docs/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
 - Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i grilling (`/grill-with-docs`), plan (`.grill/PLAN.md`) og verifisering (`.grill/VERIFICATION.md`).
 
 ## Vokabular
@@ -24,7 +24,7 @@ Dette bruker dyp-modul-vokabularet som `/codebase-design` eier — **modul**, **
 
 ### 1. Utforsk
 
-Les `docs/CONTEXT.md`, `docs/GLOSSARY.md` og relevante ADR-er i `docs/adr/` **først**.
+Les `docs/context.md`, `docs/glossary.md` og relevante ADR-er i `docs/adr/` **først**.
 
 Gå så gjennom kodebasen organisk — ikke følg rigide heuristikker. Noter hvor du opplever friksjon. I et Ktor-backend ser fordypningsmuligheter typisk slik ut:
 
@@ -43,7 +43,7 @@ Skriv en selvstendig HTML-fil til OS-temp slik at ingenting havner i repoet. Res
 
 Hver kandidat får et kort med: **Filer**, **Problem** (én setning), **Løsning** (én setning), **Gevinster** (punktliste i vokabularet — lokalitet/leverage/testflate), **Før/etter-diagram**, og **Anbefalingsstyrke** (`Sterk`, `Verdt å utforske`, `Spekulativ`). Avslutt med en **Topp-anbefaling**: hvilken du ville tatt først og hvorfor.
 
-Bruk **`docs/GLOSSARY.md`-vokabular for domenet** og arkitekturvokabularet over for strukturen. Heter konseptet "Sykmelding-inntak" i glossaret, snakk om "Sykmelding-inntak-modulen" — ikke "SykmeldingHandler" og ikke "Sykmelding-servicen".
+Bruk **`docs/glossary.md`-vokabular for domenet** og arkitekturvokabularet over for strukturen. Heter konseptet "Sykmelding-inntak" i glossaret, snakk om "Sykmelding-inntak-modulen" — ikke "SykmeldingHandler" og ikke "Sykmelding-servicen".
 
 **ADR-konflikt:** hvis en kandidat motsier en eksisterende ADR, ta den kun opp når friksjonen er ekte nok til å forsvare å gjenåpne valget. Merk det tydelig i kortet (gul callout: _"motsier ADR-0007 — men verdt å gjenåpne fordi…"_). Ikke list opp enhver teoretisk refaktorering en ADR forbyr.
 
@@ -57,8 +57,8 @@ Når brukeren har valgt en kandidat, kjør `/grill-with-docs` for å gå ned bes
 
 Sideeffekter skjer **løpende** mens beslutninger faller på plass:
 
-- **Navngir du en fordypet modul etter et konsept som ikke står i `docs/GLOSSARY.md`?** Legg termen til der (bruk `/domain-modeling`). Opprett fila lazy hvis den mangler.
-- **Skjerper du en uklar term underveis?** Oppdater `docs/GLOSSARY.md` med en gang.
+- **Navngir du en fordypet modul etter et konsept som ikke står i `docs/glossary.md`?** Legg termen til der (bruk `/domain-modeling`). Opprett fila lazy hvis den mangler.
+- **Skjerper du en uklar term underveis?** Oppdater `docs/glossary.md` med en gang.
 - **Forkaster brukeren kandidaten av en bærende grunn?** Tilby en ADR: _"Vil du at jeg skriver dette som ADR i `docs/adr/` så fremtidige arkitektur-review ikke foreslår det på nytt?"_ Tilby kun når grunnen faktisk trengs av en fremtidig utforsker — hopp over flyktige ("ikke verdt det nå") og selvinnlysende grunner. Utløs via `/nav-architecture-review` ved reell arkitekturbeslutning.
 - **Vil du utforske alternative grensesnitt for den fordypede modulen?** Kjør `/codebase-design` (design-it-twice — alternativene lages sekvensielt inline, aldri over parallelle agenter).
 
@@ -66,6 +66,6 @@ Sideeffekter skjer **løpende** mens beslutninger faller på plass:
 
 Når den valgte fordypningen er gjennomgrillet:
 
-- Skriv den valgte tilnærmingen til `docs/CONTEXT.md` og besluttede valg til `docs/adr/`.
+- Skriv den valgte tilnærmingen til `docs/context.md` og besluttede valg til `docs/adr/`.
 - Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i `.grill/PLAN.md` (plan-fasen; evt. videre til `/to-issues` for plukkbare snitt).
 - Definer hva som beviser at fordypningen lyktes (tester gjennom ett grensesnitt, søm bekreftet av to adaptere) i `.grill/VERIFICATION.md`.

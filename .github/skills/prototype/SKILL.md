@@ -41,7 +41,7 @@ Skriv ned spørsmålet i én setning øverst i spike-fila (eller i `.grill/STATE
 Spiken er et sideverktøy *inne i* design- og planfasen, ikke et eget løp:
 
 - **Utløses fra fase 1–2.** Når `/grill-with-docs` treffer en blind-spot ingen klarer å avgjøre (idempotens, en stygg tilstandsovergang, en tvilsom modell), pauser du grillingen, spiker svaret, og går tilbake.
-- **Svaret er det eneste som lagres.** Når spiken har gjort jobben: én vanskelig-å-reversere beslutning → `docs/adr/NNNN-<tittel>.md` (via `/nav-architecture-review`). Et nytt eller skjerpet begrep → `docs/GLOSSARY.md` (via `/domain-modeling`). En bekreftet tilnærming → `docs/CONTEXT.md` og inn i `.grill/PLAN.md` som et avklart steg.
+- **Svaret er det eneste som lagres.** Når spiken har gjort jobben: én vanskelig-å-reversere beslutning → `docs/adr/NNNN-<tittel>.md` (via `/nav-architecture-review`). Et nytt eller skjerpet begrep → `docs/glossary.md` (via `/domain-modeling`). En bekreftet tilnærming → `docs/context.md` og inn i `.grill/PLAN.md` som et avklart steg.
 - **Notér åpne svar.** Kjører du AFK og brukeren ikke har bekreftet verdikten ennå: skriv spørsmålet + foreløpig funn i `.grill/STATE.md`, så det fylles inn før spiken slettes.
 
 ## Anti-mønstre

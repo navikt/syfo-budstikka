@@ -1,6 +1,6 @@
-# Format for GLOSSARY.md
+# Format for glossary.md
 
-Glossaret bor i `docs/GLOSSARY.md`. Det er en ordliste over begreper som er spesifikke for dette domenet — ingenting annet.
+Glossaret bor i `docs/glossary.md`. Det er en ordliste over begreper som er spesifikke for dette domenet — ingenting annet.
 
 ## Struktur
 

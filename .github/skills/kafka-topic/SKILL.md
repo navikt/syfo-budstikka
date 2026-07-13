@@ -29,7 +29,7 @@ Følg det dominerende mønsteret. Hvis repoet ikke har Kafka fra før, velg plai
 1. Sjekk Nais-manifestet for `kafka.pool` og om Kafkarator `Topic`-CRD-er finnes (ofte i et eget `<team>-kafka`-repo).
 2. Søk i kodebasen etter eksisterende consumere/producere og følg samme mønster (oppstart, feilhåndtering, logging).
 3. Bekreft stack i `build.gradle.kts` (se tabell over).
-4. Planlegg event-kontrakt (topic-navn, key, felter, `@event_name`). Kontrakten er et domenevalg — loggfør den som ADR i `docs/adr/` og oppdater `docs/CONTEXT.md` hvis hendelsen blir en del av domenespråket (jf. `/grill-with-docs`).
+4. Planlegg event-kontrakt (topic-navn, key, felter, `@event_name`). Kontrakten er et domenevalg — loggfør den som ADR i `docs/adr/` og oppdater `docs/context.md` hvis hendelsen blir en del av domenespråket (jf. `/grill-with-docs`).
 5. Implementer etter mønsteret for stacken (se referansefilene under).
 6. Verifiser med tester (se referansefilene) og loggfør i `.grill/VERIFICATION.md` (@grillmester fase 5).
 

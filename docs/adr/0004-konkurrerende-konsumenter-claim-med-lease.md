@@ -2,11 +2,11 @@
 
 - Status: besluttet (issue #56, beslutnings-worker)
 - Dato: 2026-07-10
-- Relatert: ADR 0002 (inbox-header-dedup), ADR 0003 (application-lag), `docs/DATAMODELL.md`, beslutning B28 i `docs/CONTEXT.md`
+- Relatert: ADR 0002 (inbox-header-dedup), ADR 0003 (application-lag), `docs/datamodell.md`, beslutning B28 i `docs/context.md`
 
 ## Kontekst
 
-`InboxMessageTask` skal kunne kjøre i **flere replicaer samtidig** — det er et hardt krav. Uten
+`InboxMessageWorker` skal kunne kjøre i **flere replicaer samtidig** — det er et hardt krav. Uten
 koordinering ville to replicaer polle de samme `RECEIVED`-radene, slå opp de samme personene i
 PDL/KRR (unødig last på eksterne API-er) og i verste fall skrive `delivery`-rader dobbelt.
 
@@ -33,6 +33,9 @@ Vi bruker **transactional-inbox-standarden for konkurrerende konsumenter**: clai
 `FOR UPDATE SKIP LOCKED` + lease (visibility timeout), og exactly-once-levering via en atomisk
 terminal-CAS. Konkret:
 
+**CAS betyr compare-and-set**: et `UPDATE` med state-vakt i `WHERE`-delen som bare lykkes hvis
+raden fortsatt er i forventet state.
+
 1. **Claim (én transaksjon).** Workeren plukker en bunke:
    `SELECT … WHERE state='RECEIVED' OR (state='CLAIMED' AND next_attempt_time <= now())
    ORDER BY received_at, event_id LIMIT :batch FOR UPDATE SKIP LOCKED`,
@@ -44,13 +47,13 @@ terminal-CAS. Konkret:
    alt-eller-ingenting (jf. per-melding-atomisk-invarianten). Den atomiske **CAS-en kjøres først**:
    `UPDATE … SET state='PROCESSED' WHERE event_id=? AND state='CLAIMED'`. Bare den workeren som
    vinner (rowcount=1) skriver `delivery`-radene; en taper skriver ingenting.
-4. **Krasj-gjenoppretting er automatisk, ingen reaper-task.** En død worker sine `CLAIMED`-rader blir
+4. **Krasj-gjenoppretting er automatisk, ingen reaper-worker.** En død worker sine `CLAIMED`-rader blir
    claimbare igjen når leasen utløper — selve claim-spørringen plukker dem opp. Kolonnene `attempt`
    og `next_attempt_time` er designet for nettopp dette.
 5. **At-least-once enrichment, exactly-once delivery.** På happy path slås hver melding opp én gang.
    Dublett-oppslag skjer bare etter krasj/lease-utløp (sjelden, avgrenset), og terminal-CAS-en hindrer
    dobbel levering selv om to workere kappløper om en utløpt lease.
-6. **Lease-varighet er konfigurerbar** (`tasks.inboxMessage.leaseDuration`), default **5 minutter**;
+6. **Lease-varighet er konfigurerbar** (`workers.inboxMessage.leaseSeconds`), default **5 minutter**;
    `batchSize` senkes fra 100 til **25**. For kort lease er den farlige retningen (en frisk worker
    mister claimet midt i arbeidet → dublett-oppslag); for lang lease forsinker bare gjenoppretting.
    Leasen stemples på hele bunka ved claim, så den må dekke `batchSize × per-melding` (batch-drain) —
@@ -75,9 +78,8 @@ verdi), og indeksen `(state, next_attempt_time)` dekker claim-spørringen.
 
 ## Alternativer vurdert
 
-Se familiene 1–3 i Kontekst. Family 1 (hold låsen) og 2 (optimistisk) løser hver sin halvdel, men
-ikke begge kravene samtidig (ikke-hamre eksterne API-er + slippe connection under I/O + krasj-sikker).
-Leder-valg (3) ble vraket eksplisitt fordi vi vil ha konkurrerende konsumenter.
+Se familiene 1–3 i kontekst-seksjonen over. De er beholdt der siden de forklarer hvorfor vi landet på
+claim + lease, og hva som ble vraket.
 
 Utsatt (dokumentert, ikke besluttet nå): indeks-tuning for claim-spørringens `ORDER BY received_at`
 (nåværende `(state, next_attempt_time)`-indeks holder ved forventet volum), og

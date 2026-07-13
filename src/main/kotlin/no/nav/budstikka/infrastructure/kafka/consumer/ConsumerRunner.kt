@@ -79,7 +79,7 @@ class ConsumerRunner<K, V>(
         activeConsumer?.wakeup()
     }
 
-    /** Liveness signal for this consumer loop; see [Heartbeat] and docs/HELSESJEKK.md. */
+    /** Liveness signal for this consumer loop; see [Heartbeat] and docs/helsesjekk.md. */
     fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
