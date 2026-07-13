@@ -33,6 +33,9 @@ Vi bruker **transactional-inbox-standarden for konkurrerende konsumenter**: clai
 `FOR UPDATE SKIP LOCKED` + lease (visibility timeout), og exactly-once-levering via en atomisk
 terminal-CAS. Konkret:
 
+**CAS betyr compare-and-set**: et `UPDATE` med state-vakt i `WHERE`-delen som bare lykkes hvis
+raden fortsatt er i forventet state.
+
 1. **Claim (én transaksjon).** Workeren plukker en bunke:
    `SELECT … WHERE state='RECEIVED' OR (state='CLAIMED' AND next_attempt_time <= now())
    ORDER BY received_at, event_id LIMIT :batch FOR UPDATE SKIP LOCKED`,

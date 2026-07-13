@@ -28,8 +28,8 @@ Ingest gjør **null body-parsing**. Konkret:
 2. **Rå payload lagres byte-eksakt** som `text` i `inbox_message` uten
    deserialisering. Dedup løsrives fra skjemaet; `UGYLDIG_JSON`-triggeren ved
    ingest forsvinner.
-3. **`referanse` deferres til workeren** (B54 lot dette stå åpent for #19). Ingest
-   trenger den ikke; den leses strukturelt først når innholdet dekodes.
+3. **`reference` deferres til workeren** (B54 lot dette stå åpent for #19). Ingest
+   trenger den ikke; den leses strukturelt først når `content` dekodes.
 4. **Dedup via `event_id` som PK** (`insertIgnore` / ON CONFLICT DO NOTHING).
 5. **Feiltaksonomi:**
    - *Poison* (manglende/ugyldig `event_id`-header, tom payload): dead-letteres til

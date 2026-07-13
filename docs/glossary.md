@@ -76,8 +76,13 @@ Produsentens id som kobler en opprettet dispatch til senere lukking. Budstikka m
 på den og kjenner ikke betydningen.
 _Unngå_: referanse (legacy-ord)
 
-**Recipient-id (`recipient_id`)**:
-Recipient-identifikatoren som brukes i `delivery` for matching (personident eller orgnummer).
+**Match key (`match key`)**:
+Nøkkelen som brukes for å matche inactivate mot tidligere create. I modellen er matchen
+`(reference, recipient_id, channel)`.
+_Unngå_: matchnøkkel (legacy-ord i kodekontekst)
+
+**Recipient match-id (`recipient_id`)**:
+Recipient-identifikatoren i `delivery` som inngår i match key (personident eller orgnummer).
 For inactivate-hendelser er dette samme id som konsumenten kjenner ved create.
 
 **Create (`operation=CREATE`)**:
@@ -92,6 +97,11 @@ Budstikkas lukking av en dispatch på én channel, avledet fra den lagrede creat
 _Unngå_: inaktiver (legacy-ord i kodekontekst)
 
 ## Levering
+
+**CAS (compare-and-set)**:
+Et atomisk update-mønster der raden bare oppdateres hvis den fortsatt har forventet state
+(for eksempel `... WHERE state='CLAIMED'`). Brukes for å unngå dobbeltprosessering når
+flere workere konkurrerer om samme rad.
 
 **Delivery (`delivery`)**:
 Én dispatch til én recipient på én channel, som budstikka utfører og sporer til den er terminal.

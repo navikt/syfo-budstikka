@@ -21,29 +21,42 @@ tingene hjemme (worker-mekanisme, konkret worker, Kafka-handler)? En Kafka-handl
 `application` innføres som et eksplisitt use-case-lag. Konkret:
 
 1. **`application` er et fjerde lag** for use-case-orkestratorer. Det kan avhenge av `domain` og
-   `infrastructure`-porter; ingenting innover (`domain`, `infrastructure`) peker hit.
-2. **Worker-mekanismen (`BackgroundLoop`, `Heartbeat`) blir i `infrastructure/worker`.** Den er plumbing:
+   porter definert i `application`-laget selv (`application.port`).
+2. **Hard avhengighetsregel:** `domain` og `application` skal aldri avhenge av
+   `infrastructure` eller `bootstrap`.
+3. **Worker-mekanismen (`BackgroundLoop`, `Heartbeat`) blir i `infrastructure/worker`.** Den er plumbing:
    coroutine-løkke, heartbeat, `AutoCloseable`-livssyklus, ingen domenekunnskap.
-3. **Konkrete workere (`InboxMessageWorker`) bor i `application`.** De snakker bare domene og porter
+4. **Konkrete workere (`InboxMessageWorker`) bor i `application`.** De snakker bare domene og porter
    (repository, config) og bruker mekanismen som utførelsesramme.
-4. **Kafka-handleren (`InboxMessageHandler`) blir i `infrastructure/kafka/consumer`.** Den er en
+5. **Kafka-handleren (`InboxMessageHandler`) blir i `infrastructure/kafka/consumer`.** Den er en
    drivende adapter: signaturen tar `ConsumerRecord`, den leser Kafka-headere og styrer offset- og
    dead-letter-semantikk, og den gjør null domenearbeid (byte-eksakt lagring per ADR 0002).
-5. **Plasserings-test:** navngir klassen en transport-type (`ConsumerRecord`, `ApplicationCall`,
+6. **Plasserings-test:** navngir klassen en transport-type (`ConsumerRecord`, `ApplicationCall`,
    HTTP-request) er den en drivende adapter og hører til `infrastructure` (eller `api` for HTTP).
    Snakker den bare domene og porter, er den et use-case og hører til `application`. Ren livssyklus
    og plumbing hører til `infrastructure`.
-6. **DI-wiring som rører `application` bor i `bootstrap`** (composition root), aldri i
+7. **DI-wiring som rører `application` bor i `bootstrap`** (composition root), aldri i
    `infrastructure` — det holder avhengighetsretningen utover.
-7. **En port innføres når det finnes en grunn**, ikke på spekulasjon: to eller flere drivere,
+8. **En port innføres når det finnes en grunn**, ikke på spekulasjon: to eller flere drivere,
    domenelogikk som skal testes uten transport, eller kompleks orkestrering.
+
+## Begrepsforankring (onion / clean / hexagonal)
+
+Dette designet tilhører samme familie som:
+- **Onion architecture** (løk-modell)
+- **Clean architecture**
+- **Hexagonal architecture (ports and adapters)**
+
+I dette repoet bruker vi primært begrepet **ports and adapters** fordi det matcher den konkrete
+kodeorganiseringen best: domene/use-case i kjernen, adaptere i `infrastructure` og wiring i
+`bootstrap`.
 
 ## Konsekvenser
 
 - ➕ De kommende workerne (delivery, opprydding) har et konsistent hjem, og plasserings-testen gir en
   rask, objektiv regel for hvor nye klasser skal ligge.
-- ➕ Avhengighetsretningen er håndhevbar og verifisert: bare `bootstrap` importerer `application`;
-  verken `domain` eller `infrastructure` peker innover.
+- ➕ Avhengighetsretningen er håndhevbar og verifisert: `domain` og `application` peker ikke til
+  `infrastructure`/`bootstrap`; `bootstrap` er composition root som wirer lagene sammen.
 - ➕ Skillet mekanisme/use-case gjør begge testbare hver for seg: `BackgroundLoop` testes uten en konkret
   worker, og en worker testes uten Kafka.
 - ➖ Et fjerde lag øker seremonien i en liten app. Risikoen er at tynne adaptere feilaktig havner i
