@@ -9,8 +9,6 @@ import org.apache.kafka.common.record.TimestampType
 import java.util.Optional
 import java.util.UUID
 
-private const val TOPIC = "team-esyfo.formidling.v1"
-
 class InboxHandlerTest :
     FunSpec({
         test("dispatch is saved in inbox and returns without error") {

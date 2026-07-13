@@ -2,7 +2,7 @@ package no.nav.budstikka.domain.dispatch
 
 import java.util.UUID
 
-/** Delte testhjelpere for formidlingskontrakten – konvolutt-bygging og (de)serialiserings-rundtur. */
+/** Delte testhjelpere for dispatch-kontrakten – konvolutt-bygging og (de)serialiserings-rundtur. */
 
 fun envelope(content: DispatchContent) =
     Dispatch(

@@ -4,7 +4,7 @@ import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 /**
  * Port (B28) for død-oppslag mot folkeregisteret (PDL) – sømmen beslutnings-workeren (#20)
- * bruker for sin død-gate: en person registrert som død skal ikke få formidling
+ * bruker for sin død-gate: en person registrert som død skal ikke få utsending
  * (`MOTTATT ──(død via PDL)──▶ DROPPET`, `drop_reason=DEAD`, jf. `docs/datamodell.md`).
  *
  * Grensesnittet er domeneblindt og I/O-fritt i signaturen (`suspend` for å tillate nett i

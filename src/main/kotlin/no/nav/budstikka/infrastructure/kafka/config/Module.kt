@@ -66,6 +66,6 @@ private const val MINSIDE_PRODUCER = "minside"
 
 private suspend fun DependencyRegistry.handlerForConsumer(name: String): BatchMessageHandler<String, String?> =
     when (name) {
-        "formidling" -> resolve<InboxMessageHandler>()
+        "budstikka" -> resolve<InboxMessageHandler>()
         else -> error("Unknown Kafka consumer: $name")
     }

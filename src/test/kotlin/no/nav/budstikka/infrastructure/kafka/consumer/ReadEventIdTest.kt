@@ -10,8 +10,6 @@ import org.apache.kafka.common.record.TimestampType
 import java.util.Optional
 import java.util.UUID
 
-private const val TOPIC = "team-esyfo.formidling.v1"
-
 class ReadEventIdTest :
     FunSpec({
         test("valid UUID header returns Valid with parsed value") {

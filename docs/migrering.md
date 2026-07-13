@@ -83,7 +83,7 @@ Flagget `varselsystem ∈ {ESYFOVARSEL, BUDSTIKKA}` bor i **produsentens egen pr
 
 ### Konkret eksempel: syfomotebehov
 
-Engangsendring: (1) produser budstikkas kontrakt (B22) til `team-esyfo.formidling.v1`;
+Engangsendring: (1) produser budstikkas kontrakt (B22) til `team-esyfo.budstikka.v1`;
 (2) `varselsystem`-flagg på møtebehov-runden, satt ved OPPRETT; (3) rut FERDIGSTILL etter
 flagget; (4) behold gammel `varselbus`-output til gamle runder er drenert.
 

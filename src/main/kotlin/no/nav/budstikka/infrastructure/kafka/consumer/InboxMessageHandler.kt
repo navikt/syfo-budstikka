@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
- * Konsumerer nøytrale formidlinger fra topic og persisterer dem idempotent i inbox_hendelse.
+ * Konsumerer nøytrale dispatch-meldinger fra topic og persisterer dem idempotent i inbox_hendelse.
  *
  * Feiltaksonomi (jf. docs/datamodell.md):
  * - **Poison** (mangler/ugyldig event_id-header, eller tom payload): dead-letter til inbox_feilet,

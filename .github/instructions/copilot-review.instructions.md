@@ -38,7 +38,7 @@ repo-spesifikke regler i andre `instructions`-filer, men overstyrer dem ikke.
 
 5. **Navnekonvensjon**
    - Kotlin-identifikatorer skal følge regelen «norsk KUN på domeneord, alt annet engelsk» (se `kotlin.instructions.md`). Flagg norske ord på teknisk mekanikk (`lagre`→`save`, `innhent`→`fetch`, `tilKolonner`→`toColumns`, `erDod`→`isDead`).
-   - Domeneord som forblir norske: `Formidling`, `Beslutning`, `Leveranse`, `Mottaker`, `Virksomhet`, `Grunnlag`, `Kanal`, `Referanse`. Ikke flagg disse.
+   - Domeneord som forblir norske: `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`. Ikke flagg disse.
 
 ## Avgrensning
 
