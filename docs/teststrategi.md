@@ -114,12 +114,20 @@ kaster (sikkerhet mot utilsiktet override). Fakene finnes aldri i prod-jaren (bu
 
 `./gradlew runLocal` booter nå HELE appen mot Testcontainers (Postgres + Kafka) med port-fakes
 wiret inn (`LocalApp.kt`, samme substrat `BudstikkaTestApp` som e2e-specene bruker). Prosessen
-står og kjører til Ctrl+C; JDBC-URL, Kafka-bootstrap og formidling-topic logges ved oppstart
-for live-inspeksjon. Fakene byttes via samme wiring-søm som testene (`overrides` → `provide`).
+står og kjører til Ctrl+C; JDBC-URL, Kafka-bootstrap, formidling-topic og Kafka UI-URL logges ved
+oppstart for live-inspeksjon. Fakene byttes via samme wiring-søm som testene (`overrides` → `provide`).
+
+I det lokale løpet — og KUN der — startes også en **Kafka UI** (`provectuslabs/kafka-ui`) i en egen
+Testcontainer, så topics, meldinger, konsumentgrupper og offsets kan inspiseres i nettleseren mens
+appen kjører. Kafka og Kafka UI legges på et delt Docker-nett (Kafka får alias `kafka` + intern
+lytter `kafka:19092`); UI-web-porten mappes ut så den er nåbar fra host. E2e-specene lar dette stå
+av (`enableKafkaNetwork = false`, ingen UI-container), så gaten holder seg rask og uten UI-overhead.
+Kafka UI legger ~30–60 s på oppstarten av `runLocal` (Spring Boot + health-venting) — greit for et
+lokalt verktøy.
 
 Fortsatt **utsatt** til behovet melder seg: et interaktivt HTTP-kontrollplan oppå det samme
 løpet (`POST /dev/formidling`, fake-toggle-endepunkter, navngitte scenarier) + live-inspeksjon
-via kafka-ui/pgweb. Bygges da som et **tynt lag** — samme fakes og substrat, aldri i `src/main`.
+via pgweb. Bygges da som et **tynt lag** — samme fakes og substrat, aldri i `src/main`.
 
 ## Kjøring
 

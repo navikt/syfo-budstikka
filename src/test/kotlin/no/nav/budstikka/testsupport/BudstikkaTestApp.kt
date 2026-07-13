@@ -17,6 +17,7 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.testcontainers.containers.Network
 import java.util.Properties
 
 /**
@@ -39,6 +40,17 @@ class BudstikkaTestApp private constructor(
 
     val bootstrapServers: String
         get() = kafka.bootstrapServers
+
+    /**
+     * Delt Docker-nett når appen ble startet med `enableKafkaNetwork = true` (kun lokalt løp);
+     * ellers null. Brukes til å plassere Kafka UI på samme nett som Kafka.
+     */
+    val network: Network?
+        get() = kafka.network
+
+    /** Intern bootstrap-adresse (`kafka:19092`) på det delte nettet; null uten nett-lytter. */
+    val internalBootstrapServers: String?
+        get() = kafka.internalBootstrapServers
 
     /** JDBC-URL til den kjørende Postgres-containeren — logges ved lokalt løp for live-inspeksjon (B51). */
     val jdbcUrl: String
@@ -77,10 +89,16 @@ class BudstikkaTestApp private constructor(
         /**
          * Starter containerne, booter appen med [overrides] og venter til serveren er oppe.
          * Kaller [AutoCloseable.close] (evt. via `use { }`) for å rive alt ned.
+         *
+         * Med [enableKafkaNetwork] = true får Kafka et delt Docker-nett + intern lytter, slik at
+         * det lokale løpet kan koble Kafka UI på samme nett. E2e lar den stå av (default).
          */
-        fun start(overrides: DependencyRegistry.() -> Unit = {}): BudstikkaTestApp {
+        fun start(
+            enableKafkaNetwork: Boolean = false,
+            overrides: DependencyRegistry.() -> Unit = {},
+        ): BudstikkaTestApp {
             val postgres = PostgresTestFixture()
-            val kafka = KafkaTestContainer()
+            val kafka = KafkaTestContainer(enableNetworkListener = enableKafkaNetwork)
             try {
                 val appConfig = testConfig(postgres, kafka.bootstrapServers)
                 val server =
