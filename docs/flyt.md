@@ -1,67 +1,91 @@
 # Overordnet flyt — syfo-budstikka
 
-Domeneblind varselruter. Konsument eier *hva/når*, budstikka eier *hvordan det leveres*.
-Tre faser: **Inbox → Beslutning → Delivery**, decoupled workers med radlås.
+Budstikka er en tredelt pipeline: **Kafka-consumer → Inbox → Decision → Delivery**.
+Konsument eier *hva/når*, budstikka eier *hvordan*.
 
 ```mermaid
 flowchart TB
-    subgraph Domene["Domeneapper (konsumenter)"]
+    subgraph Producers["Domeneapper"]
         P1["isdialogmote"]
-        P2["aktivitetskrav-backend"]
-        P3["meroppfolging-backend"]
-        P4["... øvrige domeneapper"]
+        P2["..."]
     end
 
-    P1 & P2 & P3 & P4 -->|"hendelse: eventId, referanse,<br/>mottaker, kanal, tekst, synligTom"| TOPIC{{"Kafka-topic<br/>team-esyfo.formidling.v1<br/>nøkkel = mottaker-id"}}
+    P1 & P2 -->|"Dispatch(eventId, reference, content)"| TOPIC{{"team-esyfo.formidling.v1"}}
 
     subgraph Budstikka["syfo-budstikka"]
         direction TB
-        CONS["Konsument<br/>(skriver kun til inbox)"]
-        INBOX[("inbox<br/>dedup på eventId")]
-        BESL["Beslutnings-worker<br/>(poller, radlås)"]
-        ELIG{"Eligibility-gate"}
-        DELIVERY[("delivery<br/>1 rad pr. konkret delivery<br/>state + next_attempt_time")]
-        DWORK["Delivery-worker<br/>(poller, radlås)<br/>claim + lease"]
-        DROP[("droppet/død-logg<br/>+ metrikk")]
-        FEILET[("feilet<br/>permanent + alert")]
+        CONS["InboxMessageHandler<br/>(batch)"]
+        INBOX[("inbox_message")]
+        IWORK["InboxMessageWorker<br/>claim + lease"]
+        DEC["DecisionProcess<br/>resolve i parallell<br/>apply sekvensielt"]
+        EFF["EffectuateDecision<br/>1 DB-transaksjon"]
+        OUTBOX[("delivery")]
+        DWORK["DeliveryWorker<br/>claim + lease<br/>channels = handlers.keys"]
+        MAP["Map<Channel, ChannelHandler><br/>bootstrap"]
     end
 
-    TOPIC --> CONS --> INBOX
-    INBOX --> BESL --> ELIG
-    ELIG -->|"død (PDL)"| DROP
-    ELIG -->|"frys kanalvalg<br/>(KRR/reservasjon)<br/>1 DB-tx: skriv delivery + marker inbox"| DELIVERY
-    DELIVERY --> DWORK
+    TOPIC --> CONS
+    CONS -->|"saveBatch + batchInsert(ignore=true)"| INBOX
+    INBOX --> IWORK
+    IWORK --> DEC --> EFF
+    EFF -->|"markProcessed CAS + saveInTransaction(batchInsert)"| OUTBOX
+    OUTBOX --> DWORK
+    MAP --> DWORK
 
-    DWORK -->|"handler kaster"| DELIVERY
-    DWORK -->|"utfall=FAILED"| FEILET
+    DWORK -->|"Sent"| SENT["state=SENT"]
+    DWORK -->|"Failed(reason)"| FAILED["state=FAILED"]
+    DWORK -->|"exception"| RECLAIM["står CLAIMED til lease utløper"]
 
-    subgraph KRRPDL["Eksterne oppslag (Azure AD M2M)"]
-        KRR["digdir-krr-proxy<br/>(reservasjon/digital)"]
-        PDL["pdl-api<br/>(død)"]
+    subgraph Outbound["Kanaler ut (wired nå)"]
+        MF["MICROFRONTEND → min-side.aapen-microfrontend-v1"]
     end
-    BESL -.lesekall.-> KRR
-    BESL -.lesekall.-> PDL
-
-    subgraph Flater["Kanaler / flater ut"]
-        MS["Min side brukervarsel<br/>(Kafka)"]
-        DS["Dine Sykmeldte<br/>(Kafka)"]
-        DSF["Ditt Sykefravær<br/>(Kafka)"]
-        AG["AG-notifikasjon + Altinn<br/>(GraphQL)"]
-        BREV["Fysisk brev<br/>(dokdistfordeling)"]
-        MF["Mikrofrontend<br/>(Kafka)"]
-    end
-
-    DWORK -->|"levér / ferdigstill<br/>(idempotent pr. delivery-id)"| MS & DS & DSF & AG & BREV & MF
-    DWORK -->|"suksess → SENT + metrikk"| OK([" "])
-
-    TRACE["korrelasjon = eventId (B45):<br/>produsent-oppgitt → inbox/delivery → workers → levering → logg/Grafana;<br/>OTel trace_id/span_id per hopp (Tempo)"]
+    DWORK --> MF
 ```
 
-## Lesehjelp
-- **Konsument → inbox:** rask, idempotent (dedup på `eventId`). KRR/PDL-treghet gir ikke Kafka-lag.
-- **Beslutnings-worker:** kjører eligibility-gate. Død → droppet-logg. Ellers fryses kanalvalg
-  (reservasjon påvirker kun ekstern varsling / brev-fallback) til konkrete outbox-rader i én DB-tx.
-- **Delivery-worker:** claimer READY-rader, leverer, og setter SENT/FAILED. Kaster en handler, blir raden stående CLAIMED til lease utløper og kan re-claimes.
-- **FERDIGSTILL:** egen hendelse, samme flyt; leveransen lukker tidligere varsel matchet på `referanse`
-  (brev kan ikke lukkes).
-- **Skalering:** radlås (`FOR UPDATE SKIP LOCKED`) lar flere podder dele last uten dobbeltlevering.
+## Claim og lease
+
+Samme claim-mekanisme brukes i `inbox_message` og `delivery`:
+
+1. Les kandidater med `FOR UPDATE SKIP LOCKED`.
+2. Velg både nye rader og utløpte claims:
+   - inbox: `state=RECEIVED` eller `state=CLAIMED and next_attempt_time <= now`
+   - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
+3. Sorter deterministisk (`received_at/created_at`, deretter ID) og `LIMIT batchSize`.
+4. Oppdater de valgte radene i samme transaksjon:
+   - `state = CLAIMED`
+   - `next_attempt_time = now + lease`
+   - `attempt = attempt + 1`
+
+Dette gjør at flere podder kan jobbe parallelt uten dobbelt-claim.
+
+## Batch insert og transaksjonsgrense
+
+- **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
+  `batchInsert(ignore = true)`. Dedup skjer på `event_id` (PK).
+- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
+  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)` av
+  delivery-rader bare hvis CAS lykkes.
+- **Delivery-skriving:** `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for
+  0..N rader for samme inbox-melding.
+
+## Decision pattern (fetch, then decide)
+
+`DecisionProcess` er delt i to steg:
+
+1. **Fetch/resolve i parallell:** alle `DecisionRule.resolve(event)` kjøres med `async/awaitAll`.
+2. **Decide/apply sekvensielt:** de resolverte reglene foldes i rekkefølge over deliveries.
+   Første `Dropped`/`Failed` stopper resten (short-circuit).
+
+Dette gir lavere latens på oppslag, men fortsatt forutsigbar regelrekkefølge i selve beslutningen.
+
+## Kanal-mapping
+
+Kanal velges og brukes i to ulike maps:
+
+1. **DispatchContent → DeliveryDraft** (`DispatchDraftMapping`): setter `operation`, `channel` og
+   `recipient` for hver meldingstype.
+2. **Channel → ChannelHandler** (`Map<Channel, ChannelHandler>` i `WorkerModule`): bestemmer hvilken
+   handler som faktisk kan levere claimed rader.
+
+Delivery-claim filtrerer på `handlers.keys`, så workeren henter bare kanaler som er registrert i
+map-et. Per nå er `MICROFRONTEND` koblet opp.
