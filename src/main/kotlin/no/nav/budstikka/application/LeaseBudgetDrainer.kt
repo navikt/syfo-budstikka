@@ -21,7 +21,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class LeaseBudgetDrainer(
     private val leaseBudgetFraction: Double,
-    private val maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+    private val maxConsecutiveItemFailures: Int,
 ) {
     private val logger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java)
 

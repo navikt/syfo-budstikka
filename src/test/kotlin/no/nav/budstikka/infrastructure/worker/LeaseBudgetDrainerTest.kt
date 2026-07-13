@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.LeaseBudgetDrainer
+import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.application.MdcKeys
 import org.slf4j.MDC
 import java.time.Duration
@@ -17,7 +18,11 @@ class LeaseBudgetDrainerTest :
     FunSpec({
         test("processes every claimed item when the budget holds") {
             val processed = mutableListOf<Int>()
-            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.8,
+                    maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                )
 
             drainer.drain(
                 leaseDuration = Duration.ofMinutes(5),
@@ -31,7 +36,11 @@ class LeaseBudgetDrainerTest :
 
         test("stops draining once the lease budget is exhausted") {
             val processed = mutableListOf<Int>()
-            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.1)
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.1,
+                    maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                )
 
             drainer.drain(
                 leaseDuration = Duration.ofMillis(1),
@@ -45,7 +54,11 @@ class LeaseBudgetDrainerTest :
 
         test("scopes each item with its eventId in MDC and clears it afterwards") {
             val seen = mutableListOf<String?>()
-            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.8,
+                    maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                )
 
             drainer.drain(
                 leaseDuration = Duration.ofMinutes(5),
@@ -60,7 +73,11 @@ class LeaseBudgetDrainerTest :
 
         test("does not set MDC when eventId is null") {
             var sawKey: String? = "sentinel"
-            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.8,
+                    maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                )
 
             drainer.drain(
                 leaseDuration = Duration.ofMinutes(5),
@@ -74,7 +91,11 @@ class LeaseBudgetDrainerTest :
 
         test("continues with next item when one item processing fails") {
             val processed = mutableListOf<Int>()
-            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.8,
+                    maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                )
 
             drainer.drain(
                 leaseDuration = Duration.ofMinutes(5),
@@ -118,7 +139,11 @@ class LeaseBudgetDrainerTest :
 
         test("keeps eventId in MDC across suspension points") {
             val seen = mutableListOf<String?>()
-            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.8,
+                    maxConsecutiveItemFailures = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
+                )
 
             withContext(MDCContext(mapOf(MdcKeys.WORKER to "inbox-message-worker"))) {
                 drainer.drain(
