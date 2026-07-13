@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.worker
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
@@ -69,6 +70,50 @@ class LeaseBudgetDrainerTest :
             )
 
             sawKey shouldBe null
+        }
+
+        test("continues with next item when one item processing fails") {
+            val processed = mutableListOf<Int>()
+            val drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8)
+
+            drainer.drain(
+                leaseDuration = Duration.ofMinutes(5),
+                eventId = { "event-$it" },
+                claim = { listOf(1, 2, 3) },
+                process = {
+                    if (it == 2) {
+                        throw IllegalStateException("poison row")
+                    }
+                    processed += it
+                },
+            )
+
+            processed.shouldContainExactly(1, 3)
+        }
+
+        test("aborts and bubbles when consecutive item failures hit threshold") {
+            val processed = mutableListOf<Int>()
+            val drainer =
+                LeaseBudgetDrainer(
+                    leaseBudgetFraction = 0.8,
+                    maxConsecutiveItemFailures = 2,
+                )
+
+            shouldThrow<IllegalStateException> {
+                drainer.drain(
+                    leaseDuration = Duration.ofMinutes(5),
+                    eventId = { "event-$it" },
+                    claim = { listOf(1, 2, 3) },
+                    process = {
+                        if (it <= 2) {
+                            throw IllegalStateException("systemic")
+                        }
+                        processed += it
+                    },
+                )
+            }
+
+            processed.shouldContainExactly()
         }
 
         test("keeps eventId in MDC across suspension points") {

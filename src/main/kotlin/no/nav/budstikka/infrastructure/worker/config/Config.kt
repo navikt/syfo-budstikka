@@ -27,6 +27,7 @@ private fun ApplicationConfig.leaseDrainConfig(prefix: String): LeaseDrainConfig
     val leaseSeconds = stringOrEmpty("$prefix.leaseSeconds").trim()
     val leaseBudgetFraction = stringOrEmpty("$prefix.leaseBudgetFraction").trim()
     val maxAttempts = stringOrEmpty("$prefix.maxAttempts").trim()
+    val maxConsecutiveItemFailures = stringOrEmpty("$prefix.maxConsecutiveItemFailures").trim()
 
     val errors =
         buildList {
@@ -44,6 +45,9 @@ private fun ApplicationConfig.leaseDrainConfig(prefix: String): LeaseDrainConfig
             }
             if (maxAttempts.isNotBlank() && maxAttempts.toIntOrNull()?.takeIf { it > 0 } == null) {
                 add("$prefix.maxAttempts must be a positive integer")
+            }
+            if (maxConsecutiveItemFailures.isNotBlank() && maxConsecutiveItemFailures.toIntOrNull()?.takeIf { it > 0 } == null) {
+                add("$prefix.maxConsecutiveItemFailures must be a positive integer")
             }
         }
 
@@ -65,5 +69,8 @@ private fun ApplicationConfig.leaseDrainConfig(prefix: String): LeaseDrainConfig
             leaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0 && it <= 1 }
                 ?: LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION,
         maxAttempts = maxAttempts.toIntOrNull()?.takeIf { it > 0 } ?: LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
+        maxConsecutiveItemFailures =
+            maxConsecutiveItemFailures.toIntOrNull()?.takeIf { it > 0 }
+                ?: LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     )
 }

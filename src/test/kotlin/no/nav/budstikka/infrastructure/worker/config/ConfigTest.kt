@@ -17,11 +17,13 @@ class ConfigTest :
                     inboxLeaseSeconds = "120",
                     inboxLeaseBudgetFraction = "0.5",
                     inboxMaxAttempts = "7",
+                    inboxMaxConsecutiveItemFailures = "4",
                     deliveryIntervalSeconds = "7",
                     deliveryBatchSize = "30",
                     deliveryLeaseSeconds = "90",
                     deliveryLeaseBudgetFraction = "0.6",
                     deliveryMaxAttempts = "8",
+                    deliveryMaxConsecutiveItemFailures = "5",
                 ).toWorkerConfig()
 
             config.inboxMessage.interval shouldBe Duration.ofSeconds(10)
@@ -29,11 +31,13 @@ class ConfigTest :
             config.inboxMessage.leaseDuration shouldBe Duration.ofSeconds(120)
             config.inboxMessage.leaseBudgetFraction shouldBe 0.5
             config.inboxMessage.maxAttempts shouldBe 7
+            config.inboxMessage.maxConsecutiveItemFailures shouldBe 4
             config.delivery.interval shouldBe Duration.ofSeconds(7)
             config.delivery.batchSize shouldBe 30
             config.delivery.leaseDuration shouldBe Duration.ofSeconds(90)
             config.delivery.leaseBudgetFraction shouldBe 0.6
             config.delivery.maxAttempts shouldBe 8
+            config.delivery.maxConsecutiveItemFailures shouldBe 5
         }
 
         test("toWorkerConfig falls back to defaults when unset") {
@@ -44,11 +48,13 @@ class ConfigTest :
                     inboxLeaseSeconds = "",
                     inboxLeaseBudgetFraction = "",
                     inboxMaxAttempts = "",
+                    inboxMaxConsecutiveItemFailures = "",
                     deliveryIntervalSeconds = "",
                     deliveryBatchSize = "",
                     deliveryLeaseSeconds = "",
                     deliveryLeaseBudgetFraction = "",
                     deliveryMaxAttempts = "",
+                    deliveryMaxConsecutiveItemFailures = "",
                 ).toWorkerConfig()
 
             config.inboxMessage.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
@@ -56,11 +62,13 @@ class ConfigTest :
             config.inboxMessage.leaseDuration shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_LEASE_SECONDS)
             config.inboxMessage.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
             config.inboxMessage.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
+            config.inboxMessage.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
             config.delivery.interval shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS)
             config.delivery.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
             config.delivery.leaseDuration shouldBe Duration.ofSeconds(LeaseDrainConfig.DEFAULT_LEASE_SECONDS)
             config.delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
             config.delivery.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
+            config.delivery.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
         }
 
         test("toWorkerConfig validates interval is a positive integer") {
@@ -98,6 +106,12 @@ class ConfigTest :
                 config(deliveryIntervalSeconds = "0").toWorkerConfig()
             }.message shouldBe "Invalid workers configuration: workers.delivery.intervalSeconds must be a positive integer"
         }
+
+        test("toWorkerConfig validates max consecutive item failures is a positive integer") {
+            shouldThrow<IllegalArgumentException> {
+                config(inboxMaxConsecutiveItemFailures = "0").toWorkerConfig()
+            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.maxConsecutiveItemFailures must be a positive integer"
+        }
     })
 
 private fun config(
@@ -106,11 +120,13 @@ private fun config(
     inboxLeaseSeconds: String = "300",
     inboxLeaseBudgetFraction: String = "0.8",
     inboxMaxAttempts: String = "5",
+    inboxMaxConsecutiveItemFailures: String = "3",
     deliveryIntervalSeconds: String = "",
     deliveryBatchSize: String = "",
     deliveryLeaseSeconds: String = "",
     deliveryLeaseBudgetFraction: String = "",
     deliveryMaxAttempts: String = "",
+    deliveryMaxConsecutiveItemFailures: String = "",
 ): MapApplicationConfig =
     MapApplicationConfig(
         "workers.inboxMessage.intervalSeconds" to inboxIntervalSeconds,
@@ -118,9 +134,11 @@ private fun config(
         "workers.inboxMessage.leaseSeconds" to inboxLeaseSeconds,
         "workers.inboxMessage.leaseBudgetFraction" to inboxLeaseBudgetFraction,
         "workers.inboxMessage.maxAttempts" to inboxMaxAttempts,
+        "workers.inboxMessage.maxConsecutiveItemFailures" to inboxMaxConsecutiveItemFailures,
         "workers.delivery.intervalSeconds" to deliveryIntervalSeconds,
         "workers.delivery.batchSize" to deliveryBatchSize,
         "workers.delivery.leaseSeconds" to deliveryLeaseSeconds,
         "workers.delivery.leaseBudgetFraction" to deliveryLeaseBudgetFraction,
         "workers.delivery.maxAttempts" to deliveryMaxAttempts,
+        "workers.delivery.maxConsecutiveItemFailures" to deliveryMaxConsecutiveItemFailures,
     )

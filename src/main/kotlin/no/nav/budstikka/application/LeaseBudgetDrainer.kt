@@ -1,5 +1,6 @@
 package no.nav.budstikka.application
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -13,17 +14,23 @@ import kotlin.time.Duration.Companion.milliseconds
  * innenfor en andel [leaseBudgetFraction] av leasen, og stopp å starte nye rader når budsjettet er
  * brukt. Uberørte claimede rader blir stående til leasen utløper og plukkes opp av en senere poll
  * (evt. av en peer, ADR 0004). Hver rad prosesseres med sin eventId i MDC for korrelasjon.
+ * Radspesifikke feil isoleres per item; draineren avbryter først etter
+ * [maxConsecutiveItemFailures] på rad (systemisk-feil-heuristikk).
  *
  * Cleanup-workeren (B42) bruker IKKE denne — den er en advisory-lock-gatet batch-DELETE, en annen form.
  */
 class LeaseBudgetDrainer(
     private val leaseBudgetFraction: Double,
+    private val maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
 ) {
     private val logger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java)
 
     init {
         require(leaseBudgetFraction > 0.0 && leaseBudgetFraction <= 1.0) {
             "leaseBudgetFraction must be in (0.0, 1.0]"
+        }
+        require(maxConsecutiveItemFailures > 0) {
+            "maxConsecutiveItemFailures must be greater than 0"
         }
     }
 
@@ -36,6 +43,7 @@ class LeaseBudgetDrainer(
         val startedAt = Clock.System.now()
         val budget = (leaseDuration.toMillis() * leaseBudgetFraction).toLong().milliseconds
         val claimed = claim()
+        var consecutiveItemFailures = 0
         for ((index, item) in claimed.withIndex()) {
             if (Clock.System.now() - startedAt >= budget) {
                 logger.warn(
@@ -49,7 +57,28 @@ class LeaseBudgetDrainer(
             val closeable = eventId(item)?.let { MDC.putCloseable(MdcKeys.EVENT_ID, it) }
             closeable.use { _ ->
                 withContext(MDCContext()) {
-                    process(item)
+                    try {
+                        process(item)
+                        consecutiveItemFailures = 0
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        consecutiveItemFailures++
+                        logger.warn(
+                            "Failed processing claimed row; consecutive item failures are {} of {}. Continuing with next row.",
+                            consecutiveItemFailures,
+                            maxConsecutiveItemFailures,
+                            error,
+                        )
+                        if (consecutiveItemFailures >= maxConsecutiveItemFailures) {
+                            logger.error(
+                                "Aborting batch drain after {} consecutive item failures; treating this as a systemic failure.",
+                                maxConsecutiveItemFailures,
+                                error,
+                            )
+                            throw error
+                        }
+                    }
                 }
             }
         }
