@@ -20,8 +20,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-private const val TOPIC = "team-esyfo.formidling.v1"
-
 class ConsumerRunnerTest :
     FunSpec({
         test("runner commits handled records and stops cleanly") {

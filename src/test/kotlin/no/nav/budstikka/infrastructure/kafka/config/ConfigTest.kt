@@ -5,7 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.server.config.MapApplicationConfig
 
-const val CONSUMER_NAME = "formidling"
+const val CONSUMER_NAME = "budstikka"
 const val PRODUCER_NAME = "minside"
 
 class ConfigTest :
