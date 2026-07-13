@@ -5,7 +5,7 @@ import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.stringOrEmpty
 import java.time.Duration
 
-// Operational knobs for the claim-lease-drain workers (inbox and delivery), resolved from
+// Operational knobs for the claim-lease workers (inbox and delivery), resolved from
 // application.conf like KafkaConfig and DatabaseConfig so intervals and batch sizes are env-tunable
 // without a redeploy. Both workers share the same shape, so they share [LeaseDrainConfig] (the
 // value type lives in `application`; this file owns only the HOCON parsing).
@@ -16,39 +16,13 @@ data class WorkerConfig(
 )
 
 fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
-    fun value(key: String): String = stringOrEmpty("workers.$key").trim()
-
-    val inboxIntervalSeconds = value("inboxMessage.intervalSeconds")
-    val inboxBatchSize = value("inboxMessage.batchSize")
-    val inboxLeaseSeconds = value("inboxMessage.leaseSeconds")
-    val inboxLeaseBudgetFraction = value("inboxMessage.leaseBudgetFraction")
-    val inboxMaxAttempts = value("inboxMessage.maxAttempts")
-    val deliveryIntervalSeconds = value("delivery.intervalSeconds")
-    val deliveryBatchSize = value("delivery.batchSize")
-    val deliveryLeaseSeconds = value("delivery.leaseSeconds")
-    val deliveryLeaseBudgetFraction = value("delivery.leaseBudgetFraction")
-    val deliveryMaxAttempts = value("delivery.maxAttempts")
+    val inboxMessage = readLeaseDrainWorkerConfig("workers.inboxMessage")
+    val delivery = readLeaseDrainWorkerConfig("workers.delivery")
 
     val errors =
         buildList {
-            validateWorkerConfig(
-                errors = this,
-                keyPrefix = "workers.inboxMessage",
-                intervalSeconds = inboxIntervalSeconds,
-                batchSize = inboxBatchSize,
-                leaseSeconds = inboxLeaseSeconds,
-                leaseBudgetFraction = inboxLeaseBudgetFraction,
-                maxAttempts = inboxMaxAttempts,
-            )
-            validateWorkerConfig(
-                errors = this,
-                keyPrefix = "workers.delivery",
-                intervalSeconds = deliveryIntervalSeconds,
-                batchSize = deliveryBatchSize,
-                leaseSeconds = deliveryLeaseSeconds,
-                leaseBudgetFraction = deliveryLeaseBudgetFraction,
-                maxAttempts = deliveryMaxAttempts,
-            )
+            addAll(inboxMessage.errors)
+            addAll(delivery.errors)
         }
 
     check(errors.isEmpty()) {
@@ -56,54 +30,59 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig {
     }
 
     return WorkerConfig(
-        inboxMessage =
-            LeaseDrainConfig(
-                interval =
-                    Duration.ofSeconds(
-                        inboxIntervalSeconds.toLongOrNull()?.takeIf { it > 0 }
-                            ?: LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS,
-                    ),
-                batchSize =
-                    inboxBatchSize.toIntOrNull()?.takeIf { it > 0 }
-                        ?: LeaseDrainConfig.DEFAULT_BATCH_SIZE,
-                leaseDuration =
-                    Duration.ofSeconds(
-                        inboxLeaseSeconds.toLongOrNull()?.takeIf { it > 0 }
-                            ?: LeaseDrainConfig.DEFAULT_LEASE_SECONDS,
-                    ),
-                leaseBudgetFraction =
-                    inboxLeaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 }
-                        ?: LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION,
-                maxAttempts =
-                    inboxMaxAttempts.toIntOrNull()?.takeIf { it > 0 }
-                        ?: LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
-            ),
-        delivery =
-            LeaseDrainConfig(
-                interval =
-                    Duration.ofSeconds(
-                        deliveryIntervalSeconds.toLongOrNull()?.takeIf { it > 0 }
-                            ?: LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS,
-                    ),
-                batchSize =
-                    deliveryBatchSize.toIntOrNull()?.takeIf { it > 0 }
-                        ?: LeaseDrainConfig.DEFAULT_BATCH_SIZE,
-                leaseDuration =
-                    Duration.ofSeconds(
-                        deliveryLeaseSeconds.toLongOrNull()?.takeIf { it > 0 }
-                            ?: LeaseDrainConfig.DEFAULT_LEASE_SECONDS,
-                    ),
-                leaseBudgetFraction =
-                    deliveryLeaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 }
-                        ?: LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION,
-                maxAttempts =
-                    deliveryMaxAttempts.toIntOrNull()?.takeIf { it > 0 }
-                        ?: LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
-            ),
+        inboxMessage = inboxMessage.config,
+        delivery = delivery.config,
     )
 }
 
-private fun validateWorkerConfig(
+private data class ParsedLeaseDrainWorkerConfig(
+    val config: LeaseDrainConfig,
+    val errors: List<String>,
+)
+
+private fun ApplicationConfig.readLeaseDrainWorkerConfig(section: String): ParsedLeaseDrainWorkerConfig {
+    val intervalSeconds = readWorkerValue(section, "intervalSeconds")
+    val batchSize = readWorkerValue(section, "batchSize")
+    val leaseSeconds = readWorkerValue(section, "leaseSeconds")
+    val leaseBudgetFraction = readWorkerValue(section, "leaseBudgetFraction")
+    val maxAttempts = readWorkerValue(section, "maxAttempts")
+
+    val errors =
+        buildList {
+            validateLeaseDrainWorkerConfig(
+                errors = this,
+                keyPrefix = section,
+                intervalSeconds = intervalSeconds,
+                batchSize = batchSize,
+                leaseSeconds = leaseSeconds,
+                leaseBudgetFraction = leaseBudgetFraction,
+                maxAttempts = maxAttempts,
+            )
+        }
+
+    return ParsedLeaseDrainWorkerConfig(
+        config =
+            LeaseDrainConfig(
+                interval =
+                    Duration.ofSeconds(
+                        intervalSeconds.positiveLongOrDefault(LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS),
+                    ),
+                batchSize =
+                    batchSize.positiveIntOrDefault(LeaseDrainConfig.DEFAULT_BATCH_SIZE),
+                leaseDuration =
+                    Duration.ofSeconds(
+                        leaseSeconds.positiveLongOrDefault(LeaseDrainConfig.DEFAULT_LEASE_SECONDS),
+                    ),
+                leaseBudgetFraction =
+                    leaseBudgetFraction.positiveDoubleOrDefault(LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION),
+                maxAttempts =
+                    maxAttempts.positiveIntOrDefault(LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS),
+            ),
+        errors = errors,
+    )
+}
+
+private fun validateLeaseDrainWorkerConfig(
     errors: MutableList<String>,
     keyPrefix: String,
     intervalSeconds: String,
@@ -112,21 +91,36 @@ private fun validateWorkerConfig(
     leaseBudgetFraction: String,
     maxAttempts: String,
 ) {
-    if (intervalSeconds.isNotBlank() && (intervalSeconds.toLongOrNull()?.takeIf { it > 0 } == null)) {
+    if (intervalSeconds.isNotBlank() && intervalSeconds.positiveLongOrNull() == null) {
         errors += "$keyPrefix.intervalSeconds must be a positive integer"
     }
-    if (batchSize.isNotBlank() && (batchSize.toIntOrNull()?.takeIf { it > 0 } == null)) {
+    if (batchSize.isNotBlank() && batchSize.positiveIntOrNull() == null) {
         errors += "$keyPrefix.batchSize must be a positive integer"
     }
-    if (leaseSeconds.isNotBlank() && (leaseSeconds.toLongOrNull()?.takeIf { it > 0 } == null)) {
+    if (leaseSeconds.isNotBlank() && leaseSeconds.positiveLongOrNull() == null) {
         errors += "$keyPrefix.leaseSeconds must be a positive integer"
     }
-    if (leaseBudgetFraction.isNotBlank() &&
-        (leaseBudgetFraction.toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 } == null)
-    ) {
+    if (leaseBudgetFraction.isNotBlank() && leaseBudgetFraction.positiveDoubleOrNull() == null) {
         errors += "$keyPrefix.leaseBudgetFraction must be a number in (0.0, 1.0]"
     }
-    if (maxAttempts.isNotBlank() && (maxAttempts.toIntOrNull()?.takeIf { it > 0 } == null)) {
+    if (maxAttempts.isNotBlank() && maxAttempts.positiveIntOrNull() == null) {
         errors += "$keyPrefix.maxAttempts must be a positive integer"
     }
 }
+
+private fun ApplicationConfig.readWorkerValue(
+    section: String,
+    key: String,
+): String = stringOrEmpty("$section.$key").trim()
+
+private fun String.positiveLongOrNull(): Long? = toLongOrNull()?.takeIf { it > 0 }
+
+private fun String.positiveIntOrNull(): Int? = toIntOrNull()?.takeIf { it > 0 }
+
+private fun String.positiveDoubleOrNull(): Double? = toDoubleOrNull()?.takeIf { it > 0.0 && it <= 1.0 }
+
+private fun String.positiveLongOrDefault(defaultValue: Long): Long = positiveLongOrNull() ?: defaultValue
+
+private fun String.positiveIntOrDefault(defaultValue: Int): Int = positiveIntOrNull() ?: defaultValue
+
+private fun String.positiveDoubleOrDefault(defaultValue: Double): Double = positiveDoubleOrNull() ?: defaultValue
