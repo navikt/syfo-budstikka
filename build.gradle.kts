@@ -58,6 +58,7 @@ dependencies {
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.kafka)
     testImplementation(libs.exposed.migration.core)
     testImplementation(libs.exposed.migration.jdbc)
 }
@@ -72,11 +73,44 @@ tasks {
 
     test {
         useJUnitPlatform()
+        // De trege full-boot-e2e-testene (Kotest-tag "E2E") ekskluderes fra default-løpet slik at
+        // CI/CD ikke venter på Testcontainers-oppstart ved hver deploy. Schema-drift- og
+        // repository-integrasjonstestene er ikke tagget og kjører derfor uansett her.
+        systemProperty("kotest.tags", "!E2E")
         testlogger {
             theme = ThemeType.MOCHA_PARALLEL
             showFullStackTraces = true
             showSimpleNames = true
         }
+    }
+
+    // Opt-in: `./gradlew e2eTest` kjører KUN de E2E-taggede specene. Ikke koblet til `check`, så
+    // default-bygget forblir raskt; kjøres manuelt eller i en egen/nattlig CI-jobb.
+    register<Test>("e2eTest") {
+        description = "Kjører opt-in full-boot-e2e (Kotest-tag E2E) mot Testcontainers."
+        group = "verification"
+        useJUnitPlatform()
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+        systemProperty("kotest.tags", "E2E")
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
+        shouldRunAfter("test")
+        testlogger {
+            theme = ThemeType.MOCHA_PARALLEL
+            showFullStackTraces = true
+            showSimpleNames = true
+        }
+    }
+
+    // Booter hele appen lokalt mot Testcontainers (Postgres + Kafka) med fakes wiret inn via
+    // test-substratet i src/test. Samme main-klasse som e2e-harnessen bruker. Se docs/TESTSTRATEGI.md.
+    register<JavaExec>("runLocal") {
+        description = "Booter appen lokalt mot Testcontainers (Postgres + Kafka) med fakes."
+        group = "application"
+        mainClass.set("no.nav.budstikka.LocalAppKt")
+        classpath = sourceSets["test"].runtimeClasspath
+        standardInput = System.`in`
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
     }
 
     named("check") {
