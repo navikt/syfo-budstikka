@@ -13,6 +13,7 @@ data class LeaseDrainConfig(
     val batchSize: Int,
     val leaseDuration: Duration,
     val leaseBudgetFraction: Double,
+    val maxAttempts: Int,
 ) {
     init {
         require(batchSize > 0) { "batchSize must be greater than 0" }
@@ -20,6 +21,7 @@ data class LeaseDrainConfig(
         require(leaseBudgetFraction > 0.0 && leaseBudgetFraction <= 1.0) {
             "leaseBudgetFraction must be in (0.0, 1.0]"
         }
+        require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
     }
 
     companion object {
@@ -27,5 +29,9 @@ data class LeaseDrainConfig(
         const val DEFAULT_BATCH_SIZE = 25
         const val DEFAULT_LEASE_SECONDS = 300L
         const val DEFAULT_LEASE_BUDGET_FRACTION = 0.8
+
+        // Terminal-gate mot poison rows (#71): en rad som er claimet så mange ganger uten å nå
+        // terminal status blir markert FAILED i stedet for å reclaimes for alltid.
+        const val DEFAULT_MAX_ATTEMPTS = 10
     }
 }

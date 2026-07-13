@@ -29,7 +29,7 @@ class DeliveryWorker(
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.inboxEventId?.toString() ?: it.id.toString() },
-            claim = { repository.claim(config.batchSize, config.leaseDuration, handlers.keys) },
+            claim = { repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys) },
             process = { dispatch(it) },
         )
     }

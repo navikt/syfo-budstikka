@@ -17,10 +17,15 @@ interface InboxMessageRepository {
      * får disjunkte bunker uten å blokkere hverandre (konkurrerende konsumenter, ingen leder — ADR
      * 0004). Plukker også opp CLAIMED-rader hvis leasen er utløpt (krasj-gjenoppretting). Radene er
      * usynlige for andre pollere til leasen løper ut eller de effektueres.
+     *
+     * Poison-gate (#71): en rad som er claimet [maxAttempts] ganger uten å nå terminal status blir
+     * markert FAILED i stedet for å reclaimes på nytt, slik at en deterministisk feilrad ikke
+     * blokkerer hodet av køen (`receivedAt ASC`) for alltid.
      */
     suspend fun claim(
         limit: Int,
         lease: Duration,
+        maxAttempts: Int,
     ): List<InboxMessage>
 
     /**

@@ -10,6 +10,7 @@ class ThrowingMessageRepository : InboxMessageRepository {
     override suspend fun claim(
         limit: Int,
         lease: java.time.Duration,
+        maxAttempts: Int,
     ): List<InboxMessage> = emptyList()
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean = true

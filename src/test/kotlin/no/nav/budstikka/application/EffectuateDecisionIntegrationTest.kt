@@ -67,7 +67,7 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a1")
             inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
-            inbox.claim(limit = 10, lease = lease)
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Processed(listOf(draft())))
 
@@ -79,7 +79,7 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a2")
             inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
-            inbox.claim(limit = 10, lease = lease)
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Failed("boom"))
 
@@ -91,7 +91,7 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a3")
             inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
-            inbox.claim(limit = 10, lease = lease)
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Dropped(DropReason.DEAD))
 
@@ -103,7 +103,7 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a4")
             inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
-            inbox.claim(limit = 10, lease = lease)
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Processed(listOf(draft())))
             effectuate.effectuate(eventId, Decision.Processed(listOf(draft())))
