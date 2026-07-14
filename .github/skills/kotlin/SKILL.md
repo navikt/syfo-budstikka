@@ -25,10 +25,10 @@ Koden er idiomatisk Kotlin. Rekkefølgen er prioritet:
 
 ## Arbeidsflyt
 
-1. Finn laget koden hører hjemme i: domain, application-port/use case eller infrastructure-adapter. Ferdig når avhengighetsretningen er eksplisitt.
-2. Skriv minste idiomatiske Kotlin-form som uttrykker atferden. Ferdig når primitive domenetyper, mutable state, Java-style patterns og ekstra abstraksjoner er fjernet eller begrunnet.
-3. Sjekk interop. Ferdig når Java-typer bare finnes ved nødvendige grenser og er oversatt til Kotlin-typer ved adapteren.
-4. Sjekk concurrency. Ferdig når parallelt arbeid er strukturert, cancellable og bundet til kallende coroutine-scope.
-5. Sjekk API-flate. Ferdig når synlighet er smal og inheritance ikke brukes der composition gir enklere kode.
+1. Finn laget og sømmen koden hører hjemme i: domain, application-port/use case eller infrastructure-adapter. Ferdig når avhengighetsretningen er eksplisitt og løsningen ikke dupliserer ansvar.
+2. Sjekk API-flate. Ferdig når composition er valgt over unødvendig arv, og synlighet er så smal som mulig.
+3. Sjekk concurrency. Ferdig når parallelt arbeid er strukturert, cancellable og bundet til kallende coroutine-scope.
+4. Skriv minste idiomatiske Kotlin-form som uttrykker atferden. Ferdig når primitive domenetyper, mutable state, Java-style patterns og ekstra abstraksjoner er fjernet eller begrunnet.
+5. Sjekk interop. Ferdig når Java-typer bare finnes ved nødvendige grenser og er oversatt til Kotlin-typer ved adapteren.
 6. Sjekk navngiving. Ferdig når domeneord følger repoets norske domeneord, og mekanikk/teknikk er på engelsk.
 7. Kjør smaleste relevante Gradle-gate. Ferdig når kommandoen har exit 0.
