@@ -199,9 +199,10 @@ class ConsumerRunner<K, V>(
         val batch = records.toList()
         handler.handleBatch(batch)
         // Commit the next offset (highest seen + 1) per partition.
-        val nextOffsets = batch
-            .groupBy { TopicPartition(it.topic(), it.partition()) }
-            .mapValues { (_, partitionRecords) -> OffsetAndMetadata(partitionRecords.maxOf { it.offset() } + 1) }
+        val nextOffsets =
+            batch
+                .groupBy { TopicPartition(it.topic(), it.partition()) }
+                .mapValues { (_, partitionRecords) -> OffsetAndMetadata(partitionRecords.maxOf { it.offset() } + 1) }
         // commitSync (not commitAsync) on purpose: we commit after handleBatch to keep
         // at-least-once semantics, and commitSync blocks and retries until the offset is
         // persisted. A dropped async commit would widen replay on rebalance/crash; the
