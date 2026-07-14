@@ -46,41 +46,62 @@ class LeaseBudgetDrainer(
         var consecutiveItemFailures = 0
         for ((index, item) in claimed.withIndex()) {
             if (clock.now() - startedAt >= budget) {
-                logger.warn(
-                    "Stopping batch drain at {}% of lease budget with {} of {} claimed row(s) unprocessed; their lease expires so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow.",
-                    (leaseBudgetFraction * 100).toInt(),
-                    claimed.size - index,
-                    claimed.size,
-                )
+                logBudgetExhausted(unprocessed = claimed.size - index, total = claimed.size)
                 break
             }
-            val closeable = eventId(item)?.let { MDC.putCloseable(MdcKeys.EVENT_ID, it) }
-            closeable.use { _ ->
-                withContext(MDCContext()) {
-                    try {
-                        process(item)
-                        consecutiveItemFailures = 0
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (error: Exception) {
-                        consecutiveItemFailures++
-                        logger.warn(
-                            "Failed processing claimed row; consecutive item failures are {} of {}. Continuing with next row.",
-                            consecutiveItemFailures,
+            consecutiveItemFailures = processItem(item, eventId, process, consecutiveItemFailures)
+        }
+    }
+
+    /**
+     * Prosesserer én claimet rad med sin eventId i MDC. Ved suksess nullstilles telleren (retur 0);
+     * ved radspesifikk feil isoleres den (logges og telleren økes) slik at neste rad kan fortsette,
+     * med mindre [maxConsecutiveItemFailures] er nådd – da rethrowes feilen som systemisk. Loggingen
+     * skjer inne i MDC-scopet slik at linjene bærer [MdcKeys.EVENT_ID]. Returnerer nytt antall feil
+     * på rad.
+     */
+    private suspend fun <T> processItem(
+        item: T,
+        eventId: (T) -> String?,
+        process: suspend (T) -> Unit,
+        consecutiveItemFailures: Int,
+    ): Int {
+        val closeable = eventId(item)?.let { MDC.putCloseable(MdcKeys.EVENT_ID, it) }
+        return closeable.use { _ ->
+            withContext(MDCContext()) {
+                try {
+                    process(item)
+                    0
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    val failures = consecutiveItemFailures + 1
+                    logger.warn(
+                        "Failed processing claimed row; consecutive item failures are {} of {}. Continuing with next row.",
+                        failures,
+                        maxConsecutiveItemFailures,
+                        error,
+                    )
+                    if (failures >= maxConsecutiveItemFailures) {
+                        logger.error(
+                            "Aborting batch drain after {} consecutive item failures; treating this as a systemic failure.",
                             maxConsecutiveItemFailures,
                             error,
                         )
-                        if (consecutiveItemFailures >= maxConsecutiveItemFailures) {
-                            logger.error(
-                                "Aborting batch drain after {} consecutive item failures; treating this as a systemic failure.",
-                                maxConsecutiveItemFailures,
-                                error,
-                            )
-                            throw error
-                        }
+                        throw error
                     }
+                    failures
                 }
             }
         }
+    }
+
+    private fun logBudgetExhausted(unprocessed: Int, total: Int) {
+        logger.warn(
+            "Stopping batch drain at {}% of lease budget with {} of {} claimed row(s) unprocessed; their lease expires so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow.",
+            (leaseBudgetFraction * 100).toInt(),
+            unprocessed,
+            total,
+        )
     }
 }
