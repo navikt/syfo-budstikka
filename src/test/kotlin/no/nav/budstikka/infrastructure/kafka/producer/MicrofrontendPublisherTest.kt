@@ -5,8 +5,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import kotlin.time.Instant
 
 private const val TOPIC = "min-side.aapen-microfrontend-v1"
@@ -18,7 +18,7 @@ class MicrofrontendPublisherTest :
 
             microfrontendPublisher(TOPIC, recording).publish(
                 MicrofrontendEnable(
-                    personIdentifier = PersonIdentifier("12345678901"),
+                    personIdentifier = TEST_SYKMELDT_2,
                     mikrofrontendId = "sykmeldt-overview",
                     visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
                 ),
@@ -43,7 +43,7 @@ class MicrofrontendPublisherTest :
 
             microfrontendPublisher(TOPIC, recording).publish(
                 MicrofrontendDisable(
-                    personIdentifier = PersonIdentifier("12345678901"),
+                    personIdentifier = TEST_SYKMELDT_2,
                     mikrofrontendId = "sykmeldt-overview",
                 ),
             )
@@ -67,7 +67,7 @@ class MicrofrontendPublisherTest :
 
             microfrontendPublisher(TOPIC, recording).publish(
                 MicrofrontendEnable(
-                    personIdentifier = PersonIdentifier("12345678901"),
+                    personIdentifier = TEST_SYKMELDT_2,
                     mikrofrontendId = "sykmeldt-overview",
                 ),
             )

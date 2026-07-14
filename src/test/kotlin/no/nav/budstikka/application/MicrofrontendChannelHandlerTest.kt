@@ -10,9 +10,9 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
+import no.nav.budstikka.fakes.microfrontendEnable
 import java.util.UUID
 
 class MicrofrontendChannelHandlerTest :
@@ -20,11 +20,7 @@ class MicrofrontendChannelHandlerTest :
         test("publishes the microfrontend payload and returns Sent") {
             val publisher = RecordingMicrofrontendPublisher()
             val handler = MicrofrontendChannelHandler(publisher)
-            val payload =
-                MicrofrontendEnable(
-                    personIdentifier = PersonIdentifier("12345678901"),
-                    mikrofrontendId = "syfo-mikrofrontend",
-                )
+            val payload = microfrontendEnable()
 
             val outcome = handler.handle(delivery(payload))
 
@@ -38,7 +34,7 @@ class MicrofrontendChannelHandlerTest :
             val handler = MicrofrontendChannelHandler(publisher)
             val payload =
                 BrukervarselCreate(
-                    personIdentifier = PersonIdentifier("12345678901"),
+                    personIdentifier = TEST_SYKMELDT_2,
                     varseltype = Varseltype.BESKJED,
                     text = "Hei",
                 )

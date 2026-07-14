@@ -12,10 +12,10 @@ import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.NarmesteLeder
-import no.nav.budstikka.domain.dispatch.Orgnummer
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 
 /**
  * Ren type→kanal/operasjon/mottaker-mapping ([toDeliveryDraft]). Ingen I/O, ingen gater – gate-
@@ -23,9 +23,6 @@ import no.nav.budstikka.domain.dispatch.Varseltype
  */
 class DispatchDraftMappingTest :
     FunSpec({
-        val sykmeldt = PersonIdentifier("11111111111")
-        val orgnr = Orgnummer("987654321")
-
         data class Case(
             val name: String,
             val content: DispatchContent,
@@ -38,59 +35,59 @@ class DispatchDraftMappingTest :
             listOf(
                 Case(
                     "Brukervarsel",
-                    BrukervarselCreate(sykmeldt, Varseltype.OPPGAVE, "text"),
+                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "text"),
                     Channel.BRUKERVARSEL,
                     Operation.CREATE,
-                    Recipient.Person(sykmeldt),
+                    Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
                     "BrukervarselInactivate",
-                    BrukervarselInactivate("ref-1", sykmeldt),
+                    BrukervarselInactivate("ref-1", TEST_SYKMELDT),
                     Channel.BRUKERVARSEL,
                     Operation.INACTIVATE,
-                    Recipient.Person(sykmeldt),
+                    Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
                     "DittSykefravaer",
-                    DittSykefravaerCreate(sykmeldt, "text"),
+                    DittSykefravaerCreate(TEST_SYKMELDT, "text"),
                     Channel.DITT_SYKEFRAVAER,
                     Operation.CREATE,
-                    Recipient.Person(sykmeldt),
+                    Recipient.Person(TEST_SYKMELDT),
                 ),
-                Case("Brev", BrevCreate(sykmeldt, "jp-1"), Channel.BREV, Operation.CREATE, Recipient.Person(sykmeldt)),
+                Case("Brev", BrevCreate(TEST_SYKMELDT, "jp-1"), Channel.BREV, Operation.CREATE, Recipient.Person(TEST_SYKMELDT)),
                 Case(
                     "MicrofrontendEnable",
-                    MicrofrontendEnable(sykmeldt, "mf-1"),
+                    MicrofrontendEnable(TEST_SYKMELDT, "mf-1"),
                     Channel.MICROFRONTEND,
                     Operation.CREATE,
-                    Recipient.Person(sykmeldt),
+                    Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
                     "MicrofrontendDisable",
-                    MicrofrontendDisable(sykmeldt, "mf-1"),
+                    MicrofrontendDisable(TEST_SYKMELDT, "mf-1"),
                     Channel.MICROFRONTEND,
                     Operation.INACTIVATE,
-                    Recipient.Person(sykmeldt),
+                    Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
                     "Ledervarsel",
-                    LedervarselCreate(sykmeldt, orgnr, "text"),
+                    LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, "text"),
                     Channel.LEDERVARSEL,
                     Operation.CREATE,
-                    Recipient.Person(sykmeldt),
+                    Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
                     "Arbeidsgivervarsel",
                     ArbeidsgivervarselCreate(
-                        orgnummer = orgnr,
-                        recipient = NarmesteLeder(sykmeldt),
+                        orgnummer = TEST_ORGNUMMER,
+                        recipient = NarmesteLeder(TEST_SYKMELDT),
                         tag = Tag.DIALOGMOETE,
                         text = "text",
                         link = "https://nav.no",
                     ),
                     Channel.ARBEIDSGIVERVARSEL,
                     Operation.CREATE,
-                    Recipient.Virksomhet(orgnr),
+                    Recipient.Virksomhet(TEST_ORGNUMMER),
                 ),
             )
 

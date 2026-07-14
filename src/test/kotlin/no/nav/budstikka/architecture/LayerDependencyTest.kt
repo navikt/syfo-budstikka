@@ -14,38 +14,42 @@ class LayerDependencyTest :
         val testContext = TestContext()
 
         test("application and domain packages exist") {
-            check(Files.isDirectory(testContext.projectRoot)) {
-                "Project root does not exist: ${testContext.projectRoot}"
-            }
-            testContext.rules.forEach { rule ->
-                check(Files.isDirectory(rule.directory)) {
+            with(testContext) {
+                check(Files.isDirectory(projectRoot)) {
+                    "Project root does not exist: $projectRoot"
+                }
+                rules.forEach { rule ->
+                    check(Files.isDirectory(rule.directory)) {
 
-                    "Missing directory: ${rule.directory}"
+                        "Missing directory: ${rule.directory}"
+                    }
                 }
             }
         }
 
         test("application and domain must not depend on infrastructure or bootstrap") {
-            testContext.rules
-                .flatMap { rule ->
-                    Files.walk(rule.directory).use { paths ->
-                        paths
-                            .filter { it.extension == "kt" }
-                            .toList()
-                            .flatMap { file ->
-                                file
-                                    .readLines()
-                                    .withIndex()
-                                    .flatMap { (lineNumber, line) ->
-                                        rule.forbiddenPackages
-                                            .filter(line::contains)
-                                            .map { forbidden ->
-                                                "${file.relativeTo(testContext.projectRoot)}:${lineNumber + 1} references $forbidden"
-                                            }
-                                    }
-                            }
-                    }
-                }.shouldBeEmpty()
+            with(testContext) {
+                rules
+                    .flatMap { rule ->
+                        Files.walk(rule.directory).use { paths ->
+                            paths
+                                .filter { it.extension == "kt" }
+                                .toList()
+                                .flatMap { file ->
+                                    file
+                                        .readLines()
+                                        .withIndex()
+                                        .flatMap { (lineNumber, line) ->
+                                            rule.forbiddenPackages
+                                                .filter(line::contains)
+                                                .map { forbidden ->
+                                                    "${file.relativeTo(projectRoot)}:${lineNumber + 1} references $forbidden"
+                                                }
+                                        }
+                                }
+                        }
+                    }.shouldBeEmpty()
+            }
         }
     })
 

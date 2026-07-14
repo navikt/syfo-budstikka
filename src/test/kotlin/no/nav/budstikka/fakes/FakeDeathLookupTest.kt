@@ -2,12 +2,11 @@ package no.nav.budstikka.fakes
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 class FakeDeathLookupTest :
     FunSpec({
-        val alive = PersonIdentifier("11111111111")
-        val dead = PersonIdentifier("22222222222")
+        val alive = TEST_SYKMELDT
+        val dead = TEST_SYKMELDT_2
 
         test("default: no one is dead") {
             FakeDeathLookup().isDead(alive) shouldBe false
