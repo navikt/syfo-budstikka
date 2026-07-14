@@ -56,8 +56,8 @@ class BudstikkaTestApp private constructor(
     val jdbcUrl: String
         get() = postgres.jdbcUrl
 
-    val formidlingTopic: String
-        get() = appConfig.property("kafka.consumers.formidling.topic").getString()
+    val budstikkaTopic: String
+        get() = appConfig.property("kafka.consumers.budstikka.topic").getString()
 
     /** Publiserer en record til [topic] med valgfrie headere (typisk eventId, jf. B54). */
     fun produce(
@@ -139,7 +139,7 @@ class BudstikkaTestApp private constructor(
                         "database.password" to postgres.password,
                         "database.url" to "postgresql://$host:$port/${postgres.postgres.databaseName}",
                         "kafka.bootstrapServers" to bootstrapServers,
-                        "kafka.consumers.formidling.enabled" to "true",
+                        "kafka.consumers.budstikka.enabled" to "true",
                         "ktor.di.conflictPolicy" to "OverridePrevious",
                         "ktor.application.modules" to emptyList<String>(),
                     ),

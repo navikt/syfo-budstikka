@@ -19,7 +19,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Tynt ende-til-ende-bevis for harnessen (B53): booter HELE appen mot Testcontainers, produserer
- * en `Dispatch` til formidling-topicet, og asserter at den ekte konsumenten persisterte en rad i
+ * en `Dispatch` til budstikka-topicet, og asserter at den ekte konsumenten persisterte en rad i
  * `inbox_message`. Tagget `E2E` → ekskludert fra `./gradlew test`, kjøres via `./gradlew e2eTest`.
  */
 @Tags("E2E")
@@ -37,7 +37,7 @@ class DispatchToInboxE2ESpec :
                     )
 
                 app.produce(
-                    topic = app.formidlingTopic,
+                    topic = app.budstikkaTopic,
                     key = dispatch.content.partitionKey,
                     value = dispatchJson.encodeToString(dispatch),
                     headers = mapOf(DispatchHeader.EVENT_ID to eventId.toString()),

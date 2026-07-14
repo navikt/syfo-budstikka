@@ -30,7 +30,7 @@ fun main() {
 
     logger.info("Budstikka kjører lokalt mot Testcontainers")
     logger.info("  Kafka bootstrap servers : {}", app.bootstrapServers)
-    logger.info("  Formidling-topic        : {}", app.formidlingTopic)
+    logger.info("  Budstikka-topic         : {}", app.budstikkaTopic)
     logger.info("  Postgres JDBC-URL        : {}", app.jdbcUrl)
     logger.info("  Kafka UI                : {}", kafkaUi.url)
     logger.info("Trykk Ctrl+C for å stoppe.")
