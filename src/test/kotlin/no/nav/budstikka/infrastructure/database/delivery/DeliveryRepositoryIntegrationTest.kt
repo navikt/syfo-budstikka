@@ -6,12 +6,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.domain.decision.Operation
-import no.nav.budstikka.domain.decision.Recipient
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.fakes.brukervarselDraft
+import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
@@ -177,25 +173,3 @@ class DeliveryRepositoryIntegrationTest :
             rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
         }
     })
-
-private fun microfrontendDraft(): DeliveryDraft {
-    val ident = PersonIdentifier("12345678901")
-    return DeliveryDraft(
-        reference = "unused",
-        operation = Operation.CREATE,
-        channel = Channel.MICROFRONTEND,
-        recipient = Recipient.Person(ident),
-        content = MicrofrontendEnable(personIdentifier = ident, mikrofrontendId = "syfo-mikrofrontend"),
-    )
-}
-
-private fun brukervarselDraft(): DeliveryDraft {
-    val ident = PersonIdentifier("12345678901")
-    return DeliveryDraft(
-        reference = "unused",
-        operation = Operation.CREATE,
-        channel = Channel.BRUKERVARSEL,
-        recipient = Recipient.Person(ident),
-        content = BrukervarselCreate(personIdentifier = ident, varseltype = Varseltype.BESKJED, text = "Hei"),
-    )
-}

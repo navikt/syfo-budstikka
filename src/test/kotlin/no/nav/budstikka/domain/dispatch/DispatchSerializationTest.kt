@@ -4,19 +4,18 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import kotlin.time.Instant
 
 class DispatchSerializationTest :
     FunSpec({
-        val fnr = "12345678901"
-        val orgnr = "987654321"
-
         context("de/serialisering rundtur bevarer alle variants") {
             val variants: List<Pair<String, DispatchContent>> =
                 listOf(
                     "BrukervarselCreate" to
                         BrukervarselCreate(
-                            personIdentifier = PersonIdentifier(fnr),
+                            personIdentifier = TEST_SYKMELDT_2,
                             varseltype = Varseltype.OPPGAVE,
                             text = "Du har en oppgave",
                             link = "https://nav.no/x",
@@ -27,19 +26,19 @@ class DispatchSerializationTest :
                         ),
                     "LedervarselCreate" to
                         LedervarselCreate(
-                            sykmeldt = PersonIdentifier(fnr),
-                            orgnummer = Orgnummer(orgnr),
+                            sykmeldt = TEST_SYKMELDT_2,
+                            orgnummer = Orgnummer(TEST_ORGNUMMER.value),
                             text = "Din ansatte",
                         ),
                     "DittSykefravaerCreate" to
                         DittSykefravaerCreate(
-                            personIdentifier = PersonIdentifier(fnr),
+                            personIdentifier = TEST_SYKMELDT_2,
                             text = "Nytt på Ditt sykefravær",
                         ),
                     "ArbeidsgivervarselCreate-NL" to
                         ArbeidsgivervarselCreate(
-                            orgnummer = Orgnummer(orgnr),
-                            recipient = NarmesteLeder(sykmeldt = PersonIdentifier(fnr)),
+                            orgnummer = Orgnummer(TEST_ORGNUMMER.value),
+                            recipient = NarmesteLeder(sykmeldt = TEST_SYKMELDT_2),
                             tag = Tag.DIALOGMOETE,
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
@@ -48,7 +47,7 @@ class DispatchSerializationTest :
                         ),
                     "ArbeidsgivervarselCreate-Altinn" to
                         ArbeidsgivervarselCreate(
-                            orgnummer = Orgnummer(orgnr),
+                            orgnummer = Orgnummer(TEST_ORGNUMMER.value),
                             recipient = AltinnResource(resource = AltinnResourceId.DIALOGMOETE),
                             tag = Tag.OPPFOELGING,
                             text = "Oppfølging",
@@ -56,27 +55,27 @@ class DispatchSerializationTest :
                         ),
                     "BrevCreate" to
                         BrevCreate(
-                            personIdentifier = PersonIdentifier(fnr),
+                            personIdentifier = TEST_SYKMELDT_2,
                             journalpostId = "jp-2",
                         ),
                     "MicrofrontendEnable" to
                         MicrofrontendEnable(
-                            personIdentifier = PersonIdentifier(fnr),
+                            personIdentifier = TEST_SYKMELDT_2,
                             mikrofrontendId = "mf-1",
                         ),
                     "MikrofrontendDisable" to
                         MicrofrontendDisable(
-                            personIdentifier = PersonIdentifier(fnr),
+                            personIdentifier = TEST_SYKMELDT_2,
                             mikrofrontendId = "mf-1",
                         ),
                     "BrukervarselInactivate" to
-                        BrukervarselInactivate(reference = "ref-123", sykmeldt = PersonIdentifier(fnr)),
+                        BrukervarselInactivate(reference = "ref-123", sykmeldt = TEST_SYKMELDT_2),
                     "LedervarselInactivate" to
-                        LedervarselInactivate(reference = "ref-123", sykmeldt = PersonIdentifier(fnr)),
+                        LedervarselInactivate(reference = "ref-123", sykmeldt = TEST_SYKMELDT_2),
                     "DittSykefravaerInactivate" to
-                        DittSykefravaerInactivate(reference = "ref-123", sykmeldt = PersonIdentifier(fnr)),
+                        DittSykefravaerInactivate(reference = "ref-123", sykmeldt = TEST_SYKMELDT_2),
                     "ArbeidsgivervarselInactivate" to
-                        ArbeidsgivervarselInactivate(reference = "ref-123", orgnummer = Orgnummer(orgnr)),
+                        ArbeidsgivervarselInactivate(reference = "ref-123", orgnummer = Orgnummer(TEST_ORGNUMMER.value)),
                 )
 
             variants.forEach { (name, content) ->
@@ -87,44 +86,41 @@ class DispatchSerializationTest :
         }
 
         test("polymorphic discriminator uses a stable type name") {
-            val json = dispatchJson.encodeToString(envelope(BrevCreate(PersonIdentifier(fnr), "jp-9")))
-            json shouldContain "\"type\":\"BrevCreate\""
+            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldContain "\"type\":\"BrevCreate\""
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {
-            val json = dispatchJson.encodeToString(envelope(BrevCreate(PersonIdentifier(fnr), "jp-9")))
-            json shouldNotContain "partitionKey"
+            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldNotContain "partitionKey"
         }
 
         context("PII-maskering i toString (B9)") {
             test("PersonIdentifier is masked") {
-                PersonIdentifier(fnr).toString() shouldBe "***"
+                TEST_SYKMELDT_2.toString() shouldBe "***"
             }
 
             test("Orgnummer is masked") {
-                Orgnummer(orgnr).toString() shouldBe "***"
+                Orgnummer(TEST_ORGNUMMER.value).toString() shouldBe "***"
             }
 
             test("data class toString does not leak fnr or orgnr") {
                 val content =
                     ArbeidsgivervarselCreate(
-                        orgnummer = Orgnummer(orgnr),
-                        recipient = NarmesteLeder(sykmeldt = PersonIdentifier(fnr)),
+                        orgnummer = Orgnummer(TEST_ORGNUMMER.value),
+                        recipient = NarmesteLeder(sykmeldt = TEST_SYKMELDT_2),
                         tag = Tag.DIALOGMOETE,
                         text = "Dialogmøte",
                         link = "https://nav.no/ag",
                     )
 
                 with(envelope(content).toString()) {
-                    this shouldNotContain fnr
-                    this shouldNotContain orgnr
+                    this shouldNotContain TEST_SYKMELDT_2.value
+                    this shouldNotContain TEST_ORGNUMMER.value
                     this shouldContain "***"
                 }
             }
         }
 
         test("serialized payload carries the raw value (partitioning needs a real id)") {
-            val json = dispatchJson.encodeToString(envelope(BrevCreate(PersonIdentifier(fnr), "jp-9")))
-            json shouldContain fnr
+            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldContain TEST_SYKMELDT_2.value
         }
     })

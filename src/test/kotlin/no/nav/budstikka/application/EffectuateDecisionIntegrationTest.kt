@@ -2,14 +2,9 @@ package no.nav.budstikka.application
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
-import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
-import no.nav.budstikka.domain.decision.Operation
-import no.nav.budstikka.domain.decision.Recipient
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.TransactionRunnerImpl
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -52,24 +47,13 @@ class EffectuateDecisionIntegrationTest :
                 InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()[InboxMessageTable.state]
             }
 
-        fun draft(): DeliveryDraft {
-            val ident = PersonIdentifier("12345678901")
-            return DeliveryDraft(
-                reference = "ref-1",
-                operation = Operation.CREATE,
-                channel = Channel.MICROFRONTEND,
-                recipient = Recipient.Person(ident),
-                content = MicrofrontendEnable(ident, "syfo-mikrofrontend"),
-            )
-        }
-
         test("Processed commits delivery rows and inbox PROCESSED atomically") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a1")
             inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(draft())))
+            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
@@ -105,8 +89,8 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(draft())))
-            effectuate.effectuate(eventId, Decision.Processed(listOf(draft())))
+            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
+            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
