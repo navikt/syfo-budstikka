@@ -11,8 +11,7 @@ Koden er idiomatisk Kotlin. Rekkefølgen er prioritet:
 
 - Hold koden DRY og SOLID uten å lage grunne abstraksjoner.
 - Følg hexagonal arkitektur: domain/application peker innover mot egne modeller og porter; infrastructure adaptere ligger ytterst.
-- Bruk `kotlin.time` og `kotlinx.datetime`; Java-API-er hører bare hjemme ved interop-grenser, for eksempel Kafka.
-- Oversett Java-typer til Kotlin-typer så nær adapter-grensen som mulig.
+- Velg Kotlin-idiomer fremfor Java-style patterns: `kotlin.time`/`kotlinx.datetime`, nullable-typer, collections og coroutines internt; Java-API-er hører bare hjemme ved interop-grenser og oversettes ved adapteren.
 - Foretrekk immutable data, nullable-typer med eksplisitt håndtering, expression bodies og extension functions.
 - Bruk value classes for små domenetyper når de gjør koden mer typesikker og lesbar, for eksempel identifikatorer som ellers blir rå `String`.
 - For sensitive value classes: pakk rå verdier og masker `toString()` slik at logging ikke lekker persondata.
@@ -24,15 +23,12 @@ Koden er idiomatisk Kotlin. Rekkefølgen er prioritet:
 - Følg strukturert async: uavhengige suspend-kall kjøres med `coroutineScope { ... async { ... }.awaitAll() }`; ikke bruk `GlobalScope` eller løsrevet async.
 - Foretrekk composition over inheritance; arv brukes bare når domenemodellen eller rammeverket faktisk krever det.
 - Hold synlighet smal: `private` for fil-/klasseinternt, `internal` for modulinternt, `public` bare når koden er et bevisst grensesnitt.
-- Velg Kotlin-idiomer fremfor Java-style patterns når Kotlin har et tydeligere alternativ.
-
-Java-style smells å rydde bort: `Optional`, `Stream`, manuelle getters/builders, `Thread`/`CompletableFuture`, mutable samlinger som default og `java.time` uten interop-grunn.
 
 ## Arbeidsflyt
 
 1. Finn laget koden hører hjemme i: domain, application-port/use case eller infrastructure-adapter. Ferdig når avhengighetsretningen er eksplisitt.
 2. Skriv minste idiomatiske Kotlin-form som uttrykker atferden. Ferdig når primitive domenetyper, mutable state, Java-style patterns og ekstra abstraksjoner er fjernet eller begrunnet.
-3. Sjekk tid, dato og interop. Ferdig når `kotlin.time`/`kotlinx.datetime` brukes internt, og Java-typer bare finnes ved nødvendige grenser.
+3. Sjekk interop. Ferdig når Java-typer bare finnes ved nødvendige grenser og er oversatt til Kotlin-typer ved adapteren.
 4. Sjekk concurrency. Ferdig når parallelt arbeid er strukturert, cancellable og bundet til kallende coroutine-scope.
 5. Sjekk API-flate. Ferdig når synlighet er smal og inheritance ikke brukes der composition gir enklere kode.
 6. Sjekk navngiving. Ferdig når domeneord følger repoets norske domeneord, og mekanikk/teknikk er på engelsk.
