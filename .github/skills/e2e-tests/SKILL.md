@@ -11,6 +11,7 @@ E2E-tester beviser at ekte app, config og infrastruktur-adaptere henger sammen:
 
 - Test én full bruker-/systemflyt og observerbare effekter, ikke intern implementasjon.
 - Bruk Testcontainers for eksterne grenser som Kafka og Postgres.
+- Testkode følger `/kotlin`; denne skillen eier full-boot-grense, tagg og e2e-gate.
 - Bruk Kotest `FunSpec`.
 - Merk full-boot-specer med `@Tags("E2E")`.
 - Kjør dem med `./gradlew e2eTest`; default `./gradlew test` ekskluderer `E2E`.

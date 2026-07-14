@@ -11,6 +11,7 @@ Unit- og komponenttester er raske, lokale og atferdsnære:
 
 - Test gjennom offentlig grensesnitt, ikke private funksjoner eller intern rekkefølge.
 - Unngå full app-boot, Kafka og Postgres med Testcontainers her; det hører til `/e2e-tests`.
+- Testkode følger `/kotlin`; denne skillen eier testgrense, testform og verifisering.
 - Bruk Kotest `FunSpec`.
 - Bruk fakes, builders og små testdata rundt systemgrenser.
 - Hold setup liten nok til at testen leses direkte.
