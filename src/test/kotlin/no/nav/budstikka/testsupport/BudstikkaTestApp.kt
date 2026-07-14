@@ -142,6 +142,8 @@ class BudstikkaTestApp private constructor(
                         "kafka.consumers.budstikka.enabled" to "true",
                         "ktor.di.conflictPolicy" to "OverridePrevious",
                         "ktor.application.modules" to emptyList<String>(),
+                        "pdl.scope" to "local",
+                        "auth.texas.tokenEndpoint" to "localhost",
                     ),
                 )
             val merged = overrides.withFallback(ConfigFactory.parseResources("application.conf")).resolve()
