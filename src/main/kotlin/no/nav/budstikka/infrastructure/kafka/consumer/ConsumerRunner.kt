@@ -198,14 +198,15 @@ class ConsumerRunner<K, V>(
         if (records.isEmpty) return
         val batch = records.toList()
         handler.handleBatch(batch)
-        val maxOffsets = mutableMapOf<TopicPartition, Long>()
-        for (record in batch) {
-            maxOffsets.merge(
-                TopicPartition(record.topic(), record.partition()),
-                record.offset() + 1,
-            ) { current, new -> maxOf(current, new) }
-        }
-        consumer.commitSync(maxOffsets.mapValues { OffsetAndMetadata(it.value) })
+        // Commit the next offset (highest seen + 1) per partition.
+        val nextOffsets = batch
+            .groupBy { TopicPartition(it.topic(), it.partition()) }
+            .mapValues { (_, partitionRecords) -> OffsetAndMetadata(partitionRecords.maxOf { it.offset() } + 1) }
+        // commitSync (not commitAsync) on purpose: we commit after handleBatch to keep
+        // at-least-once semantics, and commitSync blocks and retries until the offset is
+        // persisted. A dropped async commit would widen replay on rebalance/crash; the
+        // per-batch commit makes the synchronous cost negligible.
+        consumer.commitSync(nextOffsets)
     }
 
     private companion object {
