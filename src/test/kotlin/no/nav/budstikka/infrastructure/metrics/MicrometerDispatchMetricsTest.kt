@@ -1,15 +1,28 @@
 package no.nav.budstikka.infrastructure.metrics
 
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.shouldBe
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY_CLAIMED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY_EMPTY_POLLS
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_CLAIMED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_DROPPED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_EMPTY_POLLS
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_FAILED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_PROCESSED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.RESULT_FAILED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.RESULT_SENT
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.TAG_CHANNEL
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.TAG_REASON
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.TAG_RESULT
 
 class MicrometerDispatchMetricsTest :
     FunSpec({
-        test("emits Prometheus-named counters with low-cardinality labels") {
+        test("counts domain events under shared meter names with low-cardinality labels") {
             val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
             val metrics = MicrometerDispatchMetrics(registry)
 
@@ -23,16 +36,28 @@ class MicrometerDispatchMetricsTest :
             metrics.deliverySent(Channel.MICROFRONTEND)
             metrics.deliveryFailed(Channel.BREV)
 
-            val scrape = registry.scrape()
-
-            scrape shouldContain "inbox_message_claimed_total 3.0"
-            scrape shouldContain "inbox_message_empty_polls_total 1.0"
-            scrape shouldContain "inbox_message_processed_total 1.0"
-            scrape shouldContain "inbox_message_dropped_total{reason=\"dead\"} 1.0"
-            scrape shouldContain "inbox_message_failed_total 1.0"
-            scrape shouldContain "delivery_claimed_total 2.0"
-            scrape shouldContain "delivery_empty_polls_total 1.0"
-            scrape shouldContain "delivery_total{channel=\"microfrontend\",result=\"sent\"} 1.0"
-            scrape shouldContain "delivery_total{channel=\"brev\",result=\"failed\"} 1.0"
+            registry.get(INBOX_MESSAGE_CLAIMED).counter().count() shouldBe 3.0
+            registry.get(INBOX_MESSAGE_EMPTY_POLLS).counter().count() shouldBe 1.0
+            registry.get(INBOX_MESSAGE_PROCESSED).counter().count() shouldBe 1.0
+            registry
+                .get(INBOX_MESSAGE_DROPPED)
+                .tag(TAG_REASON, "dead")
+                .counter()
+                .count() shouldBe 1.0
+            registry.get(INBOX_MESSAGE_FAILED).counter().count() shouldBe 1.0
+            registry.get(DELIVERY_CLAIMED).counter().count() shouldBe 2.0
+            registry.get(DELIVERY_EMPTY_POLLS).counter().count() shouldBe 1.0
+            registry
+                .get(DELIVERY)
+                .tag(TAG_CHANNEL, "microfrontend")
+                .tag(TAG_RESULT, RESULT_SENT)
+                .counter()
+                .count() shouldBe 1.0
+            registry
+                .get(DELIVERY)
+                .tag(TAG_CHANNEL, "brev")
+                .tag(TAG_RESULT, RESULT_FAILED)
+                .counter()
+                .count() shouldBe 1.0
         }
     })
