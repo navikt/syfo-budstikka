@@ -1,6 +1,6 @@
 ---
 name: kotlin
-description: "Bruk når Kotlin-kode i syfo-budstikka skal skrives eller refaktoreres: idiomatisk Kotlin, value classes, sealed typer, kotlin.time/kotlinx.datetime, coroutines/async, nullability, immutable data, extension functions, navnekonvensjon, SOLID/DRY, hexagonal arkitektur, eller når noen sier /kotlin. Ikke for Ktor-oppsett — bruk /kotlin-ktor."
+description: "Bruk når Kotlin-kode i syfo-budstikka skal skrives eller refaktoreres: idiomatisk Kotlin, value classes, sealed typer, kotlin.time/kotlinx.datetime, coroutines/async, nullability, immutable data, composition, internal/private scoping, extension functions, navnekonvensjon, SOLID/DRY, hexagonal arkitektur, eller når noen sier /kotlin. Ikke for Ktor-oppsett — bruk /kotlin-ktor."
 ---
 
 # Kotlin
@@ -18,6 +18,8 @@ Koden er idiomatisk Kotlin:
 - Bruk scope functions når de gjør flyten tydeligere, ikke for å spare linjer.
 - Bruk coroutines fremfor manuelle tråder i ny kode.
 - Følg strukturert async: uavhengige suspend-kall kjøres med `coroutineScope { ... async { ... }.awaitAll() }`; ikke bruk `GlobalScope` eller løsrevet async.
+- Foretrekk composition over inheritance; arv brukes bare når domenemodellen eller rammeverket faktisk krever det.
+- Hold synlighet smal: `private` for fil-/klasseinternt, `internal` for modulinternt, `public` bare når koden er et bevisst grensesnitt.
 - Velg Kotlin-idiomer fremfor Java-style patterns når Kotlin har et tydeligere alternativ.
 - Hold koden DRY og SOLID uten å lage grunne abstraksjoner.
 - Følg hexagonal arkitektur: domain/application peker innover mot egne modeller og porter; infrastructure adaptere ligger ytterst.
@@ -30,5 +32,6 @@ Java-style smells å rydde bort: `Optional`, `Stream`, manuelle getters/builders
 2. Skriv minste idiomatiske Kotlin-form som uttrykker atferden. Ferdig når primitive domenetyper, mutable state, Java-style patterns og ekstra abstraksjoner er fjernet eller begrunnet.
 3. Sjekk tid, dato og interop. Ferdig når `kotlin.time`/`kotlinx.datetime` brukes internt, og Java-typer bare finnes ved nødvendige grenser.
 4. Sjekk concurrency. Ferdig når parallelt arbeid er strukturert, cancellable og bundet til kallende coroutine-scope.
-5. Sjekk navngiving. Ferdig når domeneord følger repoets norske domeneord, og mekanikk/teknikk er på engelsk.
-6. Kjør smaleste relevante Gradle-gate. Ferdig når kommandoen har exit 0.
+5. Sjekk API-flate. Ferdig når synlighet er smal og inheritance ikke brukes der composition gir enklere kode.
+6. Sjekk navngiving. Ferdig når domeneord følger repoets norske domeneord, og mekanikk/teknikk er på engelsk.
+7. Kjør smaleste relevante Gradle-gate. Ferdig når kommandoen har exit 0.
