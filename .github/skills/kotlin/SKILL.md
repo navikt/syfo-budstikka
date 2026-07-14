@@ -11,6 +11,9 @@ Koden er idiomatisk Kotlin. Rekkefølgen er prioritet:
 
 - Hold koden DRY og SOLID uten å lage grunne abstraksjoner.
 - Følg hexagonal arkitektur: domain/application peker innover mot egne modeller og porter; infrastructure adaptere ligger ytterst.
+- Foretrekk composition over inheritance; arv brukes bare når domenemodellen eller rammeverket faktisk krever det.
+- Bruk coroutines fremfor manuelle tråder; uavhengige suspend-kall kjøres strukturert med `coroutineScope { ... async { ... }.awaitAll() }`, ikke `GlobalScope` eller løsrevet async.
+- Hold synlighet smal: `private` for fil-/klasseinternt, `internal` for modulinternt, `public` bare når koden er et bevisst grensesnitt.
 - Velg Kotlin-idiomer fremfor Java-style patterns: `kotlin.time`/`kotlinx.datetime`, nullable-typer, collections og coroutines internt; Java-API-er hører bare hjemme ved interop-grenser og oversettes ved adapteren.
 - Foretrekk immutable data, nullable-typer med eksplisitt håndtering, expression bodies og extension functions.
 - Bruk value classes for små domenetyper når de gjør koden mer typesikker og lesbar, for eksempel identifikatorer som ellers blir rå `String`.
@@ -19,10 +22,6 @@ Koden er idiomatisk Kotlin. Rekkefølgen er prioritet:
 - Bruk ekshaustiv `when` uten `else` over sealed typer når nye varianter skal tvinge eksplisitte valg ved kompilering.
 - Bruk `fun interface` for små porter med én operasjon.
 - Bruk scope functions når de gjør flyten tydeligere, ikke for å spare linjer.
-- Bruk coroutines fremfor manuelle tråder i ny kode.
-- Følg strukturert async: uavhengige suspend-kall kjøres med `coroutineScope { ... async { ... }.awaitAll() }`; ikke bruk `GlobalScope` eller løsrevet async.
-- Foretrekk composition over inheritance; arv brukes bare når domenemodellen eller rammeverket faktisk krever det.
-- Hold synlighet smal: `private` for fil-/klasseinternt, `internal` for modulinternt, `public` bare når koden er et bevisst grensesnitt.
 
 ## Arbeidsflyt
 
