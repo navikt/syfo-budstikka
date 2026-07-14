@@ -1,7 +1,7 @@
 # Teststrategi og lokal kjøring — syfo-budstikka
 
 Hvordan vi tester budstikka ende-til-ende og (senere) kjører hele flyten lokalt.
-Beslutninger: B50–B53 i `context.md`. Bygger på ports & adapters (B28) og teknologivalg (B44).
+Beslutninger: B50–B56 i `context.md`. Bygger på ports & adapters (B28) og teknologivalg (B44).
 
 ## Grunnidé: ett delt substrat (B50)
 
@@ -34,15 +34,14 @@ er fysisk fraværende fra prod-jaren. Det gjør det **umulig** å wire en fake i
 
 ```
 src/main/…                         ← PROD (kun dette shippes)
-  Application.module(deps)          ← wiring tar avhengigheter som parametre (Ktor-DI, B44)
-  Main.kt                           ← prod-entrypoint: wirer EKTE adaptere
+  Application.kt                    ← module() (prod) + configureApplication(overrides) (wiring-søm)
+  application.conf                  ← prod-entrypoint: refererer ApplicationKt.module (EKTE adaptere)
 
 src/test/…                         ← IKKE i prod-jaren
-  fakes/  FakeDodsfall, FakeReservasjon, FakeNarmesteLeder, FakeKanal …   ← delte fakes
-  scenario-byggere (digital-bruker, reservert-brev-fallback, mottaker-dod, nl-mangler, …)
-  Testcontainers-base (delt Kotest-extension)
-  <e2e>Spec.kt                      ← Kotest e2e mot Testcontainers + fakes
-  LokalApp.kt (main)                ← UTSATT: interaktivt lokalt løp
+  fakes/  FakeDeathLookup …                                      ← delte port-fakes
+  testsupport/  BudstikkaTestApp (harness), KafkaTestContainer   ← delt substrat
+  e2e/  DispatchToInboxE2ESpec.kt   ← @Tags("E2E"), booter hele appen mot Testcontainers + fakes
+  LocalApp.kt (main)                ← kjørbart lokalt løp: ./gradlew runLocal
 ```
 
 **Avvist anti-mønster:** en `if (System.getenv("USE_FAKES"))`-adapterbytte inne i `src/main`.
@@ -97,17 +96,46 @@ Ktor MockEngine er ikke valgt (fake på for lavt abstraksjonsnivå for en domene
    workers + Ktor) in-process mot Testcontainers (B51) med port-fakes (B52) wiret inn, og
    asserter at fake-kanalene mottok forventet leveranse. Dekker inbox → beslutning → outbox →
    levering ende-til-ende via de delte scenario-byggerne (B50). Async workers verifiseres med
-   Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand.
+   Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand. **Opt-in (B56):** de
+   fulle e2e-specene er merket `@Tags("E2E")` og kjøres KUN via `./gradlew e2eTest` — de er
+   ekskludert fra default `test`/`check`, så CI/CD ikke venter på treg container-boot ved hver
+   deploy. Schema-/`PostgresTestFixture`-testene er bevisst UTEN E2E-tag og kjører i default `test`.
 
-### Utsatt: interaktivt lokalt HTTP-løp
+### Wiring-sømmen (B44/B56)
 
-Et interaktivt løp der du starter `main()` én gang og fyrer scenarier over HTTP
-(`POST /dev/dispatch`, fake-toggle-endepunkter, navngitte scenarier) + live-inspeksjon via
-kafka-ui/pgweb er **utsatt** til behovet melder seg. Det bygges da som et **tynt lag oppå
-samme substrat** — samme fakes og scenario-byggere, ingen ny build-kompleksitet, aldri i
-`src/main`.
+Prod og test deler samme boot. `Application.kt` har en null-arg `module()` (referert fra
+`application.conf`, wirer EKTE adaptere) som delegerer til `configureApplication(overrides)`.
+Testene/`LocalApp` booter appen programmatisk og sender inn `overrides` som `provide`-er fakes
+SIST. Sømmen er `ktor.di.conflictPolicy = "OverridePrevious"` — satt KUN i test-konfigen, så en
+senere `provide` vinner over den ekte. I prod står default-policyen, så et duplikat-`provide`
+kaster (sikkerhet mot utilsiktet override). Fakene finnes aldri i prod-jaren (build-grensen, B50).
+
+### Levert: kjørbart lokalt løp — utsatt: HTTP-kontrollplan
+
+`./gradlew runLocal` booter nå HELE appen mot Testcontainers (Postgres + Kafka) med port-fakes
+wiret inn (`LocalApp.kt`, samme substrat `BudstikkaTestApp` som e2e-specene bruker). Prosessen
+står og kjører til Ctrl+C; JDBC-URL, Kafka-bootstrap, formidling-topic og Kafka UI-URL logges ved
+oppstart for live-inspeksjon. Fakene byttes via samme wiring-søm som testene (`overrides` → `provide`).
+
+I det lokale løpet — og KUN der — startes også en **Kafka UI** (`provectuslabs/kafka-ui`) i en egen
+Testcontainer, så topics, meldinger, konsumentgrupper og offsets kan inspiseres i nettleseren mens
+appen kjører. Kafka og Kafka UI legges på et delt Docker-nett (Kafka får alias `kafka` + intern
+lytter `kafka:19092`); UI-web-porten mappes ut så den er nåbar fra host. E2e-specene lar dette stå
+av (`enableKafkaNetwork = false`, ingen UI-container), så gaten holder seg rask og uten UI-overhead.
+Kafka UI legger ~30–60 s på oppstarten av `runLocal` (Spring Boot + health-venting) — greit for et
+lokalt verktøy.
+
+Fortsatt **utsatt** til behovet melder seg: et interaktivt HTTP-kontrollplan oppå det samme
+løpet (`POST /dev/formidling`, fake-toggle-endepunkter, navngitte scenarier) + live-inspeksjon
+via pgweb. Bygges da som et **tynt lag** — samme fakes og substrat, aldri i `src/main`.
 
 ## Kjøring
 
-- Alle tester: `./gradlew test` (kjør før ferdigmelding).
-- Enhetstester kjøres parallelt; integrasjonstester bruker Testcontainers (konfigureres i Kotest).
+- **Default:** `./gradlew test` (kjør før ferdigmelding). Enhets- + integrasjons-/schema-tester;
+  de fulle e2e-specene (`@Tags("E2E")`) er ekskludert her, så gaten er rask. `./gradlew check`
+  inkluderer heller ikke e2e.
+- **Opt-in e2e:** `./gradlew e2eTest` — kjører KUN de E2E-taggede full-boot-specene mot
+  Testcontainers (B56). Bruk lokalt / i en egen manuell eller nattlig CI-jobb, ikke i deploy-løpet.
+- **Lokalt løp:** `./gradlew runLocal` — booter hele appen mot Testcontainers med fakes; Ctrl+C
+  for å stoppe (river ned containerne via shutdown-hook).
+- Enhetstester kjøres parallelt; integrasjons-/e2e-tester bruker Testcontainers (Docker må kjøre).
