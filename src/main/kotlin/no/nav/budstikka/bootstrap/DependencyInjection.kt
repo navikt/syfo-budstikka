@@ -5,6 +5,8 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.dependencies
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.infrastructure.auth.config.authModule
+import no.nav.budstikka.infrastructure.auth.config.toTexasConfig
 import no.nav.budstikka.infrastructure.database.config.databaseModule
 import no.nav.budstikka.infrastructure.database.config.toDatabaseConfig
 import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
@@ -22,9 +24,11 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         provide { config.toDatabaseConfig() }
         provide { config.toKafkaConfig() }
         provide { config.toWorkerConfig() }
+        provide { config.toTexasConfig() }
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         databaseModule()
         kafkaModule()
+        authModule()
         workerModule()
         livenessModule()
         overrides()
