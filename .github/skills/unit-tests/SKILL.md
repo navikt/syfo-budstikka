@@ -1,25 +1,22 @@
 ---
 name: unit-tests
-description: "Bruk når raske unit-/komponenttester i Kotest skal skrives eller endres: FunSpec, domenelogikk, application-services, fakes/builders, målrettet ./gradlew test --tests, eller når noen sier /unit-tests. Ikke for full boot/Testcontainers — bruk /e2e-tests."
+description: "Use for writing or refactoring fast Kotest unit and component tests. Use /e2e-tests for full application boot, Testcontainers, or integration tests."
 ---
 
-# Unit-tester
+# Unit Tests
 
-## Kontrakt
+## Rules
 
-Unit- og komponenttester er raske, lokale og atferdsnære:
+- Test behavior through public interfaces, not private functions or implementation details.
+- Keep tests fast and local. Avoid application boot, Kafka, and Testcontainers.
+- Use Kotest `FunSpec`.
+- Use fakes, builders, and focused test data at system boundaries.
+- Keep setup small and tests easy to read.
+- Split tests when a class requires too much context.
 
-- Test gjennom offentlig grensesnitt, ikke private funksjoner eller intern rekkefølge.
-- Unngå full app-boot, Kafka og Postgres med Testcontainers her; det hører til `/e2e-tests`.
-- Testkode følger `/kotlin`; denne skillen eier testgrense, testform og verifisering.
-- Bruk Kotest `FunSpec`.
-- Bruk fakes, builders og små testdata rundt systemgrenser.
-- Hold setup liten nok til at testen leses direkte.
-- Når en unit-test trenger mye context, splitt heller atferden i flere testklasser.
+## Checklist
 
-## Arbeidsflyt
-
-1. Velg atferden testen skal bevise. Ferdig når testnavnet beskriver observerbar atferd.
-2. Velg testgrense: domain, application-service eller adapter med fake ytterst. Ferdig når testen er rask og ikke binder seg til implementasjonsdetaljer.
-3. Skriv testen som `FunSpec`. Ferdig når setup er kort, eller atferden er splittet til en egen testklasse.
-4. Kjør målrettet test: `./gradlew test --tests "no.nav.budstikka.<TestKlasse>"`. Ferdig når kommandoen har exit 0.
+1. Choose the behavior to prove.
+2. Select the test boundary: domain, application service, or adapter with fakes.
+3. Write a focused `FunSpec` test.
+4. Run the targeted test with `./gradlew test --tests`.
