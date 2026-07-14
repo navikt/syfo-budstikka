@@ -1,6 +1,6 @@
 ---
 name: unit-tests
-description: "Use for writing or refactoring fast Kotest unit and component tests. Use /e2e-tests for full application boot, Testcontainers, or integration tests."
+description: "Use for fast Kotest unit and component tests: domain logic, application services with fakes, builders, focused test data, or /unit-tests. Use /integration-tests for real adapters. Use /e2e-tests for full application boot."
 ---
 
 # Unit Tests
