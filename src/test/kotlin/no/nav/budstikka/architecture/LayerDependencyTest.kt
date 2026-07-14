@@ -63,7 +63,7 @@ private class TestContext {
             ),
             LayerRule(
                 projectRoot.resolve("domain"),
-                forbiddenDependencies,
+                forbiddenDependencies + listOf("$BASE_PACKAGE.application."),
             ),
         )
 }
