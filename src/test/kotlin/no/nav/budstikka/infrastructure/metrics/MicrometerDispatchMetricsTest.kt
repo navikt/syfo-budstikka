@@ -25,11 +25,11 @@ class MicrometerDispatchMetricsTest :
 
             val scrape = registry.scrape()
 
-            scrape shouldContain "inbox_claimed_total 3.0"
-            scrape shouldContain "inbox_empty_polls_total 1.0"
-            scrape shouldContain "inbox_processed_total 1.0"
-            scrape shouldContain "inbox_dropped_total{reason=\"dead\"} 1.0"
-            scrape shouldContain "inbox_failed_total 1.0"
+            scrape shouldContain "inbox_message_claimed_total 3.0"
+            scrape shouldContain "inbox_message_empty_polls_total 1.0"
+            scrape shouldContain "inbox_message_processed_total 1.0"
+            scrape shouldContain "inbox_message_dropped_total{reason=\"dead\"} 1.0"
+            scrape shouldContain "inbox_message_failed_total 1.0"
             scrape shouldContain "delivery_claimed_total 2.0"
             scrape shouldContain "delivery_empty_polls_total 1.0"
             scrape shouldContain "delivery_total{channel=\"microfrontend\",result=\"sent\"} 1.0"

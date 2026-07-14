@@ -46,8 +46,8 @@ Tre lag, hvert på sin naturlige søm:
    testbare med en opptaks-fake.
 
 Navn er engelske og følger Prometheus-konvensjon (`snake_case`, `_total`/`_seconds`), jf. B57:
-`inbox_claimed_total`, `inbox_empty_polls_total`, `inbox_processed_total`,
-`inbox_dropped_total{reason}`, `inbox_failed_total`, `delivery_claimed_total`,
+`inbox_message_claimed_total`, `inbox_message_empty_polls_total`, `inbox_message_processed_total`,
+`inbox_message_dropped_total{reason}`, `inbox_message_failed_total`, `delivery_claimed_total`,
 `delivery_empty_polls_total`, `delivery_total{channel,result}`. Labels er lav-kardinale og PII-frie
 (kanal-navn + faste utfall) — aldri `eventId`, fnr eller andre personopplysninger (B45/B46).
 

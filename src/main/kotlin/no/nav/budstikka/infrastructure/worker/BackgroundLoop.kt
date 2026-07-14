@@ -20,9 +20,10 @@ import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
+import kotlin.time.toJavaDuration
 
 /**
  * A background loop that runs [iteration] every [interval] until Ktor shuts down and [close]
@@ -103,7 +104,7 @@ class BackgroundLoop(
 
     private suspend fun runIterationSafely() {
         runsCounter?.increment()
-        val startNanos = System.nanoTime()
+        val start = TimeSource.Monotonic.markNow()
         try {
             iteration()
         } catch (error: CancellationException) {
@@ -112,7 +113,7 @@ class BackgroundLoop(
             failuresCounter?.increment()
             logger.error("{} failed in iteration", name, error)
         } finally {
-            durationTimer?.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS)
+            durationTimer?.record(start.elapsedNow().toJavaDuration())
         }
     }
 

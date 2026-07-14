@@ -11,8 +11,9 @@ import no.nav.budstikka.domain.decision.DropReason
  * registeret; navnene følger Prometheus-konvensjon (Micrometer punkt-navn → `snake_case`, tellere
  * får `_total`):
  *
- * - `inbox_claimed_total`, `inbox_empty_polls_total`, `inbox_processed_total`,
- *   `inbox_dropped_total{reason}`, `inbox_failed_total`
+ * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
+ *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
+ *   `inbox_message_failed_total`
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
  *
  * Labels er lav-kardinale og PII-frie: [Channel]-navn (lowercase) og faste utfall. Tellingen skjer
@@ -22,10 +23,10 @@ import no.nav.budstikka.domain.decision.DropReason
 class MicrometerDispatchMetrics(
     private val registry: MeterRegistry,
 ) : DispatchMetrics {
-    private val inboxClaimed = counter("inbox.claimed")
-    private val inboxEmptyPolls = counter("inbox.empty.polls")
-    private val inboxProcessed = counter("inbox.processed")
-    private val inboxFailed = counter("inbox.failed")
+    private val inboxClaimed = counter("inbox.message.claimed")
+    private val inboxEmptyPolls = counter("inbox.message.empty.polls")
+    private val inboxProcessed = counter("inbox.message.processed")
+    private val inboxFailed = counter("inbox.message.failed")
     private val deliveryClaimed = counter("delivery.claimed")
     private val deliveryEmptyPolls = counter("delivery.empty.polls")
 
@@ -37,7 +38,7 @@ class MicrometerDispatchMetrics(
 
     override fun inboxDropped(reason: DropReason) =
         Counter
-            .builder("inbox.dropped")
+            .builder("inbox.message.dropped")
             .tag("reason", reason.name.lowercase())
             .register(registry)
             .increment()
