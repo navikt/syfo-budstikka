@@ -7,13 +7,17 @@ description: "Bruk når Kotlin-kode i syfo-budstikka skal skrives eller refaktor
 
 ## Kontrakt
 
-Koden er idiomatisk Kotlin:
+Koden er idiomatisk Kotlin. Rekkefølgen er prioritet:
 
+- Hold koden DRY og SOLID uten å lage grunne abstraksjoner.
+- Følg hexagonal arkitektur: domain/application peker innover mot egne modeller og porter; infrastructure adaptere ligger ytterst.
 - Bruk `kotlin.time` og `kotlinx.datetime`; Java-API-er hører bare hjemme ved interop-grenser, for eksempel Kafka.
 - Oversett Java-typer til Kotlin-typer så nær adapter-grensen som mulig.
 - Foretrekk immutable data, nullable-typer med eksplisitt håndtering, expression bodies og extension functions.
 - Bruk value classes for små domenetyper når de gjør koden mer typesikker og lesbar, for eksempel identifikatorer som ellers blir rå `String`.
+- For sensitive value classes: pakk rå verdier og masker `toString()` slik at logging ikke lekker persondata.
 - Modell lukkede utfall og tilstander med `sealed interface`/`data object`/`data class`.
+- Bruk ekshaustiv `when` uten `else` over sealed typer når nye varianter skal tvinge eksplisitte valg ved kompilering.
 - Bruk `fun interface` for små porter med én operasjon.
 - Bruk scope functions når de gjør flyten tydeligere, ikke for å spare linjer.
 - Bruk coroutines fremfor manuelle tråder i ny kode.
@@ -21,8 +25,6 @@ Koden er idiomatisk Kotlin:
 - Foretrekk composition over inheritance; arv brukes bare når domenemodellen eller rammeverket faktisk krever det.
 - Hold synlighet smal: `private` for fil-/klasseinternt, `internal` for modulinternt, `public` bare når koden er et bevisst grensesnitt.
 - Velg Kotlin-idiomer fremfor Java-style patterns når Kotlin har et tydeligere alternativ.
-- Hold koden DRY og SOLID uten å lage grunne abstraksjoner.
-- Følg hexagonal arkitektur: domain/application peker innover mot egne modeller og porter; infrastructure adaptere ligger ytterst.
 
 Java-style smells å rydde bort: `Optional`, `Stream`, manuelle getters/builders, `Thread`/`CompletableFuture`, mutable samlinger som default og `java.time` uten interop-grunn.
 
