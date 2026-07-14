@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import no.nav.budstikka.infrastructure.auth.config.TexasConfig
 import java.util.concurrent.ConcurrentHashMap
@@ -57,7 +58,15 @@ class TexasTokenProvider(
         check(response.status.isSuccess()) {
             "Texas token request failed with status ${response.status.value}"
         }
-        val body = json.decodeFromString<TexasTokenResponse>(response.bodyAsText())
+        // Parse i egen try: serialiseringsfeil kan ellers gjengi utsnitt av body (som bærer
+        // access_token) i exception-meldingen. Kast sanitert – aldri body/token videre.
+        val body =
+            try {
+                json.decodeFromString<TexasTokenResponse>(response.bodyAsText())
+            } catch (_: SerializationException) {
+                // Ikke behold cause: dens melding kan gjengi body (med token) i en stacktrace.
+                throw IllegalStateException("Invalid Texas token response")
+            }
         return CachedToken(
             accessToken = body.accessToken,
             expiresAt = clock.now() + body.expiresInSeconds.seconds,
