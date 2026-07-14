@@ -1,16 +1,15 @@
 package no.nav.budstikka.infrastructure.client
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.foundation.DeathLookup
@@ -36,7 +35,7 @@ class PdlClient(
         val response =
             httpClient.post(config.url) {
                 contentType(ContentType.Application.Json)
-                header(HttpHeaders.Authorization, "Bearer $token")
+                bearerAuth(token)
                 header(TEMA_HEADER, TEMA_SYKEFRAVAER)
                 header(BEHANDLINGSNUMMER_HEADER, BEHANDLINGSNUMMER)
                 setBody(json.encodeToString(personQuery(ident.value)))
@@ -72,8 +71,8 @@ class PdlClient(
             }
             val deaths =
                 response.data
-                    ?.hentPerson
-                    ?.doedsfall
+                    ?.fetchPerson
+                    ?.deaths
                     .orEmpty()
             return deaths.isNotEmpty()
         }
@@ -104,12 +103,14 @@ internal data class GraphqlError(
 
 @Serializable
 internal data class PdlData(
-    val hentPerson: HentPerson? = null,
+    @SerialName("hentPerson")
+    val fetchPerson: FetchPerson? = null,
 )
 
 @Serializable
-internal data class HentPerson(
-    val doedsfall: List<Death>? = null,
+internal data class FetchPerson(
+    @SerialName("doedsfall")
+    val deaths: List<Death>? = null,
 )
 
 @Serializable
