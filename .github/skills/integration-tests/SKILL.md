@@ -1,6 +1,6 @@
 ---
 name: integration-tests
-description: "Use for Kotest integration tests with real adapters or infrastructure: repository/adapter tests, PostgresTestFixture, Flyway/Exposed, TransactionRunner, or /integration-tests. Use /unit-tests for pure logic. Use /e2e-tests for full application boot."
+description: "Use for Kotest integration tests with real adapters: repository/adapter tests, PostgresTestFixture, Flyway/Exposed, TransactionRunner, or /integration-tests. Use /unit-tests for pure logic. Use /e2e-tests for app boot."
 ---
 
 # Integration Tests

@@ -1,6 +1,6 @@
 ---
 name: kotlin
-description: "Use for idiomatic Kotlin code: refactoring, value classes, sealed types, coroutines, nullability, visibility, composition, DRY/SOLID, hexagonal architecture, or /kotlin. Use /kotlin-ktor for Ktor setup."
+description: "Use for idiomatic Kotlin: refactoring, value classes, sealed types, coroutines, nullability, visibility, composition, DRY/SOLID, hexagonal architecture, or /kotlin. Use /kotlin-ktor for Ktor setup."
 ---
 
 # Kotlin
