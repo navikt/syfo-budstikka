@@ -2,7 +2,7 @@
 
 - Status: besluttet (issue #35, lokalt løp + e2e-harness)
 - Dato: 2026-07-13
-- Relatert: beslutning B50–B53, B56 i `docs/CONTEXT.md`, `docs/TESTSTRATEGI.md`, ADR 0004 (workers), teknologivalg B44
+- Relatert: beslutning B50–B53, B56 i `docs/context.md`, `docs/teststrategi.md`, ADR 0004 (workers), teknologivalg B44
 - Merk: ADR-nummer 0006 er valgt for å reservere 0005 til den planlagte
   «komponerbare-beslutningsgater»-ADR-en (B55, egen gren) og unngå kollisjon ved merge.
 
@@ -61,7 +61,7 @@ finnes uansett aldri i prod-jaren (build-grensen, B50).
   slippe gjennom til den kjøres. Motvirkes ved å kjøre `e2eTest` i en egen (manuell/nattlig) jobb og
   lokalt før større endringer i boot-sømmen.
 - ➖ To test-tasks å holde styr på (`test`, `e2eTest`); nye e2e-specer MÅ merkes `@Tags("E2E")` for
-  ikke å havne i default-gaten. Konvensjonen er dokumentert i `docs/TESTSTRATEGI.md`.
+  ikke å havne i default-gaten. Konvensjonen er dokumentert i `docs/teststrategi.md`.
 - ➖ Reviderer B53s implisitte forutsetning om at e2e er en del av den vanlige testkjøringen —
   eksplisittert i B56.
 

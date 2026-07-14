@@ -69,7 +69,7 @@ mise dev:tc       # eller: ./gradlew runLocal
 
 Dette booter hele appen mot Testcontainers: Postgres og Kafka startes fra kode, eksterne integrasjoner (for eksempel PDL) byttes mot fakes, og en Kafka UI startes i nettleseren for å inspisere topics, meldinger, konsumentgrupper og offsets. Ved oppstart logges Kafka-bootstrap, formidling-topic, JDBC-URL og Kafka UI-URL for live-inspeksjon. Avslutt med Ctrl+C, som river ned containerne.
 
-Løpet trenger ikke docker-compose-infraen og henter ikke tokens. Det bruker samme test-substrat som e2e-testene. Se `docs/TESTSTRATEGI.md` for detaljer.
+Løpet trenger ikke docker-compose-infraen og henter ikke tokens. Det bruker samme test-substrat som e2e-testene. Se `docs/teststrategi.md` for detaljer.
 
 Loggene i det lokale løpet er menneskelig lesbar tekst (ikke JSON) via `src/test/resources/logback-local.xml`. Prod logger fortsatt strukturert JSON.
 

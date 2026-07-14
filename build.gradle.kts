@@ -103,7 +103,7 @@ tasks {
     }
 
     // Booter hele appen lokalt mot Testcontainers (Postgres + Kafka) med fakes wiret inn via
-    // test-substratet i src/test. Samme main-klasse som e2e-harnessen bruker. Se docs/TESTSTRATEGI.md.
+    // test-substratet i src/test. Samme main-klasse som e2e-harnessen bruker. Se docs/teststrategi.md.
     register<JavaExec>("runLocal") {
         description = "Booter appen lokalt mot Testcontainers (Postgres + Kafka) med fakes."
         group = "application"
