@@ -27,7 +27,7 @@ run = './gradlew run'
 
 # Kjører hele appen lokalt mot Testcontainers (Postgres + Kafka + Kafka UI) med fakes wiret inn —
 # trenger IKKE docker-compose-infraen (`infra`). Ctrl+C river ned containerne. Se docs/TESTSTRATEGI.md.
-[tasks.local]
+[tasks."dev:tc"]
 description = "Run app locally against Testcontainers (Postgres + Kafka + Kafka UI), no compose needed"
 run = './gradlew runLocal'
 

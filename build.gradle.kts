@@ -111,6 +111,9 @@ tasks {
         classpath = sourceSets["test"].runtimeClasspath
         standardInput = System.`in`
         jvmArgs("--enable-native-access=ALL-UNNAMED")
+        // Menneskelig lesbar logg lokalt (src/test/resources/logback-local.xml). Prod bruker
+        // fortsatt JSON via logback.xml. Filen finnes bare i test-classpath, aldri i prod-jaren.
+        systemProperty("logback.configurationFile", "logback-local.xml")
     }
 
     named("check") {

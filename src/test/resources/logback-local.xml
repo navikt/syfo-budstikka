@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Menneskelig lesbar logg for det lokale løpet (runLocal / LocalApp). Velges via system-property
+    logback.configurationFile satt av runLocal-oppgaven, så prod-loggingen (JSON via logback.xml)
+    er urørt. Ligger i src/test/resources og havner aldri i prod-jaren.
+-->
+<configuration>
+    <appender name="stdout_human" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.apache.kafka" level="WARN" />
+    <logger name="org.testcontainers" level="INFO" />
+    <logger name="tc" level="WARN" />
+    <logger name="com.github.dockerjava" level="WARN" />
+
+    <root level="info">
+        <appender-ref ref="stdout_human" />
+    </root>
+</configuration>
