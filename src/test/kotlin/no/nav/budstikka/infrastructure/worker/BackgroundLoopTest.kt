@@ -1,7 +1,10 @@
 package no.nav.budstikka.infrastructure.worker
 
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import no.nav.budstikka.infrastructure.Heartbeat
 import no.nav.budstikka.infrastructure.MutableClock
 import java.util.concurrent.CountDownLatch
@@ -47,6 +50,41 @@ class BackgroundLoopTest :
             failed.await(5, TimeUnit.SECONDS) shouldBe true
             loop.isAlive() shouldBe true
             loop.close()
+        }
+
+        test("records run, duration and failure metrics tagged by worker") {
+            val registry = SimpleMeterRegistry()
+            val failed = CountDownLatch(1)
+            val loop =
+                BackgroundLoop("metered-worker", 10.milliseconds, meterRegistry = registry) {
+                    failed.countDown()
+                    error("boom")
+                }
+
+            loop.start()
+            failed.await(5, TimeUnit.SECONDS) shouldBe true
+
+            // The failure counter increments inside the loop's catch after the throw; poll briefly so
+            // the assertion does not race the worker coroutine.
+            eventually(5.seconds) {
+                registry
+                    .get("worker.failures")
+                    .tag("worker", "metered-worker")
+                    .counter()
+                    .count() shouldBeGreaterThan 0.0
+            }
+            loop.close()
+
+            registry
+                .get("worker.runs")
+                .tag("worker", "metered-worker")
+                .counter()
+                .count() shouldBeGreaterThan 0.0
+            registry
+                .get("worker.duration")
+                .tag("worker", "metered-worker")
+                .timer()
+                .count() shouldBeGreaterThan 0L
         }
 
         test("default stale threshold scales with slow intervals") {

@@ -1,6 +1,8 @@
 package no.nav.budstikka.infrastructure.kafka.config
 
 import io.ktor.server.plugins.di.DependencyRegistry
+import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
@@ -14,6 +16,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
+import java.util.concurrent.atomic.AtomicReference
 
 fun DependencyRegistry.kafkaModule() {
     provide<InboxMessageHandler> { InboxMessageHandler(resolve<InboxMessageRepository>(), resolve<DeadLetterMessageRepository>()) }
@@ -36,11 +39,17 @@ fun DependencyRegistry.kafkaModule() {
     }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
+        val registry = resolve<PrometheusMeterRegistry>()
         val enabledConsumers = kafkaConfig.consumers.filterValues { it.enabled }
         enabledConsumers.map { (name, consumerConfig) ->
+            // Klientmetrikkene (bl.a. kafka_consumer_fetch_manager_records_lag_max, issue #41) bindes til
+            // den aktive consumeren. ConsumerRunner bygger en fersk consumer ved hver transient restart,
+            // så vi lukker det forrige bindet før vi binder det nye — ellers akkumuleres døde tidsserier
+            // (ny auto-generert client.id per restart).
+            val clientMetrics = AtomicReference<KafkaClientMetrics?>()
             ConsumerRunner(
                 consumerFactory = {
-                    KafkaConsumer(
+                    KafkaConsumer<String, String?>(
                         PropertiesFactory(kafkaConfig).consumer(
                             groupId = consumerConfig.groupId,
                             autoOffsetReset = consumerConfig.autoOffsetReset,
@@ -48,7 +57,12 @@ fun DependencyRegistry.kafkaModule() {
                             keyDeserializer = StringDeserializer::class.java,
                             valueDeserializer = StringDeserializer::class.java,
                         ),
-                    )
+                    ).also { consumer ->
+                        // Lukk-før-rebind: fjern forrige binder (og dens meters) FØR den nye bindes,
+                        // så en ny binding aldri kolliderer med meters vi straks lukker.
+                        clientMetrics.getAndSet(null)?.close()
+                        clientMetrics.set(KafkaClientMetrics(consumer).apply { bindTo(registry) })
+                    }
                 },
                 topics = listOf(consumerConfig.topic),
                 handler = handlerForConsumer(name),

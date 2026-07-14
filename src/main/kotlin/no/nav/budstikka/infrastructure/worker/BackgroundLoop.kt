@@ -1,5 +1,8 @@
 package no.nav.budstikka.infrastructure.worker
 
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +20,7 @@ import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -37,11 +41,21 @@ class BackgroundLoop(
     val name: String,
     private val interval: Duration,
     private val heartbeat: Heartbeat = Heartbeat(staleThreshold = defaultStaleThreshold(interval)),
+    meterRegistry: MeterRegistry? = null,
     private val iteration: suspend () -> Unit,
 ) : AutoCloseable {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private var scope: CoroutineScope? = null
     private var job: Job? = null
+
+    // Per-worker driftsmetrikker (issue #28): runs/varighet/feil, tagget med worker-navnet. Null-
+    // registeret gjør dette til ingen-op i tester som ikke bryr seg om måling.
+    private val runsCounter: Counter? =
+        meterRegistry?.let { Counter.builder("worker.runs").tag("worker", name).register(it) }
+    private val failuresCounter: Counter? =
+        meterRegistry?.let { Counter.builder("worker.failures").tag("worker", name).register(it) }
+    private val durationTimer: Timer? =
+        meterRegistry?.let { Timer.builder("worker.duration").tag("worker", name).register(it) }
 
     init {
         require(name.isNotBlank()) { "name must not be blank" }
@@ -88,12 +102,17 @@ class BackgroundLoop(
     }
 
     private suspend fun runIterationSafely() {
+        runsCounter?.increment()
+        val startNanos = System.nanoTime()
         try {
             iteration()
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
+            failuresCounter?.increment()
             logger.error("{} failed in iteration", name, error)
+        } finally {
+            durationTimer?.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS)
         }
     }
 

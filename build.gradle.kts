@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.call.id)
     implementation(libs.ktor.server.di)
+    implementation(libs.ktor.server.metrics.micrometer)
     implementation(libs.hikari)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
