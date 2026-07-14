@@ -2,6 +2,7 @@ package no.nav.budstikka.bootstrap
 
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.ChannelHandler
 import no.nav.budstikka.application.DeliveryWorker
 import no.nav.budstikka.application.EffectuateDecision
@@ -9,6 +10,7 @@ import no.nav.budstikka.application.InboxMessageWorker
 import no.nav.budstikka.application.LeaseBudgetDrainer
 import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.TransactionRunner
@@ -39,6 +41,8 @@ fun DependencyRegistry.workerModule() {
     // løkka eier livssyklusen. Kun bootstrap ser begge lag.
     provide<List<BackgroundLoop>> {
         val workerConfig = resolve<WorkerConfig>()
+        val metrics = resolve<DispatchMetrics>()
+        val meterRegistry = resolve<PrometheusMeterRegistry>()
         val inboxMessageWorker =
             InboxMessageWorker(
                 repository = resolve<InboxMessageRepository>(),
@@ -50,6 +54,7 @@ fun DependencyRegistry.workerModule() {
                         maxConsecutiveItemFailures = workerConfig.inboxMessage.maxConsecutiveItemFailures,
                     ),
                 config = workerConfig.inboxMessage,
+                metrics = metrics,
             )
         val deliveryWorker =
             DeliveryWorker(
@@ -61,16 +66,19 @@ fun DependencyRegistry.workerModule() {
                         maxConsecutiveItemFailures = workerConfig.delivery.maxConsecutiveItemFailures,
                     ),
                 config = workerConfig.delivery,
+                metrics = metrics,
             )
         listOf(
             BackgroundLoop(
                 name = "inbox-message",
                 interval = workerConfig.inboxMessage.interval,
+                meterRegistry = meterRegistry,
                 iteration = inboxMessageWorker::runOnce,
             ),
             BackgroundLoop(
                 name = "delivery",
                 interval = workerConfig.delivery.interval,
+                meterRegistry = meterRegistry,
                 iteration = deliveryWorker::runOnce,
             ),
         )

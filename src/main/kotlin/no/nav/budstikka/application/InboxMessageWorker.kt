@@ -2,6 +2,7 @@ package no.nav.budstikka.application
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
+import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.domain.decision.Decision
@@ -30,6 +31,7 @@ class InboxMessageWorker(
     private val decisionProcess: DecisionProcess,
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
+    private val metrics: DispatchMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(InboxMessageWorker::class.java)
 
@@ -37,12 +39,26 @@ class InboxMessageWorker(
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.eventId.toString() },
-            claim = { repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts) },
+            claim = {
+                repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts).also { claimed ->
+                    if (claimed.isEmpty()) metrics.inboxEmptyPoll() else metrics.inboxClaimed(claimed.size)
+                }
+            },
             process = { message ->
-                effectuator.effectuate(message.eventId, decideFor(message))
+                val decision = decideFor(message)
+                effectuator.effectuate(message.eventId, decision)
+                metrics.record(decision)
                 logger.info("Message processed")
             },
         )
+    }
+
+    private fun DispatchMetrics.record(decision: Decision) {
+        when (decision) {
+            is Decision.Processed -> inboxProcessed()
+            is Decision.Dropped -> inboxDropped(decision.reason)
+            is Decision.Failed -> inboxFailed()
+        }
     }
 
     private suspend fun decideFor(message: InboxMessage): Decision {

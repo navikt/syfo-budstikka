@@ -10,6 +10,7 @@ import no.nav.budstikka.bootstrap.installDependencyInjection
 import no.nav.budstikka.bootstrap.startKafkaConsumers
 import no.nav.budstikka.bootstrap.startWorkers
 import no.nav.budstikka.infrastructure.database.config.migrate
+import no.nav.budstikka.infrastructure.metrics.installMetrics
 import org.slf4j.LoggerFactory
 import java.lang.invoke.MethodHandles
 import javax.sql.DataSource
@@ -48,6 +49,7 @@ fun Application.module() {
 fun Application.configureApplication(overrides: DependencyRegistry.() -> Unit = {}) {
     installPlugins()
     installDependencyInjection(overrides)
+    installMetrics()
     val dataSource: DataSource by dependencies
     dataSource.migrate()
     startKafkaConsumers()

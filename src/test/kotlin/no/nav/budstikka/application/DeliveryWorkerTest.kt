@@ -8,12 +8,15 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.DispatchMetrics
+import no.nav.budstikka.application.port.NoDispatchMetrics
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import java.util.UUID
@@ -66,6 +69,39 @@ class DeliveryWorkerTest :
                 .single()
                 .second
                 .shouldNotBeBlank()
+        }
+
+        test("runOnce records delivery metrics per channel and result") {
+            val sentId = UUID.fromString("00000000-0000-0000-0000-000000000210")
+            val failedId = UUID.fromString("00000000-0000-0000-0000-000000000211")
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries =
+                        listOf(
+                            validMicrofrontendDelivery(sentId),
+                            nonMicrofrontendPayload(failedId),
+                        ),
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+            val metrics = RecordingDispatchMetrics()
+
+            workerWith(repository, publisher, metrics = metrics).runOnce()
+
+            metrics.deliveryClaimed.get() shouldBe 2
+            metrics.deliverySent[Channel.MICROFRONTEND]?.get() shouldBe 1
+            metrics.deliveryFailed[Channel.MICROFRONTEND]?.get() shouldBe 1
+            metrics.deliveryEmptyPolls.get() shouldBe 0
+        }
+
+        test("runOnce records an empty poll when nothing is claimed") {
+            val repository = PollingDeliveryRepository(deliveries = emptyList())
+            val publisher = RecordingMicrofrontendPublisher()
+            val metrics = RecordingDispatchMetrics()
+
+            workerWith(repository, publisher, metrics = metrics).runOnce()
+
+            metrics.deliveryEmptyPolls.get() shouldBe 1
+            metrics.deliveryClaimed.get() shouldBe 0
         }
 
         test("runOnce stops draining when the lease budget is exhausted") {
@@ -128,6 +164,7 @@ private fun workerWith(
     leaseBudgetFraction: Double = 0.8,
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
+    metrics: DispatchMetrics = NoDispatchMetrics,
 ): DeliveryWorker =
     DeliveryWorker(
         repository = repository,
@@ -147,6 +184,7 @@ private fun workerWith(
                 maxAttempts = LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS,
                 maxConsecutiveItemFailures = maxConsecutiveItemFailures,
             ),
+        metrics = metrics,
     )
 
 private class PollingDeliveryRepository(

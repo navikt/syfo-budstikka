@@ -2,6 +2,7 @@ package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.domain.decision.Channel
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
@@ -22,6 +23,7 @@ class DeliveryWorker(
     private val handlers: Map<Channel, ChannelHandler>,
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
+    private val metrics: DispatchMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(DeliveryWorker::class.java)
 
@@ -29,7 +31,11 @@ class DeliveryWorker(
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.inboxEventId?.toString() ?: it.id.toString() },
-            claim = { repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys) },
+            claim = {
+                repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys).also { claimed ->
+                    if (claimed.isEmpty()) metrics.deliveryEmptyPoll() else metrics.deliveryClaimed(claimed.size)
+                }
+            },
             process = { dispatch(it) },
         )
     }
@@ -52,6 +58,7 @@ class DeliveryWorker(
 
     private suspend fun markSent(delivery: ClaimedDelivery) {
         if (repository.markSent(delivery.id)) {
+            metrics.deliverySent(delivery.channel)
             logger.info("Delivery sent successfully")
         } else {
             logger.warn("Could not mark delivery as SENT because row is no longer CLAIMED")
@@ -63,6 +70,7 @@ class DeliveryWorker(
         reason: String,
     ) {
         if (repository.markFailed(delivery.id, reason)) {
+            metrics.deliveryFailed(delivery.channel)
             logger.warn("Marked delivery as FAILED: {}", reason)
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
