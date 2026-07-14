@@ -17,12 +17,10 @@ import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.foundation.DeathLookup
-import no.nav.budstikka.infrastructure.foundation.NoopDeathLookup
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
-    provide<DeathLookup> { NoopDeathLookup() }
     provide<List<DecisionRule>> { listOf(DeathGate(resolve<DeathLookup>())) }
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
     provide<EffectuateDecision> {

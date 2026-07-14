@@ -7,6 +7,8 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.infrastructure.auth.config.authModule
 import no.nav.budstikka.infrastructure.auth.config.toTexasConfig
+import no.nav.budstikka.infrastructure.client.clientModule
+import no.nav.budstikka.infrastructure.client.config.toPdlConfig
 import no.nav.budstikka.infrastructure.database.config.databaseModule
 import no.nav.budstikka.infrastructure.database.config.toDatabaseConfig
 import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
@@ -25,10 +27,12 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         provide { config.toKafkaConfig() }
         provide { config.toWorkerConfig() }
         provide { config.toTexasConfig() }
+        provide { config.toPdlConfig() }
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         databaseModule()
         kafkaModule()
         authModule()
+        clientModule()
         workerModule()
         livenessModule()
         overrides()
