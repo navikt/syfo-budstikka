@@ -18,6 +18,7 @@ kotlinxSerializationJson = "1.11.0"
 kafka = "4.3.1"
 testcontainers = "1.21.4"
 tmsVarselJavaBuilder = "2.1.1"
+tmsMikrofrontendSelector = "3.0.0"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -57,5 +58,6 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
 tms-varsel-java-builder = { module = "no.nav.tms.varsel:java-builder", version.ref = "tmsVarselJavaBuilder" }
+tms-mikrofrontend-selector-builder = { module = "no.nav.tms.mikrofrontend.selector:builder", version.ref = "tmsMikrofrontendSelector" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }

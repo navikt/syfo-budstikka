@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.micrometer.registry.prometheus)
     implementation(libs.kafka.clients)
     implementation(libs.tms.varsel.java.builder)
+    implementation(libs.tms.mikrofrontend.selector.builder)
 
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)

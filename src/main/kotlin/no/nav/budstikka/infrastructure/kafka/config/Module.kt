@@ -38,7 +38,7 @@ fun DependencyRegistry.kafkaModule() {
         val topic =
             resolve<KafkaConfig>().producers[ProducerNames.MINSIDE_MICROFRONTEND]?.topic
                 ?: error("Missing Kafka producer config: ${ProducerNames.MINSIDE_MICROFRONTEND}")
-        microfrontendPublisher(topic = topic, messagePublisher = resolve())
+        microfrontendPublisher(topic = topic, messagePublisher = resolve(), platformConfig = resolve<PlatformConfig>())
     }
     provide<MinSideBrukervarselPublisher> {
         val kafkaConfig = resolve<KafkaConfig>()
