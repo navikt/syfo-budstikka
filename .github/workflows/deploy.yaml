@@ -38,8 +38,8 @@ jobs:
         uses: nais/docker-build-push@v0 # intern Nav-action
         with:
           team: team-esyfo
-          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
-          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          # identity_provider/project_id auto-resolves via OIDC (id-token: write) for
+          # nais-registrerte repoer — samme mønster som team-esyfos jar-to-docker.
 
       - name: Deploy til dev-gcp
         uses: nais/deploy/actions/deploy@v2 # intern Nav-action
