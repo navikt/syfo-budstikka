@@ -10,9 +10,9 @@ internal class PublisherTestContext {
             appName = "syfo-budstikka",
         )
 
-    val publisher = RecordingMessagePublisher()
+    val recording = RecordingMessagePublisher()
 
-    val topic = "min-side.aapen-microfrontend-v1"
+    val topic = "min-side.topic"
 }
 
 class RecordingMessagePublisher : MessagePublisher {

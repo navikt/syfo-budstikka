@@ -11,7 +11,7 @@ class MicrofrontendPublisherTest :
     FunSpec({
         test("publishes enable action to the configured topic keyed by personident") {
             with(PublisherTestContext()) {
-                microfrontendPublisher(topic, publisher, platformConfig).publish(
+                microfrontendPublisher(topic, recording, platformConfig).publish(
                     MicrofrontendEnable(
                         personIdentifier = TEST_SYKMELDT,
                         mikrofrontendId = "sykmeldt-overview",
@@ -19,7 +19,7 @@ class MicrofrontendPublisherTest :
                     ),
                 )
 
-                publisher.published.single() shouldBe
+                recording.published.single() shouldBe
                     PublishedMessage(
                         topic = topic,
                         id = TEST_SYKMELDT.value,
@@ -31,14 +31,14 @@ class MicrofrontendPublisherTest :
 
         test("publishes disable action to the configured topic keyed by personident") {
             with(PublisherTestContext()) {
-                microfrontendPublisher(topic, publisher, platformConfig).publish(
+                microfrontendPublisher(topic, recording, platformConfig).publish(
                     MicrofrontendDisable(
                         personIdentifier = TEST_SYKMELDT,
                         mikrofrontendId = "sykmeldt-overview",
                     ),
                 )
 
-                publisher.published.single() shouldBe
+                recording.published.single() shouldBe
                     PublishedMessage(
                         topic = topic,
                         id = TEST_SYKMELDT.value,
