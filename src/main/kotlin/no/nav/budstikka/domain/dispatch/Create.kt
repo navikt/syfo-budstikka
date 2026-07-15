@@ -19,7 +19,8 @@ data class BrukervarselCreate(
     val externalVarsling: ExternalVarsling? = null,
     val brevFallback: BrevFallback? = null,
     val sendingWindow: SendingWindow? = null,
-) : DispatchContent {
+) : DispatchContent,
+    Brukervarsel {
     override val partitionKey: String get() = personIdentifier.value
 }
 

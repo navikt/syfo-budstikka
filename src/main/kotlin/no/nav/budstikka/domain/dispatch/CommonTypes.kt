@@ -9,6 +9,10 @@ import kotlinx.serialization.Serializable
 /** Brukervarsel-type på Min side (B40). tms støtter også `Innboks`, men den brukes aldri → utelatt. */
 enum class Varseltype { BESKJED, OPPGAVE }
 
+sealed interface Brukervarsel {
+    val partitionKey: String
+}
+
 /** Ekstern varslingskanal (SMS/e-post) i tillegg til flaten. */
 enum class ExternalChannel { SMS, EMAIL }
 
