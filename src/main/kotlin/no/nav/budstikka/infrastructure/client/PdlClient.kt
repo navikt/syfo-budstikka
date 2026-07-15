@@ -36,20 +36,14 @@ class PdlClient(
             httpClient.post(config.url) {
                 contentType(ContentType.Application.Json)
                 bearerAuth(token)
-                header(TEMA_HEADER, TEMA_SYKEFRAVAER)
-                header(BEHANDLINGSNUMMER_HEADER, BEHANDLINGSNUMMER)
+                header(BEHANDLINGSNUMMER_HEADER, config.behandlingsnummer)
                 setBody(json.encodeToString(personQuery(ident.value)))
             }
         return parseIsDead(response.bodyAsText())
     }
 
     companion object {
-        private const val TEMA_HEADER = "Tema"
-        private const val TEMA_SYKEFRAVAER = "SYK"
         private const val BEHANDLINGSNUMMER_HEADER = "Behandlingsnummer"
-
-        // TODO(#20): sett riktig behandlingsnummer for budstikkas død-oppslag før prod-bruk.
-        private const val BEHANDLINGSNUMMER = "PLACEHOLDER"
 
         private val json = Json { ignoreUnknownKeys = true }
 

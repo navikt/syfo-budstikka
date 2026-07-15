@@ -27,7 +27,12 @@ private class RecordingTokenProvider(
 
 class PdlClientTest :
     FunSpec({
-        val config = PdlConfig(url = "http://pdl-api.pdl/graphql", scope = "api://dev.pdl.pdl-api/.default")
+        val config =
+            PdlConfig(
+                url = "http://pdl-api.pdl/graphql",
+                scope = "api://dev.pdl.pdl-api/.default",
+                behandlingsnummer = "B426",
+            )
 
         fun pdlBody(dead: Boolean): String =
             if (dead) {
@@ -67,12 +72,14 @@ class PdlClientTest :
             val tokenProvider = RecordingTokenProvider("tok-42")
             var capturedUrl: String? = null
             var capturedAuth: String? = null
+            var capturedBehandlingsnummer: String? = null
             var capturedBody: String? = null
             val httpClient =
                 HttpClient(
                     MockEngine { request ->
                         capturedUrl = request.url.toString()
                         capturedAuth = request.headers[HttpHeaders.Authorization]
+                        capturedBehandlingsnummer = request.headers["Behandlingsnummer"]
                         capturedBody = (request.body as io.ktor.http.content.TextContent).text
                         respond(
                             content = pdlBody(dead = true),
@@ -88,6 +95,7 @@ class PdlClientTest :
             tokenProvider.requestedTarget shouldBe config.scope
             capturedUrl shouldBe config.url
             capturedAuth shouldBe "Bearer tok-42"
+            capturedBehandlingsnummer shouldBe config.behandlingsnummer
             capturedBody!! shouldContain "11111111111"
         }
 
