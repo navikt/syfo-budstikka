@@ -1,11 +1,15 @@
 package no.nav.budstikka.application
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
+import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -21,6 +25,7 @@ import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
+import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -57,6 +62,38 @@ class InboxMessageWorkerTest :
                 .single()
                 .second
                 .shouldNotBeBlank()
+        }
+
+        test("decode failure never leaks payload content (fnr) to reason or log (B46 PII)") {
+            val fnr = "31129956715"
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000009")
+            // Structurally broken JSON whose decode error echoes the raw input (incl. the fnr) —
+            // exactly the leak B46 forbids: "aldri payload" i logg/persistert reason.
+            val leakyPayload = """{"eventId":"$eventId","content":{"personident":"$fnr" """
+            val repository =
+                PollingInboxMessageRepository(
+                    messages = listOf(InboxMessage(eventId = eventId, payload = leakyPayload)),
+                )
+
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            // Persistert reason må ikke bære payload-innhold.
+            val reason = repository.failedMessages.single().second
+            reason.shouldNotBeBlank()
+            reason shouldNotContain fnr
+            // Ingen logglinje (melding eller throwable) skal bære fnr-en.
+            appender.list.forEach { event ->
+                event.formattedMessage shouldNotContain fnr
+                (event.throwableProxy?.message ?: "") shouldNotContain fnr
+            }
         }
 
         test("runOnce records inbox metrics per outcome") {

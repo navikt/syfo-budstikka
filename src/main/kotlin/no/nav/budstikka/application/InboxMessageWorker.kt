@@ -2,6 +2,7 @@ package no.nav.budstikka.application
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
+import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
@@ -77,8 +78,12 @@ class InboxMessageWorker(
     }
 
     private fun decodeFailedDecision(error: Throwable): Decision.Failed {
-        val reason = error.message ?: "Unable to decode inbox message"
-        logger.warn("Failed to decode inbox message", error)
-        return Decision.Failed(reason)
+        // B46/PII: en decode-feil kan bære payload-innhold (fnr) i exception-meldingen — kotlinx
+        // echo-er «JSON input: …». Logg/persister derfor KUN exception-TYPEN, aldri message eller
+        // hele throwable. eventId er på MDC (korrelasjon bevart); rå payload slås ev. opp i
+        // inbox_message under tilgangskontroll (B46-feilsøkingsmodell).
+        val errorType = error.javaClass.simpleName
+        logger.warn("Failed to decode inbox message {}", kv("errorType", errorType))
+        return Decision.Failed("DECODE_FAILED: $errorType")
     }
 }

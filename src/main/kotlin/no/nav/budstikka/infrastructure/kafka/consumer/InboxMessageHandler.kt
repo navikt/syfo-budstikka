@@ -1,11 +1,14 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
+import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.domain.dispatch.DispatchHeader
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import java.util.UUID
 
 /**
@@ -48,13 +51,15 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
+        // Dead-letters kan MANGLE en gyldig eventId (MISSING/INVALID_EVENT_ID) → korrelér på
+        // Kafka-koordinater, ikke på MDC-eventId (B45). Strukturerte felt via kv (B46).
         deadLetters.forEach { deadLetter ->
             logger.warn(
-                "Poison inbox message dead-lettered failureReason={} topic={} partition={} offset={}",
-                deadLetter.failureReason,
-                deadLetter.topic,
-                deadLetter.partition,
-                deadLetter.kafkaOffset,
+                "Poison inbox message dead-lettered {} {} {} {}",
+                kv("failureReason", deadLetter.failureReason),
+                kv("topic", deadLetter.topic),
+                kv("partition", deadLetter.partition),
+                kv("kafkaOffset", deadLetter.kafkaOffset),
             )
         }
     }
@@ -64,14 +69,18 @@ class InboxMessageHandler(
             return
         }
         inboxMessageRepository.saveBatch(validEvents.map { it.eventId to it.payload })
+        // B45: re-attach eventId på MDC ved konsum-steget så `| event_id="X"` i Loki dekker HELE
+        // hendelsesløpet (konsum → decide → poller → send), ikke bare de senere stegene. Øvrige
+        // felt struktureres via kv (B46); ingen payload/PII logges.
         validEvents.forEach { event ->
-            logger.info(
-                "Inbox message handled eventId={} topic={} partition={} offset={}",
-                event.eventId,
-                event.topic,
-                event.partition,
-                event.kafkaOffset,
-            )
+            MDC.putCloseable(MdcKeys.EVENT_ID, event.eventId.toString()).use {
+                logger.info(
+                    "Inbox message handled {} {} {}",
+                    kv("topic", event.topic),
+                    kv("partition", event.partition),
+                    kv("kafkaOffset", event.kafkaOffset),
+                )
+            }
         }
     }
 
