@@ -6,6 +6,7 @@ import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
+import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.BatchMessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
@@ -40,10 +41,15 @@ fun DependencyRegistry.kafkaModule() {
         microfrontendPublisher(topic = topic, messagePublisher = resolve())
     }
     provide<MinSideBrukervarselPublisher> {
+        val kafkaConfig = resolve<KafkaConfig>()
         val topic =
-            resolve<KafkaConfig>().producers[ProducerNames.MINSIDE_BRUKERVARSEL]?.topic
+            kafkaConfig.producers[ProducerNames.MINSIDE_BRUKERVARSEL]?.topic
                 ?: error("Missing Kafka producer config: ${ProducerNames.MINSIDE_BRUKERVARSEL}")
-        minSideBrukervarselPublisher(topic = topic, messagePublisher = resolve())
+        minSideBrukervarselPublisher(
+            topic = topic,
+            messagePublisher = resolve(),
+            platformConfig = resolve<PlatformConfig>(),
+        )
     }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()

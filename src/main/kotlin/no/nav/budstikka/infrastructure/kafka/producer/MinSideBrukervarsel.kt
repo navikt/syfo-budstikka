@@ -6,6 +6,7 @@ import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
 import no.nav.budstikka.domain.dispatch.ExternalChannel
 import no.nav.budstikka.domain.dispatch.ExternalVarsling
+import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.tms.varsel.builder.InaktiverVarselBuilder
 import no.nav.tms.varsel.builder.OpprettVarselBuilder
 import java.time.ZoneOffset
@@ -22,24 +23,31 @@ private const val DEFAULT_LANGUAGE = "nb"
 fun minSideBrukervarselPublisher(
     topic: String,
     messagePublisher: MessagePublisher,
+    platformConfig: PlatformConfig,
 ): MinSideBrukervarselPublisher =
     MinSideBrukervarselPublisher { reference, brukervarsel ->
         messagePublisher.publish(
             PublishedMessage(
                 topic = topic,
                 id = brukervarsel.partitionKey,
-                value = brukervarsel.toMessage(reference),
+                value = brukervarsel.toMessage(reference, platformConfig),
             ),
         )
     }
 
-private fun Brukervarsel.toMessage(reference: String): String =
+private fun Brukervarsel.toMessage(
+    reference: String,
+    platformConfig: PlatformConfig,
+): String =
     when (this) {
-        is BrukervarselCreate -> toCreateMessage(reference)
-        is BrukervarselInactivate -> toInactivateMessage(reference)
+        is BrukervarselCreate -> toCreateMessage(reference, platformConfig)
+        is BrukervarselInactivate -> toInactivateMessage(reference, platformConfig)
     }
 
-private fun BrukervarselCreate.toCreateMessage(reference: String): String =
+private fun BrukervarselCreate.toCreateMessage(
+    reference: String,
+    platformConfig: PlatformConfig,
+): String =
     OpprettVarselBuilder
         .newInstance()
         .withVarselId(reference)
@@ -48,15 +56,20 @@ private fun BrukervarselCreate.toCreateMessage(reference: String): String =
         .withSensitivitet(TmsSensitivitet.High)
         .withTekst(DEFAULT_LANGUAGE, text, true)
         .apply {
+            withProdusent(platformConfig.clusterName, platformConfig.namespace, platformConfig.appName)
             link?.let(::withLink)
             visibleUntil?.let { withAktivFremTil(it.toZonedDateTime()) }
             externalVarsling?.let { withEksternVarsling(it.toTms()) }
         }.build()
 
-private fun toInactivateMessage(reference: String): String =
+private fun toInactivateMessage(
+    reference: String,
+    platformConfig: PlatformConfig,
+): String =
     InaktiverVarselBuilder
         .newInstance()
         .withVarselId(reference)
+        .withProdusent(platformConfig.clusterName, platformConfig.namespace, platformConfig.appName)
         .build()
 
 private fun DomainVarseltype.toTms(): TmsVarseltype =

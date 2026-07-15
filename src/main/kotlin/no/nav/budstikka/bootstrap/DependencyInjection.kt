@@ -11,6 +11,7 @@ import no.nav.budstikka.infrastructure.auth.config.authModule
 import no.nav.budstikka.infrastructure.auth.config.toTexasConfig
 import no.nav.budstikka.infrastructure.client.clientModule
 import no.nav.budstikka.infrastructure.client.config.toPdlConfig
+import no.nav.budstikka.infrastructure.config.toPlatformConfig
 import no.nav.budstikka.infrastructure.database.config.databaseModule
 import no.nav.budstikka.infrastructure.database.config.toDatabaseConfig
 import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
@@ -27,6 +28,7 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
     val config = environment.config
     dependencies {
         provide { config.toDatabaseConfig() }
+        provide { config.toPlatformConfig() }
         provide { config.toKafkaConfig() }
         provide { config.toWorkerConfig() }
         provide { config.toTexasConfig() }
