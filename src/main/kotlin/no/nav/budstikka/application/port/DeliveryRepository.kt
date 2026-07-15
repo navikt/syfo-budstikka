@@ -9,6 +9,7 @@ import kotlin.time.Duration
 data class ClaimedDelivery(
     val id: UUID,
     val inboxEventId: UUID?,
+    val reference: String,
     val channel: Channel,
     val payload: DispatchContent,
 )

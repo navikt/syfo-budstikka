@@ -1,5 +1,8 @@
 package no.nav.budstikka.application
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -19,6 +22,7 @@ import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
+import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -48,6 +52,26 @@ class DeliveryWorkerTest :
             publisher.published.shouldHaveSize(1)
             repository.sentDeliveryIds.shouldContainExactly(deliveryId)
             repository.failedDeliveries.shouldBeEmpty()
+        }
+
+        test("sent delivery log carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
+            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000210")
+            val repository =
+                PollingDeliveryRepository(deliveries = listOf(validMicrofrontendDelivery(deliveryId)))
+            val publisher = RecordingMicrofrontendPublisher()
+
+            val logbackLogger = LoggerFactory.getLogger(DeliveryWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, publisher).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Delivery sent successfully") }
+            event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
 
         test("runOnce marks delivery FAILED when payload does not match the channel") {
@@ -235,6 +259,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000301"),
+        reference = "ref-1",
         channel = Channel.MICROFRONTEND,
         payload =
             MicrofrontendEnable(
@@ -247,6 +272,7 @@ private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000302"),
+        reference = "ref-2",
         channel = Channel.MICROFRONTEND,
         payload =
             BrukervarselCreate(

@@ -1,6 +1,8 @@
 package no.nav.budstikka.application
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -11,6 +13,8 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.dispatchJson
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
+import java.util.UUID
 
 /**
  * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
@@ -45,13 +49,37 @@ class InboxMessageWorker(
                     if (claimed.isEmpty()) metrics.inboxEmptyPoll() else metrics.inboxClaimed(claimed.size)
                 }
             },
-            process = { message ->
-                val decision = decideFor(message)
-                effectuator.effectuate(message.eventId, decision)
-                metrics.record(decision)
-                logger.info("Message processed")
-            },
+            process = { message -> processClaimed(message) },
         )
+    }
+
+    /**
+     * B45: `reference` re-attaches på MDC for beslutnings-steget når payloaden er dekodet, så
+     * `| reference="X"` i Loki korrelerer OPPRETT og FERDIGSTILL (to ULIKE events, ulik eventId, delt
+     * reference). `withContext(MDCContext())` re-snapshotter MDC (eventId fra draineren + reference)
+     * inn i coroutine-konteksten så feltet overlever suspensjon i decisionProcess/effektuering —
+     * samme idiom som `LeaseBudgetDrainer` bruker for eventId. Dekode-feil har ingen reference.
+     */
+    private suspend fun processClaimed(message: InboxMessage) {
+        when (val decoded = decode(message)) {
+            is DecodeOutcome.Success ->
+                MDC.putCloseable(MdcKeys.REFERENCE, decoded.dispatch.reference).use {
+                    withContext(MDCContext()) {
+                        completeDecision(message.eventId, decisionProcess.process(decoded.dispatch))
+                    }
+                }
+
+            is DecodeOutcome.Failure -> completeDecision(message.eventId, decoded.decision)
+        }
+    }
+
+    private suspend fun completeDecision(
+        eventId: UUID,
+        decision: Decision,
+    ) {
+        effectuator.effectuate(eventId, decision)
+        metrics.record(decision)
+        logger.info("Message processed")
     }
 
     private fun DispatchMetrics.record(decision: Decision) {
@@ -62,19 +90,17 @@ class InboxMessageWorker(
         }
     }
 
-    private suspend fun decideFor(message: InboxMessage): Decision {
+    private fun decode(message: InboxMessage): DecodeOutcome {
         logger.debug("Decoding inbox payload")
-        val dispatch =
-            try {
-                dispatchJson.decodeFromString<Dispatch>(message.payload)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: SerializationException) {
-                return decodeFailedDecision(error)
-            } catch (error: IllegalArgumentException) {
-                return decodeFailedDecision(error)
-            }
-        return decisionProcess.process(dispatch)
+        return try {
+            DecodeOutcome.Success(dispatchJson.decodeFromString<Dispatch>(message.payload))
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: SerializationException) {
+            DecodeOutcome.Failure(decodeFailedDecision(error))
+        } catch (error: IllegalArgumentException) {
+            DecodeOutcome.Failure(decodeFailedDecision(error))
+        }
     }
 
     private fun decodeFailedDecision(error: Throwable): Decision.Failed {
@@ -85,5 +111,15 @@ class InboxMessageWorker(
         val errorType = error.javaClass.simpleName
         logger.warn("Failed to decode inbox message {}", kv("errorType", errorType))
         return Decision.Failed("DECODE_FAILED: $errorType")
+    }
+
+    private sealed interface DecodeOutcome {
+        data class Success(
+            val dispatch: Dispatch,
+        ) : DecodeOutcome
+
+        data class Failure(
+            val decision: Decision.Failed,
+        ) : DecodeOutcome
     }
 }

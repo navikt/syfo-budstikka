@@ -1,5 +1,7 @@
 package no.nav.budstikka.application
 
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -41,18 +43,30 @@ class DeliveryWorker(
     }
 
     private suspend fun dispatch(delivery: ClaimedDelivery) {
+        // B45: `delivery_channel` + `reference` på MDC for hele send-steget, så `| reference="X"`
+        // korrelerer OPPRETT- og FERDIGSTILL-leveransen (ulik delivery, delt reference).
+        // `withContext(MDCContext())` re-snapshotter MDC (eventId fra draineren + disse) inn i
+        // coroutine-konteksten så feltene overlever handler-suspensjon (I/O) fram til send-loggen.
         MDC.putCloseable(MdcKeys.DELIVERY_CHANNEL, delivery.channel.toString()).use {
-            val handler = handlers[delivery.channel]
-            if (handler == null) {
-                // Kan ikke skje: claim filtrerer på handlers.keys. En rad uten handler er en
-                // wiring-feil — la den stå CLAIMED (lease-reclaim), ikke terminal-feil den.
-                logger.error("No handler for claimed channel {}; leaving row for lease reclaim", delivery.channel)
-                return
+            MDC.putCloseable(MdcKeys.REFERENCE, delivery.reference).use {
+                withContext(MDCContext()) {
+                    dispatchToHandler(delivery)
+                }
             }
-            when (val outcome = handler.handle(delivery)) {
-                DeliveryOutcome.Sent -> markSent(delivery)
-                is DeliveryOutcome.Failed -> markFailed(delivery, outcome.reason)
-            }
+        }
+    }
+
+    private suspend fun dispatchToHandler(delivery: ClaimedDelivery) {
+        val handler = handlers[delivery.channel]
+        if (handler == null) {
+            // Kan ikke skje: claim filtrerer på handlers.keys. En rad uten handler er en
+            // wiring-feil — la den stå CLAIMED (lease-reclaim), ikke terminal-feil den.
+            logger.error("No handler for claimed channel {}; leaving row for lease reclaim", delivery.channel)
+            return
+        }
+        when (val outcome = handler.handle(delivery)) {
+            DeliveryOutcome.Sent -> markSent(delivery)
+            is DeliveryOutcome.Failed -> markFailed(delivery, outcome.reason)
         }
     }
 
