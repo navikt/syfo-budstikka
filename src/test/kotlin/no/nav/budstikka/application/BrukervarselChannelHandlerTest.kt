@@ -10,6 +10,7 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
+import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
@@ -67,7 +68,7 @@ class BrukervarselChannelHandlerTest :
         }
     })
 
-private fun delivery(payload: no.nav.budstikka.domain.dispatch.DispatchContent): ClaimedDelivery =
+private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
         id = UUID.fromString("00000000-0000-0000-0000-000000000501"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000502"),
