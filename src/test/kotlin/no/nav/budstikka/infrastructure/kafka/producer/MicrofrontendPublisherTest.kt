@@ -2,81 +2,49 @@ package no.nav.budstikka.infrastructure.kafka.producer
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.dispatchJson
-import no.nav.budstikka.fakes.TEST_SYKMELDT_2
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import kotlin.time.Instant
-
-private const val TOPIC = "min-side.aapen-microfrontend-v1"
 
 class MicrofrontendPublisherTest :
     FunSpec({
         test("publishes enable action to the configured topic keyed by personident") {
-            val recording = RecordingMessagePublisher()
-
-            microfrontendPublisher(TOPIC, recording).publish(
-                MicrofrontendEnable(
-                    personIdentifier = TEST_SYKMELDT_2,
-                    mikrofrontendId = "sykmeldt-overview",
-                    visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
-                ),
-            )
-
-            val expected =
-                MicrofrontendMessage(
-                    action = MinSideAction.ENABLE,
-                    ident = "12345678901",
-                    microfrontendId = "sykmeldt-overview",
+            with(PublisherTestContext()) {
+                microfrontendPublisher(topic, publisher, platformConfig).publish(
+                    MicrofrontendEnable(
+                        personIdentifier = TEST_SYKMELDT,
+                        mikrofrontendId = "sykmeldt-overview",
+                        visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
+                    ),
                 )
-            recording.published.single() shouldBe
-                PublishedMessage(
-                    topic = TOPIC,
-                    id = "12345678901",
-                    value = dispatchJson.encodeToString(expected),
-                )
+
+                publisher.published.single() shouldBe
+                    PublishedMessage(
+                        topic = topic,
+                        id = TEST_SYKMELDT.value,
+                        value =
+                            """{"@version":"3","@action":"enable","ident":"11111111111","microfrontend_id":"sykmeldt-overview","@initiated_by":"team-esyfo","sensitivitet":"high"}""",
+                    )
+            }
         }
 
         test("publishes disable action to the configured topic keyed by personident") {
-            val recording = RecordingMessagePublisher()
-
-            microfrontendPublisher(TOPIC, recording).publish(
-                MicrofrontendDisable(
-                    personIdentifier = TEST_SYKMELDT_2,
-                    mikrofrontendId = "sykmeldt-overview",
-                ),
-            )
-
-            val expected =
-                MicrofrontendMessage(
-                    action = MinSideAction.DISABLE,
-                    ident = "12345678901",
-                    microfrontendId = "sykmeldt-overview",
+            with(PublisherTestContext()) {
+                microfrontendPublisher(topic, publisher, platformConfig).publish(
+                    MicrofrontendDisable(
+                        personIdentifier = TEST_SYKMELDT,
+                        mikrofrontendId = "sykmeldt-overview",
+                    ),
                 )
-            recording.published.single() shouldBe
-                PublishedMessage(
-                    topic = TOPIC,
-                    id = "12345678901",
-                    value = dispatchJson.encodeToString(expected),
-                )
-        }
 
-        test("serializes the Min side wire contract") {
-            val recording = RecordingMessagePublisher()
-
-            microfrontendPublisher(TOPIC, recording).publish(
-                MicrofrontendEnable(
-                    personIdentifier = TEST_SYKMELDT_2,
-                    mikrofrontendId = "sykmeldt-overview",
-                ),
-            )
-
-            val json = recording.published.single().value
-            json shouldContain "\"@action\":\"enable\""
-            json shouldContain "\"ident\":\"12345678901\""
-            json shouldContain "\"microfrontend_id\":\"sykmeldt-overview\""
-            json shouldContain "\"sensitivitet\":\"high\""
-            json shouldContain "\"@initiated_by\":\"team-esyfo\""
+                publisher.published.single() shouldBe
+                    PublishedMessage(
+                        topic = topic,
+                        id = TEST_SYKMELDT.value,
+                        value =
+                            """{"@version":"3","@action":"disable","ident":"11111111111","microfrontend_id":"sykmeldt-overview","@initiated_by":"team-esyfo"}""",
+                    )
+            }
         }
     })
