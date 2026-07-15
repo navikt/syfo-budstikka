@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.logstash.logback.encoder)
     implementation(libs.micrometer.registry.prometheus)
     implementation(libs.kafka.clients)
+    implementation(libs.tms.varsel.java.builder)
 
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)

@@ -69,6 +69,7 @@ class DeliveryRepositoryImpl(
                     .select(
                         DeliveryTable.id,
                         DeliveryTable.inboxEventId,
+                        DeliveryTable.reference,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
                     ).where {
@@ -90,6 +91,7 @@ class DeliveryRepositoryImpl(
                         ClaimedDelivery(
                             id = row[DeliveryTable.id],
                             inboxEventId = row[DeliveryTable.inboxEventId],
+                            reference = row[DeliveryTable.reference],
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
                         )

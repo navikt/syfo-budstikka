@@ -235,6 +235,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000301"),
+        reference = "microfrontend-reference",
         channel = Channel.MICROFRONTEND,
         payload =
             MicrofrontendEnable(
@@ -247,6 +248,7 @@ private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000302"),
+        reference = "microfrontend-reference",
         channel = Channel.MICROFRONTEND,
         payload =
             BrukervarselCreate(
