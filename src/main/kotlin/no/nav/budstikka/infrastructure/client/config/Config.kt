@@ -11,6 +11,7 @@ import no.nav.budstikka.infrastructure.config.stringOrEmpty
 data class PdlConfig(
     val url: String,
     val scope: String,
+    val behandlingsnummer: String,
 )
 
 fun ApplicationConfig.toPdlConfig(): PdlConfig {
@@ -18,16 +19,18 @@ fun ApplicationConfig.toPdlConfig(): PdlConfig {
 
     val url = value("url")
     val scope = value("scope")
+    val behandlingsnummer = value("behandlingsnummer")
 
     val errors =
         buildList {
             if (url.isBlank()) add("pdl.url must be set (PDL_URL)")
             if (scope.isBlank()) add("pdl.scope must be set (PDL_SCOPE)")
+            if (behandlingsnummer.isBlank()) add("pdl.behandlingsnummer must be set (PDL_BEHANDLINGSNUMMER)")
         }
 
     check(errors.isEmpty()) {
         "Invalid PDL configuration: ${errors.joinToString(", ")}"
     }
 
-    return PdlConfig(url = url, scope = scope)
+    return PdlConfig(url = url, scope = scope, behandlingsnummer = behandlingsnummer)
 }
