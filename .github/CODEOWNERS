@@ -3,6 +3,6 @@
 * @navikt/team-esyfo
 
 # Høyrisiko-stier bør alltid ha menneskelig review (kombiner med branch protection):
-/.github/                @navikt/team-esyfo
-/.nais/                  @navikt/team-esyfo
-/src/main/resources/db/  @navikt/team-esyfo
+/.github/                            @navikt/team-esyfo
+/nais/                               @navikt/team-esyfo
+/src/main/resources/database.migration/  @navikt/team-esyfo
