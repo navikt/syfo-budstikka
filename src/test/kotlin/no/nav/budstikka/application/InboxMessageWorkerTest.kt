@@ -96,6 +96,7 @@ class InboxMessageWorkerTest :
             }
         }
 
+<<<<<<< HEAD
         test("valid dispatch carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             val repository =
@@ -117,6 +118,8 @@ class InboxMessageWorkerTest :
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
 
+=======
+>>>>>>> origin/main
         test("runOnce records inbox metrics per outcome") {
             val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
             val invalidEventId = UUID.fromString("00000000-0000-0000-0000-000000000004")

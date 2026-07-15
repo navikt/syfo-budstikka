@@ -111,6 +111,7 @@ class InboxMessageWorker(
         val errorType = error.javaClass.simpleName
         logger.warn("Failed to decode inbox message {}", kv("errorType", errorType))
         return Decision.Failed("DECODE_FAILED: $errorType")
+<<<<<<< HEAD
     }
 
     private sealed interface DecodeOutcome {
@@ -121,5 +122,7 @@ class InboxMessageWorker(
         data class Failure(
             val decision: Decision.Failed,
         ) : DecodeOutcome
+=======
+>>>>>>> origin/main
     }
 }
