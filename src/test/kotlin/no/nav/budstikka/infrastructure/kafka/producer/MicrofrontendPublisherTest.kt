@@ -23,7 +23,8 @@ class MicrofrontendPublisherTest :
                 with(recording.published.single()) {
                     this.topic shouldBe topic
                     id shouldBe TEST_SYKMELDT.value
-                    value.parseJson() shouldContainAll """
+                    value.parseJson() shouldContainAll
+                        """
                         {
                           "@version": "3",
                           "@action": "enable",
@@ -32,7 +33,7 @@ class MicrofrontendPublisherTest :
                           "@initiated_by": "team-esyfo",
                           "sensitivitet": "high"
                         }
-                    """.trimIndent().parseJson()
+                        """.trimIndent().parseJson()
                 }
             }
         }
@@ -49,7 +50,8 @@ class MicrofrontendPublisherTest :
                 with(recording.published.single()) {
                     this.topic shouldBe topic
                     id shouldBe TEST_SYKMELDT.value
-                    value.parseJson() shouldContainAll """
+                    value.parseJson() shouldContainAll
+                        """
                         {
                           "@version": "3",
                           "@action": "disable",
@@ -57,7 +59,7 @@ class MicrofrontendPublisherTest :
                           "microfrontend_id": "sykmeldt-overview",
                           "@initiated_by": "team-esyfo"
                         }
-                    """.trimIndent().parseJson()
+                        """.trimIndent().parseJson()
                 }
             }
         }
