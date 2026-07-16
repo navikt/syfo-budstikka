@@ -20,8 +20,7 @@ class DecisionProcessTest :
     FunSpec({
         fun processWith(deathLookup: FakeDeathLookup) = DecisionProcess(listOf(DeathGate(deathLookup)))
 
-        fun event(content: DispatchContent) =
-            Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
+        fun event(content: DispatchContent) = Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
 
         test("user-facing CREATE for dead person -> Dropped(DEAD) end-to-end via death gate") {
             val decision =
@@ -31,16 +30,15 @@ class DecisionProcessTest :
             decision shouldBe Decision.Dropped(DropReason.DEAD)
         }
 
-        test("!alive person -> Processed with one delivery") {
+        test("alive person -> Processed with one delivery") {
             val decision =
                 processWith(FakeDeathLookup())
                     .process(event(BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "text")))
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
         }
 
-        test("!microfrontend has no applicable gate -> Processed even when the person is dead") {
-            val decision =
-                processWith(deadLookupFor(TEST_SYKMELDT)).process(event(MicrofrontendEnable(TEST_SYKMELDT, "mf-1")))
+        test("microfrontend has no applicable gate -> Processed even when the person is dead") {
+            val decision = processWith(deadLookupFor(TEST_SYKMELDT)).process(event(MicrofrontendEnable(TEST_SYKMELDT, "mf-1")))
             decision.shouldBeInstanceOf<Decision.Processed>()
         }
 
@@ -51,7 +49,7 @@ class DecisionProcessTest :
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
         }
 
-        test("!leader notification is not gated on the employee's death (recipient is the leader)") {
+        test("leader notification is not gated on the employee's death (recipient is the leader)") {
             val decision =
                 processWith(deadLookupFor(TEST_SYKMELDT)).process(
                     event(

@@ -39,8 +39,7 @@ import kotlin.time.Instant
 
 class InboxMessageWorkerTest :
     FunSpec({
-
-        test("!runOnce marks valid payloads processed and invalid payloads failed") {
+        test("runOnce marks valid payloads processed and invalid payloads failed") {
             val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000001")
             val invalidEventId = UUID.fromString("00000000-0000-0000-0000-000000000002")
             val repository =
@@ -118,7 +117,7 @@ class InboxMessageWorkerTest :
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
 
-        test("!runOnce records inbox metrics per outcome") {
+        test("runOnce records inbox metrics per outcome") {
             val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
             val invalidEventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
             val repository =
