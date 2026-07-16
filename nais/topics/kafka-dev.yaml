@@ -17,3 +17,6 @@ spec:
     - team: team-esyfo
       application: syfo-budstikka
       access: read
+    - team: team-esyfo
+      application: syfo-oppfolgingsplan-backend
+      access: write
