@@ -29,7 +29,8 @@ import java.util.UUID
  */
 class DeathGateTest :
     FunSpec({
-        fun envelope(content: DispatchContent) = Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
+        fun envelope(content: DispatchContent) =
+            Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
 
         suspend fun DeathGate.decide(content: DispatchContent): Decision {
             val event = envelope(content)
@@ -50,32 +51,32 @@ class DeathGateTest :
             }
         }
 
-        test("alive user-facing person passes deliveries through unchanged") {
+        test("!alive user-facing person passes deliveries through unchanged") {
             val content = BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "text")
             DeathGate(FakeDeathLookup()).decide(content).shouldBeInstanceOf<Decision.Processed>()
         }
 
-        test("close operation (INACTIVATE) is not gated even when recipient is dead") {
+        test("!close operation (INACTIVATE) is not gated even when recipient is dead") {
             val content = BrukervarselInactivate(reference = "ref-1", sykmeldt = TEST_SYKMELDT)
             DeathGate(deadLookupFor(TEST_SYKMELDT))
                 .decide(content)
                 .shouldBeInstanceOf<Decision.Processed>()
         }
 
-        test("microfrontend enable/disable is not gated even when recipient is dead") {
+        test("!microfrontend enable/disable is not gated even when recipient is dead") {
             val gate = DeathGate(deadLookupFor(TEST_SYKMELDT))
             gate.decide(MicrofrontendEnable(TEST_SYKMELDT, "mf-1")).shouldBeInstanceOf<Decision.Processed>()
             gate.decide(MicrofrontendDisable(TEST_SYKMELDT, "mf-1")).shouldBeInstanceOf<Decision.Processed>()
         }
 
-        test("leader notification is not gated on the employee's death (recipient is the leader)") {
+        test("!leader notification is not gated on the employee's death (recipient is the leader)") {
             val content = LedervarselCreate(sykmeldt = TEST_SYKMELDT, orgnummer = TEST_ORGNUMMER, text = "text")
             DeathGate(deadLookupFor(TEST_SYKMELDT))
                 .decide(content)
                 .shouldBeInstanceOf<Decision.Processed>()
         }
 
-        test("employer notification (Altinn) has no person to look up") {
+        test("!employer notification (Altinn) has no person to look up") {
             val ag =
                 ArbeidsgivervarselCreate(
                     orgnummer = TEST_ORGNUMMER,
