@@ -96,6 +96,27 @@ class InboxMessageWorkerTest :
             }
         }
 
+        test("valid dispatch carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
+            val repository =
+                PollingInboxMessageRepository(
+                    messages = listOf(InboxMessage(eventId = eventId, payload = validPayload(eventId))),
+                )
+
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Message processed") }
+            event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+        }
+
         test("runOnce records inbox metrics per outcome") {
             val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
             val invalidEventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
