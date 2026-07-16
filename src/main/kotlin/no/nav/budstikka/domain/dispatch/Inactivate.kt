@@ -17,7 +17,8 @@ data class BrukervarselInactivate(
     @SerialName("referanse")
     val reference: String,
     val sykmeldt: PersonIdentifier,
-) : DispatchContent {
+) : DispatchContent,
+    Brukervarsel {
     override val partitionKey: String get() = sykmeldt.value
 }
 

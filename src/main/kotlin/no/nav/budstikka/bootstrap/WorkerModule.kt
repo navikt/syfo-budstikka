@@ -3,6 +3,7 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.BrukervarselChannelHandler
 import no.nav.budstikka.application.ChannelHandler
 import no.nav.budstikka.application.DeliveryWorker
 import no.nav.budstikka.application.EffectuateDecision
@@ -13,6 +14,7 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.MicrofrontendPublisher
+import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
@@ -34,6 +36,7 @@ fun DependencyRegistry.workerModule() {
     }
     provide<Map<Channel, ChannelHandler>> {
         mapOf(
+            Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
         )
     }
