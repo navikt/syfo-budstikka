@@ -23,17 +23,17 @@ import java.util.concurrent.atomic.AtomicReference
 
 fun DependencyRegistry.kafkaModule() {
     provide<InboxMessageHandler> { InboxMessageHandler(resolve<InboxMessageRepository>(), resolve<DeadLetterMessageRepository>()) }
-    provide<KafkaProducer<String, String>> {
-        KafkaProducer(
-            PropertiesFactory(resolve<KafkaConfig>()).producer(
-                keySerializer = StringSerializer::class.java,
-                valueSerializer = StringSerializer::class.java,
-            ),
-        )
-    }.cleanup { producer -> producer.close() }
     provide<MessagePublisher> {
-        MessagePublisherImpl(resolve())
-    }
+        val kafkaConfig = resolve<KafkaConfig>()
+        MessagePublisherImpl {
+            KafkaProducer(
+                PropertiesFactory(kafkaConfig).producer(
+                    keySerializer = StringSerializer::class.java,
+                    valueSerializer = StringSerializer::class.java,
+                ),
+            )
+        }
+    }.cleanup(MessagePublisher::close)
     provide<MicrofrontendPublisher> {
         val topic =
             resolve<KafkaConfig>().producers[ProducerNames.MINSIDE_MICROFRONTEND]?.topic
