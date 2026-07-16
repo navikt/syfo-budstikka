@@ -8,7 +8,7 @@
 
 `esyfovarsel` er sentral varselruter for eSyfo, men bærer mye domenekunnskap om
 andre apper (oppfølgingsplan, dialogmøte, aktivitetskrav): tekstkatalog, frist-
-regler (`synligTom`), mikrofrontend-livssyklus og resend-logikk koblet til konkrete
+regler (`synligTom`), microfrontend-livssyklus og resend-logikk koblet til konkrete
 domeneoppgaver. Det gjør appen vanskelig å endre og eie. syfo-budstikka skal overta
 ansvaret for å nå brukere (sykmeldt, nærmeste leder, arbeidsgiver) uten å kjenne
 domenene.

@@ -27,13 +27,13 @@ private fun Microfrontend.toMessage(platformConfig: PlatformConfig) =
         is MicrofrontendEnable ->
             MicrofrontendMessageBuilder.enable(
                 ident = personIdentifier.value,
-                microfrontendId = mikrofrontendId,
+                microfrontendId = microfrontendId,
                 initiatedBy = platformConfig.namespace,
             )
         is MicrofrontendDisable ->
             MicrofrontendMessageBuilder.disable(
                 ident = personIdentifier.value,
-                microfrontenId = mikrofrontendId,
+                microfrontenId = microfrontendId,
                 initiatedBy = platformConfig.namespace,
             )
     }

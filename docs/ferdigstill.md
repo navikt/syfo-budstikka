@@ -39,14 +39,14 @@ laget → lagret rad finnes alltid.
 | Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. (Partisjonsordning gjør «OPPRETT kommer senere» usannsynlig når begge faktisk sendes) |
 
 ## Lukkbarhet pr. kanal
-| Kanal | Kan lukkes? | Mekanisme (INAKTIVER) |
-| --- | --- | --- |
-| Min side brukervarsel | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
-| Dine Sykmeldte (NL) | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
-| Ditt Sykefravær | Ja | Lukk/erstatt-melding |
+| Kanal                     | Kan lukkes? | Mekanisme (INAKTIVER) |
+|---------------------------| --- | --- |
+| Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
+| Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
+| Ditt Sykefravær           | Ja | Lukk/erstatt-melding |
 | AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad (B39): OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` |
-| Fysisk brev | **Nei** | Kan ikke trekkes tilbake (B3) |
-| Mikrofrontend | Synlighet | «Lukking» = `disable`. Enable/disable-modellering avklares i kanal-DTO-område (3) |
+| Fysisk brev               | **Nei** | Kan ikke trekkes tilbake (B3) |
+| Microfrontend             | Synlighet | «Lukking» = `disable`. Enable/disable-modellering avklares i kanal-DTO-område (3) |
 
 ## Ugyldige kombinasjoner (B21)
 - Ulovlige kombinasjoner (f.eks. FERDIGSTILL + BREV) gjøres **urepresenterbare** i

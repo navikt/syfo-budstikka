@@ -11,7 +11,7 @@ import no.nav.budstikka.domain.dispatch.Varseltype
 fun microfrontendEnable(): MicrofrontendEnable =
     MicrofrontendEnable(
         personIdentifier = TEST_SYKMELDT,
-        mikrofrontendId = "sykmeldt-overview",
+        microfrontendId = "sykmeldt-overview",
     )
 
 fun microfrontendDraft(reference: String = "ununsed") =

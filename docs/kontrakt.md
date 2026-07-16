@@ -89,22 +89,22 @@ Viktige valg:
 
 ## Dispatch-varianter
 
-| Variant (`type`) | Klasse | `partitionKey` |
-|---|---|---|
-| `BrukervarselCreate` | `BrukervarselCreate` | `personIdentifier.value` |
-| `LedervarselCreate` | `LedervarselCreate` | `sykmeldt.value` |
-| `DittSykefravaerCreate` | `DittSykefravaerCreate` | `personIdentifier.value` |
-| `ArbeidsgivervarselCreate` | `ArbeidsgivervarselCreate` | `orgnummer.value` |
-| `BrevCreate` | `BrevCreate` | `personIdentifier.value` |
-| `BrukervarselInactivate` | `BrukervarselInactivate` | `sykmeldt.value` |
-| `LedervarselInactivate` | `LedervarselInactivate` | `sykmeldt.value` |
-| `DittSykefravaerInactivate` | `DittSykefravaerInactivate` | `sykmeldt.value` |
+| Variant (`type`)               | Klasse | `partitionKey` |
+|--------------------------------|---|---|
+| `BrukervarselCreate`           | `BrukervarselCreate` | `personIdentifier.value` |
+| `LedervarselCreate`            | `LedervarselCreate` | `sykmeldt.value` |
+| `DittSykefravaerCreate`        | `DittSykefravaerCreate` | `personIdentifier.value` |
+| `ArbeidsgivervarselCreate`     | `ArbeidsgivervarselCreate` | `orgnummer.value` |
+| `BrevCreate`                   | `BrevCreate` | `personIdentifier.value` |
+| `BrukervarselInactivate`       | `BrukervarselInactivate` | `sykmeldt.value` |
+| `LedervarselInactivate`        | `LedervarselInactivate` | `sykmeldt.value` |
+| `DittSykefravaerInactivate`    | `DittSykefravaerInactivate` | `sykmeldt.value` |
 | `ArbeidsgivervarselInactivate` | `ArbeidsgivervarselInactivate` | `orgnummer.value` |
-| `MicrofrontendEnable` | `MicrofrontendEnable` | `personIdentifier.value` |
-| `MikrofrontendDisable` | `MicrofrontendDisable` | `personIdentifier.value` |
+| `MicrofrontendEnable`          | `MicrofrontendEnable` | `personIdentifier.value` |
+| `MicrofrontendDisable`         | `MicrofrontendDisable` | `personIdentifier.value` |
 
 Merk:
-- `MicrofrontendDisable` har `@SerialName("MikrofrontendDisable")` (med k i type-navnet).
+- `MicrofrontendDisable` har `@SerialName("MicrofrontendDisable")` (med k i type-navnet).
 - Inactivate-typene bruker `@SerialName("referanse")` på feltet `reference` for wire-kompatibilitet.
 
 ## Ledervarsel-resolusjon (B24)
@@ -143,7 +143,7 @@ For lukkbare kanaler er inactivate-hendelsene bevisst **thin**:
 
 Avgrensninger:
 - BREV er urepresenterbart for lukking (ingen `BrevInactivate`-variant).
-- Mikrofrontend bruker eget enable/disable-par (`MicrofrontendEnable` / `MikrofrontendDisable`) utenfor reference-basert inactivate-matching.
+- Microfrontend bruker eget enable/disable-par (`MicrofrontendEnable` / `MicrofrontendDisable`) utenfor reference-basert inactivate-matching.
 
 **Lukkeoperasjon fra lagret create-rad (B39):**
 - Inactivate-eventet er tynt og bærer ikke alle tekniske lukkedetaljer.

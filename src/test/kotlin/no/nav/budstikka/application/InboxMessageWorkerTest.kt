@@ -287,7 +287,7 @@ private fun validPayload(eventId: UUID): String =
       "content":{
         "type":"MicrofrontendEnable",
         "personIdentifier":"12345678901",
-        "mikrofrontendId":"syfo-mikrofrontend"
+        "microfrontendId":"syfo-microfrontend"
       }
     }
     """.trimIndent()

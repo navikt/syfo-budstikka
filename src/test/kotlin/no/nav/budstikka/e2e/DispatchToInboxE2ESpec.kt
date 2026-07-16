@@ -33,7 +33,7 @@ class DispatchToInboxE2ESpec :
                     Dispatch(
                         eventId = eventId,
                         reference = "e2e-ref-1",
-                        content = MicrofrontendEnable(ident, "syfo-mikrofrontend"),
+                        content = MicrofrontendEnable(ident, "syfo-microfrontend"),
                     )
 
                 app.produce(

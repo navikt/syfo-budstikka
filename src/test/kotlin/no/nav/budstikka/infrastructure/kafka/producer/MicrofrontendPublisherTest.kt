@@ -15,7 +15,7 @@ class MicrofrontendPublisherTest :
                 microfrontendPublisher(topic, recording, platformConfig).publish(
                     MicrofrontendEnable(
                         personIdentifier = TEST_SYKMELDT,
-                        mikrofrontendId = "sykmeldt-overview",
+                        microfrontendId = "sykmeldt-overview",
                         visibleUntil = Instant.parse("2026-07-10T00:00:00Z"),
                     ),
                 )
@@ -43,7 +43,7 @@ class MicrofrontendPublisherTest :
                 microfrontendPublisher(topic, recording, platformConfig).publish(
                     MicrofrontendDisable(
                         personIdentifier = TEST_SYKMELDT,
-                        mikrofrontendId = "sykmeldt-overview",
+                        microfrontendId = "sykmeldt-overview",
                     ),
                 )
 

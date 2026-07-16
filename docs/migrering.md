@@ -41,7 +41,7 @@ oppfølgings-hendelser til *samme* system. Migreringsenheten er en **prosess/gru
 | Ekte oppgave/sak uten tidscap + tilfeldig referanse | **Prosess-rutet drain-close** (kolonne, B37) | Ja |
 | Grensetilfelle (oppfølgingsplan, AG-sak ~4 uker) | Hard switch + godta ~4-ukers stale-vindu | Nei (bevisst forenkling) |
 
-**Hvorfor dialogmøte MÅ ha prosess-ruting** — ikke pga. utløpstid (mikrofrontend utløper på
+**Hvorfor dialogmøte MÅ ha prosess-ruting** — ikke pga. utløpstid (microfrontend utløper på
 møtedato, AG-sak på `hardDeleteDate` +4 mnd), men fordi dialogmøte er en **tilstandsmaskin**
 over hendelser som deler én sak (INNKALT → NYTT_TID_STED → AVLYST/REFERAT). En oppfølging
 etter cutover som havner i budstikka kan ikke oppdatere esyfovarsels sak → **spøkelses-møte**:
@@ -56,7 +56,7 @@ produsenter treffer det klart; 2 grensetilfeller godtar stale-vindu; 8 trenger i
 
 | Produsent | Type(r) | Lukking | Kolonne? |
 |---|---|---|---|
-| **isdialogmote** | dialogmøte-familien (SAK + INNKALT-OPPGAVE + mikrofrontend + AG-sak) | event-drevet, delt sak, random UUID | **JA (tung — flagg på saken)** |
+| **isdialogmote** | dialogmøte-familien (SAK + INNKALT-OPPGAVE + microfrontend + AG-sak) | event-drevet, delt sak, random UUID | **JA (tung — flagg på saken)** |
 | **syfomotebehov** | SM/NL_DIALOGMOTE_SVAR_MOTEBEHOV (OPPGAVE) | event-drevet, random UUID, ingen cap | **JA (lett — flagg på møtebehov-runden)** |
 | isoppfolgingsplan | NL_OPPFOLGINGSPLAN_FORESPORSEL (AG-sak, 4 uker) | close, bundet 4 uker | Nei — godtar stale |
 | ~~syfooppfolgingsplanservice~~ | NL/SM_OPPFOLGINGSPLAN_SENDT_TIL_GODKJENNING | **DEPRECATED — skrus av etter sommeren** | Utenfor scope (migreres ikke) |
@@ -68,7 +68,7 @@ produsenter treffer det klart; 2 grensetilfeller godtar stale-vindu; 8 trenger i
 | syfo-dokumentporten | AG_VARSEL_ALTINN_RESSURS | ferdigstill *ignoreres*, 4mo TTL | Nei |
 
 Merk: OPPGAVEr *med* tidscap (mer_veiledning, kartlegging, aktivitetsplikt) lukker seg selv →
-ingen kolonne. Mikrofrontend selv-utløper på `synligTom`; kun dialogmøtes mikrofrontend er
+ingen kolonne. Microfrontend selv-utløper på `synligTom`; kun dialogmøtes microfrontend er
 floket, og det dekkes av at isdialogmote ruter hele saken.
 
 ## Kolonne-mekanismen (B37)
@@ -136,5 +136,5 @@ esyfovarsels DB). Ingen aktiv fremtidsdatert scheduler-kø (`PlanlagtVarsel` er 
   når vi når trinn 5.
 - **aktivitetsplikt auto-lukke-jobb:** budstikka må reprodusere jobbens 2–14-dagers auto-lukke
   for varsler *den* lager (esyfovarsels jobb dreneres parallelt).
-- **Mikrofrontend-utløp:** budstikka eier egen `synligTom`-basert lukking (jf. esyfovarsels
+- **Microfrontend-utløp:** budstikka eier egen `synligTom`-basert lukking (jf. esyfovarsels
   `closeExpiredMicrofrontendsJob`).

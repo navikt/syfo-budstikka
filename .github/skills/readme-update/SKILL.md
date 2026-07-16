@@ -7,7 +7,7 @@ description: "Brukes når README eller repo-dokumentasjon i dette Ktor-backend-r
 
 Bruk denne skillen når README skal opprettes eller oppdateres. README skal speile det `no.nav.syfo`-backenden faktisk gjør i dag — ikke fylle ut en generisk mal og ikke beskrive ønsket fremtid.
 
-Fokuser på det en backend-leser trenger: hva tjenesten gjør, hvilke API-er den eksponerer, hva den konsumerer/produserer på Kafka, hvilken database den eier, hvordan den autentiserer kallere, og hvordan andre tjenester når den. Dropp frontend-spesifikke grep (miljølenker for deploybar UI, mikrofront-tabeller, nav-dekoratør, Storybook).
+Fokuser på det en backend-leser trenger: hva tjenesten gjør, hvilke API-er den eksponerer, hva den konsumerer/produserer på Kafka, hvilken database den eier, hvordan den autentiserer kallere, og hvordan andre tjenester når den. Dropp frontend-spesifikke grep (miljølenker for deploybar UI, microfront-tabeller, nav-dekoratør, Storybook).
 
 ## Steg 1: Les repoet først
 

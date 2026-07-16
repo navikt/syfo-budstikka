@@ -56,15 +56,15 @@ data class ArbeidsgivervarselInactivate(
 }
 
 /**
- * Mikrofrontend (B41) – synlighet på Min side, holdt UTENFOR Inaktiver-mekanismen. Eget
- * aktiver/deaktiver-par: en av/på-bryter for `(person, mikrofrontendId)`, ikke en
+ * Microfrontend (B41) – synlighet på Min side, holdt UTENFOR Inaktiver-mekanismen. Eget
+ * aktiver/deaktiver-par: en av/på-bryter for `(person, microfrontendId)`, ikke en
  * leveranse-med-mottaker som matches på `referanse`. Egen sealed subtype så produsent-siden
  * tar imot nettopp dette paret – kompilatoren håndhever uttømmende `when` uten `else`.
  */
 @Serializable
 sealed interface Microfrontend : DispatchContent {
     val personIdentifier: PersonIdentifier
-    val mikrofrontendId: String
+    val microfrontendId: String
     override val partitionKey: String get() = personIdentifier.value
 }
 
@@ -72,14 +72,14 @@ sealed interface Microfrontend : DispatchContent {
 @SerialName("MicrofrontendEnable")
 data class MicrofrontendEnable(
     override val personIdentifier: PersonIdentifier,
-    override val mikrofrontendId: String,
+    override val microfrontendId: String,
     val visibleUntil: Instant? = null,
 ) : Microfrontend
 
-/** Mikrofrontendens «ferdigstill» – deaktiver synlighet (B41). */
+/** Microfrontendens «ferdigstill» – deaktiver synlighet (B41). */
 @Serializable
-@SerialName("MikrofrontendDisable")
+@SerialName("MicrofrontendDisable")
 data class MicrofrontendDisable(
     override val personIdentifier: PersonIdentifier,
-    override val mikrofrontendId: String,
+    override val microfrontendId: String,
 ) : Microfrontend
