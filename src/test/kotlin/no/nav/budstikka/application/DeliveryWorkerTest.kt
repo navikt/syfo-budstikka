@@ -240,7 +240,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
         payload =
             MicrofrontendEnable(
                 personIdentifier = PersonIdentifier("12345678901"),
-                mikrofrontendId = "syfo-mikrofrontend",
+                microfrontendId = "syfo-microfrontend",
             ),
     )
 

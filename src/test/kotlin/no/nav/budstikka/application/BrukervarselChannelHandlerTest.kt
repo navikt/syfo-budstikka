@@ -57,7 +57,7 @@ class BrukervarselChannelHandlerTest :
             val payload =
                 MicrofrontendEnable(
                     personIdentifier = PersonIdentifier("12345678901"),
-                    mikrofrontendId = "syfo-mikrofrontend",
+                    microfrontendId = "syfo-microfrontend",
                 )
 
             val outcome = handler.handle(delivery(payload))

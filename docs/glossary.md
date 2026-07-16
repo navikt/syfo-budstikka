@@ -31,7 +31,7 @@ _Unngå_: bedrift, org
 
 **Dispatch**:
 Det en produsent ber budstikka nå ut med til en recipient. Paraply over alle former — varsel,
-brev, e-post og mikrofrontend-flate — uavhengig av channel.
+brev, e-post og microfrontend-flate — uavhengig av channel.
 _Unngå_: varselbestilling, bestilling, melding
 
 **Domeneblind**:
@@ -40,7 +40,7 @@ Se `adr/0001-domeneblind-varselruter.md`.
 
 **Channel (`channel`)**:
 Den konkrete veien en dispatch når recipienten (Min side-brukervarsel, Dine Sykmeldte,
-Ditt Sykefravær, arbeidsgivervarsel, brev, mikrofrontend).
+Ditt Sykefravær, arbeidsgivervarsel, brev, microfrontend).
 _Unngå_: kanal (legacy-ord i kodekontekst)
 
 **Varsel**:

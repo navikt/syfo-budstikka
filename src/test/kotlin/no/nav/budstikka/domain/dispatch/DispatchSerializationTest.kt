@@ -61,12 +61,12 @@ class DispatchSerializationTest :
                     "MicrofrontendEnable" to
                         MicrofrontendEnable(
                             personIdentifier = TEST_SYKMELDT_2,
-                            mikrofrontendId = "mf-1",
+                            microfrontendId = "mf-1",
                         ),
-                    "MikrofrontendDisable" to
+                    "MicrofrontendDisable" to
                         MicrofrontendDisable(
                             personIdentifier = TEST_SYKMELDT_2,
-                            mikrofrontendId = "mf-1",
+                            microfrontendId = "mf-1",
                         ),
                     "BrukervarselInactivate" to
                         BrukervarselInactivate(reference = "ref-123", sykmeldt = TEST_SYKMELDT_2),
