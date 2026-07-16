@@ -32,15 +32,14 @@ spec:
   # Når den skrus på: min 1 / max 2 (SKIP LOCKED tåler N like instanser, B27). Ingen leaderElection:
   # periodiske sveip koordineres med Postgres advisory lock, ikke leder-valg (B12/B42).
   replicas:
-    min: 0
-    max: 0
+    min: 1
+    max: 2
   prometheus:
     enabled: true
     path: /internal/metrics # POD_METRICS_PATH; avstemmer B57/B48 (metrics, ikke prometheus)
   observability:
     logging:
       destinations:
-        - id: elastic
         - id: loki
     autoInstrumentation:
       enabled: true
