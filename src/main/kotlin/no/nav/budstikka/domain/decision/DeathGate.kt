@@ -13,7 +13,7 @@ internal class DeathGate(
     private val deathLookup: DeathLookup,
 ) : DecisionRule {
     override suspend fun resolve(event: Dispatch): ResolvedRule {
-        val recipientIsDead = true // event.content.gatedPerson()?.let { deathLookup.isDead(it) } ?: false
+        val recipientIsDead = event.content.gatedPerson()?.let { deathLookup.isDead(it) } ?: false
         return ResolvedRule { deliveries ->
             if (recipientIsDead) {
                 Decision.Dropped(DropReason.DEAD)
