@@ -29,8 +29,7 @@ import java.util.UUID
  */
 class DeathGateTest :
     FunSpec({
-        fun envelope(content: DispatchContent) =
-            Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
+        fun envelope(content: DispatchContent) = Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
 
         suspend fun DeathGate.decide(content: DispatchContent): Decision {
             val event = envelope(content)
