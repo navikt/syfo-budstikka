@@ -61,6 +61,20 @@ test-konfigen).
   kjøring får du uansett.
 - `withReuse(true)` (infra overlever restart uten compose) legges til hvis/når behovet melder seg.
 
+### Delt Postgres-container + schema-isolasjon per fixture (B60)
+
+For fart deler alle DB-testene i én JVM **én** Postgres-container (`PostgresTestFixture`
+lazy-starter en delt container én gang, i stedet for én ny container per spec — det var den
+dominerende kaldkjørings-kostnaden). Isolasjon beholdes ved at hver `PostgresTestFixture`-instans
+lever i sitt **eget schema** (`test_<uuid>`, opprettet ved init, droppet i `close()`); `migrate()`
+kjører Flyway inn i det schemaet og `database`-tilkoblingen setter `currentSchema` dit. Samtidige
+specer (Kotest `Concurrent`, jf. `BudstikkaTestConfiguration`) tråkker derfor ikke på hverandres
+rader selv om `reset()` fortsatt `TRUNCATE`-er. Full-boot-substratet (`BudstikkaTestApp`/`runLocal`)
+peker den bootede appens `database.url` mot det samme fixture-schemaet (`?currentSchema=…`), så
+boot-migrering, konsument og assertions ser samme schema. Containeren stoppes ikke lenger i
+`close()` — Testcontainers Ryuk river den ved JVM-slutt.
+
+
 ### Ingen Texas, ingen tokens, ingen compose lokalt
 
 Fordi fakene (B52) erstatter alt autentisert nedstrøms, gjøres det ingen ekte HTTP-kall

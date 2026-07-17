@@ -8,17 +8,22 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.DriverManager
+import java.util.UUID
 
 class PostgresTestFixture : AutoCloseable {
-    val postgres: PostgreSQLContainer<*> =
-        PostgreSQLContainer("postgres:18-alpine")
-            .withDatabaseName("budstikka")
-            .withUsername("budstikka")
-            .withPassword("budstikka")
+    private val schemaName = "test_${UUID.randomUUID().toString().replace("-", "")}"
+    val schema: String
+        get() = schemaName
+
+    val postgres: PostgreSQLContainer<*>
+        get() = sharedPostgres
+
+    private val schemaJdbcUrl: String
+        get() = postgres.jdbcUrl.withCurrentSchema(schemaName)
 
     val database: Database by lazy {
         Database.connect(
-            url = postgres.jdbcUrl,
+            url = schemaJdbcUrl,
             driver = "org.postgresql.Driver",
             user = postgres.username,
             password = postgres.password,
@@ -34,7 +39,7 @@ class PostgresTestFixture : AutoCloseable {
         )
 
     val jdbcUrl: String
-        get() = postgres.jdbcUrl
+        get() = schemaJdbcUrl
 
     val username: String
         get() = postgres.username
@@ -43,14 +48,16 @@ class PostgresTestFixture : AutoCloseable {
         get() = postgres.password
 
     init {
-        postgres.start()
+        createSchema()
     }
 
     fun migrate() {
         Flyway
             .configure()
-            .dataSource(postgres.jdbcUrl, postgres.username, postgres.password)
+            .dataSource(schemaJdbcUrl, postgres.username, postgres.password)
             .locations("classpath:database.migration")
+            .schemas(schemaName)
+            .defaultSchema(schemaName)
             .load()
             .migrate()
     }
@@ -65,8 +72,33 @@ class PostgresTestFixture : AutoCloseable {
     }
 
     override fun close() {
-        postgres.stop()
+        DriverManager.getConnection(postgres.jdbcUrl, username, password).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("""DROP SCHEMA IF EXISTS "$schemaName" CASCADE""")
+            }
+        }
+    }
+
+    private fun createSchema() {
+        DriverManager.getConnection(postgres.jdbcUrl, username, password).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("""CREATE SCHEMA IF NOT EXISTS "$schemaName"""")
+            }
+        }
+    }
+
+    companion object {
+        private val sharedPostgres: PostgreSQLContainer<*> by lazy {
+            PostgreSQLContainer("postgres:18-alpine")
+                .withDatabaseName("budstikka")
+                .withUsername("budstikka")
+                .withPassword("budstikka")
+                .apply { start() }
+        }
     }
 }
 
 private fun List<Table>.toConcatenateTableNameString(): String = this.joinToString(", ") { it.tableName }
+
+private fun String.withCurrentSchema(schema: String): String =
+    if (contains("?")) "$this&currentSchema=$schema" else "$this?currentSchema=$schema"

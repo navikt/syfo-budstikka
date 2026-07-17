@@ -41,7 +41,7 @@ class TableDefinitionTest :
             transaction(fixture.database) {
                 val tablesInSchema =
                     currentDialectMetadata.allTablesNames.filter { !it.contains("flyway") }
-                val registeredTables = fixture.tables.map { "public.${it.tableName}" }
+                val registeredTables = fixture.tables.map { "${fixture.schema}.${it.tableName}" }
 
                 val missingFromList = tablesInSchema - registeredTables.toSet()
                 val missingMigration = registeredTables - tablesInSchema.toSet()

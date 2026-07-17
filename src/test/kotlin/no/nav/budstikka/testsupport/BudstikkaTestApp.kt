@@ -137,7 +137,10 @@ class BudstikkaTestApp private constructor(
                         "database.name" to postgres.postgres.databaseName,
                         "database.username" to postgres.username,
                         "database.password" to postgres.password,
-                        "database.url" to "postgresql://$host:$port/${postgres.postgres.databaseName}",
+                        // Peker den bootede appen (boot-migrering + konsument + workers) mot det
+                        // samme per-fixture-schemaet som assertions leser fra (PostgresTestFixture.schema),
+                        // slik at den delte containeren kan kjøre flere løp isolert/parallelt.
+                        "database.url" to "postgresql://$host:$port/${postgres.postgres.databaseName}?currentSchema=${postgres.schema}",
                         "kafka.bootstrapServers" to bootstrapServers,
                         "kafka.consumers.budstikka.enabled" to "true",
                         "ktor.di.conflictPolicy" to "OverridePrevious",
