@@ -3,6 +3,7 @@ package no.nav.budstikka.application
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
+import net.logstash.logback.argument.StructuredArguments.kv
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import kotlin.time.Clock
@@ -77,15 +78,15 @@ class LeaseBudgetDrainer(
                 } catch (error: Exception) {
                     val failures = consecutiveItemFailures + 1
                     logger.warn(
-                        "Failed processing claimed row; consecutive item failures are {} of {}. Continuing with next row.",
-                        failures,
-                        maxConsecutiveItemFailures,
+                        "Failed processing claimed row; continuing with next row {} {}",
+                        kv("consecutiveItemFailures", failures),
+                        kv("maxItemFailures", maxConsecutiveItemFailures),
                         error,
                     )
                     if (failures >= maxConsecutiveItemFailures) {
                         logger.error(
-                            "Aborting batch drain after {} consecutive item failures; treating this as a systemic failure.",
-                            maxConsecutiveItemFailures,
+                            "Aborting batch drain after consecutive item failures; treating this as a systemic failure {}",
+                            kv("maxItemFailures", maxConsecutiveItemFailures),
                             error,
                         )
                         throw error
@@ -101,10 +102,10 @@ class LeaseBudgetDrainer(
         total: Int,
     ) {
         logger.warn(
-            "Stopping batch drain at {}% of lease budget with {} of {} claimed row(s) unprocessed; their lease expires so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow.",
-            (leaseBudgetFraction * 100).toInt(),
-            unprocessed,
-            total,
+            "Stopping batch drain because the lease budget is spent; unprocessed rows keep their lease so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow {} {} {}",
+            kv("leaseBudgetPercent", (leaseBudgetFraction * 100).toInt()),
+            kv("unprocessedRows", unprocessed),
+            kv("claimedRows", total),
         )
     }
 }

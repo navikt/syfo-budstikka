@@ -29,3 +29,6 @@ mise.local.toml
 *.zip
 *.tar.gz
 *.rar
+
+# Lokalt agent oppsett
+.opencode/

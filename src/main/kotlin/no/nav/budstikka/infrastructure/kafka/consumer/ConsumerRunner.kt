@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withTimeoutOrNull
+import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.apache.kafka.clients.consumer.Consumer
@@ -92,9 +93,8 @@ class ConsumerRunner<K, V>(
             val stopped = join(CLOSE_TIMEOUT_SECONDS.seconds)
             if (!stopped) {
                 logger.warn(
-                    "{} did not stop within {} seconds",
-                    coroutineName,
-                    CLOSE_TIMEOUT_SECONDS,
+                    "Consumer did not stop within timeout {}",
+                    kv("timeoutSeconds", CLOSE_TIMEOUT_SECONDS),
                 )
             }
             logger.info("Shutdown complete")
@@ -139,7 +139,8 @@ class ConsumerRunner<K, V>(
                 throw error
             } catch (error: Throwable) {
                 if (isFatal(error)) {
-                    logger.error("{} hit a fatal error and will not restart", coroutineName, error)
+                    // `consumer` bæres på MDC (launch-MDCContext) → ikke dupliser coroutineName som kv.
+                    logger.error("Consumer hit a fatal error and will not restart", error)
                     running.set(false)
                     onFatalError(error)
                 } else {
@@ -147,16 +148,14 @@ class ConsumerRunner<K, V>(
                     if (lifecycleNanos > healthyResetThreshold.inWholeNanoseconds) {
                         backoffMillis = initialBackoff.inWholeMilliseconds
                         logger.info(
-                            "{} was healthy for {}ms, resetting backoff to {}ms",
-                            coroutineName,
-                            lifecycleNanos / 1_000_000,
-                            backoffMillis,
+                            "Consumer was healthy, resetting backoff {} {}",
+                            kv("healthyForMs", lifecycleNanos / 1_000_000),
+                            kv("backoffMs", backoffMillis),
                         )
                     }
                     logger.warn(
-                        "{} failed, restarting after {}ms",
-                        coroutineName,
-                        backoffMillis,
+                        "Consumer failed, restarting after backoff {}",
+                        kv("backoffMs", backoffMillis),
                         error,
                     )
                 }

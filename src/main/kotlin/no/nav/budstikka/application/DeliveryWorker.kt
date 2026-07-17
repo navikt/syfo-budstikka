@@ -2,6 +2,7 @@ package no.nav.budstikka.application
 
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
+import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -61,7 +62,8 @@ class DeliveryWorker(
         if (handler == null) {
             // Kan ikke skje: claim filtrerer på handlers.keys. En rad uten handler er en
             // wiring-feil — la den stå CLAIMED (lease-reclaim), ikke terminal-feil den.
-            logger.error("No handler for claimed channel {}; leaving row for lease reclaim", delivery.channel)
+            // `delivery_channel` bæres alt på MDC (se dispatch) → ikke dupliser som kv-felt.
+            logger.error("No handler for claimed channel; leaving row for lease reclaim")
             return
         }
         when (val outcome = handler.handle(delivery)) {
@@ -85,7 +87,7 @@ class DeliveryWorker(
     ) {
         if (repository.markFailed(delivery.id, reason)) {
             metrics.deliveryFailed(delivery.channel)
-            logger.warn("Marked delivery as FAILED: {}", reason)
+            logger.warn("Marked delivery as FAILED {}", kv("reason", reason))
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
         }
