@@ -12,6 +12,7 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.ExternalVarsling
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
+import no.nav.budstikka.domain.dispatch.Oppgavetype
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeReservationLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -109,7 +110,11 @@ class ReservationGateTest :
 
         test("non-Brukervarsel Dispatch -> no KRR lookup, unchanged") {
             val lookup = FakeReservationLookup().apply { registerReserved(TEST_SYKMELDT) }
-            val decision = decide(lookup, LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, "text"))
+            val decision =
+                decide(
+                    lookup,
+                    LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, Oppgavetype.DIALOGMOTE_INNKALLING, "text"),
+                )
 
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
             lookup.lookupCount shouldBe 0

@@ -28,6 +28,7 @@ class DispatchSerializationTest :
                         LedervarselCreate(
                             sykmeldt = TEST_SYKMELDT_2,
                             orgnummer = Orgnummer(TEST_ORGNUMMER.value),
+                            oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                             text = "Din ansatte",
                         ),
                     "DittSykefravaerCreate" to
