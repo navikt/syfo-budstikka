@@ -72,6 +72,10 @@ spec:
       value: https://pdl-api.dev-fss-pub.nais.io/graphql
     - name: PDL_SCOPE
       value: api://dev-fss.pdl.pdl-api/.default
+    - name: DOCUMENT_DISTRIBUTOR_URL
+      value: https://dokdistfordeling-q1.dev-fss-pub.nais.io/rest/v1/distribuerjournalpost
+    - name: DOCUMENT_DISTRIBUTOR_SCOPE
+      value: api://dev-fss.teamdokumenthandtering.dokdistfordeling-q1/.default
   # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
   # KRR/narmesteleder/dokdist/notifikasjon-produsent-api. Legges til når de kanalene wires (ingen
   # av dem resolves eager ved boot i dag — kun DeathGate/PDL er i DecisionRule-lista).
