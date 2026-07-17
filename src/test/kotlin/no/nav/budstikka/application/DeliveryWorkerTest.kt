@@ -56,7 +56,7 @@ class DeliveryWorkerTest :
             repository.failedDeliveries.shouldBeEmpty()
         }
 
-        test("sent delivery log carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
+        test("sent delivery log carries correlation fields") {
             val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000210")
             val repository =
                 PollingDeliveryRepository(deliveries = listOf(validMicrofrontendDelivery(deliveryId)))
@@ -73,7 +73,38 @@ class DeliveryWorkerTest :
             }
 
             val event = appender.list.single { it.formattedMessage.contains("Delivery sent successfully") }
+            event.formattedMessage shouldContain "eventId=00000000-0000-0000-0000-000000000301"
+            event.formattedMessage shouldContain "deliveryId=$deliveryId"
+            event.formattedMessage shouldContain "reference=ref-1"
+            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000301"
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+        }
+
+        test("failed delivery log carries correlation fields") {
+            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000216")
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries = listOf(nonMicrofrontendPayload(deliveryId)),
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+
+            val logbackLogger = LoggerFactory.getLogger(DeliveryWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, publisher).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Marked delivery as FAILED") }
+            event.formattedMessage shouldContain "eventId=00000000-0000-0000-0000-000000000302"
+            event.formattedMessage shouldContain "deliveryId=$deliveryId"
+            event.formattedMessage shouldContain "reference=ref-2"
+            event.formattedMessage shouldContain "reason=Payload does not match MICROFRONTEND channel"
+            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000302"
+            event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-2"
         }
 
         test("row failure log carries channel and handler without stacktrace") {

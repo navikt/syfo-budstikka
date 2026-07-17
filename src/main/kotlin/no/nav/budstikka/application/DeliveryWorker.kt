@@ -2,6 +2,7 @@ package no.nav.budstikka.application
 
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
+import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
@@ -52,6 +53,13 @@ class DeliveryWorker(
             kv("handler", handlers[channel]?.javaClass?.simpleName ?: "missing"),
         )
 
+    private fun ClaimedDelivery.logFields(): List<StructuredArgument> =
+        listOf(
+            kv("eventId", (inboxEventId ?: id).toString()),
+            kv("deliveryId", id.toString()),
+            kv("reference", reference),
+        )
+
     private suspend fun dispatch(delivery: ClaimedDelivery) {
         // B45: `delivery_channel` + `reference` på MDC for hele send-steget, så `| reference="X"`
         // korrelerer OPPRETT- og FERDIGSTILL-leveransen (ulik delivery, delt reference).
@@ -84,7 +92,8 @@ class DeliveryWorker(
     private suspend fun markSent(delivery: ClaimedDelivery) {
         if (repository.markSent(delivery.id)) {
             metrics.deliverySent(delivery.channel)
-            logger.info("Delivery sent successfully")
+            val fields = delivery.logFields()
+            logger.info("Delivery sent successfully".withPlaceholders(fields), *fields.toTypedArray())
         } else {
             logger.warn("Could not mark delivery as SENT because row is no longer CLAIMED")
         }
@@ -96,9 +105,12 @@ class DeliveryWorker(
     ) {
         if (repository.markFailed(delivery.id, reason)) {
             metrics.deliveryFailed(delivery.channel)
-            logger.warn("Marked delivery as FAILED {}", kv("reason", reason))
+            val fields = delivery.logFields() + kv("reason", reason)
+            logger.warn("Marked delivery as FAILED".withPlaceholders(fields), *fields.toTypedArray())
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
         }
     }
+
+    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 }
