@@ -1,9 +1,13 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.brukervarselDraft
@@ -14,6 +18,7 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryI
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import org.slf4j.LoggerFactory
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -158,6 +163,30 @@ class DeliveryRepositoryIntegrationTest :
             row[DeliveryTable.attempt] shouldBe maxAttempts
             row[DeliveryTable.nextAttemptTime] shouldBe null
             row[DeliveryTable.errorMessage] shouldNotBe null
+        }
+
+        test("claim logs poison delivery with safe correlation fields") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft("poison-ref", microfrontendDraft())
+            val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
+            makePoison(deliveryId, attempt = 2)
+            val logbackLogger = LoggerFactory.getLogger(DeliveryRepositoryImpl::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                repository.claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Failed poison delivery row") }
+            event.formattedMessage shouldContain deliveryId.toString()
+            event.formattedMessage shouldContain "poison-ref"
+            event.formattedMessage shouldContain "CREATE"
+            event.formattedMessage shouldContain "MICROFRONTEND"
+            event.formattedMessage shouldContain "attempt=2"
+            event.formattedMessage shouldContain "maxAttempts=2"
         }
 
         test("a poison delivery does not block a healthy newer delivery on the same channel") {

@@ -3,6 +3,7 @@ package no.nav.budstikka.application
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -75,7 +76,7 @@ class DeliveryWorkerTest :
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
 
-        test("row failure log carries channel and handler without warn-level stacktrace") {
+        test("row failure log carries channel and handler without stacktrace") {
             val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000212")
             val repository =
                 PollingDeliveryRepository(deliveries = listOf(validMicrofrontendDelivery(deliveryId)))
@@ -102,6 +103,43 @@ class DeliveryWorkerTest :
             event.formattedMessage shouldContain "ThrowingChannelHandler"
             event.formattedMessage shouldContain "IllegalStateException"
             event.throwableProxy shouldBe null
+        }
+
+        test("systemic abort log carries channel and handler with useful stacktrace") {
+            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000213")
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries =
+                        listOf(
+                            validMicrofrontendDelivery(deliveryId),
+                            validMicrofrontendDelivery(UUID.fromString("00000000-0000-0000-0000-000000000214")),
+                            validMicrofrontendDelivery(UUID.fromString("00000000-0000-0000-0000-000000000215")),
+                        ),
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+
+            val logbackLogger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                shouldThrow<AlreadyLoggedWorkerFailure> {
+                    workerWith(
+                        repository = repository,
+                        publisher = publisher,
+                        handlers = mapOf(Channel.MICROFRONTEND to ThrowingChannelHandler()),
+                        maxConsecutiveItemFailures = 3,
+                    ).runOnce()
+                }
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Aborting batch drain") }
+            event.formattedMessage shouldContain "MICROFRONTEND"
+            event.formattedMessage shouldContain "ThrowingChannelHandler"
+            event.formattedMessage shouldContain "IllegalStateException"
+            event.throwableProxy.className shouldContain "IllegalStateException"
         }
 
         test("runOnce marks delivery FAILED when payload does not match the channel") {

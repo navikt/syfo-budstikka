@@ -78,6 +78,8 @@ class LeaseBudgetDrainer(
                     0
                 } catch (error: CancellationException) {
                     throw error
+                } catch (error: AlreadyLoggedWorkerFailure) {
+                    throw error
                 } catch (error: Exception) {
                     val failures = consecutiveItemFailures + 1
                     val fields =
@@ -85,6 +87,7 @@ class LeaseBudgetDrainer(
                             add(kv("consecutiveItemFailures", failures))
                             add(kv("maxItemFailures", maxConsecutiveItemFailures))
                             add(kv("errorType", error.javaClass.simpleName))
+                            error.cause?.let { add(kv("causeType", it.javaClass.simpleName)) }
                             addAll(failureFields(item))
                         }
                     logger.warn("Failed processing claimed row; continuing with next row".withPlaceholders(fields), *fields.toTypedArray())
@@ -94,7 +97,7 @@ class LeaseBudgetDrainer(
                                 .withPlaceholders(fields),
                             *(fields + error).toTypedArray(),
                         )
-                        throw error
+                        throw AlreadyLoggedWorkerFailure(error)
                     }
                     failures
                 }

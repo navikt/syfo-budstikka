@@ -1,5 +1,6 @@
 package no.nav.budstikka.application
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -89,6 +90,21 @@ class BrevChannelHandlerTest :
             outcome.reason shouldContain "MicrofrontendEnable"
             distributor.requests.shouldBeEmpty()
         }
+
+        test("wraps transient distributor failures with BREV context") {
+            val handler = BrevChannelHandler(ThrowingDocumentDistributor())
+            val payload =
+                BrevCreate(
+                    personIdentifier = PersonIdentifier("12345678901"),
+                    journalpostId = "jp-1",
+                )
+
+            val error = shouldThrow<ChannelHandlerFailure> { handler.handle(delivery(payload)) }
+
+            error.message shouldContain "BREV channel failed"
+            error.cause.shouldBeInstanceOf<IllegalStateException>()
+            error.stackTrace.any { it.className.contains("BrevChannelHandler") } shouldBe true
+        }
     })
 
 private val DELIVERY_ID = UUID.fromString("00000000-0000-0000-0000-000000000601")
@@ -103,6 +119,10 @@ private class RecordingDocumentDistributor(
         requests.add(request)
         return response
     }
+}
+
+private class ThrowingDocumentDistributor : DocumentDistributor {
+    override suspend fun distribute(request: DistributionRequest): DistributionResponse = error("Connection refused")
 }
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =

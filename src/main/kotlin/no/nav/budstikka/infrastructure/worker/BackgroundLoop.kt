@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.slf4j.LoggerFactory
@@ -111,8 +112,10 @@ class BackgroundLoop(
             throw error
         } catch (error: Throwable) {
             failuresCounter?.increment()
-            // `worker` (name) bæres på MDC (launch-MDCContext) → ikke dupliser som kv-felt.
-            logger.error("Worker failed in iteration", error)
+            if (error !is AlreadyLoggedWorkerFailure) {
+                // `worker` (name) bæres på MDC (launch-MDCContext) → ikke dupliser som kv-felt.
+                logger.error("Worker failed in iteration {}", kv("errorType", error.javaClass.simpleName))
+            }
         } finally {
             durationTimer?.record(start.elapsedNow().toJavaDuration())
         }

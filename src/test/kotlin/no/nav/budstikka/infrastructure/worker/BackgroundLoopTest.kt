@@ -1,12 +1,18 @@
 package no.nav.budstikka.infrastructure.worker
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import no.nav.budstikka.application.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.infrastructure.Heartbeat
 import no.nav.budstikka.infrastructure.MutableClock
+import org.slf4j.LoggerFactory
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.hours
@@ -50,6 +56,52 @@ class BackgroundLoopTest :
             failed.await(5, TimeUnit.SECONDS) shouldBe true
             loop.isAlive() shouldBe true
             loop.close()
+        }
+
+        test("failing iteration log carries error type without stacktrace") {
+            val failed = CountDownLatch(1)
+            val loop =
+                BackgroundLoop("failing-worker", 10.milliseconds) {
+                    failed.countDown()
+                    error("boom")
+                }
+            val logbackLogger = LoggerFactory.getLogger(BackgroundLoop::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                loop.start()
+                failed.await(5, TimeUnit.SECONDS) shouldBe true
+            } finally {
+                loop.close()
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Worker failed in iteration") }
+            event.formattedMessage shouldContain "IllegalStateException"
+            event.throwableProxy shouldBe null
+        }
+
+        test("already logged iteration failure is not logged again") {
+            val failed = CountDownLatch(1)
+            val loop =
+                BackgroundLoop("failing-worker", 10.milliseconds) {
+                    failed.countDown()
+                    throw AlreadyLoggedWorkerFailure(IllegalStateException("boom"))
+                }
+            val logbackLogger = LoggerFactory.getLogger(BackgroundLoop::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                loop.start()
+                failed.await(5, TimeUnit.SECONDS) shouldBe true
+            } finally {
+                loop.close()
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            appender.list.none { it.formattedMessage.contains("Worker failed in iteration") } shouldBe true
         }
 
         test("records run, duration and failure metrics tagged by worker") {
