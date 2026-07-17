@@ -81,6 +81,7 @@ Det betyr:
 - `Tag`: `DIALOGMOETE`, `OPPFOELGING`
 - `AltinnResourceId`: `DIALOGMOETE`
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
+- `Oppgavetype` (LEDERVARSEL, ADR 0008): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Representativ verdi nå: `DIALOGMOTE_INNKALLING`; resten additivt ved onboarding.
 - `Sakstilknytning(sakId)`
 
 Viktige valg:
@@ -117,6 +118,20 @@ publisering og kan byttes). Eliminerer dagens dobbeltoppslag i esyfovarsel.
 Status nå:
 - Kontraktformen følger B24 (`LedervarselCreate` har `sykmeldt` + `orgnummer`, ikke NL-fnr).
 - Selve NL-oppslaget er ikke koblet inn i runtime ennå.
+
+## Ledervarsel-kanal: rent in-app (B62, ADR 0009)
+
+LEDERVARSEL leveres til `team-esyfo.dinesykmeldte-hendelser-v2` og vises som et
+**in-app aktivitetsvarsel** i Dine Sykmeldte-oversikten (`dinesykmeldte-backend`
+gjør kun et DB-insert). Kanalen har **ingen ekstern bærer** (SMS/e-post).
+
+- `LedervarselCreate` bærer `oppgavetype: Oppgavetype` (påkrevd, ADR 0008) —
+  konsumentens PK `(id, oppgavetype)` + UI-gruppering.
+- `LedervarselCreate` har **ikke** `externalVarsling` (falsk affordance, fjernet i v1).
+- `sendingWindow` beholdes; default = `ONGOING` (LØPENDE), som ren in-app.
+- **Ekstern varsling til nærmeste leder** = egen `ArbeidsgivervarselCreate` med
+  `NarmesteLeder(sykmeldt)`-mottaker (B6: flere kanaler → flere hendelser; B32).
+- Wire: `DineSykmeldteHendelse` (JSON), Kafka-key = `reference` (ikke fnr).
 
 ## Mapping til delivery-draft (faktisk kode)
 
@@ -163,6 +178,6 @@ Alle andre varianter returnerer `null` (gates ikke av `DeathGate` i dag).
 
 - `*Inactivate` mappes til nye `DeliveryDraft`-rader direkte.
 - Oppslag på tidligere create-rad via `(reference, recipient, channel)` er **ikke implementert ennå**.
-- Selve delivery-eksekvering støtter foreløpig kun `MICROFRONTEND`-handler i `DeliveryWorker`.
+- Delivery-eksekvering har handlere for `BRUKERVARSEL`, `LEDERVARSEL` og `MICROFRONTEND` i `DeliveryWorker` (registrert i `WorkerModule`); øvrige kanaler (`DITT_SYKEFRAVAER`, `ARBEIDSGIVERVARSEL`, `BREV`) mangler fortsatt handler.
 
 Dette dokumentet beskriver kontrakten og mappingen slik den faktisk er i koden nå.
