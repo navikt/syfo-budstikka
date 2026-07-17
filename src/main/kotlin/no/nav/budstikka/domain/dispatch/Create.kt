@@ -27,18 +27,25 @@ data class BrukervarselCreate(
 /**
  * 2. Ledervarsel – nærmeste leder, Dine Sykmeldte. Bærer `(sykmeldt, orgnummer)` – IKKE
  * NL-fnr; budstikka resolver nærmeste leder selv (B24). Partisjonsanker = sykmeldt.
+ *
+ * RENT IN-APP (B62, ADR 0009): leveres til `dinesykmeldte-hendelser-v2` som aktivitetsvarsel;
+ * INGEN ekstern bærer (SMS/e-post) → `externalVarsling` er bevisst utelatt (falsk affordance, B40).
+ * Ekstern varsling til lederen er en egen ARBEIDSGIVERVARSEL(NL)-dispatch (B6/B32, #24).
+ * `oppgavetype` er påkrevd (dinesykmeldtes PK-krav, B61). `sendingWindow`-default = `ONGOING`
+ * som ren in-app (korrigerer B25).
  */
 @Serializable
 @SerialName("LedervarselCreate")
 data class LedervarselCreate(
     val sykmeldt: PersonIdentifier,
     val orgnummer: Orgnummer,
+    val oppgavetype: Oppgavetype,
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val externalVarsling: ExternalVarsling? = null,
-    val sendingWindow: SendingWindow? = null,
-) : DispatchContent {
+    val sendingWindow: SendingWindow = SendingWindow.ONGOING,
+) : DispatchContent,
+    Ledervarsel {
     override val partitionKey: String get() = sykmeldt.value
 }
 

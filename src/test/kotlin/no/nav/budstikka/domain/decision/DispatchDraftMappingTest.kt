@@ -12,6 +12,7 @@ import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.NarmesteLeder
+import no.nav.budstikka.domain.dispatch.Oppgavetype
 import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -71,7 +72,7 @@ class DispatchDraftMappingTest :
                 ),
                 Case(
                     "Ledervarsel",
-                    LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, "text"),
+                    LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, Oppgavetype.DIALOGMOTE_INNKALLING, "text"),
                     Channel.LEDERVARSEL,
                     Operation.CREATE,
                     Recipient.Person(TEST_SYKMELDT),

@@ -29,7 +29,8 @@ data class LedervarselInactivate(
     @SerialName("referanse")
     val reference: String,
     val sykmeldt: PersonIdentifier,
-) : DispatchContent {
+) : DispatchContent,
+    Ledervarsel {
     override val partitionKey: String get() = sykmeldt.value
 }
 

@@ -15,6 +15,7 @@ import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.domain.dispatch.Oppgavetype
 import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
@@ -69,7 +70,13 @@ class DeathGateTest :
         }
 
         test("leader notification is not gated on the employee's death (recipient is the leader)") {
-            val content = LedervarselCreate(sykmeldt = TEST_SYKMELDT, orgnummer = TEST_ORGNUMMER, text = "text")
+            val content =
+                LedervarselCreate(
+                    sykmeldt = TEST_SYKMELDT,
+                    orgnummer = TEST_ORGNUMMER,
+                    oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
+                    text = "text",
+                )
             DeathGate(deadLookupFor(TEST_SYKMELDT))
                 .decide(content)
                 .shouldBeInstanceOf<Decision.Processed>()
