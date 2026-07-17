@@ -4,6 +4,7 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.infrastructure.config.PlatformConfig
@@ -13,6 +14,7 @@ import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxMessageHandler
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
+import no.nav.budstikka.infrastructure.kafka.producer.ledervarselPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.microfrontendPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.minSideBrukervarselPublisher
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -50,6 +52,12 @@ fun DependencyRegistry.kafkaModule() {
             messagePublisher = resolve(),
             platformConfig = resolve<PlatformConfig>(),
         )
+    }
+    provide<LedervarselPublisher> {
+        val topic =
+            resolve<KafkaConfig>().producers[ProducerNames.DINESYKMELDTE_HENDELSER]?.topic
+                ?: error("Missing Kafka producer config: ${ProducerNames.DINESYKMELDTE_HENDELSER}")
+        ledervarselPublisher(topic = topic, messagePublisher = resolve())
     }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
@@ -93,6 +101,7 @@ fun DependencyRegistry.kafkaModule() {
 object ProducerNames {
     const val MINSIDE_MICROFRONTEND = "minside-microfrontend"
     const val MINSIDE_BRUKERVARSEL = "minside-brukervarsel"
+    const val DINESYKMELDTE_HENDELSER = "dinesykmeldte-hendelser"
 }
 
 private suspend fun DependencyRegistry.handlerForConsumer(name: String): BatchMessageHandler<String, String?> =

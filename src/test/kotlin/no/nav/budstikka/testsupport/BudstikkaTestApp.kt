@@ -12,13 +12,21 @@ import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.plugins.di.DependencyRegistry
 import no.nav.budstikka.configureApplication
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
+import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.testcontainers.containers.Network
 import java.util.Properties
+import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 /**
  * Delt ende-til-ende-substrat (B50/B51): starter Postgres + Kafka fra kode, booter HELE appen
@@ -28,6 +36,8 @@ import java.util.Properties
  *
  * Prod-grensen holder: alt her ligger i `src/test`, aldri i prod-jaren.
  */
+private const val POLL_ATTEMPTS = 5
+
 class BudstikkaTestApp private constructor(
     private val postgres: PostgresTestFixture,
     private val kafka: KafkaTestContainer,
@@ -59,6 +69,9 @@ class BudstikkaTestApp private constructor(
     val budstikkaTopic: String
         get() = appConfig.property("kafka.consumers.budstikka.topic").getString()
 
+    val dineSykmeldteTopic: String
+        get() = appConfig.property("kafka.producers.dinesykmeldte-hendelser.topic").getString()
+
     /** Publiserer en record til [topic] med valgfrie headere (typisk eventId, jf. B54). */
     fun produce(
         topic: String,
@@ -76,6 +89,33 @@ class BudstikkaTestApp private constructor(
             val record = ProducerRecord(topic, key, value)
             headers.forEach { (name, headerValue) -> record.headers().add(name, headerValue.toByteArray()) }
             producer.send(record).get()
+        }
+    }
+
+    /**
+     * Leser alle records som finnes på [topic] fra begynnelsen (fersk consumer-gruppe pr. kall,
+     * `earliest`), for at e2e-specer skal kunne assertere på hva budstikka faktisk produserte
+     * nedstrøms. Ment brukt inne i Kotest `eventually { }` mens async-workerne jobber.
+     */
+    fun consumeRecords(
+        topic: String,
+        pollTimeout: Duration = 1.seconds,
+    ): List<ConsumerRecord<String, String>> {
+        val props =
+            Properties().apply {
+                put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+                put(ConsumerConfig.GROUP_ID_CONFIG, "e2e-assert-${UUID.randomUUID()}")
+                put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+                put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java.name)
+                put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java.name)
+            }
+        return KafkaConsumer<String, String>(props).use { consumer ->
+            consumer.subscribe(listOf(topic))
+            buildList {
+                repeat(POLL_ATTEMPTS) {
+                    consumer.poll(pollTimeout.toJavaDuration()).forEach { add(it) }
+                }
+            }
         }
     }
 
