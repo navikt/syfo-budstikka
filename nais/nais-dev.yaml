@@ -56,6 +56,7 @@ spec:
     outbound:
       external:
         - host: pdl-api.dev-fss-pub.nais.io # PDL i FSS; samme host/scope som esyfovarsel dev
+        - host: dokdistfordeling-q1.dev-fss-pub.nais.io # Dokdistfordeling for BREV-kanalen
   gcp:
     sqlInstances:
       - name: budstikka-instance
@@ -77,5 +78,4 @@ spec:
     - name: DOCUMENT_DISTRIBUTOR_SCOPE
       value: api://dev-fss.teamdokumenthandtering.dokdistfordeling-q1/.default
   # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
-  # KRR/narmesteleder/dokdist/notifikasjon-produsent-api. Legges til når de kanalene wires (ingen
-  # av dem resolves eager ved boot i dag — kun DeathGate/PDL er i DecisionRule-lista).
+  # KRR/narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.
