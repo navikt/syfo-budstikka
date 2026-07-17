@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
@@ -72,6 +73,35 @@ class DeliveryWorkerTest :
 
             val event = appender.list.single { it.formattedMessage.contains("Delivery sent successfully") }
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+        }
+
+        test("row failure log carries channel and handler without warn-level stacktrace") {
+            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000212")
+            val repository =
+                PollingDeliveryRepository(deliveries = listOf(validMicrofrontendDelivery(deliveryId)))
+            val publisher = RecordingMicrofrontendPublisher()
+
+            val logbackLogger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(
+                    repository = repository,
+                    publisher = publisher,
+                    handlers = mapOf(Channel.MICROFRONTEND to ThrowingChannelHandler()),
+                ).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Failed processing claimed row") }
+            event.formattedMessage shouldContain deliveryId.toString()
+            event.formattedMessage shouldContain "MICROFRONTEND"
+            event.formattedMessage shouldContain "ref-1"
+            event.formattedMessage shouldContain "ThrowingChannelHandler"
+            event.formattedMessage shouldContain "IllegalStateException"
+            event.throwableProxy shouldBe null
         }
 
         test("runOnce marks delivery FAILED when payload does not match the channel") {
@@ -189,10 +219,11 @@ private fun workerWith(
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
     metrics: DispatchMetrics = NoDispatchMetrics,
+    handlers: Map<Channel, ChannelHandler> = mapOf(Channel.MICROFRONTEND to MicrofrontendChannelHandler(publisher)),
 ): DeliveryWorker =
     DeliveryWorker(
         repository = repository,
-        handlers = mapOf(Channel.MICROFRONTEND to MicrofrontendChannelHandler(publisher)),
+        handlers = handlers,
         drainer =
             LeaseBudgetDrainer(
                 leaseBudgetFraction = leaseBudgetFraction,
@@ -210,6 +241,10 @@ private fun workerWith(
             ),
         metrics = metrics,
     )
+
+private class ThrowingChannelHandler : ChannelHandler {
+    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome = error("downstream unavailable")
+}
 
 private class PollingDeliveryRepository(
     private val deliveries: List<ClaimedDelivery>,

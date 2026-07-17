@@ -34,6 +34,7 @@ class DeliveryWorker(
         drainer.drain(
             leaseDuration = config.leaseDuration,
             eventId = { it.inboxEventId?.toString() ?: it.id.toString() },
+            failureFields = { it.failureFields() },
             claim = {
                 repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys).also { claimed ->
                     if (claimed.isEmpty()) metrics.deliveryEmptyPoll() else metrics.deliveryClaimed(claimed.size)
@@ -42,6 +43,14 @@ class DeliveryWorker(
             process = { dispatch(it) },
         )
     }
+
+    private fun ClaimedDelivery.failureFields() =
+        listOf(
+            kv("deliveryId", id.toString()),
+            kv("deliveryChannel", channel.toString()),
+            kv("reference", reference),
+            kv("handler", handlers[channel]?.javaClass?.simpleName ?: "missing"),
+        )
 
     private suspend fun dispatch(delivery: ClaimedDelivery) {
         // B45: `delivery_channel` + `reference` på MDC for hele send-steget, så `| reference="X"`
