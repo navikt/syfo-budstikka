@@ -1,7 +1,9 @@
 package no.nav.budstikka
 
+import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
+import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.testsupport.BudstikkaTestApp
 import no.nav.budstikka.testsupport.KafkaUiContainer
 import org.slf4j.LoggerFactory
@@ -23,6 +25,8 @@ fun main() {
         BudstikkaTestApp.start(enableKafkaNetwork = true) {
             // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
             provide<DeathLookup> { FakeDeathLookup() }
+            // Lokalt skal BREV-flyten ikke kalle dokdist/Texas.
+            provide<DocumentDistributor> { FakeDocumentDistributor() }
         }
 
     // Kafka UI kobles på Kafka via det delte Docker-nettet (intern adresse kafka:19092); kun lokalt.

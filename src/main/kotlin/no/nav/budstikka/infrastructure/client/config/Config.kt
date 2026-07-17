@@ -34,3 +34,27 @@ fun ApplicationConfig.toPdlConfig(): PdlConfig {
 
     return PdlConfig(url = url, scope = scope, behandlingsnummer = behandlingsnummer)
 }
+
+data class DocumentDistributorConfig(
+    val url: String,
+    val scope: String,
+)
+
+fun ApplicationConfig.toDocumentDistributorConfig(): DocumentDistributorConfig {
+    fun value(key: String): String = stringOrEmpty("documentDistributor.$key").trim()
+
+    val url = value("url")
+    val scope = value("scope")
+
+    val errors =
+        buildList {
+            if (url.isBlank()) add("documentDistributor.url must be set (DOCUMENT_DISTRIBUTOR_URL)")
+            if (scope.isBlank()) add("documentDistributor.scope must be set (DOCUMENT_DISTRIBUTOR_SCOPE)")
+        }
+
+    check(errors.isEmpty()) {
+        "Invalid document distributor configuration: ${errors.joinToString(", ")}"
+    }
+
+    return DocumentDistributorConfig(url = url, scope = scope)
+}

@@ -3,6 +3,7 @@ package no.nav.budstikka.application
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
+import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.kv
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
@@ -38,6 +39,7 @@ class LeaseBudgetDrainer(
     suspend fun <T> drain(
         leaseDuration: Duration,
         eventId: (T) -> String?,
+        failureFields: (T) -> List<StructuredArgument> = { emptyList() },
         claim: suspend () -> List<T>,
         process: suspend (T) -> Unit,
     ) {
@@ -50,7 +52,7 @@ class LeaseBudgetDrainer(
                 logBudgetExhausted(unprocessed = claimed.size - index, total = claimed.size)
                 break
             }
-            consecutiveItemFailures = processItem(item, eventId, process, consecutiveItemFailures)
+            consecutiveItemFailures = processItem(item, eventId, failureFields, process, consecutiveItemFailures)
         }
     }
 
@@ -64,6 +66,7 @@ class LeaseBudgetDrainer(
     private suspend fun <T> processItem(
         item: T,
         eventId: (T) -> String?,
+        failureFields: (T) -> List<StructuredArgument>,
         process: suspend (T) -> Unit,
         consecutiveItemFailures: Int,
     ): Int {
@@ -75,21 +78,26 @@ class LeaseBudgetDrainer(
                     0
                 } catch (error: CancellationException) {
                     throw error
+                } catch (error: AlreadyLoggedWorkerFailure) {
+                    throw error
                 } catch (error: Exception) {
                     val failures = consecutiveItemFailures + 1
-                    logger.warn(
-                        "Failed processing claimed row; continuing with next row {} {}",
-                        kv("consecutiveItemFailures", failures),
-                        kv("maxItemFailures", maxConsecutiveItemFailures),
-                        error,
-                    )
+                    val fields =
+                        buildList {
+                            add(kv("consecutiveItemFailures", failures))
+                            add(kv("maxItemFailures", maxConsecutiveItemFailures))
+                            add(kv("errorType", error.javaClass.simpleName))
+                            error.cause?.let { add(kv("causeType", it.javaClass.simpleName)) }
+                            addAll(failureFields(item))
+                        }
+                    logger.warn("Failed processing claimed row; continuing with next row".withPlaceholders(fields), *fields.toTypedArray())
                     if (failures >= maxConsecutiveItemFailures) {
                         logger.error(
-                            "Aborting batch drain after consecutive item failures; treating this as a systemic failure {}",
-                            kv("maxItemFailures", maxConsecutiveItemFailures),
-                            error,
+                            "Aborting batch drain after consecutive item failures; treating this as a systemic failure"
+                                .withPlaceholders(fields),
+                            *(fields + error).toTypedArray(),
                         )
-                        throw error
+                        throw AlreadyLoggedWorkerFailure(error)
                     }
                     failures
                 }
@@ -108,4 +116,6 @@ class LeaseBudgetDrainer(
             kv("claimedRows", total),
         )
     }
+
+    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 }

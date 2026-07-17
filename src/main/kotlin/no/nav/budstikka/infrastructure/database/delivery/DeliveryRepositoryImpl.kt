@@ -122,30 +122,62 @@ class DeliveryRepositoryImpl(
         maxAttempts: Int,
         channelNames: List<String>,
     ) {
-        val poisonIds =
+        val poisonRows =
             DeliveryTable
-                .select(DeliveryTable.id)
-                .where {
+                .select(
+                    DeliveryTable.id,
+                    DeliveryTable.inboxEventId,
+                    DeliveryTable.reference,
+                    DeliveryTable.operation,
+                    DeliveryTable.channel,
+                    DeliveryTable.attempt,
+                ).where {
                     (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
                         (DeliveryTable.nextAttemptTime lessEq now) and
                         (DeliveryTable.attempt greaterEq maxAttempts) and
                         (DeliveryTable.channel inList channelNames)
                 }.forUpdate(ForUpdateOption.PostgreSQL.ForUpdate(ForUpdateOption.PostgreSQL.MODE.SKIP_LOCKED))
-                .map { it[DeliveryTable.id] }
-        if (poisonIds.isEmpty()) {
+                .map { row ->
+                    PoisonDeliveryRow(
+                        id = row[DeliveryTable.id],
+                        inboxEventId = row[DeliveryTable.inboxEventId],
+                        reference = row[DeliveryTable.reference],
+                        operation = row[DeliveryTable.operation],
+                        channel = row[DeliveryTable.channel],
+                        attempt = row[DeliveryTable.attempt],
+                    )
+                }
+        if (poisonRows.isEmpty()) {
             return
         }
+        val poisonIds = poisonRows.map { it.id }
         DeliveryTable.update({ DeliveryTable.id inList poisonIds }) {
             it[state] = DeliveryState.FAILED.name
             it[nextAttemptTime] = null
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
-        logger.warn(
-            "Failed poison delivery row(s) after reaching max attempts {} {}",
-            kv("poisonCount", poisonIds.size),
-            kv("maxAttempts", maxAttempts),
-        )
+        poisonRows.forEach { row ->
+            logger.warn(
+                "Failed poison delivery row after reaching max attempts {} {} {} {} {} {} {}",
+                kv("deliveryId", row.id.toString()),
+                kv("eventId", row.inboxEventId?.toString()),
+                kv("reference", row.reference),
+                kv("operation", row.operation),
+                kv("deliveryChannel", row.channel),
+                kv("attempt", row.attempt),
+                kv("maxAttempts", maxAttempts),
+            )
+        }
     }
+
+    private data class PoisonDeliveryRow(
+        val id: UUID,
+        val inboxEventId: UUID?,
+        val reference: String,
+        val operation: String,
+        val channel: String,
+        val attempt: Int,
+    )
 
     override suspend fun markSent(deliveryId: UUID): Boolean =
         markClaimedAsTerminal(deliveryId, state = DeliveryState.SENT, errorMessage = null)

@@ -4,6 +4,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
+import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessage
@@ -79,7 +80,11 @@ class InboxMessageWorker(
     ) {
         effectuator.effectuate(eventId, decision)
         metrics.record(decision)
-        logger.info("Message processed")
+        val fields = decision.logFields()
+        logger.info(
+            "Inbox message processed".withPlaceholders(fields),
+            *fields.toTypedArray(),
+        )
     }
 
     private fun DispatchMetrics.record(decision: Decision) {
@@ -89,6 +94,29 @@ class InboxMessageWorker(
             is Decision.Failed -> inboxFailed()
         }
     }
+
+    private fun Decision.logFields(): List<StructuredArgument> =
+        when (this) {
+            is Decision.Processed ->
+                listOf(
+                    kv("result", "PROCESSED"),
+                    kv("deliveryCount", deliveries.size),
+                )
+
+            is Decision.Dropped ->
+                listOf(
+                    kv("result", "DROPPED"),
+                    kv("dropReason", reason.name),
+                )
+
+            is Decision.Failed ->
+                listOf(
+                    kv("result", "FAILED"),
+                    kv("failureReason", errorMessage),
+                )
+        }
+
+    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 
     private fun decode(message: InboxMessage): DecodeOutcome {
         logger.debug("Decoding inbox payload")

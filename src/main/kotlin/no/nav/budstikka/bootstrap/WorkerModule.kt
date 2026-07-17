@@ -3,6 +3,7 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.BrevChannelHandler
 import no.nav.budstikka.application.BrukervarselChannelHandler
 import no.nav.budstikka.application.ChannelHandler
 import no.nav.budstikka.application.DeliveryWorker
@@ -12,6 +13,7 @@ import no.nav.budstikka.application.LeaseBudgetDrainer
 import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
+import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
@@ -38,6 +40,7 @@ fun DependencyRegistry.workerModule() {
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
+            Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
         )
     }
     // Composition seam (jf. H3): application-workerne eier én runde (`runOnce`), infrastruktur-

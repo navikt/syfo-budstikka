@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.application.port.ClaimedDelivery
@@ -113,7 +114,10 @@ class InboxMessageWorkerTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Message processed") }
+            val event = appender.list.single { it.formattedMessage.contains("Inbox message processed") }
+            event.formattedMessage shouldContain "result=PROCESSED"
+            event.formattedMessage shouldContain "deliveryCount=1"
+            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId.toString()
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
 

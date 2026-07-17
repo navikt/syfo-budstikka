@@ -4,9 +4,11 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
+import no.nav.budstikka.application.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.LeaseBudgetDrainer
 import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.application.MdcKeys
@@ -100,20 +102,22 @@ class LeaseBudgetDrainerTest :
         test("aborts and bubbles when consecutive item failures hit threshold") {
             with(LeaseBudgetDrainerTestContext(maxConsecutiveItemFailures = 2)) {
 
-                shouldThrow<IllegalStateException> {
-                    drainer.drain(
-                        leaseDuration = 5.minutes,
-                        eventId = { "event-$it" },
-                        claim = { listOf(1, 2, 3) },
-                        process = {
-                            if (it <= 2) {
-                                throw IllegalStateException("systemic")
-                            }
-                            processed += it
-                        },
-                    )
-                }
+                val error =
+                    shouldThrow<AlreadyLoggedWorkerFailure> {
+                        drainer.drain(
+                            leaseDuration = 5.minutes,
+                            eventId = { "event-$it" },
+                            claim = { listOf(1, 2, 3) },
+                            process = {
+                                if (it <= 2) {
+                                    throw IllegalStateException("systemic")
+                                }
+                                processed += it
+                            },
+                        )
+                    }
 
+                error.rootCause().shouldBeInstanceOf<IllegalStateException>()
                 processed.shouldContainExactly()
             }
         }
@@ -159,3 +163,5 @@ private class LeaseBudgetDrainerTestContext(
         lastMdcEventId = MDC.get(MdcKeys.EVENT_ID)
     }
 }
+
+private tailrec fun Throwable.rootCause(): Throwable = cause?.takeUnless { it === this }?.rootCause() ?: this
