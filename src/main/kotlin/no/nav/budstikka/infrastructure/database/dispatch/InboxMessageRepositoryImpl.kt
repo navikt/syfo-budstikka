@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
+import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -114,7 +115,11 @@ class InboxMessageRepositoryImpl(
             it[processedAt] = now
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
-        logger.warn("Failed {} poison inbox message(s) after reaching {} attempts", poisonIds.size, maxAttempts)
+        logger.warn(
+            "Failed poison inbox message(s) after reaching max attempts {} {}",
+            kv("poisonCount", poisonIds.size),
+            kv("maxAttempts", maxAttempts),
+        )
     }
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean =

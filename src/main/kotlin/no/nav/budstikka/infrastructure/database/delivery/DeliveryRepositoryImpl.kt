@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
+import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
@@ -139,7 +140,11 @@ class DeliveryRepositoryImpl(
             it[nextAttemptTime] = null
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
-        logger.warn("Failed {} poison delivery row(s) after reaching {} attempts", poisonIds.size, maxAttempts)
+        logger.warn(
+            "Failed poison delivery row(s) after reaching max attempts {} {}",
+            kv("poisonCount", poisonIds.size),
+            kv("maxAttempts", maxAttempts),
+        )
     }
 
     override suspend fun markSent(deliveryId: UUID): Boolean =
