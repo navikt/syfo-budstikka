@@ -9,7 +9,6 @@ import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.domain.dispatch.BrevCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.dispatchJson
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
@@ -43,12 +42,11 @@ class BrevDistributionE2ESpec :
                     provide<DocumentDistributor> { documentDistributor }
                 }.use { app ->
                     val eventId = UUID.randomUUID()
-                    val ident = TEST_SYKMELDT
                     val dispatch =
                         Dispatch(
                             eventId = eventId,
                             reference = "e2e-brev-ref-1",
-                            content = BrevCreate(personIdentifier = ident, journalpostId = "jp-e2e-1"),
+                            content = BrevCreate(personIdentifier = TEST_SYKMELDT, journalpostId = "jp-e2e-1"),
                         )
 
                     app.produce(
