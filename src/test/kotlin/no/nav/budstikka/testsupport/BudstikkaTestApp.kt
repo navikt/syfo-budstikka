@@ -1,6 +1,7 @@
 package no.nav.budstikka.testsupport
 
 import com.typesafe.config.ConfigFactory
+import io.ktor.server.application.Application
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.HoconApplicationConfig
 import io.ktor.server.engine.EmbeddedServer
@@ -93,7 +94,7 @@ class BudstikkaTestApp private constructor(
     companion object {
         /**
          * Starter containerne, booter appen med [overrides] og venter til serveren er oppe.
-         * Kaller [AutoCloseable.close] (evt. via `use { }`) for å rive alt ned.
+         * Kaller [AutoCloseable] (evt. via `use { }`) for å rive alt ned.
          *
          * Med [enableKafkaNetwork] = true får Kafka et delt Docker-nett + intern lytter, slik at
          * det lokale løpet kan koble Kafka UI på samme nett. E2e lar den stå av (default).
@@ -101,6 +102,7 @@ class BudstikkaTestApp private constructor(
         fun start(
             enableKafkaNetwork: Boolean = false,
             enableMonitoring: Boolean = false,
+            localRoutes: (Application.() -> Unit)? = null,
             overrides: DependencyRegistry.() -> Unit = {},
         ): BudstikkaTestApp {
             val postgres = PostgresTestFixture()
@@ -112,7 +114,10 @@ class BudstikkaTestApp private constructor(
                         Netty,
                         environment = applicationEnvironment { config = appConfig },
                         configure = { connector { port = 0 } },
-                        module = { configureApplication(overrides) },
+                        module = {
+                            configureApplication(overrides)
+                            localRoutes?.invoke(this)
+                        },
                     )
                 server.start(wait = false)
 
