@@ -1,7 +1,6 @@
 package no.nav.budstikka.testsupport
 
 import com.typesafe.config.ConfigFactory
-import io.ktor.server.application.Application
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.HoconApplicationConfig
 import io.ktor.server.engine.EmbeddedServer
@@ -33,7 +32,7 @@ import java.util.Properties
 class BudstikkaTestApp private constructor(
     private val postgres: PostgresTestFixture,
     private val kafka: KafkaTestContainer,
-    private val server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>,
+    internal val server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>,
     private val appConfig: ApplicationConfig,
     private val monitoring: MonitoringContainers? = null,
 ) : AutoCloseable {
@@ -100,13 +99,11 @@ class BudstikkaTestApp private constructor(
          * det lokale løpet kan koble Kafka UI på samme nett. E2e lar den stå av (default).
          */
         fun start(
-            enableKafkaNetwork: Boolean = false,
-            enableMonitoring: Boolean = false,
-            localRoutes: (Application.() -> Unit)? = null,
+            kafka: KafkaTestContainer = KafkaTestContainer(),
+            withMonitoring: ((appport: Int) -> MonitoringContainers)? = null,
             overrides: DependencyRegistry.() -> Unit = {},
         ): BudstikkaTestApp {
             val postgres = PostgresTestFixture()
-            val kafka = KafkaTestContainer(enableNetworkListener = enableKafkaNetwork)
             try {
                 val appConfig = testConfig(postgres, kafka.bootstrapServers)
                 val server =
@@ -116,13 +113,12 @@ class BudstikkaTestApp private constructor(
                         configure = { connector { port = 0 } },
                         module = {
                             configureApplication(overrides)
-                            localRoutes?.invoke(this)
                         },
                     )
                 server.start(wait = false)
 
                 val monitoring =
-                    if (enableMonitoring) {
+                    withMonitoring?.let { factory ->
                         val appPort =
                             runBlocking {
                                 server.engine
@@ -130,9 +126,7 @@ class BudstikkaTestApp private constructor(
                                     .first()
                                     .port
                             }
-                        startMonitoring(appPort)
-                    } else {
-                        null
+                        factory(appPort)
                     }
 
                 return BudstikkaTestApp(postgres, kafka, server, appConfig, monitoring)

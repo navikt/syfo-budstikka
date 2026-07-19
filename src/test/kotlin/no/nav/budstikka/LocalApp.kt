@@ -5,11 +5,12 @@ import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.testsupport.BudstikkaTestApp
+import no.nav.budstikka.testsupport.KafkaTestContainer
 import no.nav.budstikka.testsupport.KafkaUiContainer
-import no.nav.budstikka.testsupport.configureLocalProduceApi
+import no.nav.budstikka.testsupport.MonitoringContainers
+import no.nav.budstikka.testsupport.installLocalProduceApi
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CountDownLatch
-import no.nav.budstikka.testsupport.app as localProduceApp
 
 private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
 
@@ -23,20 +24,18 @@ private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
  * så lenge prosessen lever. Avslutt med Ctrl+C.
  */
 fun main() {
+    val kafka = KafkaTestContainer(enableNetworkListener = true)
     val app =
         BudstikkaTestApp.start(
-            enableKafkaNetwork = true,
-            enableMonitoring = true,
-            localRoutes = {
-                configureLocalProduceApi()
-            },
+            kafka = kafka,
+            withMonitoring = ::MonitoringContainers,
         ) {
             // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
             provide<DeathLookup> { FakeDeathLookup() }
             // Lokalt skal BREV-flyten ikke kalle dokdist/Texas.
             provide<DocumentDistributor> { FakeDocumentDistributor() }
         }
-    localProduceApp = app
+    app.installLocalProduceApi()
 
     // Kafka UI kobles på Kafka via det delte Docker-nettet (intern adresse kafka:19092); kun lokalt.
     val kafkaUi = KafkaUiContainer(app.network!!, app.internalBootstrapServers!!)

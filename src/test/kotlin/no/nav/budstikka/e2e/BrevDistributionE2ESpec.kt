@@ -14,6 +14,7 @@ import no.nav.budstikka.domain.dispatch.dispatchJson
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
@@ -42,7 +43,7 @@ class BrevDistributionE2ESpec :
                     provide<DocumentDistributor> { documentDistributor }
                 }.use { app ->
                     val eventId = UUID.randomUUID()
-                    val ident = PersonIdentifier("12345678901")
+                    val ident = TEST_SYKMELDT
                     val dispatch =
                         Dispatch(
                             eventId = eventId,
