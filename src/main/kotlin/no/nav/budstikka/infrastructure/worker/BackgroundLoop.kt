@@ -58,7 +58,13 @@ class BackgroundLoop(
     private val failuresCounter: Counter? =
         meterRegistry?.let { Counter.builder("worker.failures").tag("worker", name).register(it) }
     private val durationTimer: Timer? =
-        meterRegistry?.let { Timer.builder("worker.duration").tag("worker", name).register(it) }
+        meterRegistry?.let {
+            Timer
+                .builder("worker.duration")
+                .tag("worker", name)
+                .publishPercentileHistogram(true)
+                .register(it)
+        }
 
     init {
         require(name.isNotBlank()) { "name must not be blank" }
