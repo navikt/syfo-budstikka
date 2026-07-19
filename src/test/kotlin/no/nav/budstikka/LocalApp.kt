@@ -6,6 +6,7 @@ import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.testsupport.BudstikkaTestApp
 import no.nav.budstikka.testsupport.KafkaUiContainer
+import no.nav.budstikka.testsupport.startMonitoring
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CountDownLatch
 
@@ -22,7 +23,7 @@ private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
  */
 fun main() {
     val app =
-        BudstikkaTestApp.start(enableKafkaNetwork = true) {
+        BudstikkaTestApp.start(enableKafkaNetwork = true, enableMonitoring = true) {
             // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
             provide<DeathLookup> { FakeDeathLookup() }
             // Lokalt skal BREV-flyten ikke kalle dokdist/Texas.
@@ -37,6 +38,7 @@ fun main() {
     logger.info("  Budstikka-topic         : {}", app.budstikkaTopic)
     logger.info("  Postgres JDBC-URL        : {}", app.jdbcUrl)
     logger.info("  Kafka UI                : {}", kafkaUi.url)
+    app.grafanaUrl?.let { logger.info("  Grafana URL             : {}", it) }
     logger.info("Trykk Ctrl+C for å stoppe.")
 
     val latch = CountDownLatch(1)

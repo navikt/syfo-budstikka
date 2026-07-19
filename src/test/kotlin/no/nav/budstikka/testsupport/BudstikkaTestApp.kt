@@ -10,6 +10,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.plugins.di.DependencyRegistry
+import kotlinx.coroutines.runBlocking
 import no.nav.budstikka.configureApplication
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import org.apache.kafka.clients.producer.KafkaProducer
@@ -33,6 +34,7 @@ class BudstikkaTestApp private constructor(
     private val kafka: KafkaTestContainer,
     private val server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>,
     private val appConfig: ApplicationConfig,
+    private val monitoring: MonitoringContainers? = null,
 ) : AutoCloseable {
     /** Egen tilkobling for assertions/inspeksjon mot samme Postgres-container som appen bruker. */
     val database: Database
@@ -55,6 +57,9 @@ class BudstikkaTestApp private constructor(
     /** JDBC-URL til den kjørende Postgres-containeren — logges ved lokalt løp for live-inspeksjon (B51). */
     val jdbcUrl: String
         get() = postgres.jdbcUrl
+
+    val grafanaUrl: String?
+        get() = monitoring?.grafanaUrl
 
     val budstikkaTopic: String
         get() = appConfig.property("kafka.consumers.budstikka.topic").getString()
@@ -95,6 +100,7 @@ class BudstikkaTestApp private constructor(
          */
         fun start(
             enableKafkaNetwork: Boolean = false,
+            enableMonitoring: Boolean = false,
             overrides: DependencyRegistry.() -> Unit = {},
         ): BudstikkaTestApp {
             val postgres = PostgresTestFixture()
@@ -109,7 +115,22 @@ class BudstikkaTestApp private constructor(
                         module = { configureApplication(overrides) },
                     )
                 server.start(wait = false)
-                return BudstikkaTestApp(postgres, kafka, server, appConfig)
+
+                val monitoring =
+                    if (enableMonitoring) {
+                        val appPort =
+                            runBlocking {
+                                server.engine
+                                    .resolvedConnectors()
+                                    .first()
+                                    .port
+                            }
+                        startMonitoring(appPort)
+                    } else {
+                        null
+                    }
+
+                return BudstikkaTestApp(postgres, kafka, server, appConfig, monitoring)
             } catch (error: Throwable) {
                 // Boot feilet etter at containerne startet — riv dem ned så vi ikke lekker Docker-ressurser.
                 runCatching { kafka.close() }
