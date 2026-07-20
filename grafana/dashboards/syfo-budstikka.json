@@ -434,7 +434,7 @@
       },
       "targets": [
         {
-          "expr": "round(sum(rate(delivery_total{result=\"sent\"}[5m])) / sum(rate(delivery_total[5m])) * 100) or vector(100)",
+          "expr": "round(100 * sum(increase(delivery_total{result=\"sent\"}[$__range])) / (sum(increase(delivery_total[$__range])) > 0)) or vector(100)",
           "legendFormat": "success rate",
           "refId": "A"
         }
@@ -500,7 +500,7 @@
       },
       "targets": [
         {
-          "expr": "round(sum(rate(inbox_message_processed_total[5m])) / (sum(rate(inbox_message_processed_total[5m])) + sum(rate(inbox_message_dropped_total[5m])) + sum(rate(inbox_message_failed_total[5m]))) * 100) or vector(100)",
+          "expr": "round(100 * sum(increase(inbox_message_processed_total[$__range])) / ((sum(increase(inbox_message_processed_total[$__range])) + sum(increase(inbox_message_dropped_total[$__range])) + sum(increase(inbox_message_failed_total[$__range]))) > 0)) or vector(100)",
           "legendFormat": "health ratio",
           "refId": "A"
         }
