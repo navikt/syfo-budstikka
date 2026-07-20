@@ -1,6 +1,6 @@
 [versions]
 java = "25"
-kotlin = "2.4.0"
+kotlin = "2.4.10"
 ktor = "3.5.1"
 logback = "1.5.38"
 ktlint-gradle = "14.2.0"
@@ -17,7 +17,7 @@ testLogger = "4.0.0"
 kotlinxSerializationJson = "1.11.0"
 kafka = "4.3.1"
 testcontainers = "1.21.4"
-tmsVarselJavaBuilder = "2.1.1"
+tmsVarselJavaBuilder = "2.2.0"
 tmsMikrofrontendSelector = "3.0.0"
 
 [plugins]
