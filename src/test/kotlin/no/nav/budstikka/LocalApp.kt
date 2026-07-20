@@ -5,11 +5,18 @@ import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.testsupport.BudstikkaTestApp
+import no.nav.budstikka.testsupport.KafkaTestContainer
 import no.nav.budstikka.testsupport.KafkaUiContainer
+import no.nav.budstikka.testsupport.MonitoringContainers
+import no.nav.budstikka.testsupport.installLocalProduceApi
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CountDownLatch
 
 private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
+
+// Fast app-port for det lokale løpet, så Bruno-collection og Prometheus-scrape har en stabil URL.
+// Utenfor typiske reserverte porter (3000/8080/8081/9090). E2e bruker port 0 (random) for parallellitet.
+private const val LOCAL_PORT = 8282
 
 /**
  * Lokalt løp (B50/B53): booter HELE appen mot Testcontainers (Postgres + Kafka) med port-fakes
@@ -21,22 +28,31 @@ private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
  * så lenge prosessen lever. Avslutt med Ctrl+C.
  */
 fun main() {
+    val kafka = KafkaTestContainer(enableNetworkListener = true)
     val app =
-        BudstikkaTestApp.start(enableKafkaNetwork = true) {
+        BudstikkaTestApp.start(
+            kafka = kafka,
+            port = LOCAL_PORT,
+            // Monitoring (Grafana/Prometheus) styres av monitoring.enabled i application-local.conf.
+            withMonitoring = ::MonitoringContainers,
+        ) {
             // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
             provide<DeathLookup> { FakeDeathLookup() }
             // Lokalt skal BREV-flyten ikke kalle dokdist/Texas.
             provide<DocumentDistributor> { FakeDocumentDistributor() }
         }
+    app.installLocalProduceApi()
 
     // Kafka UI kobles på Kafka via det delte Docker-nettet (intern adresse kafka:19092); kun lokalt.
     val kafkaUi = KafkaUiContainer(app.network!!, app.internalBootstrapServers!!)
 
     logger.info("Budstikka kjører lokalt mot Testcontainers")
+    logger.info("  App                     : http://localhost:{}", LOCAL_PORT)
     logger.info("  Kafka bootstrap servers : {}", app.bootstrapServers)
     logger.info("  Budstikka-topic         : {}", app.budstikkaTopic)
     logger.info("  Postgres JDBC-URL        : {}", app.jdbcUrl)
     logger.info("  Kafka UI                : {}", kafkaUi.url)
+    app.grafanaUrl?.let { logger.info("  Grafana URL             : {}", it) }
     logger.info("Trykk Ctrl+C for å stoppe.")
 
     val latch = CountDownLatch(1)

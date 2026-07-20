@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: syfo-budstikka
+    metrics_path: /internal/metrics
+    static_configs:
+      - targets: [ "{{HOST}}:{{APP_PORT}}" ]
+        labels:
+          app: syfo-budstikka
