@@ -100,6 +100,7 @@ class BudstikkaTestApp private constructor(
          */
         fun start(
             kafka: KafkaTestContainer = KafkaTestContainer(),
+            port: Int = 0,
             withMonitoring: ((appport: Int) -> MonitoringContainers)? = null,
             overrides: DependencyRegistry.() -> Unit = {},
         ): BudstikkaTestApp {
@@ -110,24 +111,33 @@ class BudstikkaTestApp private constructor(
                     embeddedServer(
                         Netty,
                         environment = applicationEnvironment { config = appConfig },
-                        configure = { connector { port = 0 } },
+                        // port = 0 gir en tilfeldig ledig port (e2e kjører parallelt uten kollisjon);
+                        // LocalApp sender en fast port for stabil Bruno-/Grafana-URL.
+                        configure = { connector { this.port = port } },
                         module = {
                             configureApplication(overrides)
                         },
                     )
                 server.start(wait = false)
 
+                // withMonitoring sier HVEM som kan monitorere (LocalApp; e2e sender null → aldri).
+                // monitoring.enabled i application-local.conf sier OM det faktisk startes. Fraværende
+                // nøkkel ⇒ på, så eksisterende oppførsel for en factory-kaller bevares.
+                val monitoringEnabled =
+                    appConfig.propertyOrNull("monitoring.enabled")?.getString()?.toBooleanStrictOrNull() ?: true
                 val monitoring =
-                    withMonitoring?.let { factory ->
-                        val appPort =
-                            runBlocking {
-                                server.engine
-                                    .resolvedConnectors()
-                                    .first()
-                                    .port
-                            }
-                        factory(appPort)
-                    }
+                    withMonitoring
+                        ?.takeIf { monitoringEnabled }
+                        ?.let { factory ->
+                            val appPort =
+                                runBlocking {
+                                    server.engine
+                                        .resolvedConnectors()
+                                        .first()
+                                        .port
+                                }
+                            factory(appPort)
+                        }
 
                 return BudstikkaTestApp(postgres, kafka, server, appConfig, monitoring)
             } catch (error: Throwable) {
@@ -139,9 +149,12 @@ class BudstikkaTestApp private constructor(
         }
 
         /**
-         * Bygger app-konfigen fra `application.conf` og peker DB + Kafka mot containerne. Setter
-         * `ktor.di.conflictPolicy = OverridePrevious` (så [overrides] vinner) og tømmer
-         * `ktor.application.modules` (vi laster modulen programmatisk, ikke fra konfigen).
+         * Bygger app-konfigen i tre lag (withFallback, høyest prioritet først):
+         *  1. dynamiske container-verdier fra kode (DB-host/port/schema + Kafka-bootstrap) — ukjente
+         *     før containerne er oppe,
+         *  2. `application-local.conf` — statiske lokale/test-overrides (distinkt navn så prod-konfigen
+         *     ikke skygges på test-classpath),
+         *  3. `application.conf` — prod-basis.
          */
         private fun testConfig(
             postgres: PostgresTestFixture,
@@ -149,7 +162,7 @@ class BudstikkaTestApp private constructor(
         ): ApplicationConfig {
             val host = postgres.postgres.host
             val port = postgres.postgres.firstMappedPort
-            val overrides =
+            val containerValues =
                 ConfigFactory.parseMap(
                     mapOf(
                         "database.host" to host,
@@ -162,14 +175,13 @@ class BudstikkaTestApp private constructor(
                         // slik at den delte containeren kan kjøre flere løp isolert/parallelt.
                         "database.url" to "postgresql://$host:$port/${postgres.postgres.databaseName}?currentSchema=${postgres.schema}",
                         "kafka.bootstrapServers" to bootstrapServers,
-                        "kafka.consumers.budstikka.enabled" to "true",
-                        "ktor.di.conflictPolicy" to "OverridePrevious",
-                        "ktor.application.modules" to emptyList<String>(),
-                        "pdl.scope" to "local",
-                        "auth.texas.tokenEndpoint" to "localhost",
                     ),
                 )
-            val merged = overrides.withFallback(ConfigFactory.parseResources("application.conf")).resolve()
+            val merged =
+                containerValues
+                    .withFallback(ConfigFactory.parseResources("application-local.conf"))
+                    .withFallback(ConfigFactory.parseResources("application.conf"))
+                    .resolve()
             return HoconApplicationConfig(merged)
         }
     }

@@ -386,7 +386,7 @@
       },
       "targets": [
         {
-          "expr": "ceil(sum(rate(delivery_total{result=\"sent\"}[5m])) / sum(rate(delivery_total[5m])) * 100) or vector(100)",
+          "expr": "round(sum(rate(delivery_total{result=\"sent\"}[5m])) / sum(rate(delivery_total[5m])) * 100) or vector(100)",
           "legendFormat": "success rate",
           "refId": "A"
         }
@@ -572,7 +572,7 @@
       },
       "targets": [
         {
-          "expr": "ceil(sum(rate(inbox_message_processed_total[5m])) / (sum(rate(inbox_message_processed_total[5m])) + sum(rate(inbox_message_dropped_total[5m])) + sum(rate(inbox_message_failed_total[5m]))) * 100) or vector(100)",
+          "expr": "round(sum(rate(inbox_message_processed_total[5m])) / (sum(rate(inbox_message_processed_total[5m])) + sum(rate(inbox_message_dropped_total[5m])) + sum(rate(inbox_message_failed_total[5m]))) * 100) or vector(100)",
           "legendFormat": "health ratio",
           "refId": "A"
         }
@@ -798,19 +798,19 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, worker)(rate(worker_duration_seconds_bucket[5m])))",
-          "legendFormat": "p95 {{worker}}",
+          "expr": "sum by (worker)(rate(worker_duration_seconds_sum[5m])) / sum by (worker)(rate(worker_duration_seconds_count[5m]))",
+          "legendFormat": "avg {{worker}}",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le, worker)(rate(worker_duration_seconds_bucket[5m])))",
-          "legendFormat": "p99 {{worker}}",
+          "expr": "max by (worker)(worker_duration_seconds_max)",
+          "legendFormat": "max {{worker}}",
           "refId": "B"
         }
       ],
-      "title": "Worker Duration p95/p99",
+      "title": "Worker Duration (avg / max)",
       "type": "timeseries",
-      "description": "Worker iteration duration percentiles. p95 = 95% of iterations finished faster than this. p99 = 99% finished faster (only 1% slower). High values or spikes indicate slow or stuck iterations."
+      "description": "Worker iteration duration. avg = rate(sum)/rate(count), aggregates correctly across pods and shows the duration trend. max = worst iteration in the window (per worker, across pods). A rising avg or spiking max indicates slow or stuck iterations. No percentiles: worker tail-latency is not actionable today, and client-side percentiles cannot be aggregated across pods."
     },
     {
       "collapsed": false,
@@ -903,7 +903,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (partition)(kafka_consumer_fetch_manager_records_lag_max{topic=\"team-esyfo_budstikka_v1\"})",
+          "expr": "sum by (partition)(kafka_consumer_fetch_manager_records_lag_max{topic=\"team-esyfo.budstikka.v1\"})",
           "legendFormat": "partition {{partition}}",
           "refId": "A"
         }
@@ -971,7 +971,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (partition)(deriv(kafka_consumer_fetch_manager_records_lag_max{topic=\"team-esyfo_budstikka_v1\"}[5m]))",
+          "expr": "sum by (partition)(deriv(kafka_consumer_fetch_manager_records_lag_max{topic=\"team-esyfo.budstikka.v1\"}[5m]))",
           "legendFormat": "lag rate partition {{partition}}",
           "refId": "A"
         }
@@ -1041,7 +1041,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (partition)(rate(kafka_consumer_fetch_manager_records_consumed_total{topic=\"team-esyfo_budstikka_v1\"}[5m]))",
+          "expr": "sum by (partition)(rate(kafka_consumer_fetch_manager_records_consumed_total{topic=\"team-esyfo.budstikka.v1\"}[5m]))",
           "legendFormat": "consumed partition {{partition}}",
           "refId": "A"
         }
@@ -1111,7 +1111,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(inbox_message_empty_polls_total[5m])) / (sum(rate(inbox_message_empty_polls_total[5m])) + sum(rate(inbox_message_claimed_total[5m])))",
+          "expr": "sum(rate(inbox_message_empty_polls_total[5m])) / (sum(rate(inbox_message_empty_polls_total[5m])) + sum(rate(inbox_message_claimed_total[5m]))) or vector(0)",
           "legendFormat": "empty poll ratio",
           "refId": "A"
         }
@@ -1250,11 +1250,12 @@
       "targets": [
         {
           "expr": "sum(increase(worker_failures_total{worker=\"inbox-message\"}[1h]))",
-          "legendFormat": "inbox-message restarts",
+          "legendFormat": "inbox-message iterasjonsfeil",
           "refId": "A"
         }
       ],
-      "title": "Consumer Restart Count (1h)",
+      "title": "Inbox Worker Iteration-feil (1h)",
+      "description": "Antall iterasjoner der inbox-workeren kastet en exception siste time (worker_failures_total). NB: dette er iterasjonsfeil, IKKE pod-/consumer-restarter.",
       "type": "timeseries"
     },
     {

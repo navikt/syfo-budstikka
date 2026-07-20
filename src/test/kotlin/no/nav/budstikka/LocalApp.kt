@@ -14,6 +14,10 @@ import java.util.concurrent.CountDownLatch
 
 private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
 
+// Fast app-port for det lokale løpet, så Bruno-collection og Prometheus-scrape har en stabil URL.
+// Utenfor typiske reserverte porter (3000/8080/8081/9090). E2e bruker port 0 (random) for parallellitet.
+private const val LOCAL_PORT = 8282
+
 /**
  * Lokalt løp (B50/B53): booter HELE appen mot Testcontainers (Postgres + Kafka) med port-fakes
  * wiret inn via samme substrat som e2e-harnessen — ingen Texas/tokens/compose (B51). Kjøres med
@@ -28,6 +32,8 @@ fun main() {
     val app =
         BudstikkaTestApp.start(
             kafka = kafka,
+            port = LOCAL_PORT,
+            // Monitoring (Grafana/Prometheus) styres av monitoring.enabled i application-local.conf.
             withMonitoring = ::MonitoringContainers,
         ) {
             // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
@@ -41,6 +47,7 @@ fun main() {
     val kafkaUi = KafkaUiContainer(app.network!!, app.internalBootstrapServers!!)
 
     logger.info("Budstikka kjører lokalt mot Testcontainers")
+    logger.info("  App                     : http://localhost:{}", LOCAL_PORT)
     logger.info("  Kafka bootstrap servers : {}", app.bootstrapServers)
     logger.info("  Budstikka-topic         : {}", app.budstikkaTopic)
     logger.info("  Postgres JDBC-URL        : {}", app.jdbcUrl)

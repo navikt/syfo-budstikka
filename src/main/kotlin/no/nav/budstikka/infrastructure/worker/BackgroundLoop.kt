@@ -57,14 +57,13 @@ class BackgroundLoop(
         meterRegistry?.let { Counter.builder("worker.runs").tag("worker", name).register(it) }
     private val failuresCounter: Counter? =
         meterRegistry?.let { Counter.builder("worker.failures").tag("worker", name).register(it) }
+
+    // Base-timer: gir count/sum (→ snitt via rate(sum)/rate(count)) og max, som aggregerer korrekt
+    // på tvers av podder. Ingen persentil-bøtter: worker-halelatens er ikke handlingsutløsende i dag,
+    // og klient-side persentiler kan uansett ikke slås sammen over podder. Legg til avgrensa
+    // publishPercentileHistogram den dagen en konkret alarm/SLO krever fleet-persentiler.
     private val durationTimer: Timer? =
-        meterRegistry?.let {
-            Timer
-                .builder("worker.duration")
-                .tag("worker", name)
-                .publishPercentileHistogram(true)
-                .register(it)
-        }
+        meterRegistry?.let { Timer.builder("worker.duration").tag("worker", name).register(it) }
 
     init {
         require(name.isNotBlank()) { "name must not be blank" }
