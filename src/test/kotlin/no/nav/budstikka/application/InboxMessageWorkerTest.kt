@@ -20,15 +20,13 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.deadLookupFor
+import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import org.slf4j.LoggerFactory
@@ -216,12 +214,6 @@ private fun workerWith(
             ),
         metrics = metrics,
     )
-
-private fun inboxMessage(
-    eventId: UUID,
-    reference: String = "ref-1",
-    content: DispatchContent = MicrofrontendEnable(PersonIdentifier("12345678901"), "syfo-microfrontend"),
-): InboxMessage = InboxMessage(eventId = eventId, reference = reference, content = content)
 
 private class PollingInboxMessageRepository(
     private val messages: List<InboxMessage>,

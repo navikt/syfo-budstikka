@@ -8,12 +8,10 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.fakes.brukervarselDraft
+import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -40,7 +38,7 @@ class DeliveryRepositoryIntegrationTest :
             draft: DeliveryDraft,
         ) {
             val inboxEventId = UUID.randomUUID()
-            InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxRow(inboxEventId)))
+            InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
                 DeliveryRepositoryImpl(fixture.database).saveInTransaction(inboxEventId, listOf(draft.copy(reference = reference)))
             }
@@ -205,10 +203,3 @@ class DeliveryRepositoryIntegrationTest :
             rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
         }
     })
-
-private fun inboxRow(eventId: UUID) =
-    InboxMessage(
-        eventId = eventId,
-        reference = "ref-$eventId",
-        content = MicrofrontendEnable(PersonIdentifier("12345678901"), "mf-1"),
-    )
