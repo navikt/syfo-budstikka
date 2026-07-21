@@ -31,7 +31,7 @@ sealed interface DispatchContent {
 
 > **Planlagt endring (ADR 0008 / B61, #125):** `eventId` FJERNES fra `Dispatch` og
 > leveres KUN som Kafka-header (`DispatchHeader.EVENT_ID`) — konvolutten blir
-> `{ reference, content }`. eventId er transport-plumbing, ikke domenedata. Blokka over
+> `{ reference, content }`. eventId er en teknisk id (dedup og korrelasjon), ikke domenedata. Blokka over
 > speiler dagens kode; oppdateres når parse-ved-ingest implementeres.
 
 ## Viktige kontraktprinsipper (B22/B23)

@@ -45,7 +45,7 @@ erDiagram
         int         partition
         bigint      kafka_offset
         text        kafka_key "nullable"
-        uuid        event_id "nullable (best-effort header)"
+        uuid        event_id "nullable (fra header, når den finnes)"
         text        failure_reason
         text        error_message "nullable"
         timestamptz received_at

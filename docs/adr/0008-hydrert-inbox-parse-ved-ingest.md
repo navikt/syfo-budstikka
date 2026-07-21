@@ -6,128 +6,134 @@
 
 ## Kontekst
 
-ADR 0002 valgte **parse-fri ingest**: `eventId` fra Kafka-header som dedup-nøkkel,
-rå payload lagret byte-eksakt som `text`, og all deserialisering deferret til
-beslutnings-workeren. Hovedbegrunnelsen var å løsrive dedup fra payload-skjemaet.
+ADR 0002 valgte parse-fri ingest: `eventId` ble lest fra Kafka-headeren som dedup-nøkkel,
+rå payload ble lagret som `text`, og all deserialisering ble utsatt til beslutnings-workeren.
+Hovedgrunnen var å holde dedup uavhengig av payload-skjemaet.
 
 To ting har endret bildet:
 
-1. **Skjema-robustheten er allerede dekket andre steder.** `dispatchJson` har
-   `ignoreUnknownKeys = true` (additive feltendringer overlever parse), og B43 gir
-   topic-versjonering (`.v1`/`.v2` + dual-write) for breaking endringer. Det som da
-   gjenstår som «parse-feil» er nesten utelukkende et *ekte kontraktbrudd* (ukjent
-   sealed-subtype, korrupt konvolutt) — som uansett bør dead-letteres. ADR 0002s
-   robusthetsargument er dermed i praksis subsumert.
+1. Skjema-robustheten er allerede ivaretatt andre steder. `dispatchJson` har
+   `ignoreUnknownKeys = true`, så additive feltendringer overlever en parse, og B43 gir
+   topic-versjonering (`.v1`/`.v2` med dual-write) for breaking endringer. Det som da står
+   igjen som «parse-feil», er nesten alltid et reelt kontraktbrudd (ukjent sealed-subtype
+   eller korrupt konvolutt), og slikt bør uansett legges i dead-letter-tabellen.
+   Robusthetsargumentet i ADR 0002 er derfor i praksis dekket.
 
-2. **FERDIGSTILL-lukking og framtidig funksjonalitet trenger strukturerte felt på
-   inbox-raden.** For å lukke/annullere en melding som ligger og venter (utenfor
-   sendevindu, #27) må `reference` + recipient + channel være tilgjengelig på inbox-
-   raden, ikke først når beslutnings-workeren dekoder. Å deferre parsing tvinger enten
-   on-the-fly-deserialisering ved lukking eller et eget hydrert mellomlag (vraket som
-   overengineering). Hydrering av inbox-raden selv gir dette rom generelt.
+2. FERDIGSTILL-lukking, og senere funksjonalitet, trenger strukturerte felt på inbox-raden.
+   For å lukke eller annullere en melding som venter utenfor sendevinduet (#27), må
+   `reference` være tilgjengelig på inbox-raden, ikke først når beslutnings-workeren
+   deserialiserer. Å utsette parsingen tvinger fram enten deserialisering ved behov under
+   lukking, eller et eget hydrert mellomlag (som vi forkastet som unødvendig komplekst).
+   Å hydrere selve inbox-raden løser dette enklere.
 
-Prinsipp som styrer valget: **vår kontrakt er sannheten for hvilke data vi bryr oss
-om.** Kaster en produsent nye felt på oss før de har snakket med oss, antar vi at de
-har dem lagret hos seg — å håndtere ukjent data er utenfor vårt ansvar (B1/B22).
+Prinsippet som styrer valget: kontrakten vår er sannheten for hvilke data vi bryr oss om.
+Sender en produsent nye felt før de har avklart det med oss, antar vi at de har dataene
+lagret selv. Å håndtere ukjent data er ikke vårt ansvar (B1/B22).
 
 ## Beslutning
 
-Ingest **parser hele `Dispatch`** (konvolutt + sealed `content`) og hydrerer
-inbox-raden. Parsingen er **kun syntaktisk kontraktvalidering + hydrering** — ingen
-forretningslogikk (eligibility/død/KRR, kanalvalg, fallback, FERDIGSTILL-matching) bor
-fortsatt i beslutnings-workeren (B10/B28 uendret; se «Konsekvenser»). Konkret:
+Ingest parser hele `Dispatch` (konvolutt og sealed `content`) og hydrerer inbox-raden.
+Parsingen gjør bare syntaktisk kontraktvalidering og hydrering, ingen forretningslogikk.
+Eligibility (død/KRR), kanalvalg, fallback og FERDIGSTILL-matching bor fortsatt i
+beslutnings-workeren (B10/B28 er uendret).
 
-1. **`eventId` lever KUN i Kafka-headeren** (`DispatchHeader.EVENT_ID`) og fjernes fra
-   payloaden — `Dispatch`-konvolutten blir `{ reference, content }`. eventId er
-   transport-plumbing (dedup + korrelasjon), ikke domenedata. Dedup på **header-eventId**
-   som PK (`ON CONFLICT DO NOTHING`). Headeren er dermed **autoritativ og obligatorisk**:
-   manglende/ugyldig header → dead-letter (`MISSING_EVENT_ID`/`INVALID_EVENT_ID`), ingen
-   payload-fallback. Dette *reverserer* B54s «payload forblir autoritativ», og løser
-   tvillingkilde-problemet ved å ELIMINERE den ene kilden, ikke ved å rangere dem.
-2. **`content` lagres som `jsonb<DispatchContent>`** (speiler `delivery`); rå `payload
-   text` droppes. `event_id` (PK) settes fra headeren. `reference` løftes ut som egen
-   indeksert kolonne — den er den selektive FERDIGSTILL-match-nøkkelen (B39) OG det eneste
-   konvolutt-feltet som ikke ligger i `content`-jsonb-en. `recipient`/`channel`/`operation`
-   løftes **ikke** ut: de er utledbare fra `content` (`partitionKey`/`type`) og brukes kun
-   til å avgrense innenfor et `reference`-treff. `ignoreUnknownKeys = true` beholdes →
-   ukjente felt forsvinner **bevisst**. (Ytterligere indekserte match-kolonner på inbox
-   legges til KUN hvis `DECISIONS.md` #1 lander på inbox-hold — ikke tatt på forskudd her.)
-3. **Dedup er skjema-uavhengig:** header-eventId leses og dedupes FØR payload parses, så
-   en dupliserende melding forkastes uten parsing, og dedup avhenger aldri av payload-
-   skjemaet (gjenvinner ADR 0002s robusthet). For dead-letter beholdes eventId best-effort
-   som ny nullable `event_id`-kolonne på `dead_letter_message`: en melding som feiler
-   *payload*-parse men har gyldig header lagres MED eventId → full korrelasjon til produsent;
-   kun en melding som mangler headeren får `event_id = null`.
-4. **Feiltaksonomi ved ingest — skill *syntaktisk* fra *semantisk* ugyldighet:**
-   - *Poison (syntaktisk, → dead-letter):* manglende/ugyldig `eventId`-header, tom payload,
-     korrupt JSON, konvolutt uten `reference`, eller **parser-urepresenterbar** content
-     (ukjent sealed-subtype). Offset committes → partisjonen flyter.
-   - *Representerbart-men-ulovlig (semantisk, → IKKE dead-letter):* en kombinasjon som
-     parser til en gyldig type men er domene-/kanalulovlig (B21) når inbox som normalt,
-     og håndteres av beslutnings-workeren per B21 (`PROCESSED`, ingen delivery, metrikk
-     `ugyldig_kombinasjon` — ingen `FAILED`/alert). Ingest DL-er den **ikke**; B21s
-     defense-in-depth består uendret.
-   - *Transient (DB nede):* unntak kastes → ConsumerRunner committer ikke, re-poller.
-5. **Replay-prosedyre ved parser-oppgradering:** en melding dead-lettet pga. ukjent
-   subtype/version-skew replayes etter at konsumenten er oppgradert — enten fra Kafka
-   (innen 90d retention, B26) via offset-reset, eller re-injiseres fra `dead_letter_message`-
-   raden. Begge er trygge fordi dedup er på header-eventId (`ON CONFLICT DO NOTHING`)
-   → replay dobbeltbehandler ikke. DL-replay er en operasjonell prosedyre, ikke automatikk.
-6. **Retensjon på `dead_letter_message` (utvider B42):** DL bærer nå rå payload med
-   fnr/tekst (art.9-nær) og er primær landingsplass for parse-feil → må ha samme
-   hard-delete-disiplin som `inbox_message`: hard delete ved alder > ~100 dager (≥ 90d
-   replay-vindu B26 + buffer), gjenbruker samme periodiske slette-coroutine (B42).
-   Lagret innhold minimeres (rå bytes + tekniske Kafka-koordinater + best-effort
-   `event_id`); ingen parse-feilmelding logges rått (B58 — kun feiltype/koordinater).
-7. **Hold-plassering (inbox- vs. outbox-hold, `DECISIONS.md` #1) forblir åpen**, men
-   er nå avblokkert: en hydrert inbox gjør både outbox-hold-med-`CANCELLED` og ekte
-   inbox-hold (pre-send-annullering) billigere. Denne ADR-en tar ikke det valget.
+1. eventId ligger bare i Kafka-headeren (`DispatchHeader.EVENT_ID`) og fjernes fra
+   payloaden. Konvolutten blir `{ reference, content }`. eventId er en teknisk id for dedup
+   og korrelasjon, ikke domenedata. Vi deduper på header-eventId som primærnøkkel
+   (`ON CONFLICT DO NOTHING`). Headeren er dermed autoritativ og obligatorisk: mangler den
+   eller er ugyldig, går meldingen i dead-letter-tabellen (`MISSING_EVENT_ID`/
+   `INVALID_EVENT_ID`), uten fallback til payload. Dette reverserer B54, der payload var
+   autoritativ. Vi unngår at samme verdi finnes to steder ved å ha eventId bare ett sted,
+   ikke ved å rangere kildene.
+2. `content` lagres som `jsonb<DispatchContent>` (samme som `delivery`), og rå `payload
+   text` fjernes. Primærnøkkelen `event_id` settes fra headeren. `reference` løftes ut i en
+   egen indeksert kolonne: den er den selektive match-nøkkelen ved FERDIGSTILL (B39), og det
+   eneste konvolutt-feltet som ikke ligger i `content`-jsonb-en. `recipient`, `channel` og
+   `operation` løftes ikke ut. De kan utledes fra `content` (`partitionKey`/`type`) og brukes
+   bare til å avgrense innenfor et `reference`-treff. `ignoreUnknownKeys = true` beholdes, så
+   ukjente felt faller bort med vilje. Flere indekserte match-kolonner på inbox legges bare
+   til hvis `DECISIONS.md` #1 lander på inbox-hold; vi tar ikke den beslutningen her.
+3. Dedup er uavhengig av skjemaet. Header-eventId leses og dedupes før payload parses, så en
+   duplikat forkastes uten parsing, og dedup avhenger aldri av payload-skjemaet (samme
+   robusthet som ADR 0002). For meldinger som havner i dead-letter-tabellen, lagrer vi
+   eventId når vi kan: en melding som feiler på payload-parsing, men har en gyldig header,
+   lagres med eventId, slik at vi kan korrelere mot produsenten. Mangler headeren, blir
+   `event_id` null. Kolonnen er ny og nullable på `dead_letter_message`.
+4. Feiltaksonomi ved ingest skiller syntaktisk fra semantisk ugyldighet:
+   - Poison (syntaktisk) går i dead-letter: manglende eller ugyldig `eventId`-header, tom
+     payload, korrupt JSON, konvolutt uten `reference`, eller content som ikke lar seg parse
+     (ukjent sealed-subtype). Offset committes, og partisjonen flyter videre.
+   - Representerbart, men ulovlig (semantisk) går ikke i dead-letter: en kombinasjon som
+     parser til en gyldig type, men er ulovlig etter domene- eller kanalregler (B21), når
+     inbox som normalt og håndteres av beslutnings-workeren (`PROCESSED`, ingen delivery,
+     metrikk `ugyldig_kombinasjon`, ingen `FAILED` eller alert). B21s forsvar i dybden er
+     uendret.
+   - Transient (databasen nede): unntak kastes, ConsumerRunner committer ikke, og poller på
+     nytt.
+5. Replay etter en parser-oppgradering: en melding som havnet i dead-letter på grunn av
+   ukjent subtype (versjonsavvik), kan spilles av på nytt etter at konsumenten er oppgradert,
+   enten fra Kafka (innenfor 90-dagers retention, B26) med offset-reset, eller ved å sende
+   inn dead-letter-raden på nytt. Begge er trygge fordi dedup skjer på header-eventId
+   (`ON CONFLICT DO NOTHING`), så replay ikke dobbeltbehandler. Replay fra dead-letter er en
+   manuell prosedyre, ikke noe automatisk.
+6. Retensjon på `dead_letter_message` (utvider B42): tabellen bærer nå rå payload med fnr og
+   tekst (nær særlige kategorier, art. 9) og er hovedstedet parse-feil havner. Den må derfor
+   slettes like hardt som `inbox_message`: hard delete når raden er eldre enn ~100 dager
+   (90-dagers replay-vindu fra B26 pluss litt margin), med samme periodiske slette-coroutine
+   (B42). Vi lagrer minst mulig: rå bytes, tekniske Kafka-koordinater og eventId når vi har
+   den. Parse-feil logges aldri rått (B58), bare feiltype og koordinater.
+7. Hold-plassering (inbox-hold eller outbox-hold, `DECISIONS.md` #1) er fortsatt åpen, men
+   ikke lenger blokkert: en hydrert inbox gjør både outbox-hold med `CANCELLED` og ekte
+   inbox-hold (annullering før sending) billigere. Denne ADR-en tar ikke det valget.
 
 ## Konsekvenser
 
-- ➕ `reference` (indeksert kolonne) + `content` (jsonb) på inbox → FERDIGSTILL kan
-   matche/avgrense ventende rader uten re-parsing; recipient/channel leses fra jsonb.
-   Ingen spekulativ schema — kun det parse-ved-ingest faktisk trenger.
-- ➕ B54s tvillingkilde-kompleksitet forsvinner: eventId lever ett sted (headeren), så
-   ingen `payload.eventId == header.eventId`-validering og ingen divergensrisiko.
-- ➕ Dedup er skjema-uavhengig (header leses før parse) → gjenvinner ADR 0002s robusthet:
-   en duplikat forkastes uten parsing, og en payload-skjemafeil påvirker aldri dedup.
-- ➕ «Undecodable content → `inbox_message.FAILED` hos beslutnings-worker» (ADR 0002)
-   utgår: content er garantert parsebar på hver `RECEIVED`-rad, så
-   `SerializationException` i beslutnings-workeren elimineres (jf. PII-lekkasjen tettet
-   i B58 — feilflaten flyttes til ingest→DL, aldri logget rått).
-- ➕ Poison blokkerer fortsatt aldri partisjonen; transient taper aldri data stille.
-- ➖ Ingest binder seg igjen til payload-skjemaet: et ekte kontraktbrudd (ukjent
-   subtype under versjons-skew) dead-letteres og krever manuell replay etter oppgradering
-   (Beslutning pkt. 5) — bevisst akseptert (kontrakt = sannhet; B43 sender breaking til `.v2`).
-- ➖ Kun *parser-urepresenterbar* content dead-letteres ved ingest; *representable-men-
-   ulovlige* kombinasjoner (B21) når inbox og håndteres av beslutnings-workeren som før
-   (`PROCESSED` + metrikk, ingen `FAILED`/alert). B21s runtime-forsvar er uendret.
-- ➖ Ukjente additive felt bevares ikke (jsonb, ikke rå bytes). Verdiløst tap for en
-   domeneblind ruter; de forensisk interessante bytene beholdes rått i
-   `dead_letter_message` (som nå har egen retensjon, Beslutning pkt. 6).
-- ➖ Headeren blir en **hard, obligatorisk avhengighet**: en produsent som utelater
-   `DispatchHeader.EVENT_ID` får ALLE meldinger dead-lettet, uten payload-fallback. Bevisst
-   akseptert — eventId er transport-plumbing og kontrakten er eksplisitt (delt konstant);
-   `dead_letter_message` fanger avviket observerbart framfor stille datatap.
-- 🔒 PII-at-rest: fnr i `recipient_id` nå også på inbox (som `delivery`, B18/B42) OG rå
-   payload m/fnr i `dead_letter_message`. Retensjonsgulv (inbox ≥ 90d, B26/B42) står;
-   DL får eksplisitt hard-delete-retensjon (Beslutning pkt. 6, utvider B42s scope).
+- ➕ `reference` (indeksert kolonne) og `content` (jsonb) på inbox gjør at FERDIGSTILL kan
+  matche og avgrense ventende rader uten å parse på nytt; recipient og channel leses fra
+  jsonb. Ingen kolonner på spekulasjon, bare det parse-ved-ingest faktisk trenger.
+- ➕ eventId finnes bare ett sted (headeren), så vi slipper `payload.eventId ==
+  header.eventId`-validering og risikoen for at de spriker.
+- ➕ Dedup er uavhengig av skjemaet (headeren leses før parsing), samme robusthet som ADR
+  0002: en duplikat forkastes uten parsing, og en feil i payload-skjemaet påvirker aldri
+  dedup.
+- ➕ Tilfellet «content lar seg ikke dekode, så beslutnings-workeren setter
+  `inbox_message.FAILED`» (ADR 0002) faller bort: content er garantert parsebar på hver
+  `RECEIVED`-rad, så `SerializationException` i beslutnings-workeren forsvinner (jf.
+  PII-lekkasjen som ble tettet i B58; feilen flyttes til ingest og dead-letter, og logges
+  aldri rått).
+- ➕ Poison blokkerer fortsatt aldri partisjonen, og transiente feil taper aldri data i det
+  stille.
+- ➖ Ingest bindes igjen til payload-skjemaet: et reelt kontraktbrudd (ukjent subtype ved
+  versjonsavvik) havner i dead-letter og krever manuell replay etter oppgradering (Beslutning
+  pkt. 5). Bevisst akseptert, siden kontrakten er sannheten og B43 sender breaking endringer
+  til `.v2`.
+- ➖ Bare content som ikke lar seg parse, havner i dead-letter ved ingest. Kombinasjoner som
+  er representerbare men ulovlige (B21) når inbox og håndteres av beslutnings-workeren som
+  før (`PROCESSED` og metrikk, ingen `FAILED` eller alert). B21s forsvar er uendret.
+- ➖ Ukjente additive felt beholdes ikke (jsonb, ikke rå bytes). Det tapet betyr ingenting
+  for en domeneblind ruter, og rå-bytene beholdes uansett i `dead_letter_message` for
+  feilsøking (tabellen har nå egen retensjon, Beslutning pkt. 6).
+- ➖ Headeren blir en hard, obligatorisk avhengighet: en produsent som glemmer
+  `DispatchHeader.EVENT_ID`, får alle meldinger i dead-letter, uten fallback til payload.
+  Bevisst akseptert: eventId er en teknisk id, kontrakten er tydelig (delt konstant), og
+  dead-letter-tabellen fanger avviket synlig i stedet for å tape data i det stille.
+- 🔒 PII i ro: fnr ligger nå i `recipient_id` på inbox (som i `delivery`, B18/B42) og i rå
+  payload i `dead_letter_message`. Retensjonsgulvet (inbox ≥ 90 dager, B26/B42) står, og
+  dead-letter får eksplisitt hard-delete-retensjon (Beslutning pkt. 6, utvider B42).
 
 ## Alternativer vurdert
 
-- **Behold ADR 0002 (parse-fri) + on-the-fly-deserialisering ved lukking.** Vraket:
-  flytter kompleksitet inn i lukke-mekanikken uten å gi strukturerte felt for annen
-  funksjonalitet; hver forbruker må re-parse.
-- **Eget hydrert mellomlag (egen tabell) mellom inbox og outbox.** Vraket som
-  overengineering — hydrer `inbox_message` på plass.
-- **`reference` som ny Kafka-header (utvid B54).** Vraket: parse-fri matching, men
-  utvider header-kontrakten over alle produsenter + gjeninnfører tvillingkilde-
-  divergens; full parse gir alle felt uten kontraktendring.
-- **Behold `eventId` i payloaden (autoritativ), header som best-effort brødsmule.** Var
-  det opprinnelige ADR-0008-forslaget; forkastet av teamet til fordel for header-kun —
-  eventId er transport-plumbing, ikke domenedata, og ett kildested er renere enn å rangere
-  to. Kostnaden (hard header-avhengighet) tatt bevisst.
-- **Behold både payload-`eventId` OG header (validér likhet, B54).** Vraket: nettopp
-  tvillingkilden ADR-en fjerner.
-
+- Behold ADR 0002 (parse-fri) og deserialiser ved behov under lukking. Forkastet: flytter
+  kompleksiteten inn i lukke-mekanikken uten å gi strukturerte felt til annen funksjonalitet,
+  og hver forbruker må parse på nytt.
+- Eget hydrert mellomlag (egen tabell) mellom inbox og outbox. Forkastet som unødvendig
+  komplekst; vi hydrerer `inbox_message` direkte.
+- `reference` som ny Kafka-header (utvid B54). Forkastet: gir matching uten parsing, men
+  utvider header-kontrakten for alle produsenter og gjeninnfører faren for at header og
+  payload spriker. Full parse gir alle felt uten å endre kontrakten.
+- Behold `eventId` i payloaden som autoritativ, med headeren som en id vi lagrer når vi kan.
+  Dette var det opprinnelige forslaget i ADR 0008. Teamet forkastet det til fordel for header
+  alene: eventId er en teknisk id, ikke domenedata, og én kilde er ryddigere enn å rangere to.
+  Kostnaden (hard avhengighet til headeren) er tatt bevisst.
+- Behold både `eventId` i payload og header, og valider at de er like (B54). Forkastet: det
+  er nettopp de to kildene ADR-en fjerner.
