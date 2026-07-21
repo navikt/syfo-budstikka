@@ -16,11 +16,11 @@ import java.util.UUID
 
 /**
  * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
- * 0004 — flere replicaer kan kjøre samtidig) og effektuerer utfallet per melding via
- * [EffectuateDecision] (delivery + inbox-status i én DB-tx).
+ * 0004 — flere replicaer kan kjøre samtidig), dekoder payloaden og effektuerer utfallet per melding
+ * via [EffectuateDecision] (delivery + inbox-status i én DB-tx).
  *
- * Meldingen er hydrert ved ingest (ADR 0008): `content` er garantert parsebar, så workeren dekoder
- * ikke payload. Den rekonstruerer [Dispatch] fra raden og delegerer beslutningen til [DecisionProcess].
+ * Beslutningen delegeres til [DecisionProcess], som ruter til policy per meldingstype og lar hver
+ * policy hente sitt eget grunnlag (f.eks. PDL for isAlive-gaten).
  *
  * Workeren eier én runde ([runOnce]); selve løkke-livssyklusen (intervall, heartbeat, shutdown)
  * komponeres rundt den i bootstrap via `BackgroundLoop`. Lease-budsjett-draineringen deles med

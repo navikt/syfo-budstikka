@@ -12,15 +12,10 @@ import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
 /**
- * Outbox-workeren (B27): claimer `delivery`-rader for de kanalene den har en [ChannelHandler] for
+ * Outbox-workeren claimer `delivery`-rader for de kanalene den har en [ChannelHandler] for
  * (FOR UPDATE SKIP LOCKED + lease, ADR 0004 — flere replicaer samtidig), og dispatcher hver rad til
  * riktig handler. Workeren avhenger kun av sømmen [handlers] — ikke av konkrete publishers — så en
  * ny kanal er én handler + registrering.
- *
- * Statusovergangen bor her (ikke i handlerne): [DeliveryOutcome.Sent] → SENT,
- * [DeliveryOutcome.Failed] → FAILED (permanent). Transient feil = handleren kaster; raden blir
- * stående CLAIMED og plukkes opp når leasen utløper. Lease-budsjett-draineringen deles med
- * inbox-workeren via [LeaseBudgetDrainer].
  */
 class DeliveryWorker(
     private val repository: DeliveryRepository,

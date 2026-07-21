@@ -12,8 +12,8 @@ import java.util.UUID
  * steget `DecisionProcess` bevisst lot stå åpent («skriving av leveranse-rad(er) +
  * inbox_hendelse.status i én DB-tx»).
  *
- * Per-melding atomisk er en hard invariant: én meldings feil ruller aldri tilbake en annens. Eksterne
- * oppslag (grunnlagsinnhenting) skjer FØR denne kalles, utenfor transaksjonen.
+ * Hver inbox-melding behandles atomisk: Feil i én melding ruller bare tilbake den meldingen, ikke andre.
+ * Eksterne oppslag (grunnlagsinnhenting) skjer før denne kalles, utenfor transaksjonen.
  *
  * [EffectuateDecision] utfører effectuate i en transaksjon.
  */

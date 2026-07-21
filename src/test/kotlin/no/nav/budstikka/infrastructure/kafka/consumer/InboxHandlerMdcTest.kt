@@ -10,11 +10,6 @@ import io.kotest.matchers.string.shouldContain
 import no.nav.budstikka.application.MdcKeys
 import org.slf4j.LoggerFactory
 
-/**
- * B45/B46: konsum-steget skal bære korrelasjons-iden (`eventId`) som strukturert MDC-felt, så
- * `| event_id="X"` i Loki dekker HELE hendelsesløpet — også konsum, ikke bare decide/poller/send.
- * Fanger den faktisk emitterte logglinjen via en logback [ListAppender] og inspiserer MDC/format.
- */
 class InboxHandlerMdcTest :
     FunSpec({
         lateinit var appender: ListAppender<ILoggingEvent>
