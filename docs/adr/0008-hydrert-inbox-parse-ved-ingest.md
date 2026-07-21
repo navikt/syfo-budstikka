@@ -44,11 +44,14 @@ fortsatt i beslutnings-workeren (B10/B28 uendret; se «Konsekvenser»). Konkret:
    manglende/ugyldig header → dead-letter (`MISSING_EVENT_ID`/`INVALID_EVENT_ID`), ingen
    payload-fallback. Dette *reverserer* B54s «payload forblir autoritativ», og løser
    tvillingkilde-problemet ved å ELIMINERE den ene kilden, ikke ved å rangere dem.
-2. **Strukturerte kolonner løftes ut** på `inbox_message`: `reference`,
-   `recipient_type`, `recipient_id`, `channel`, `operation`. `content` lagres som
-   `jsonb<DispatchContent>` (speiler `delivery`); rå `payload text` droppes.
-   `ignoreUnknownKeys = true` beholdes — ukjente felt forsvinner **bevisst**. `event_id`
-   (PK) settes fra headeren, ikke fra payloaden.
+2. **`content` lagres som `jsonb<DispatchContent>`** (speiler `delivery`); rå `payload
+   text` droppes. `event_id` (PK) settes fra headeren. `reference` løftes ut som egen
+   indeksert kolonne — den er den selektive FERDIGSTILL-match-nøkkelen (B39) OG det eneste
+   konvolutt-feltet som ikke ligger i `content`-jsonb-en. `recipient`/`channel`/`operation`
+   løftes **ikke** ut: de er utledbare fra `content` (`partitionKey`/`type`) og brukes kun
+   til å avgrense innenfor et `reference`-treff. `ignoreUnknownKeys = true` beholdes →
+   ukjente felt forsvinner **bevisst**. (Ytterligere indekserte match-kolonner på inbox
+   legges til KUN hvis `DECISIONS.md` #1 lander på inbox-hold — ikke tatt på forskudd her.)
 3. **Dedup er skjema-uavhengig:** header-eventId leses og dedupes FØR payload parses, så
    en dupliserende melding forkastes uten parsing, og dedup avhenger aldri av payload-
    skjemaet (gjenvinner ADR 0002s robusthet). For dead-letter beholdes eventId best-effort
@@ -82,8 +85,9 @@ fortsatt i beslutnings-workeren (B10/B28 uendret; se «Konsekvenser»). Konkret:
 
 ## Konsekvenser
 
-- ➕ `reference`/recipient/channel er SQL-spørrbare på inbox → FERDIGSTILL kan matche/
-   annullere ventende rader uten re-parsing; gir rom for framtidig funksjonalitet.
+- ➕ `reference` (indeksert kolonne) + `content` (jsonb) på inbox → FERDIGSTILL kan
+   matche/avgrense ventende rader uten re-parsing; recipient/channel leses fra jsonb.
+   Ingen spekulativ schema — kun det parse-ved-ingest faktisk trenger.
 - ➕ B54s tvillingkilde-kompleksitet forsvinner: eventId lever ett sted (headeren), så
    ingen `payload.eventId == header.eventId`-validering og ingen divergensrisiko.
 - ➕ Dedup er skjema-uavhengig (header leses før parse) → gjenvinner ADR 0002s robusthet:

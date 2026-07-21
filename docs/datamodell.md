@@ -12,10 +12,6 @@ erDiagram
     inbox_message {
         uuid        event_id PK
         text        reference
-        text        recipient_type
-        text        recipient_id
-        text        channel
-        text        operation
         jsonb       content
         text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED"
         text        drop_reason "nullable"
@@ -60,9 +56,11 @@ erDiagram
 
 - Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
   hydrerer `inbox_message`: dedup på **header-eventId** (`DispatchHeader.EVENT_ID`) som PK,
-  strukturerte kolonner (`reference`/`recipient_type`/`recipient_id`/`channel`/`operation`)
-  løftes ut, og `content` lagres som `jsonb`. Strukturerte felt gjør at FERDIGSTILL kan
-  matche/annullere ennå-ubesluttede inbox-rader uten re-parsing (#27).
+  `content` lagres som `jsonb`, og `reference` løftes ut som egen indeksert kolonne (selektiv
+  FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
+  utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
+  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Ytterligere match-
+  kolonner legges til kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold.
 - `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
   content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
