@@ -44,7 +44,6 @@ class BrevDistributionE2ESpec :
                     val eventId = UUID.randomUUID()
                     val dispatch =
                         Dispatch(
-                            eventId = eventId,
                             reference = "e2e-brev-ref-1",
                             content = BrevCreate(personIdentifier = TEST_SYKMELDT, journalpostId = "jp-e2e-1"),
                         )

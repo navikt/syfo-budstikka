@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.database.dispatch
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
+import java.util.UUID
 import kotlin.time.Clock
 
 data class DeadLetterRecord(
@@ -11,6 +12,8 @@ data class DeadLetterRecord(
     val partition: Int,
     val kafkaOffset: Long,
     val kafkaKey: String?,
+    // Best-effort korrelasjon (ADR 0008): satt når headeren var gyldig, null ellers.
+    val eventId: UUID?,
     val failureReason: String,
     val errorMessage: String?,
 )
@@ -34,6 +37,7 @@ class DeadLetterMessageRepositoryImpl(
                 this[DeadLetterMessageTable.partition] = record.partition
                 this[DeadLetterMessageTable.kafkaOffset] = record.kafkaOffset
                 this[DeadLetterMessageTable.kafkaKey] = record.kafkaKey
+                this[DeadLetterMessageTable.eventId] = record.eventId
                 this[DeadLetterMessageTable.failureReason] = record.failureReason
                 this[DeadLetterMessageTable.errorMessage] = record.errorMessage
                 this[DeadLetterMessageTable.receivedAt] = now

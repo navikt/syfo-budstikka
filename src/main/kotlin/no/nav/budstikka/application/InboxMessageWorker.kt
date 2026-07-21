@@ -1,9 +1,7 @@
 package no.nav.budstikka.application
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -12,18 +10,20 @@ import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.dispatchJson
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.util.UUID
 
 /**
  * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
- * 0004 — flere replicaer kan kjøre samtidig), dekoder payloaden og effektuerer utfallet per melding
- * via [EffectuateDecision] (delivery + inbox-status i én DB-tx).
+ * 0004 — flere replicaer kan kjøre samtidig) og effektuerer utfallet per melding via
+ * [EffectuateDecision] (delivery + inbox-status i én DB-tx).
  *
- * Beslutningen delegeres til [DecisionProcess], som ruter til policy per meldingstype og lar hver
- * policy hente sitt eget grunnlag (f.eks. PDL for isAlive-gaten).
+ * Meldingen er allerede hydrert ved ingest (ADR 0008): `content` er garantert parsebar, så workeren
+ * dekoder ikke lenger payload og kan aldri feile på `SerializationException`. Den rekonstruerer
+ * [Dispatch] fra radens reference + content og delegerer beslutningen til [DecisionProcess], som
+ * ruter til policy per meldingstype og lar hver policy hente sitt eget grunnlag (f.eks. PDL for
+ * isAlive-gaten).
  *
  * Workeren eier én runde ([runOnce]); selve løkke-livssyklusen (intervall, heartbeat, shutdown)
  * komponeres rundt den i bootstrap via `BackgroundLoop`. Lease-budsjett-draineringen deles med
@@ -55,22 +55,19 @@ class InboxMessageWorker(
     }
 
     /**
-     * B45: `reference` re-attaches på MDC for beslutnings-steget når payloaden er dekodet, så
-     * `| reference="X"` i Loki korrelerer OPPRETT og FERDIGSTILL (to ULIKE events, ulik eventId, delt
-     * reference). `withContext(MDCContext())` re-snapshotter MDC (eventId fra draineren + reference)
-     * inn i coroutine-konteksten så feltet overlever suspensjon i decisionProcess/effektuering —
-     * samme idiom som `LeaseBudgetDrainer` bruker for eventId. Dekode-feil har ingen reference.
+     * B45/B59: `reference` re-attaches på MDC for beslutnings-steget, så `| reference="X"` i Loki
+     * korrelerer OPPRETT og FERDIGSTILL (to ULIKE events, ulik eventId, delt reference).
+     * `withContext(MDCContext())` re-snapshotter MDC (eventId fra draineren + reference) inn i
+     * coroutine-konteksten så feltet overlever suspensjon i decisionProcess/effektuering — samme
+     * idiom som `LeaseBudgetDrainer` bruker for eventId. reference ligger nå direkte på den hydrerte
+     * raden (ADR 0008), ingen dekoding nødvendig.
      */
     private suspend fun processClaimed(message: InboxMessage) {
-        when (val decoded = decode(message)) {
-            is DecodeOutcome.Success ->
-                MDC.putCloseable(MdcKeys.REFERENCE, decoded.dispatch.reference).use {
-                    withContext(MDCContext()) {
-                        completeDecision(message.eventId, decisionProcess.process(decoded.dispatch))
-                    }
-                }
-
-            is DecodeOutcome.Failure -> completeDecision(message.eventId, decoded.decision)
+        val dispatch = Dispatch(reference = message.reference, content = message.content)
+        MDC.putCloseable(MdcKeys.REFERENCE, message.reference).use {
+            withContext(MDCContext()) {
+                completeDecision(message.eventId, decisionProcess.process(dispatch))
+            }
         }
     }
 
@@ -117,37 +114,4 @@ class InboxMessageWorker(
         }
 
     private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
-
-    private fun decode(message: InboxMessage): DecodeOutcome {
-        logger.debug("Decoding inbox payload")
-        return try {
-            DecodeOutcome.Success(dispatchJson.decodeFromString<Dispatch>(message.payload))
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: SerializationException) {
-            DecodeOutcome.Failure(decodeFailedDecision(error))
-        } catch (error: IllegalArgumentException) {
-            DecodeOutcome.Failure(decodeFailedDecision(error))
-        }
-    }
-
-    private fun decodeFailedDecision(error: Throwable): Decision.Failed {
-        // B46/PII: en decode-feil kan bære payload-innhold (fnr) i exception-meldingen — kotlinx
-        // echo-er «JSON input: …». Logg/persister derfor KUN exception-TYPEN, aldri message eller
-        // hele throwable. eventId er på MDC (korrelasjon bevart); rå payload slås ev. opp i
-        // inbox_message under tilgangskontroll (B46-feilsøkingsmodell).
-        val errorType = error.javaClass.simpleName
-        logger.warn("Failed to decode inbox message {}", kv("errorType", errorType))
-        return Decision.Failed("DECODE_FAILED: $errorType")
-    }
-
-    private sealed interface DecodeOutcome {
-        data class Success(
-            val dispatch: Dispatch,
-        ) : DecodeOutcome
-
-        data class Failure(
-            val decision: Decision.Failed,
-        ) : DecodeOutcome
-    }
 }

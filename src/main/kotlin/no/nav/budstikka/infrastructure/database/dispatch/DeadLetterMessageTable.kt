@@ -8,6 +8,9 @@ import org.jetbrains.exposed.v1.datetime.timestamp
 object DeadLetterMessageTable : Table("dead_letter_message") {
     val id = javaUUID("id").databaseGenerated()
     val payload = text("payload")
+
+    // Best-effort korrelasjon (ADR 0008): satt når headeren var gyldig, null ellers.
+    val eventId = javaUUID("event_id").nullable()
     val topic = text("topic")
     val partition = integer("partition")
     val kafkaOffset = long("kafka_offset")

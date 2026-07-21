@@ -4,6 +4,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import no.nav.budstikka.application.port.InboxMessage
+import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.eq
@@ -54,10 +57,9 @@ class InboxDispatchRepositoryIntegrationTest :
         test("saveBatch writes a row to inbox_message and deduplicates on event_id") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.randomUUID()
-            val payload = """{"eventId":"$eventId"}"""
 
-            repository.saveBatch(listOf(eventId to payload))
-            repository.saveBatch(listOf(eventId to payload))
+            repository.saveBatch(listOf(inboxRow(eventId)))
+            repository.saveBatch(listOf(inboxRow(eventId)))
 
             fixture.database.transact {
                 InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.count() shouldBe 1
@@ -70,9 +72,9 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000021")
             repository.saveBatch(
                 listOf(
-                    eventId1 to """{"eventId":"$eventId1"}""",
-                    eventId2 to """{"eventId":"$eventId2"}""",
-                    eventId1 to """{"eventId":"$eventId1"}""",
+                    inboxRow(eventId1),
+                    inboxRow(eventId2),
+                    inboxRow(eventId1),
                 ),
             )
             fixture.database.transact {
@@ -84,8 +86,8 @@ class InboxDispatchRepositoryIntegrationTest :
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000001")
             val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000002")
-            repository.saveBatch(listOf(eventId1 to """{"eventId":"$eventId1"}"""))
-            repository.saveBatch(listOf(eventId2 to """{"eventId":"$eventId2"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId1)))
+            repository.saveBatch(listOf(inboxRow(eventId2)))
 
             val claimed = repository.claim(limit = 1, lease = lease, maxAttempts = 10)
 
@@ -102,7 +104,7 @@ class InboxDispatchRepositoryIntegrationTest :
         test("claim skips a CLAIMED row while its lease is still valid") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
-            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId)))
 
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(0)
@@ -111,7 +113,7 @@ class InboxDispatchRepositoryIntegrationTest :
         test("claim reclaims a CLAIMED row after its lease has expired") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
-            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId)))
 
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
             expireLease(eventId)
@@ -128,7 +130,7 @@ class InboxDispatchRepositoryIntegrationTest :
         test("markProcessedInTransaction transitions a CLAIMED row to PROCESSED") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
-            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId)))
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
 
             fixture.database.transact { repository.markProcessedInTransaction(eventId) } shouldBe true
@@ -144,7 +146,7 @@ class InboxDispatchRepositoryIntegrationTest :
         test("markProcessedInTransaction is a no-op on a row that is not CLAIMED") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000012")
-            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId)))
 
             fixture.database.transact { repository.markProcessedInTransaction(eventId) } shouldBe false
         }
@@ -153,7 +155,7 @@ class InboxDispatchRepositoryIntegrationTest :
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val reason = "Invalid dispatch payload"
-            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId)))
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
 
             fixture.database.transact { repository.markFailedInTransaction(eventId, reason) } shouldBe true
@@ -169,7 +171,7 @@ class InboxDispatchRepositoryIntegrationTest :
         test("claim fails a poison row that reached maxAttempts instead of reclaiming it") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000030")
-            repository.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            repository.saveBatch(listOf(inboxRow(eventId)))
             val maxAttempts = 3
 
             // Drive the row through maxAttempts claims without terminating it (simulates a
@@ -197,8 +199,8 @@ class InboxDispatchRepositoryIntegrationTest :
             val poisonEventId = UUID.fromString("00000000-0000-0000-0000-000000000040")
             val healthyEventId = UUID.fromString("00000000-0000-0000-0000-000000000041")
             // Poison saved first, so it sorts to the head of the queue (receivedAt ASC).
-            repository.saveBatch(listOf(poisonEventId to """{"eventId":"$poisonEventId"}"""))
-            repository.saveBatch(listOf(healthyEventId to """{"eventId":"$healthyEventId"}"""))
+            repository.saveBatch(listOf(inboxRow(poisonEventId)))
+            repository.saveBatch(listOf(inboxRow(healthyEventId)))
             makePoison(poisonEventId, attempt = 3)
 
             val claimed = repository.claim(limit = 1, lease = lease, maxAttempts = 3)
@@ -210,3 +212,11 @@ class InboxDispatchRepositoryIntegrationTest :
             }
         }
     })
+
+/** Hydrert inbox-rad for repo-testene; kun eventId varierer per test (content/reference er likegyldig her). */
+private fun inboxRow(eventId: UUID): InboxMessage =
+    InboxMessage(
+        eventId = eventId,
+        reference = "ref-$eventId",
+        content = MicrofrontendEnable(PersonIdentifier("12345678901"), "mf-1"),
+    )

@@ -1,18 +1,28 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.slf4j.LoggerFactory
 import java.util.UUID
 
 class InboxHandlerTest :
     FunSpec({
-        test("dispatch is saved in inbox and returns without error") {
+        test("valid dispatch is parsed, hydrated and saved in inbox") {
             with(createTestContext()) {
-                handler.handle(validRecord(eventId = "00000000-0000-0000-0000-000000000001"))
+                val eventId = "00000000-0000-0000-0000-000000000001"
+                handler.handle(validRecord(eventId = eventId, reference = "ref-1"))
 
                 inboxRepository.savedEvents.size shouldBe 1
-                inboxRepository.savedEvents.single().second shouldBe "00000000-0000-0000-0000-000000000001"
+                with(inboxRepository.savedEvents.single()) {
+                    this.eventId shouldBe UUID.fromString(eventId)
+                    reference shouldBe "ref-1"
+                    content.partitionKey shouldBe "12345678901"
+                }
                 deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
         }
@@ -26,23 +36,92 @@ class InboxHandlerTest :
             }
         }
 
-        test("invalid JSON is treated as raw payload and stored") {
+        test("unparseable payload (corrupt JSON) is dead-lettered with the header eventId preserved") {
             with(createTestContext()) {
-                // invalid JSON but eventId present in header -> should be stored as raw payload
-                handler.handle(testRecord(value = "dette er ikke json {{{", eventId = UUID.randomUUID().toString()))
+                val eventId = UUID.randomUUID()
+                handler.handle(testRecord(value = "dette er ikke json {{{", eventId = eventId.toString()))
 
-                inboxRepository.savedEvents.size shouldBe 1
-                deadLetterRepository.savedDeadLetters.size shouldBe 0
+                inboxRepository.savedEvents.size shouldBe 0
+                with(deadLetterRepository.savedDeadLetters.single()) {
+                    failureReason shouldBe "UNPARSEABLE_PAYLOAD"
+                    this.eventId shouldBe eventId
+                }
             }
         }
 
-        test("empty payload is dead-lettered and does not throw") {
+        test("unknown content subtype is dead-lettered as UNPARSEABLE_PAYLOAD") {
             with(createTestContext()) {
-                handler.handle(testRecord(value = null, eventId = UUID.randomUUID().toString()))
+                val payload = """{"reference":"ref-1","content":{"type":"UkjentCreate"}}"""
+                handler.handle(testRecord(value = payload, eventId = UUID.randomUUID().toString()))
+
+                inboxRepository.savedEvents.size shouldBe 0
+                deadLetterRepository.savedDeadLetters.single().failureReason shouldBe "UNPARSEABLE_PAYLOAD"
+            }
+        }
+
+        test("envelope without reference is dead-lettered as UNPARSEABLE_PAYLOAD") {
+            with(createTestContext()) {
+                val payload =
+                    """{"content":{"type":"BrukervarselCreate","personIdentifier":"12345678901","varseltype":"BESKJED","text":"Hei"}}"""
+                handler.handle(testRecord(value = payload, eventId = UUID.randomUUID().toString()))
+
+                inboxRepository.savedEvents.size shouldBe 0
+                deadLetterRepository.savedDeadLetters.single().failureReason shouldBe "UNPARSEABLE_PAYLOAD"
+            }
+        }
+
+        test("a parse failure never leaks payload content (fnr) to the log (B46/B58 PII)") {
+            with(createTestContext()) {
+                val fnr = "31129956715"
+                // Structurally broken JSON whose decode error echoes the raw input (incl. the fnr).
+                val leakyPayload = """{"reference":"r","content":{"personIdentifier":"$fnr" """
+
+                val logbackLogger = LoggerFactory.getLogger(InboxMessageHandler::class.java) as Logger
+                val appender = ListAppender<ILoggingEvent>().apply { start() }
+                logbackLogger.addAppender(appender)
+                try {
+                    handler.handle(testRecord(value = leakyPayload, eventId = UUID.randomUUID().toString()))
+                } finally {
+                    logbackLogger.detachAppender(appender)
+                    appender.stop()
+                }
+
+                deadLetterRepository.savedDeadLetters.single().failureReason shouldBe "UNPARSEABLE_PAYLOAD"
+                // The reason message is a static constant, never the exception message.
+                deadLetterRepository.savedDeadLetters
+                    .single()
+                    .errorMessage
+                    .orEmpty() shouldNotContain fnr
+                appender.list.forEach { event ->
+                    event.formattedMessage shouldNotContain fnr
+                    (event.throwableProxy?.message ?: "") shouldNotContain fnr
+                }
+            }
+        }
+
+        test("empty payload is dead-lettered with the header eventId preserved") {
+            with(createTestContext()) {
+                val eventId = UUID.randomUUID()
+                handler.handle(testRecord(value = null, eventId = eventId.toString()))
 
                 inboxRepository.savedEvents.size shouldBe 0
                 deadLetterRepository.savedDeadLetters.size shouldBe 1
-                deadLetterRepository.savedDeadLetters.single().failureReason shouldBe "MISSING_PAYLOAD"
+                with(deadLetterRepository.savedDeadLetters.single()) {
+                    failureReason shouldBe "MISSING_PAYLOAD"
+                    this.eventId shouldBe eventId
+                }
+            }
+        }
+
+        test("missing event_id header is dead-lettered without an eventId") {
+            with(createTestContext()) {
+                handler.handle(testRecord(value = "mangler-header"))
+
+                inboxRepository.savedEvents.size shouldBe 0
+                with(deadLetterRepository.savedDeadLetters.single()) {
+                    failureReason shouldBe "MISSING_EVENT_ID"
+                    eventId shouldBe null
+                }
             }
         }
 
@@ -72,7 +151,7 @@ class InboxHandlerTest :
                 )
 
                 inboxRepository.savedEvents.size shouldBe 1
-                inboxRepository.savedEvents.single().second shouldBe validEventId
+                inboxRepository.savedEvents.single().eventId shouldBe UUID.fromString(validEventId)
                 deadLetterRepository.savedDeadLetters.size shouldBe 2
                 deadLetterRepository.saveBatchCalls shouldBe 1
             }
@@ -91,8 +170,7 @@ class InboxHandlerTest :
     })
 
 private fun createTestContext(): TestContext {
-    val inboxRepository =
-        FakeInboxMessageRepository()
+    val inboxRepository = FakeInboxMessageRepository()
     val deadLetterRepository = FakeDeadLetterRepository()
     val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
 
@@ -115,6 +193,7 @@ private suspend fun InboxMessageHandler.handle(record: ConsumerRecord<String, St
 
 private fun validRecord(
     eventId: String = UUID.randomUUID().toString(),
+    reference: String = "ref-1",
     partition: Int = 0,
     offset: Long = 0L,
     key: String = "key",
@@ -122,10 +201,10 @@ private fun validRecord(
     val payload =
         """
         {
-            "eventId": "$eventId",
+            "reference": "$reference",
             "content": {
                 "type": "BrukervarselCreate",
-                "personident": "12345678901",
+                "personIdentifier": "12345678901",
                 "varseltype": "BESKJED",
                 "text": "Hei"
             }

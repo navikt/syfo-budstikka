@@ -30,14 +30,15 @@ private const val MASKED = "***"
 
 /**
  * Kafka-header-navn som er del av den publiserte kontrakten (delt kilde for produsenter og
- * konsument). Selve header-håndteringen (lesing/validering ved inntak) hører til konsumenten
- * (#19); her defineres kun navnet så begge sider refererer én streng.
+ * konsument). Selve header-håndteringen (lesing/validering ved inntak) hører til konsumenten;
+ * her defineres kun navnet så begge sider refererer én streng.
  */
 object DispatchHeader {
     /**
-     * `eventId` speilet som Kafka-header (samme verdi som [Dispatch.eventId] i payloaden).
-     * Lar konsumenten dedup-e og save rå payload i innboks uten å deserialisere bodyen.
-     * Payloaden forblir autoritativ kilde; headeren er en fast-path, ikke en erstatning.
+     * `eventId` som Kafka-header (ADR 0008 / B61). Headeren er den ENESTE kilden til eventId og
+     * er autoritativ og obligatorisk: konsumenten deduper på den (PK, `ON CONFLICT DO NOTHING`)
+     * FØR payloaden parses, så dedup er skjema-uavhengig. Mangler/ugyldig header → dead-letter,
+     * ingen payload-fallback (eventId er fjernet fra [Dispatch]-payloaden).
      */
     const val EVENT_ID = "eventId"
 }

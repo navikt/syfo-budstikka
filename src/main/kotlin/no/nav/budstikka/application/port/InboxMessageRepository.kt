@@ -1,15 +1,23 @@
 package no.nav.budstikka.application.port
 
+import no.nav.budstikka.domain.dispatch.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
 
+/**
+ * En hydrert inbox-rad (ADR 0008): [eventId] fra Kafka-headeren, [reference] og [content] parset
+ * fra payloaden ved ingest. Brukes både ved lagring ([InboxMessageRepository.saveBatch]) og ved
+ * claim ([InboxMessageRepository.claim]) – content er garantert parsebar på hver rad, så
+ * beslutnings-workeren slipper å dekode på nytt.
+ */
 data class InboxMessage(
     val eventId: UUID,
-    val payload: String,
+    val reference: String,
+    val content: DispatchContent,
 )
 
 interface InboxMessageRepository {
-    suspend fun saveBatch(events: List<Pair<UUID, String>>)
+    suspend fun saveBatch(messages: List<InboxMessage>)
 
     /**
      * Griper (claimer) inntil [limit] mottatte meldinger for behandling og markerer dem CLAIMED med
