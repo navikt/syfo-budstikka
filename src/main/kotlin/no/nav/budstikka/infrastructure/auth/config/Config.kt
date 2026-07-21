@@ -33,5 +33,4 @@ fun ApplicationConfig.toTexasConfig(): TexasConfig {
     )
 }
 
-// Entra ID (Azure AD) M2M client_credentials, jf. NAIS Texas.
 private const val DEFAULT_IDENTITY_PROVIDER = "entra_id"

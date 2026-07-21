@@ -54,7 +54,7 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
-        // DL kan mangle eventId → korrelér på Kafka-koordinater, ikke MDC. Aldri payload i logg (B58).
+        // Dead letters can miss a valid eventId, so we log Kafka coordinates for correlation.
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
@@ -70,10 +70,10 @@ class InboxMessageHandler(
         if (validEvents.isEmpty()) {
             return
         }
-        inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
-        // eventId på MDC så Loki-linja for konsum-steget korrelerer med resten av løpet (B45).
-        validEvents.forEach { record ->
-            MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
+        inboxMessageRepository.saveBatch(validEvents.map { it.eventId to it.payload })
+        // Re-attach eventId on MDC so correlation works through the full processing flow.
+        validEvents.forEach { event ->
+            MDC.putCloseable(MdcKeys.EVENT_ID, event.eventId.toString()).use {
                 logger.info(
                     "Inbox message handled {} {} {}",
                     kv("topic", record.topic),
@@ -84,10 +84,7 @@ class InboxMessageHandler(
         }
     }
 
-    private fun ConsumerRecord<String, String?>.toDeadLetter(
-        reason: DeadLetter,
-        eventId: UUID?,
-    ): DeadLetterRecord =
+    private fun ConsumerRecord<String, String?>.toDeadLetter(reason: DeadLetter): DeadLetterRecord =
         DeadLetterRecord(
             payload = value().orEmpty(),
             topic = topic(),

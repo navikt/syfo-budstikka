@@ -14,7 +14,7 @@ import org.slf4j.MDC
 /**
  * Outbox-workeren claimer `delivery`-rader for de kanalene den har en [ChannelHandler] for
  * (FOR UPDATE SKIP LOCKED + lease, ADR 0004 — flere replicaer samtidig), og dispatcher hver rad til
- * riktig handler. Workeren avhenger kun av sømmen [handlers] — ikke av konkrete publishers — så en
+ * riktig handler. Workeren avhenger kun av [handlers] — ikke av konkrete publishers — så en
  * ny kanal er én handler + registrering.
  */
 class DeliveryWorker(
@@ -56,10 +56,7 @@ class DeliveryWorker(
         )
 
     private suspend fun dispatch(delivery: ClaimedDelivery) {
-        // B45: `delivery_channel` + `reference` på MDC for hele send-steget, så `| reference="X"`
-        // korrelerer OPPRETT- og FERDIGSTILL-leveransen (ulik delivery, delt reference).
-        // `withContext(MDCContext())` re-snapshotter MDC (eventId fra draineren + disse) inn i
-        // coroutine-konteksten så feltene overlever handler-suspensjon (I/O) fram til send-loggen.
+        // Keep delivery fields on MDC through suspend points during dispatch.
         MDC.putCloseable(MdcKeys.DELIVERY_CHANNEL, delivery.channel.toString()).use {
             MDC.putCloseable(MdcKeys.REFERENCE, delivery.reference).use {
                 withContext(MDCContext()) {
@@ -72,9 +69,7 @@ class DeliveryWorker(
     private suspend fun dispatchToHandler(delivery: ClaimedDelivery) {
         val handler = handlers[delivery.channel]
         if (handler == null) {
-            // Kan ikke skje: claim filtrerer på handlers.keys. En rad uten handler er en
-            // wiring-feil — la den stå CLAIMED (lease-reclaim), ikke terminal-feil den.
-            // `delivery_channel` bæres alt på MDC (se dispatch) → ikke dupliser som kv-felt.
+            // Leave row CLAIMED for lease reclaim instead of forcing terminal failure.
             logger.error("No handler for claimed channel; leaving row for lease reclaim")
             return
         }

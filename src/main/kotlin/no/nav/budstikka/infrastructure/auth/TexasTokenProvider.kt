@@ -36,7 +36,7 @@ class TexasTokenProvider(
 
     override suspend fun token(target: String): String {
         validCachedToken(target)?.let { return it }
-        // Per-target lås hindrer at samtidige kall mot samme target stormer sidecar-en (stampede).
+        // Per-target lock prevents token request stampede.
         return locks.getOrPut(target) { Mutex() }.withLock {
             validCachedToken(target) ?: fetchToken(target).also { cache[target] = it }.accessToken
         }
@@ -54,17 +54,13 @@ class TexasTokenProvider(
                         append("target", target)
                     },
             )
-        // Kun statuskode i feilen – aldri respons-body, som kan bære token/feildetaljer.
         check(response.status.isSuccess()) {
             "Texas token request failed with status ${response.status.value}"
         }
-        // Parse i egen try: serialiseringsfeil kan ellers gjengi utsnitt av body (som bærer
-        // access_token) i exception-meldingen. Kast sanitert – aldri body/token videre.
         val body =
             try {
                 json.decodeFromString<TexasTokenResponse>(response.bodyAsText())
             } catch (_: SerializationException) {
-                // Ikke behold cause: dens melding kan gjengi body (med token) i en stacktrace.
                 throw IllegalStateException("Invalid Texas token response")
             }
         return CachedToken(
@@ -81,7 +77,7 @@ class TexasTokenProvider(
     }
 
     companion object {
-        // Forny litt før faktisk utløp for å tåle klokke-skew og kall-latens.
+        // Renew slightly before expiry to handle skew and call latency.
         private val EXPIRY_LEEWAY: Duration = 30.seconds
         private val json = Json { ignoreUnknownKeys = true }
     }

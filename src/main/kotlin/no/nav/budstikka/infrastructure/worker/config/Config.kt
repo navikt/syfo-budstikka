@@ -5,11 +5,6 @@ import no.nav.budstikka.application.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.stringOrEmpty
 import kotlin.time.Duration.Companion.seconds
 
-// Operational knobs for the claim-lease workers (inbox and delivery), resolved from
-// application.conf like KafkaConfig and DatabaseConfig so intervals and batch sizes are env-tunable
-// without a redeployment. Both workers share the same shape, so they share [LeaseDrainConfig] (the
-// value type lives in `application`; this file owns only the HOCON parsing).
-
 data class WorkerConfig(
     val inboxMessage: LeaseDrainConfig,
     val delivery: LeaseDrainConfig,

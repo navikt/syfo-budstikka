@@ -43,8 +43,6 @@ fun DependencyRegistry.workerModule() {
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
         )
     }
-    // Composition seam (jf. H3): application-workerne eier én runde (`runOnce`), infrastruktur-
-    // løkka eier livssyklusen. Kun bootstrap ser begge lag.
     provide<List<BackgroundLoop>> {
         val workerConfig = resolve<WorkerConfig>()
         val metrics = resolve<DispatchMetrics>()

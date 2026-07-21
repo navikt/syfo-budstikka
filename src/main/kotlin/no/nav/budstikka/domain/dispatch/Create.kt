@@ -4,9 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-// CREATE-varianter (B22) – rike, kanalspesifikke. Channelen er implisitt i typen; ulovlige
-// (kanal, felt)-kombinasjoner er urepresenterbare. Konsumenten eier *hva* og *når* (B1).
-
 /** 1. Brukervarsel – sykmeldt, Min side. */
 @Serializable
 @SerialName("BrukervarselCreate")

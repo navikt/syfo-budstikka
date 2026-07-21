@@ -52,8 +52,8 @@ class InboxMessageWorker(
     }
 
     /**
-     * `reference` på MDC korrelerer OPPRETT↔FERDIGSTILL i Loki (delt reference, ulik eventId, B59);
-     * `withContext(MDCContext())` bevarer feltet over suspensjon i decisionProcess/effektuering.
+     * Legg `reference` på MDC for beslutnings-steget, slik at OPPRETT og FERDIGSTILL kan korreleres i logg.
+     * `withContext(MDCContext())` bevarer MDC over suspensjon. Decode-feil har ingen `reference`.
      */
     private suspend fun processClaimed(message: InboxMessage) {
         val dispatch = Dispatch(reference = message.reference, content = message.content)
@@ -107,4 +107,37 @@ class InboxMessageWorker(
         }
 
     private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
+
+    private fun decode(message: InboxMessage): DecodeOutcome {
+        logger.debug("Decoding inbox payload")
+        return try {
+            DecodeOutcome.Success(dispatchJson.decodeFromString<Dispatch>(message.payload))
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: SerializationException) {
+            DecodeOutcome.Failure(decodeFailedDecision(error))
+        } catch (error: IllegalArgumentException) {
+            DecodeOutcome.Failure(decodeFailedDecision(error))
+        }
+    }
+
+    private fun decodeFailedDecision(error: Throwable): Decision.Failed {
+        // B46/PII: en decode-feil kan bære payload-innhold (fnr) i exception-meldingen — kotlinx
+        // echo-er «JSON input: …». Logg/persister derfor KUN exception-TYPEN, aldri message eller
+        // hele throwable. eventId er på MDC (korrelasjon bevart); rå payload slås ev. opp i
+        // inbox_message under tilgangskontroll (B46-feilsøkingsmodell).
+        val errorType = error.javaClass.simpleName
+        logger.warn("Failed to decode inbox message {}", kv("errorType", errorType))
+        return Decision.Failed("DECODE_FAILED: $errorType")
+    }
+
+    private sealed interface DecodeOutcome {
+        data class Success(
+            val dispatch: Dispatch,
+        ) : DecodeOutcome
+
+        data class Failure(
+            val decision: Decision.Failed,
+        ) : DecodeOutcome
+    }
 }

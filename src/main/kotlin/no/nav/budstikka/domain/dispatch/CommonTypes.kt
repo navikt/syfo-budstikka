@@ -2,10 +2,6 @@ package no.nav.budstikka.domain.dispatch
 
 import kotlinx.serialization.Serializable
 
-// Fellestyper for kontrakten (B23). Budstikka eier sin egen nøytrale modell og
-// speiler ikke nedstrøms (tms/dokdist/notifikasjon-produsent-api). Intern mapping til
-// nedstrøms er et anti-corruption-lag.
-
 /** Brukervarsel-type på Min side (B40). tms støtter også `Innboks`, men den brukes aldri → utelatt. */
 enum class Varseltype { BESKJED, OPPGAVE }
 
