@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.TransactionRunnerImpl
@@ -50,7 +51,7 @@ class EffectuateDecisionIntegrationTest :
         test("Processed commits delivery rows and inbox PROCESSED atomically") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a1")
-            inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
@@ -62,7 +63,7 @@ class EffectuateDecisionIntegrationTest :
         test("Failed writes no delivery rows and inbox FAILED with reason") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a2")
-            inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Failed("boom"))
@@ -74,7 +75,7 @@ class EffectuateDecisionIntegrationTest :
         test("Dropped writes no delivery rows and inbox DROPPED") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a3")
-            inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Dropped(DropReason.DEAD))
@@ -86,7 +87,7 @@ class EffectuateDecisionIntegrationTest :
         test("a second Processed after the CAS is lost writes no extra delivery rows") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a4")
-            inbox.saveBatch(listOf(eventId to """{"eventId":"$eventId"}"""))
+            inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
             effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))

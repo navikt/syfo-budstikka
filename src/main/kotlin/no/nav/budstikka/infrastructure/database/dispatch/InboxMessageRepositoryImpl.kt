@@ -29,15 +29,16 @@ class InboxMessageRepositoryImpl(
 ) : InboxMessageRepository {
     private val logger = LoggerFactory.getLogger(InboxMessageRepositoryImpl::class.java)
 
-    override suspend fun saveBatch(events: List<Pair<UUID, String>>) {
-        if (events.isEmpty()) {
+    override suspend fun saveBatch(messages: List<InboxMessage>) {
+        if (messages.isEmpty()) {
             return
         }
         database.transact {
             val now = Clock.System.now()
-            InboxMessageTable.batchInsert(events, ignore = true) { (eventId, payload) ->
-                this[InboxMessageTable.eventId] = eventId
-                this[InboxMessageTable.payload] = payload
+            InboxMessageTable.batchInsert(messages, ignore = true) { message ->
+                this[InboxMessageTable.eventId] = message.eventId
+                this[InboxMessageTable.content] = message.content
+                this[InboxMessageTable.reference] = message.reference
                 this[InboxMessageTable.receivedAt] = now
             }
         }
@@ -55,7 +56,7 @@ class InboxMessageRepositoryImpl(
             failPoisonRows(now, maxAttempts)
             val claimed =
                 InboxMessageTable
-                    .select(InboxMessageTable.eventId, InboxMessageTable.payload)
+                    .select(InboxMessageTable.eventId, InboxMessageTable.reference, InboxMessageTable.content)
                     .where {
                         (InboxMessageTable.state eq InboxMessageState.RECEIVED.name) or
                             (
@@ -71,7 +72,8 @@ class InboxMessageRepositoryImpl(
                     .map { row ->
                         InboxMessage(
                             eventId = row[InboxMessageTable.eventId],
-                            payload = row[InboxMessageTable.payload],
+                            reference = row[InboxMessageTable.reference],
+                            content = row[InboxMessageTable.content],
                         )
                     }
             if (claimed.isNotEmpty()) {

@@ -140,6 +140,24 @@ endringen in-place på `.v1`, som et bevisst unntak:
 Unntaket gjelder kun denne endringen i pre-prod-fasen. Alle senere breaking endringer følger
 B43 (`.v2` + dual-write).
 
+## Implementeringsnotat (2026-07-21, issue #125 — nyanserer Beslutning pkt. 3)
+
+Beslutning pkt. 3 sier at header-eventId «leses og dedupes FØR payload parses, så en duplikat
+forkastes uten parsing». Ved implementering ble «forkastes uten parsing»-optimaliseringen bevisst
+IKKE bygget: `InboxMessageHandler` leser header-eventId først, men parser payloaden før
+`INSERT ... ON CONFLICT DO NOTHING` (`saveBatch(ignore=true)`) dedup-er på PK. For en gyldig melding
+er dedup dermed fortsatt skjema-uavhengig (ON CONFLICT er autoritativ og upåvirket av payloaden). For
+en melding som IKKE lar seg parse, skjer dead-letteringen før PK-dedupen — så en korrupt duplikat av
+en allerede-ingestert eventId gir en ny `dead_letter_message`-rad i stedet for å forkastes stille.
+
+Konsekvens akseptert av eier: en slik korrupt duplikat kan gi gjentatte DL-rader på samme eventId
+(hver med rå payload/fnr). Vurdert som lav sannsynlighet — det krever en produsent-bug (samme eventId,
+ulik/ødelagt payload); Kafka-replay sender identiske bytes og parser likt, så replay rammes ikke.
+Alternativet (et pre-parse PK-oppslag mot databasen for å forkaste kjente duplikater uten parsing) ble
+forkastet fordi det legger et ekstra DB-kall i ingest-stien for en edge case. Mitigering: en mulig
+alarm på gjentatte dead-letters for samme eventId (oppfølging, jf. B49). Nyanserer også B61s «lest FØR
+parse → skjema-uavhengig»: gjelder success-stien; DL-stien parser før PK-dedup.
+
 ## Alternativer vurdert
 
 - Behold ADR 0002 (parse-fri) og deserialiser ved behov under lukking. Forkastet: flytter

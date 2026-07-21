@@ -11,6 +11,7 @@ import io.kotest.matchers.string.shouldContain
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.brukervarselDraft
+import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -37,7 +38,7 @@ class DeliveryRepositoryIntegrationTest :
             draft: DeliveryDraft,
         ) {
             val inboxEventId = UUID.randomUUID()
-            InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxEventId to """{"eventId":"$inboxEventId"}"""))
+            InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
                 DeliveryRepositoryImpl(fixture.database).saveInTransaction(inboxEventId, listOf(draft.copy(reference = reference)))
             }

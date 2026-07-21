@@ -6,11 +6,8 @@ import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotBeBlank
-import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -21,9 +18,15 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.domain.dispatch.BrukervarselCreate
+import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
+import no.nav.budstikka.fakes.TEST_SYKMELDT
+import no.nav.budstikka.fakes.deadLookupFor
+import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import org.slf4j.LoggerFactory
@@ -38,70 +41,33 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
+/**
+ * Meldingene er hydrert ved ingest (ADR 0008), så workeren dekoder ikke lenger payload og kan aldri
+ * feile på `SerializationException`. Parse-taksonomien (korrupt payload → dead-letter) testes derfor i
+ * `InboxHandlerTest`, ikke her. Workeren beslutter (via [DecisionProcess]) og effektuerer.
+ */
 class InboxMessageWorkerTest :
     FunSpec({
-        test("runOnce marks valid payloads processed and invalid payloads failed") {
-            val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000001")
-            val invalidEventId = UUID.fromString("00000000-0000-0000-0000-000000000002")
+        test("runOnce marks claimed messages processed") {
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000001")
             val repository =
                 PollingInboxMessageRepository(
-                    messages =
-                        listOf(
-                            InboxMessage(eventId = validEventId, payload = validPayload(validEventId)),
-                            InboxMessage(eventId = invalidEventId, payload = "{not valid json"),
-                        ),
+                    messages = listOf(inboxMessage(eventId)),
                 )
             val worker = workerWith(repository, batchSize = 10)
 
             worker.runOnce()
 
             repository.lastPollLimit shouldBe 10
-            repository.processedEventIds.shouldContainExactly(validEventId)
-            repository.failedMessages.shouldHaveSize(1)
-            repository.failedMessages.single().first shouldBe invalidEventId
-            repository.failedMessages
-                .single()
-                .second
-                .shouldNotBeBlank()
-        }
-
-        test("decode failure never leaks payload content (fnr) to reason or log (B46 PII)") {
-            val fnr = "31129956715"
-            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000009")
-            // Structurally broken JSON whose decode error echoes the raw input (incl. the fnr) —
-            // exactly the leak B46 forbids: "aldri payload" i logg/persistert reason.
-            val leakyPayload = """{"eventId":"$eventId","content":{"personident":"$fnr" """
-            val repository =
-                PollingInboxMessageRepository(
-                    messages = listOf(InboxMessage(eventId = eventId, payload = leakyPayload)),
-                )
-
-            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
-            val appender = ListAppender<ILoggingEvent>().apply { start() }
-            logbackLogger.addAppender(appender)
-            try {
-                workerWith(repository).runOnce()
-            } finally {
-                logbackLogger.detachAppender(appender)
-                appender.stop()
-            }
-
-            // Persistert reason må ikke bære payload-innhold.
-            val reason = repository.failedMessages.single().second
-            reason.shouldNotBeBlank()
-            reason shouldNotContain fnr
-            // Ingen logglinje (melding eller throwable) skal bære fnr-en.
-            appender.list.forEach { event ->
-                event.formattedMessage shouldNotContain fnr
-                (event.throwableProxy?.message ?: "") shouldNotContain fnr
-            }
+            repository.processedEventIds.shouldContainExactly(eventId)
+            repository.failedMessages.shouldBeEmpty()
         }
 
         test("valid dispatch carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             val repository =
                 PollingInboxMessageRepository(
-                    messages = listOf(InboxMessage(eventId = eventId, payload = validPayload(eventId))),
+                    messages = listOf(inboxMessage(eventId, reference = "ref-1")),
                 )
 
             val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
@@ -121,25 +87,40 @@ class InboxMessageWorkerTest :
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
 
-        test("runOnce records inbox metrics per outcome") {
-            val validEventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
-            val invalidEventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
+        test("runOnce records inbox metrics for processed outcomes") {
+            val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000003")
+            val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000004")
             val repository =
                 PollingInboxMessageRepository(
-                    messages =
-                        listOf(
-                            InboxMessage(eventId = validEventId, payload = validPayload(validEventId)),
-                            InboxMessage(eventId = invalidEventId, payload = "{not valid json"),
-                        ),
+                    messages = listOf(inboxMessage(eventId1), inboxMessage(eventId2)),
                 )
             val metrics = RecordingDispatchMetrics()
 
             workerWith(repository, metrics = metrics).runOnce()
 
             metrics.inboxClaimed.get() shouldBe 2
-            metrics.inboxProcessed.get() shouldBe 1
-            metrics.inboxFailed.get() shouldBe 1
+            metrics.inboxProcessed.get() shouldBe 2
+            metrics.inboxFailed.get() shouldBe 0
             metrics.inboxEmptyPolls.get() shouldBe 0
+        }
+
+        test("runOnce records a dropped metric when a gate drops the message") {
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000005")
+            val deadContent = BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "text")
+            val repository =
+                PollingInboxMessageRepository(
+                    messages = listOf(inboxMessage(eventId, content = deadContent)),
+                )
+            val metrics = RecordingDispatchMetrics()
+
+            workerWith(
+                repository,
+                metrics = metrics,
+                decisionProcess = DecisionProcess(listOf(DeathGate(deadLookupFor(TEST_SYKMELDT)))),
+            ).runOnce()
+
+            metrics.inboxDropped[DropReason.DEAD]?.get() shouldBe 1
+            metrics.inboxProcessed.get() shouldBe 0
         }
 
         test("runOnce records an empty poll when nothing is claimed") {
@@ -156,11 +137,7 @@ class InboxMessageWorkerTest :
             val clock = MutableClock(Instant.fromEpochSeconds(0))
             val repository =
                 PollingInboxMessageRepository(
-                    messages =
-                        listOf(
-                            InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
-                            InboxMessage(eventId = UUID.randomUUID(), payload = validPayload(UUID.randomUUID())),
-                        ),
+                    messages = listOf(inboxMessage(UUID.randomUUID()), inboxMessage(UUID.randomUUID())),
                     onPoll = {
                         // advance the clock to exhaust the lease budget after the first poll
                         clock.current += 1.milliseconds
@@ -209,6 +186,7 @@ private fun workerWith(
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
     metrics: DispatchMetrics = NoDispatchMetrics,
+    decisionProcess: DecisionProcess = DecisionProcess(listOf(DeathGate(FakeDeathLookup()))),
 ): InboxMessageWorker =
     InboxMessageWorker(
         repository = repository,
@@ -218,7 +196,7 @@ private fun workerWith(
                 inboxMessageRepository = repository,
                 deliveryRepository = RecordingDeliveryRepository(),
             ),
-        decisionProcess = DecisionProcess(listOf(DeathGate(FakeDeathLookup()))),
+        decisionProcess = decisionProcess,
         drainer =
             LeaseBudgetDrainer(
                 leaseBudgetFraction = leaseBudgetFraction,
@@ -247,7 +225,7 @@ private class PollingInboxMessageRepository(
     val processedEventIds = mutableListOf<UUID>()
     val failedMessages = mutableListOf<Pair<UUID, String>>()
 
-    override suspend fun saveBatch(events: List<Pair<UUID, String>>) = Unit
+    override suspend fun saveBatch(messages: List<InboxMessage>) = Unit
 
     override suspend fun claim(
         limit: Int,
@@ -303,16 +281,3 @@ private class RecordingDeliveryRepository : DeliveryRepository {
         reason: String,
     ): Boolean = true
 }
-
-private fun validPayload(eventId: UUID): String =
-    """
-    {
-      "eventId":"$eventId",
-      "reference":"ref-1",
-      "content":{
-        "type":"MicrofrontendEnable",
-        "personIdentifier":"12345678901",
-        "microfrontendId":"syfo-microfrontend"
-      }
-    }
-    """.trimIndent()

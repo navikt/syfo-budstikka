@@ -8,14 +8,11 @@ import kotlin.time.Duration
 class FakeInboxMessageRepository(
     private val polledMessages: List<InboxMessage> = emptyList(),
 ) : InboxMessageRepository {
-    // Pair: (payload, eventId.toString)
-    val savedEvents = mutableListOf<Pair<String, String>>()
+    val savedEvents = mutableListOf<InboxMessage>()
     val pollLimits = mutableListOf<Int>()
 
-    override suspend fun saveBatch(events: List<Pair<UUID, String>>) {
-        events.forEach { (eventId, payload) ->
-            savedEvents += payload to eventId.toString()
-        }
+    override suspend fun saveBatch(messages: List<InboxMessage>) {
+        savedEvents += messages
     }
 
     override suspend fun claim(

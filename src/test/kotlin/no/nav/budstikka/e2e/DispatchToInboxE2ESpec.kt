@@ -31,7 +31,6 @@ class DispatchToInboxE2ESpec :
                 val ident = PersonIdentifier("12345678901")
                 val dispatch =
                     Dispatch(
-                        eventId = eventId,
                         reference = "e2e-ref-1",
                         content = MicrofrontendEnable(ident, "syfo-microfrontend"),
                     )

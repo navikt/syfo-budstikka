@@ -2,17 +2,13 @@ package no.nav.budstikka.domain.dispatch
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.util.UUID
 
 /**
- * Konvolutten på den nøytrale Kafka-kontrakten (B22, B43). Bærer korrelasjons-/dedup-id og
- * referanse; selve mottaker + operation ligger i [content] (sealed). Ingen nedstrøms-former
- * lekker inn – kontrakten er anti-corruption-laget (B22).
+ * Konvolutten på den nøytrale Kafka-kontrakten (B22, B43). `eventId` er ikke en del av payloaden,
+ * men lever kun som Kafka-header [DispatchHeader.EVENT_ID] (ADR 0008).
  */
 @Serializable
 data class Dispatch(
-    @Serializable(with = UuidSerializer::class)
-    val eventId: UUID,
     val reference: String,
     val content: DispatchContent,
 )

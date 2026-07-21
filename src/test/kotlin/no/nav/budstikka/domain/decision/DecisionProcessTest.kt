@@ -14,13 +14,12 @@ import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.deadLookupFor
-import java.util.UUID
 
 class DecisionProcessTest :
     FunSpec({
         fun processWith(deathLookup: FakeDeathLookup) = DecisionProcess(listOf(DeathGate(deathLookup)))
 
-        fun event(content: DispatchContent) = Dispatch(eventId = UUID.randomUUID(), reference = "ref-1", content = content)
+        fun event(content: DispatchContent) = Dispatch(reference = "ref-1", content = content)
 
         test("user-facing CREATE for dead person -> Dropped(DEAD) end-to-end via death gate") {
             val decision =

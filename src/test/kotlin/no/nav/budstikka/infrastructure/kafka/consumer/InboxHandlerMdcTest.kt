@@ -34,8 +34,10 @@ class InboxHandlerMdcTest :
         test("valid inbox log line carries eventId on MDC for cross-step correlation") {
             val eventId = "00000000-0000-0000-0000-000000000042"
             val handler = InboxMessageHandler(FakeInboxMessageRepository(), FakeDeadLetterRepository())
+            val payload =
+                """{"reference":"ref-1","content":{"type":"MicrofrontendEnable","personIdentifier":"12345678901","microfrontendId":"mf-1"}}"""
 
-            handler.handleBatch(listOf(testRecord(value = "raw-payload", eventId = eventId)))
+            handler.handleBatch(listOf(testRecord(value = payload, eventId = eventId)))
 
             val event = appender.list.single { it.formattedMessage.contains("Inbox message handled") }
             event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId

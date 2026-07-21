@@ -1,9 +1,13 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
+import kotlinx.serialization.SerializationException
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchHeader
+import no.nav.budstikka.domain.dispatch.dispatchJson
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -12,16 +16,15 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Konsumerer nøytrale dispatch-meldinger fra topic og persisterer dem idempotent i inbox_hendelse.
+ * Parser hele [Dispatch] ved inntak og persisterer en hydrert, deduplisert inbox-rad (ADR 0008).
+ * Dedup skjer på event_id (PK, ON CONFLICT DO NOTHING) fra Kafka-headeren — bevisst etter parse, ikke
+ * før (avvik fra ADR 0008 pkt. 3, se ADR-notat).
  *
- * Feiltaksonomi (jf. docs/datamodell.md):
- * - **Poison** (mangler/ugyldig event_id-header, eller tom payload): dead-letter til inbox_feilet,
- *   returner normalt → offset committes, partisjon flyter videre.
- * - **Transient** (DB nede): kast → ConsumerRunner committer ikke, re-poller med backoff.
+ * Feiltaksonomi: syntaktisk ugyldig (manglende/ugyldig header, tom eller uparsebar payload)
+ * dead-letteres og offset committes; transient feil (DB nede) kastes videre uten commit for re-poll.
  *
- * Dedup: event_id er PK (ON CONFLICT DO NOTHING) — Kafka-replay dobbeltsender ikke.
- * Payload lagres byte-eksakt som text uten deserialisering; event_id leses fra Kafka-header
- * (B54) og sealed content dekodes først av beslutnings-workeren.
+ * PII: en parse-feil kan bære fnr i exception-meldingen (kotlinx echo-er rå JSON), så vi logger
+ * aldri meldingen/throwable-en — kun feilkoden.
  */
 class InboxMessageHandler(
     private val inboxMessageRepository: InboxMessageRepository,
@@ -37,7 +40,7 @@ class InboxMessageHandler(
         val validEvents =
             candidates
                 .filterIsInstance<InboxCandidate.Valid>()
-                .map(InboxCandidate.Valid::event)
+                .map(InboxCandidate.Valid::record)
         handleValidEvents(validEvents)
         val deadLetters =
             candidates
@@ -51,8 +54,7 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
-        // Dead-letters kan MANGLE en gyldig eventId (MISSING/INVALID_EVENT_ID) → korrelér på
-        // Kafka-koordinater, ikke på MDC-eventId (B45). Strukturerte felt via kv (B46).
+        // DL kan mangle eventId → korrelér på Kafka-koordinater, ikke MDC. Aldri payload i logg (B58).
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
@@ -64,34 +66,35 @@ class InboxMessageHandler(
         }
     }
 
-    private suspend fun handleValidEvents(validEvents: List<InboxMessage>) {
+    private suspend fun handleValidEvents(validEvents: List<ValidRecord>) {
         if (validEvents.isEmpty()) {
             return
         }
-        inboxMessageRepository.saveBatch(validEvents.map { it.eventId to it.payload })
-        // B45: re-attach eventId på MDC ved konsum-steget så `| event_id="X"` i Loki dekker HELE
-        // hendelsesløpet (konsum → decide → poller → send), ikke bare de senere stegene. Øvrige
-        // felt struktureres via kv (B46); ingen payload/PII logges.
-        validEvents.forEach { event ->
-            MDC.putCloseable(MdcKeys.EVENT_ID, event.eventId.toString()).use {
+        inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
+        // eventId på MDC så Loki-linja for konsum-steget korrelerer med resten av løpet (B45).
+        validEvents.forEach { record ->
+            MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(
                     "Inbox message handled {} {} {}",
-                    kv("topic", event.topic),
-                    kv("partition", event.partition),
-                    kv("kafkaOffset", event.kafkaOffset),
+                    kv("topic", record.topic),
+                    kv("partition", record.partition),
+                    kv("kafkaOffset", record.kafkaOffset),
                 )
             }
         }
     }
 
-    /** Mapper poison record til dead-letter-rad med rå payload bevart. */
-    private fun ConsumerRecord<String, String?>.toDeadLetter(reason: DeadLetter): DeadLetterRecord =
+    private fun ConsumerRecord<String, String?>.toDeadLetter(
+        reason: DeadLetter,
+        eventId: UUID?,
+    ): DeadLetterRecord =
         DeadLetterRecord(
             payload = value().orEmpty(),
             topic = topic(),
             partition = partition(),
             kafkaOffset = offset(),
             kafkaKey = key(),
+            eventId = eventId,
             failureReason = reason.code,
             errorMessage = reason.message,
         )
@@ -99,34 +102,51 @@ class InboxMessageHandler(
     private fun ConsumerRecord<String, String?>.toInboxCandidate(): InboxCandidate {
         val eventId =
             when (val result = readEventId()) {
-                is EventId.Valid -> {
-                    result.value
-                }
-
-                is EventId.Invalid -> {
-                    return InboxCandidate.DeadLetter(
-                        toDeadLetter(result.reason),
-                    )
-                }
+                is EventId.Valid -> result.value
+                is EventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(result.reason, eventId = null))
             }
 
         val payload = value()
         if (payload.isNullOrBlank()) {
-            return InboxCandidate.DeadLetter(
-                toDeadLetter(DeadLetter.MissingPayload),
-            )
+            return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.MissingPayload, eventId = eventId))
         }
 
+        val dispatch =
+            when (val parsed = parseDispatch(payload)) {
+                is ParseResult.Success -> parsed.dispatch
+                is ParseResult.Failure ->
+                    return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.UnparseablePayload, eventId = eventId))
+            }
+
         return InboxCandidate.Valid(
-            InboxMessage(
-                eventId = eventId,
-                payload = payload,
+            ValidRecord(
+                message = InboxMessage(eventId = eventId, reference = dispatch.reference, content = dispatch.content),
                 topic = topic(),
                 partition = partition(),
                 kafkaOffset = offset(),
             ),
         )
     }
+}
+
+/**
+ * Parser payloaden som [Dispatch]. Bærer aldri exception-meldingen videre — den kan inneholde fnr (B58).
+ */
+internal fun parseDispatch(payload: String): ParseResult =
+    try {
+        ParseResult.Success(dispatchJson.decodeFromString<Dispatch>(payload))
+    } catch (_: SerializationException) {
+        ParseResult.Failure
+    } catch (_: IllegalArgumentException) {
+        ParseResult.Failure
+    }
+
+internal sealed interface ParseResult {
+    data class Success(
+        val dispatch: Dispatch,
+    ) : ParseResult
+
+    data object Failure : ParseResult
 }
 
 internal sealed interface EventId {
@@ -139,11 +159,7 @@ internal sealed interface EventId {
     ) : EventId
 }
 
-/**
- * Ren header-lesing (B54, dedup-fast-path) uten å røre bodyen — ingen bivirkninger, så den bor
- * på filnivå og testes isolert. Skiller manglende header fra ugyldig UUID så [InboxMessageHandler] kan
- * dead-lettere med riktig feilårsak.
- */
+/** Leser event_id fra Kafka-headeren; skiller manglende fra ugyldig UUID for riktig dead-letter-årsak. */
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()
@@ -173,11 +189,15 @@ sealed interface DeadLetter {
         override val code = "INVALID_EVENT_ID"
         override val message = "Kafka event ID header is not a valid UUID"
     }
+
+    data object UnparseablePayload : DeadLetter {
+        override val code = "UNPARSEABLE_PAYLOAD"
+        override val message = "Kafka record payload could not be parsed as a Dispatch"
+    }
 }
 
-private data class InboxMessage(
-    val eventId: UUID,
-    val payload: String,
+private data class ValidRecord(
+    val message: InboxMessage,
     val topic: String,
     val partition: Int,
     val kafkaOffset: Long,
@@ -185,7 +205,7 @@ private data class InboxMessage(
 
 private sealed interface InboxCandidate {
     data class Valid(
-        val event: InboxMessage,
+        val record: ValidRecord,
     ) : InboxCandidate
 
     data class DeadLetter(
