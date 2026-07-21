@@ -59,15 +59,15 @@ erDiagram
 ## Inbox og dead letter
 
 - Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
-  hydrerer `inbox_message`: dedup på `payload.eventId` (PK), strukturerte kolonner
-  (`reference`/`recipient_type`/`recipient_id`/`channel`/`operation`) løftes ut, og
-  `content` lagres som `jsonb`. Strukturerte felt gjør at FERDIGSTILL kan matche/annullere
-  ennå-ubesluttede inbox-rader uten re-parsing (#27).
-- `eventId`-headeren (`DispatchHeader.EVENT_ID`) er ikke lenger autoritativ; den leses
-  best-effort **kun** når en melding dead-letteres, og lagres da som `event_id` på
-  `dead_letter_message` (korrelasjon når payloaden ikke kan parses).
-- Melding som ikke kan behandles ved inntak (manglende/tom payload, korrupt JSON, konvolutt
-  uten `eventId`/`reference`, parser-urepresenterbar content) skrives til
+  hydrerer `inbox_message`: dedup på **header-eventId** (`DispatchHeader.EVENT_ID`) som PK,
+  strukturerte kolonner (`reference`/`recipient_type`/`recipient_id`/`channel`/`operation`)
+  løftes ut, og `content` lagres som `jsonb`. Strukturerte felt gjør at FERDIGSTILL kan
+  matche/annullere ennå-ubesluttede inbox-rader uten re-parsing (#27).
+- `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
+  content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
+  `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
+- Melding som ikke kan behandles ved inntak (manglende/ugyldig header, tom payload, korrupt
+  JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
   `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon (B21)
   dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
 - **Retensjon (B42 + ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
