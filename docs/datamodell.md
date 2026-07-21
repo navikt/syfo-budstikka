@@ -11,7 +11,8 @@ erDiagram
 
     inbox_message {
         uuid        event_id PK
-        text        payload
+        text        reference
+        jsonb       content
         text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED"
         text        drop_reason "nullable"
         int         attempt
@@ -44,6 +45,7 @@ erDiagram
         int         partition
         bigint      kafka_offset
         text        kafka_key "nullable"
+        uuid        event_id "nullable (fra header, når den finnes)"
         text        failure_reason
         text        error_message "nullable"
         timestamptz received_at
@@ -52,10 +54,23 @@ erDiagram
 
 ## Inbox og dead letter
 
-- Konsumenten lagrer gyldige meldinger i `inbox_message` med dedup på `event_id`.
-- `eventId` leses fra Kafka-header `DispatchHeader.EVENT_ID` (`eventId`), mens payload lagres rå.
-- Melding som ikke kan behandles ved inntak (f.eks. manglende/ugyldig header, manglende payload) skrives til
-  `dead_letter_message`.
+- Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
+  hydrerer `inbox_message`: dedup på **header-eventId** (`DispatchHeader.EVENT_ID`) som PK,
+  `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
+  FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
+  utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
+  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Ytterligere match-
+  kolonner legges til kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold.
+- `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
+  content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
+  `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
+- Melding som ikke kan behandles ved inntak (manglende/ugyldig header, tom payload, korrupt
+  JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
+  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon (B21)
+  dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
+- **Retensjon (B42 + ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
+  ved alder > ~100 dager (≥ 90d replay-vindu, B26, + buffer); DL bærer rå payload m/fnr og
+  må ha samme slette-disiplin.
 
 ## Worker-flyt og state-overganger
 
@@ -92,6 +107,10 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
 - `dead_letter_message_received_at_idx` på `(received_at)`
+
+> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox,
+> altså kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold. Kolonnen finnes fra
+> starten (ADR 0008); indeksen kommer med det arbeidet.
 
 ## Observability-koblinger
 

@@ -10,7 +10,7 @@ flowchart TB
         P2["..."]
     end
 
-    P1 & P2 -->|"Dispatch(eventId, reference, content)"| TOPIC{{"team-esyfo.budstikka.v1"}}
+    P1 & P2 -->|"header: eventId · body: Dispatch(reference, content)"| TOPIC{{"team-esyfo.budstikka.v1"}}
 
     subgraph Budstikka["syfo-budstikka"]
         direction TB
@@ -63,7 +63,8 @@ Dette gjør at flere podder kan jobbe parallelt uten dobbelt-claim.
 ## Batch insert og transaksjonsgrense
 
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
-  `batchInsert(ignore = true)`. Dedup skjer på `event_id` (PK).
+  `batchInsert(ignore = true)`. Dedup skjer på `event_id` (PK), hentet fra Kafka-headeren
+  `DispatchHeader.EVENT_ID` (ADR 0008 / B61 — eventId ligger ikke i payloaden).
 - **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
   `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)` av
   delivery-rader bare hvis CAS lykkes.

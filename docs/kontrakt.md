@@ -29,6 +29,11 @@ sealed interface DispatchContent {
 - `reference`: kobling på tvers av hendelser (create/ferdigstill).
 - `partitionKey`: Kafka-record key (beregnes per variant).
 
+> **Planlagt endring (ADR 0008 / B61, #125):** `eventId` FJERNES fra `Dispatch` og
+> leveres KUN som Kafka-header (`DispatchHeader.EVENT_ID`) — konvolutten blir
+> `{ reference, content }`. eventId er en teknisk id (dedup og korrelasjon), ikke domenedata. Blokka over
+> speiler dagens kode; oppdateres når parse-ved-ingest implementeres.
+
 ## Viktige kontraktprinsipper (B22/B23)
 
 - Kontrakten er **sealed og typet**: operation ligger i typen (`*Create`, `*Inactivate`, `MicrofrontendEnable/Disable`), ikke i et løst enum-felt.
@@ -45,9 +50,11 @@ sealed interface DispatchContent {
 
 `DispatchHeader.EVENT_ID = "eventId"` er del av kontrakten.
 
-- Headeren speiler `Dispatch.eventId`.
-- Konsumenten bruker headeren for dedup-fast-path uten body-deserialisering.
-- Payload er fortsatt autoritativ kilde.
+- Headeren bærer `eventId` (unik per hendelse, dedup/korrelasjon).
+- Konsumenten bruker headeren for dedup uten å avhenge av payload-skjemaet.
+- **ADR 0008 / B61:** headeren er den ENESTE og AUTORITATIVE kilden for eventId — den er
+  obligatorisk (manglende/ugyldig → dead-letter), og eventId finnes ikke i payloaden.
+  (Tidligere B54: headeren speilet `Dispatch.eventId` og payloaden var autoritativ — reversert.)
 
 ## Serialisering
 
