@@ -1,13 +1,13 @@
-# 0002: Inbox-dedup på Kafka-header, rå payload uten deserialisering
+# ADR 0002 — Inbox-dedup på Kafka-header, rå payload uten deserialisering
 
-- Status: SUPERSEDED av ADR 0008 (hydrert inbox, parse ved ingest) — 2026-07-21.
+- Status: erstattet av ADR 0008 (hydrert inbox, parse ved ingest) — 2026-07-21.
   Opprinnelig: besluttet (implementerer B54, issue #19). Beholdt for historikk.
 - Dato: 2026-07-08
 - Relatert: ADR 0001 (domeneblind varselruter), beslutning B54 og B26 i `docs/context.md`
 
 ## Kontekst
 
-Budstikka konsumerer `team-esyfo.budstikka.v1` og må dedup-e idempotent (B4) fordi
+Budstikka konsumerer `team-esyfo.budstikka.v1` og må dedupe idempotent (B4) fordi
 Kafka-replay (bounded 90d retention, B26) kan dobbeltsende. Spørsmålet var *hvor*
 dedup-nøkkelen og feilhåndteringen forankres:
 
@@ -21,7 +21,7 @@ dedup-nøkkelen og feilhåndteringen forankres:
 
 ## Beslutning
 
-Ingest gjør **null body-parsing**. Konkret:
+Ingest gjør **ingen body-parsing**. Konkret:
 
 1. **`eventId` leses fra Kafka-headeren**, ikke fra bodyen, som dedup-nøkkel
    (fast-path per B54). Payloaden forblir autoritativ og valideres av
@@ -56,10 +56,10 @@ Ingest gjør **null body-parsing**. Konkret:
 
 ## Alternativer vurdert
 
-- **Dedup på payload-`eventId` (parse ved ingest).** Vraket: binder dedup til
+- **Dedup på payload-`eventId` (parse ved ingest).** Forkastet: binder dedup til
   skjemaet og gjeninnfører `UGYLDIG_JSON` som ingest-feilflate — nettopp det B54
   fjerner.
-- **Dead-letter alt (også transient) og alltid committe offset.** Vraket: transient
+- **Dead-letter alt (også transient) og alltid committe offset.** Forkastet: transient
   DB-feil ville gitt stille datatap i stedet for retry.
-- **Kast på poison og la consumer stoppe.** Vraket: head-of-line blocking — én
+- **Kast på poison og la consumer stoppe.** Forkastet: head-of-line blocking — én
   korrupt melding stopper hele partisjonen.

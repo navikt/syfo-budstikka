@@ -13,7 +13,7 @@ domeneoppgaver. Det gjør appen vanskelig å endre og eie. syfo-budstikka skal o
 ansvaret for å nå brukere (sykmeldt, nærmeste leder, arbeidsgiver) uten å kjenne
 domenene.
 
-## Beslutning (Decision)
+## Beslutning
 
 Budstikka er en **domeneblind varselruter**. Domeneappen eier *hva* og *når*;
 budstikka eier *hvordan det leveres*.

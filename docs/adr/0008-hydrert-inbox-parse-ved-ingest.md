@@ -1,8 +1,8 @@
-# 0008: Hydrert inbox — full parse ved ingest, eventId kun i header
+# ADR 0008 — Hydrert inbox: full parse ved ingest, eventId kun i header
 
-- Status: besluttet (superseder ADR 0002; reverserer B54s «payload autoritativ»; nyanserer B4/B21, se `docs/context.md` B61)
+- Status: besluttet (erstatter ADR 0002; reverserer B54s «payload autoritativ»; nyanserer B4/B21, se `docs/context.md` B61)
 - Dato: 2026-07-21
-- Relatert: ADR 0002 (superseded), B4/B10/B18/B21/B22/B43/B54, issue #27 (sendevindu)
+- Relatert: ADR 0002 (erstattet), B4/B10/B18/B21/B22/B43/B54, issue #27 (sendevindu)
 
 ## Kontekst
 

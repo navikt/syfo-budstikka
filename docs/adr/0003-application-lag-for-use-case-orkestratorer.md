@@ -1,4 +1,4 @@
-# 0003: Application-lag for use-case-orkestratorer; adaptere blir i infrastructure
+# ADR 0003 — Application-lag for use case-orkestratorer; adaptere ligger i infrastructure
 
 - Status: besluttet (issue #56, beslutnings-worker)
 - Dato: 2026-07-10
@@ -18,9 +18,9 @@ tingene hjemme (worker-mekanisme, konkret worker, Kafka-handler)? En Kafka-handl
 
 ## Beslutning
 
-`application` innføres som et eksplisitt use-case-lag. Konkret:
+`application` innføres som et eksplisitt use case-lag. Konkret:
 
-1. **`application` er et fjerde lag** for use-case-orkestratorer. Det kan avhenge av `domain` og
+1. **`application` er et fjerde lag** for use case-orkestratorer. Det kan avhenge av `domain` og
    porter definert i `application`-laget selv (`application.port`).
 2. **Hard avhengighetsregel:** `domain` og `application` skal aldri avhenge av
    `infrastructure` eller `bootstrap`.
@@ -31,10 +31,10 @@ tingene hjemme (worker-mekanisme, konkret worker, Kafka-handler)? En Kafka-handl
 5. **Kafka-handleren (`InboxMessageHandler`) blir i `infrastructure/kafka/consumer`.** Den er en
    drivende adapter: signaturen tar `ConsumerRecord`, den leser Kafka-headere og styrer offset- og
    dead-letter-semantikk, og den gjør null domenearbeid (syntaktisk parse + hydrering av inbox-raden
-   per ADR 0008 — som superseder ADR 0002s byte-eksakte lagring; fortsatt ingen forretningslogikk).
+   per ADR 0008 — som erstatter ADR 0002s byte-eksakte lagring; fortsatt ingen forretningslogikk).
 6. **Plasserings-test:** navngir klassen en transport-type (`ConsumerRecord`, `ApplicationCall`,
    HTTP-request) er den en drivende adapter og hører til `infrastructure` (eller `api` for HTTP).
-   Snakker den bare domene og porter, er den et use-case og hører til `application`. Ren livssyklus
+   Snakker den bare domene og porter, er den et use case og hører til `application`. Ren livssyklus
    og plumbing hører til `infrastructure`.
 7. **DI-wiring som rører `application` bor i `bootstrap`** (composition root), aldri i
    `infrastructure` — det holder avhengighetsretningen utover.
@@ -49,7 +49,7 @@ Dette designet tilhører samme familie som:
 - **Hexagonal architecture (ports and adapters)**
 
 I dette repoet bruker vi primært begrepet **ports and adapters** fordi det matcher den konkrete
-kodeorganiseringen best: domene/use-case i kjernen, adaptere i `infrastructure` og wiring i
+kodeorganiseringen best: domene/use case i kjernen, adaptere i `infrastructure` og wiring i
 `bootstrap`.
 
 ## Konsekvenser
@@ -58,22 +58,22 @@ kodeorganiseringen best: domene/use-case i kjernen, adaptere i `infrastructure` 
   rask, objektiv regel for hvor nye klasser skal ligge.
 - ➕ Avhengighetsretningen er håndhevbar og verifisert: `domain` og `application` peker ikke til
   `infrastructure`/`bootstrap`; `bootstrap` er composition root som wirer lagene sammen.
-- ➕ Skillet mekanisme/use-case gjør begge testbare hver for seg: `BackgroundLoop` testes uten en konkret
+- ➕ Skillet mekanisme/use case gjør begge testbare hver for seg: `BackgroundLoop` testes uten en konkret
   worker, og en worker testes uten Kafka.
 - ➖ Et fjerde lag øker seremonien i en liten app. Risikoen er at tynne adaptere feilaktig havner i
   `application`; plasserings-testen demmer opp for det.
 - ➖ Handleren (inbox-writer) og workeren (inbox-processor) løser to halvdeler av samme
   transactional-inbox-flyt i hvert sitt lag. Det kan forvirre til man ser writer/processor-splittet:
-  adapteren lander rå bytes idempotent, use-caset dekoder og beslutter.
+  adapteren lagrer rå bytes idempotent, mens use case-laget dekoder og beslutter.
 
 ## Alternativer vurdert
 
-- **Legg `InboxMessageWorker` i `infrastructure/worker` ved siden av `BackgroundLoop`.** Vraket: blander
-  use-case-orkestrering med plumbing og skjuler at workeren snakker domene. `infrastructure` vokser til
+- **Legg `InboxMessageWorker` i `infrastructure/worker` ved siden av `BackgroundLoop`.** Forkastet: blander
+  use case-orkestrering med plumbing og skjuler at workeren snakker domene. `infrastructure` vokser til
   en sekk uten indre skille.
-- **Behold tre lag, ingen `application`; workere i `infrastructure`.** Vraket: mister det rene skillet
-  mellom mekanisme og use-case, samme problem som over.
+- **Behold tre lag, ingen `application`; workere i `infrastructure`.** Forkastet: mister det rene skillet
+  mellom mekanisme og use case, samme problem som over.
 - **Ekstraher en transport-nøytral port nå så `InboxMessageHandler` kan flytte til `application`.**
-  Vraket: spekulativ generalisering. Handleren har null domenelogikk og én transport, så en port +
+  Forkastet: spekulativ generalisering. Handleren har null domenelogikk og én transport, så en port +
   DTO + mapping ville flyttet nesten ingenting til `application` mot ny seremoni. Innføres først når
   et andre triggerpunkt eller reell domenelogikk dukker opp i ingest-stien.
