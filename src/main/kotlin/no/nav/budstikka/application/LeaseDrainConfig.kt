@@ -3,7 +3,7 @@ package no.nav.budstikka.application
 import kotlin.time.Duration
 
 /**
- * Operasjonelle knotter for én claim-lease-drain-worker (inbox eller delivery). Ren verdi-type i
+ * Operasjonelle innstillinger for én claim-lease-drain-worker (inbox eller delivery). Ren verdi-type i
  * `application`; parsing fra `application.conf` bor i `infrastructure.worker.config` slik at
  * workerne ikke avhenger av Ktor-config. En framtidig cleanup-worker bærer et retensjonsvindu (ikke
  * batchSize/lease) og får sin egen type.

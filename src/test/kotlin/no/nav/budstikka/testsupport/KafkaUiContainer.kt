@@ -6,16 +6,6 @@ import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 
-/**
- * Kafka UI (web) for det LOKALE løpet — gir en nettleserflate for å inspisere topics, meldinger,
- * konsumentgrupper og offsets mens appen kjører. Brukes KUN av [no.nav.budstikka.LocalApp], aldri
- * i e2e-testene (holder e2e raskt og uten UI-overhead).
- *
- * Ligger på det SAMME delte Docker-[network] som Kafka og når broker-en via den interne adressen
- * [kafkaBootstrapServers] (`kafka:19092`, jf. [KafkaTestContainer.internalBootstrapServers]). Selve
- * web-porten eksponeres som en Testcontainers-mappet (bridge) port slik at den er nåbar fra host —
- * host-nettverk fungerer ikke under podman-VM-en på Mac. Se [url] for den host-nåbare adressen.
- */
 class KafkaUiContainer(
     network: Network,
     kafkaBootstrapServers: String,
@@ -38,7 +28,6 @@ class KafkaUiContainer(
         container.start()
     }
 
-    /** Host-nåbar nettleser-URL til Kafka UI så lenge prosessen lever. */
     val url: String
         get() = "http://${container.host}:${container.getMappedPort(UI_PORT)}"
 

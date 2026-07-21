@@ -7,7 +7,7 @@ import no.nav.budstikka.domain.decision.Decision
 import java.util.UUID
 
 /**
- * Effektueringen (B28, imperativt skall): skriver utfallet av [Decision] for ÉN inbox-melding til
+ * Effektueringen: skriver utfallet av [Decision] for ÉN inbox-melding til
  * databasen i ÉN transaksjon — delivery-rad(er) + inbox-status commits alt-eller-ingenting. Dette er
  * steget `DecisionProcess` bevisst lot stå åpent («skriving av leveranse-rad(er) +
  * inbox_hendelse.status i én DB-tx»).

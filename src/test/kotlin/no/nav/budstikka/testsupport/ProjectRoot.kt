@@ -4,8 +4,6 @@ import java.nio.file.Path
 
 private object Anchor
 
-/**
- * Går opp frå test-klassane si plassering til prosjektrota (der `build.gradle.kts` ligg). * Brukast av container-klassar for å finna provisioning-filer og dashboards. */
 internal fun projectRoot(): Path {
     val classDir =
         Path.of(

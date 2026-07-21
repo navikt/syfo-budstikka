@@ -17,10 +17,6 @@ import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 
-/**
- * Ren type→kanal/operasjon/mottaker-mapping ([toDeliveryDraft]). Ingen I/O, ingen gater – gate-
- * oppførselen ligger i [DeathGateTest]/[DecisionProcessTest].
- */
 class DispatchDraftMappingTest :
     FunSpec({
         data class Case(

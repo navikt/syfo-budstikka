@@ -6,11 +6,8 @@ import org.testcontainers.utility.DockerImageName
 
 /**
  * Delt Kafka-base for e2e-harnessen og det lokale løpet (B51): starter en Kafka-container fra
- * kode, ingen docker-compose. [bootstrapServers] mates inn i app-konfigen slik at den ekte
+ * kode. [bootstrapServers] mates inn i app-konfigen slik at den ekte
  * konsumenten poller mot containeren. Ferskt miljø per kjøring.
- *
- * Bruker Confluent-distribusjonens `cp-kafka`-image – den mest utprøvde Testcontainers-Kafka-en
- * på tvers av arkitekturer (inkl. arm64). Appen er distro-uavhengig; dette er en test-detalj.
  *
  * Med [enableNetworkListener] = true opprettes et delt Docker-[network] og en intern lytter på
  * `kafka:19092`, slik at ANDRE containere på samme nett (typisk Kafka UI i det lokale løpet) kan

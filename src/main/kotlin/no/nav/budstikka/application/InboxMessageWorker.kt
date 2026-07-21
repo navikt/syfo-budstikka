@@ -51,10 +51,6 @@ class InboxMessageWorker(
         )
     }
 
-    /**
-     * Legg `reference` på MDC for beslutnings-steget, slik at OPPRETT og FERDIGSTILL kan korreleres i logg.
-     * `withContext(MDCContext())` bevarer MDC over suspensjon. Decode-feil har ingen `reference`.
-     */
     private suspend fun processClaimed(message: InboxMessage) {
         val dispatch = Dispatch(reference = message.reference, content = message.content)
         MDC.putCloseable(MdcKeys.REFERENCE, message.reference).use {
