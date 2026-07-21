@@ -16,11 +16,11 @@ import java.util.UUID
 
 /**
  * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
- * 0004 — flere replicaer kan kjøre samtidig), dekoder payloaden og effektuerer utfallet per melding
- * via [EffectuateDecision] (delivery + inbox-status i én DB-tx).
+ * 0004 — flere replicaer kan kjøre samtidig) og effektuerer utfallet per melding via
+ * [EffectuateDecision] (delivery + inbox-status i én DB-tx).
  *
- * Beslutningen delegeres til [DecisionProcess], som ruter til policy per meldingstype og lar hver
- * policy hente sitt eget grunnlag (f.eks. PDL for isAlive-gaten).
+ * Meldingen er hydrert ved ingest (ADR 0008): `content` er garantert parsebar, så workeren dekoder
+ * ikke payload. Den rekonstruerer [Dispatch] fra raden og delegerer beslutningen til [DecisionProcess].
  *
  * Workeren eier én runde ([runOnce]); selve løkke-livssyklusen (intervall, heartbeat, shutdown)
  * komponeres rundt den i bootstrap via `BackgroundLoop`. Lease-budsjett-draineringen deles med
@@ -83,57 +83,27 @@ class InboxMessageWorker(
 
     private fun Decision.logFields(): List<StructuredArgument> =
         when (this) {
-            is Decision.Processed ->
+            is Decision.Processed -> {
                 listOf(
                     kv("result", "PROCESSED"),
                     kv("deliveryCount", deliveries.size),
                 )
+            }
 
-            is Decision.Dropped ->
+            is Decision.Dropped -> {
                 listOf(
                     kv("result", "DROPPED"),
                     kv("dropReason", reason.name),
                 )
+            }
 
-            is Decision.Failed ->
+            is Decision.Failed -> {
                 listOf(
                     kv("result", "FAILED"),
                     kv("failureReason", errorMessage),
                 )
+            }
         }
 
     private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
-
-    private fun decode(message: InboxMessage): DecodeOutcome {
-        logger.debug("Decoding inbox payload")
-        return try {
-            DecodeOutcome.Success(dispatchJson.decodeFromString<Dispatch>(message.payload))
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: SerializationException) {
-            DecodeOutcome.Failure(decodeFailedDecision(error))
-        } catch (error: IllegalArgumentException) {
-            DecodeOutcome.Failure(decodeFailedDecision(error))
-        }
-    }
-
-    private fun decodeFailedDecision(error: Throwable): Decision.Failed {
-        // B46/PII: en decode-feil kan bære payload-innhold (fnr) i exception-meldingen — kotlinx
-        // echo-er «JSON input: …». Logg/persister derfor KUN exception-TYPEN, aldri message eller
-        // hele throwable. eventId er på MDC (korrelasjon bevart); rå payload slås ev. opp i
-        // inbox_message under tilgangskontroll (B46-feilsøkingsmodell).
-        val errorType = error.javaClass.simpleName
-        logger.warn("Failed to decode inbox message {}", kv("errorType", errorType))
-        return Decision.Failed("DECODE_FAILED: $errorType")
-    }
-
-    private sealed interface DecodeOutcome {
-        data class Success(
-            val dispatch: Dispatch,
-        ) : DecodeOutcome
-
-        data class Failure(
-            val decision: Decision.Failed,
-        ) : DecodeOutcome
-    }
 }
