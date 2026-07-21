@@ -11,9 +11,6 @@ import org.jetbrains.exposed.v1.json.jsonb
 @Suppress("unused")
 object InboxMessageTable : Table("inbox_message") {
     val eventId = javaUUID("event_id").databaseGenerated()
-
-    // Hydrert ved ingest (ADR 0008): `content` er sealed `DispatchContent` som jsonb (speiler
-    // DeliveryTable.payload), `reference` løftet ut som egen kolonne. Rå payload droppet.
     val content = jsonb<DispatchContent>("content", dispatchJson)
     val reference = text("reference")
     val state = text("state").default(InboxMessageState.RECEIVED.name)

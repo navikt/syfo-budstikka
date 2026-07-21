@@ -16,27 +16,15 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Konsumerer nøytrale dispatch-meldinger fra topic, PARSER hele [Dispatch] ved inntak (ADR 0008)
- * og persisterer idempotent en hydrert rad i inbox_message (event_id fra header + reference +
- * content). Parsingen gjør bare syntaktisk kontraktvalidering + hydrering; ingen forretningslogikk.
+ * Parser hele [Dispatch] ved inntak og persisterer en hydrert, deduplisert inbox-rad (ADR 0008).
+ * Dedup skjer på event_id (PK, ON CONFLICT DO NOTHING) fra Kafka-headeren — bevisst etter parse, ikke
+ * før (avvik fra ADR 0008 pkt. 3, se ADR-notat).
  *
- * Feiltaksonomi (jf. docs/datamodell.md):
- * - **Poison** (syntaktisk): manglende/ugyldig event_id-header, tom payload, eller payload som ikke
- *   lar seg parse som en [Dispatch] (korrupt JSON, ukjent sealed-subtype, manglende `reference`).
- *   Dead-letteres → offset committes, partisjon flyter videre. event_id lagres best-effort når
- *   headeren var gyldig.
- * - **Transient** (DB nede): kast → ConsumerRunner committer ikke, re-poller med backoff.
+ * Feiltaksonomi: syntaktisk ugyldig (manglende/ugyldig header, tom eller uparsebar payload)
+ * dead-letteres og offset committes; transient feil (DB nede) kastes videre uten commit for re-poll.
  *
- * Dedup: event_id er PK (ON CONFLICT DO NOTHING) — Kafka-replay dobbeltsender ikke. event_id leses
- * fra Kafka-header ([DispatchHeader.EVENT_ID]) FØR payloaden parses, så dedup for gyldige meldinger er
- * skjema-uavhengig. BEVISST AVVIK fra ADR 0008 pkt. 3 (se ADR-ens implementeringsnotat): vi bygger
- * ikke «forkast kjent duplikat uten parsing» — payloaden parses før PK-dedupen. En korrupt duplikat av
- * en allerede-ingestert eventId dead-letteres derfor (kan gi gjentatte DL-rader). Akseptert edge
- * (produsent-bug; replay er byte-identisk og rammes ikke), for å slippe et ekstra DB-kall i ingest.
- *
- * PII (B46/B58): en parse-feil kan bære payload-innhold (fnr) i exception-meldingen (kotlinx
- * echo-er «JSON input: …»). Vi logger derfor ALDRI exception-meldingen/throwable-en — kun
- * feilårsak-koden. Rå payload bevares i dead_letter_message (egen retensjon, ADR 0008), aldri i logg.
+ * PII: en parse-feil kan bære fnr i exception-meldingen (kotlinx echo-er rå JSON), så vi logger
+ * aldri meldingen/throwable-en — kun feilkoden.
  */
 class InboxMessageHandler(
     private val inboxMessageRepository: InboxMessageRepository,
@@ -66,9 +54,7 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
-        // Dead-letters kan MANGLE en gyldig eventId (MISSING/INVALID_EVENT_ID) → korrelér på
-        // Kafka-koordinater, ikke på MDC-eventId (B45). Strukturerte felt via kv (B46). Aldri
-        // payload/exception-melding i logg (B58/PII).
+        // DL kan mangle eventId → korrelér på Kafka-koordinater, ikke MDC. Aldri payload i logg (B58).
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
@@ -85,9 +71,7 @@ class InboxMessageHandler(
             return
         }
         inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
-        // B45: re-attach eventId på MDC ved konsum-steget så `| event_id="X"` i Loki dekker HELE
-        // hendelsesløpet (konsum → decide → poller → send), ikke bare de senere stegene. Øvrige
-        // felt struktureres via kv (B46); ingen payload/PII logges.
+        // eventId på MDC så Loki-linja for konsum-steget korrelerer med resten av løpet (B45).
         validEvents.forEach { record ->
             MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(
@@ -100,7 +84,6 @@ class InboxMessageHandler(
         }
     }
 
-    /** Mapper poison record til dead-letter-rad med rå payload bevart + best-effort eventId. */
     private fun ConsumerRecord<String, String?>.toDeadLetter(
         reason: DeadLetter,
         eventId: UUID?,
@@ -147,9 +130,7 @@ class InboxMessageHandler(
 }
 
 /**
- * Parser payloaden som en [Dispatch] uten å røre PII: en feil rapporteres som [ParseResult.Failure]
- * uten å bære exception-meldingen videre (kotlinx echo-er rå input, inkl. fnr — B58). Ren funksjon,
- * så den bor på filnivå og testes isolert.
+ * Parser payloaden som [Dispatch]. Bærer aldri exception-meldingen videre — den kan inneholde fnr (B58).
  */
 internal fun parseDispatch(payload: String): ParseResult =
     try {
@@ -178,11 +159,7 @@ internal sealed interface EventId {
     ) : EventId
 }
 
-/**
- * Ren header-lesing (dedup-fast-path) uten å røre bodyen — ingen bivirkninger, så den bor på
- * filnivå og testes isolert. Skiller manglende header fra ugyldig UUID så [InboxMessageHandler] kan
- * dead-lettere med riktig feilårsak.
- */
+/** Leser event_id fra Kafka-headeren; skiller manglende fra ugyldig UUID for riktig dead-letter-årsak. */
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()

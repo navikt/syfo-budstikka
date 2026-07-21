@@ -19,11 +19,8 @@ import java.util.UUID
  * 0004 — flere replicaer kan kjøre samtidig) og effektuerer utfallet per melding via
  * [EffectuateDecision] (delivery + inbox-status i én DB-tx).
  *
- * Meldingen er allerede hydrert ved ingest (ADR 0008): `content` er garantert parsebar, så workeren
- * dekoder ikke lenger payload og kan aldri feile på `SerializationException`. Den rekonstruerer
- * [Dispatch] fra radens reference + content og delegerer beslutningen til [DecisionProcess], som
- * ruter til policy per meldingstype og lar hver policy hente sitt eget grunnlag (f.eks. PDL for
- * isAlive-gaten).
+ * Meldingen er hydrert ved ingest (ADR 0008): `content` er garantert parsebar, så workeren dekoder
+ * ikke payload. Den rekonstruerer [Dispatch] fra raden og delegerer beslutningen til [DecisionProcess].
  *
  * Workeren eier én runde ([runOnce]); selve løkke-livssyklusen (intervall, heartbeat, shutdown)
  * komponeres rundt den i bootstrap via `BackgroundLoop`. Lease-budsjett-draineringen deles med
@@ -55,12 +52,8 @@ class InboxMessageWorker(
     }
 
     /**
-     * B45/B59: `reference` re-attaches på MDC for beslutnings-steget, så `| reference="X"` i Loki
-     * korrelerer OPPRETT og FERDIGSTILL (to ULIKE events, ulik eventId, delt reference).
-     * `withContext(MDCContext())` re-snapshotter MDC (eventId fra draineren + reference) inn i
-     * coroutine-konteksten så feltet overlever suspensjon i decisionProcess/effektuering — samme
-     * idiom som `LeaseBudgetDrainer` bruker for eventId. reference ligger nå direkte på den hydrerte
-     * raden (ADR 0008), ingen dekoding nødvendig.
+     * `reference` på MDC korrelerer OPPRETT↔FERDIGSTILL i Loki (delt reference, ulik eventId, B59);
+     * `withContext(MDCContext())` bevarer feltet over suspensjon i decisionProcess/effektuering.
      */
     private suspend fun processClaimed(message: InboxMessage) {
         val dispatch = Dispatch(reference = message.reference, content = message.content)

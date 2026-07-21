@@ -4,12 +4,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Konvolutten på den nøytrale Kafka-kontrakten (B22, B43). Bærer [reference] (kobler
- * FERDIGSTILL→OPPRETT); selve mottaker + operation ligger i [content] (sealed). Ingen
- * nedstrøms-former lekker inn – kontrakten er anti-corruption-laget (B22).
- *
- * `eventId` er IKKE en del av payloaden (ADR 0008 / B61): den lever kun som Kafka-header
- * ([DispatchHeader.EVENT_ID]) – en teknisk id for dedup/korrelasjon, ikke domenedata.
+ * Konvolutten på den nøytrale Kafka-kontrakten (B22, B43). `eventId` er ikke en del av payloaden,
+ * men lever kun som Kafka-header [DispatchHeader.EVENT_ID] (ADR 0008).
  */
 @Serializable
 data class Dispatch(

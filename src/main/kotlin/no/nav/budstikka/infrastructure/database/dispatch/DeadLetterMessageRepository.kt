@@ -12,7 +12,6 @@ data class DeadLetterRecord(
     val partition: Int,
     val kafkaOffset: Long,
     val kafkaKey: String?,
-    // Best-effort korrelasjon (ADR 0008): satt når headeren var gyldig, null ellers.
     val eventId: UUID?,
     val failureReason: String,
     val errorMessage: String?,

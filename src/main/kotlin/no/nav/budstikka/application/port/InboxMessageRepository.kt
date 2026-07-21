@@ -4,12 +4,7 @@ import no.nav.budstikka.domain.dispatch.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
 
-/**
- * En hydrert inbox-rad (ADR 0008): [eventId] fra Kafka-headeren, [reference] og [content] parset
- * fra payloaden ved ingest. Brukes både ved lagring ([InboxMessageRepository.saveBatch]) og ved
- * claim ([InboxMessageRepository.claim]) – content er garantert parsebar på hver rad, så
- * beslutnings-workeren slipper å dekode på nytt.
- */
+/** En hydrert inbox-rad (ADR 0008): [eventId] fra Kafka-headeren, [reference]/[content] parset ved ingest. */
 data class InboxMessage(
     val eventId: UUID,
     val reference: String,

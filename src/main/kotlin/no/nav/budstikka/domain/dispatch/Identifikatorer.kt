@@ -29,16 +29,12 @@ value class Orgnummer(
 private const val MASKED = "***"
 
 /**
- * Kafka-header-navn som er del av den publiserte kontrakten (delt kilde for produsenter og
- * konsument). Selve header-håndteringen (lesing/validering ved inntak) hører til konsumenten;
- * her defineres kun navnet så begge sider refererer én streng.
+ * Kafka-header-navn som er del av den publiserte kontrakten (delt kilde for produsenter og konsument).
  */
 object DispatchHeader {
     /**
-     * `eventId` som Kafka-header (ADR 0008 / B61). Headeren er den ENESTE kilden til eventId og
-     * er autoritativ og obligatorisk: konsumenten deduper på den (PK, `ON CONFLICT DO NOTHING`)
-     * FØR payloaden parses, så dedup er skjema-uavhengig. Mangler/ugyldig header → dead-letter,
-     * ingen payload-fallback (eventId er fjernet fra [Dispatch]-payloaden).
+     * `eventId` som Kafka-header (ADR 0008): eneste kilde, autoritativ og obligatorisk. Dedup skjer
+     * på denne (PK, ON CONFLICT DO NOTHING); manglende/ugyldig header → dead-letter.
      */
     const val EVENT_ID = "eventId"
 }
