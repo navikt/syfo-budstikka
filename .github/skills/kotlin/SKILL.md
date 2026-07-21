@@ -1,12 +1,13 @@
 ---
 name: kotlin
-description: "Use for idiomatic Kotlin: refactoring, value classes, sealed types, coroutines, nullability, visibility, composition, DRY/SOLID, hexagonal architecture, or /kotlin. Use /kotlin-ktor for Ktor setup."
+description: "Use for idiomatic Kotlin in both new code and refactoring: value classes, sealed types, coroutines, nullability, visibility, composition, DRY/SOLID, hexagonal architecture, or /kotlin. Use /kotlin-ktor for Ktor setup."
 ---
 
 # Kotlin
 
 ## Contract
 
+- Use this skill for both new Kotlin code and refactoring.
 - Keep the code DRY and SOLID without introducing shallow abstractions.
 - Follow hexagonal architecture: domain depends on nothing; application depends on domain; infrastructure implements ports.
 - Prefer composition over inheritance.
