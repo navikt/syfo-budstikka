@@ -30,7 +30,8 @@ tingene hjemme (worker-mekanisme, konkret worker, Kafka-handler)? En Kafka-handl
    (repository, config) og bruker mekanismen som utførelsesramme.
 5. **Kafka-handleren (`InboxMessageHandler`) blir i `infrastructure/kafka/consumer`.** Den er en
    drivende adapter: signaturen tar `ConsumerRecord`, den leser Kafka-headere og styrer offset- og
-   dead-letter-semantikk, og den gjør null domenearbeid (byte-eksakt lagring per ADR 0002).
+   dead-letter-semantikk, og den gjør null domenearbeid (syntaktisk parse + hydrering av inbox-raden
+   per ADR 0008 — som superseder ADR 0002s byte-eksakte lagring; fortsatt ingen forretningslogikk).
 6. **Plasserings-test:** navngir klassen en transport-type (`ConsumerRecord`, `ApplicationCall`,
    HTTP-request) er den en drivende adapter og hører til `infrastructure` (eller `api` for HTTP).
    Snakker den bare domene og porter, er den et use-case og hører til `application`. Ren livssyklus

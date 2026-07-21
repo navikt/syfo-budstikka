@@ -11,7 +11,12 @@ erDiagram
 
     inbox_message {
         uuid        event_id PK
-        text        payload
+        text        reference
+        text        recipient_type
+        text        recipient_id
+        text        channel
+        text        operation
+        jsonb       content
         text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED"
         text        drop_reason "nullable"
         int         attempt
@@ -44,6 +49,7 @@ erDiagram
         int         partition
         bigint      kafka_offset
         text        kafka_key "nullable"
+        uuid        event_id "nullable (best-effort header)"
         text        failure_reason
         text        error_message "nullable"
         timestamptz received_at
@@ -52,10 +58,21 @@ erDiagram
 
 ## Inbox og dead letter
 
-- Konsumenten lagrer gyldige meldinger i `inbox_message` med dedup på `event_id`.
-- `eventId` leses fra Kafka-header `DispatchHeader.EVENT_ID` (`eventId`), mens payload lagres rå.
-- Melding som ikke kan behandles ved inntak (f.eks. manglende/ugyldig header, manglende payload) skrives til
-  `dead_letter_message`.
+- Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
+  hydrerer `inbox_message`: dedup på `payload.eventId` (PK), strukturerte kolonner
+  (`reference`/`recipient_type`/`recipient_id`/`channel`/`operation`) løftes ut, og
+  `content` lagres som `jsonb`. Strukturerte felt gjør at FERDIGSTILL kan matche/annullere
+  ennå-ubesluttede inbox-rader uten re-parsing (#27).
+- `eventId`-headeren (`DispatchHeader.EVENT_ID`) er ikke lenger autoritativ; den leses
+  best-effort **kun** når en melding dead-letteres, og lagres da som `event_id` på
+  `dead_letter_message` (korrelasjon når payloaden ikke kan parses).
+- Melding som ikke kan behandles ved inntak (manglende/tom payload, korrupt JSON, konvolutt
+  uten `eventId`/`reference`, parser-urepresenterbar content) skrives til
+  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon (B21)
+  dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
+- **Retensjon (B42 + ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
+  ved alder > ~100 dager (≥ 90d replay-vindu, B26, + buffer); DL bærer rå payload m/fnr og
+  må ha samme slette-disiplin.
 
 ## Worker-flyt og state-overganger
 
