@@ -4,8 +4,7 @@
 -- (inbox_message er tom). I prod måtte kolonnene backfilles før NOT NULL settes.
 
 -- slette alle rader siden vi er bare i dev
-TRUNCATE TABLE delivery;
-TRUNCATE TABLE inbox_message;
+TRUNCATE TABLE inbox_message CASCADE;
 TRUNCATE TABLE dead_letter_message;
 
 ALTER TABLE inbox_message
