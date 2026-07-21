@@ -3,6 +3,11 @@
 -- NOT NULL uten default er trygt fordi tjenesten er pre-prod og topicet ikke konsumeres ennå
 -- (inbox_message er tom). I prod måtte kolonnene backfilles før NOT NULL settes.
 
+-- slette alle rader siden vi er bare i dev
+TRUNCATE TABLE delivery;
+TRUNCATE TABLE inbox_message;
+TRUNCATE TABLE dead_letter_message;
+
 ALTER TABLE inbox_message
     ADD COLUMN content   JSONB NOT NULL,
     ADD COLUMN reference TEXT  NOT NULL,
