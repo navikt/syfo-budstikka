@@ -89,9 +89,10 @@ beslutnings-workeren (B10/B28 er uendret).
 
 ## Konsekvenser
 
-- ➕ `reference` (indeksert kolonne) og `content` (jsonb) på inbox gjør at FERDIGSTILL kan
-  matche og avgrense ventende rader uten å parse på nytt; recipient og channel leses fra
-  jsonb. Ingen kolonner på spekulasjon, bare det parse-ved-ingest faktisk trenger.
+- ➕ `reference` (egen kolonne; indeks betinget av inbox-hold, #1) og `content` (jsonb) på
+  inbox gjør at FERDIGSTILL kan matche og avgrense ventende rader uten å parse på nytt;
+  recipient og channel leses fra jsonb. Ingen kolonner på spekulasjon, bare det
+  parse-ved-ingest faktisk trenger.
 - ➕ eventId finnes bare ett sted (headeren), så vi slipper `payload.eventId ==
   header.eventId`-validering og risikoen for at de spriker.
 - ➕ Dedup er uavhengig av skjemaet (headeren leses før parsing), samme robusthet som ADR
