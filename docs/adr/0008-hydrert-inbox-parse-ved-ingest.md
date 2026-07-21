@@ -47,7 +47,8 @@ beslutnings-workeren (B10/B28 er uendret).
    ikke ved å rangere kildene.
 2. `content` lagres som `jsonb<DispatchContent>` (samme som `delivery`), og rå `payload
    text` fjernes. Primærnøkkelen `event_id` settes fra headeren. `reference` løftes ut i en
-   egen indeksert kolonne: den er den selektive match-nøkkelen ved FERDIGSTILL (B39), og det
+   egen kolonne (indeksen legges til sammen med inbox-hold-matchingen, hvis `DECISIONS.md`
+   #1 lander der): den er den selektive match-nøkkelen ved FERDIGSTILL (B39), og det
    eneste konvolutt-feltet som ikke ligger i `content`-jsonb-en. `recipient`, `channel` og
    `operation` løftes ikke ut. De kan utledes fra `content` (`partitionKey`/`type`) og brukes
    bare til å avgrense innenfor et `reference`-treff. `ignoreUnknownKeys = true` beholdes, så
@@ -117,9 +118,26 @@ beslutnings-workeren (B10/B28 er uendret).
   `DispatchHeader.EVENT_ID`, får alle meldinger i dead-letter, uten fallback til payload.
   Bevisst akseptert: eventId er en teknisk id, kontrakten er tydelig (delt konstant), og
   dead-letter-tabellen fanger avviket synlig i stedet for å tape data i det stille.
-- 🔒 PII i ro: fnr ligger nå i `recipient_id` på inbox (som i `delivery`, B18/B42) og i rå
-  payload i `dead_letter_message`. Retensjonsgulvet (inbox ≥ 90 dager, B26/B42) står, og
-  dead-letter får eksplisitt hard-delete-retensjon (Beslutning pkt. 6, utvider B42).
+- 🔒 PII i ro: personident (fnr) ligger nå i `inbox_message.content` (jsonb), i
+  `delivery.recipient_id`, og i rå payload i `dead_letter_message`. Inbox har ikke lenger en
+  egen `recipient_id`-kolonne (recipient utledes fra `content`). Retensjonsgulvet (inbox ≥ 90
+  dager, B26/B42) står, og dead-letter får eksplisitt hard-delete-retensjon (Beslutning pkt.
+  6, utvider B42).
+
+## Forhold til B43 (breaking-endring på `.v1`)
+
+Å fjerne `eventId` fra `Dispatch` er en breaking endring på topic-kontrakten. B43 sier at
+breaking endringer skal gå til en ny versjon (`.v2`) med dual-write. Vi gjør likevel
+endringen in-place på `.v1`, som et bevisst unntak:
+
+- Tjenesten er ikke i produksjon, og bare én konsument er koblet på.
+- Det finnes ingen produksjonskompatibilitet å bevare, så dual-write gir ingen verdi her,
+  bare overhead.
+- Vinduet for å endre kontrakten billig lukkes når vi går i produksjon; da gjelder B43 fullt
+  ut igjen.
+
+Unntaket gjelder kun denne endringen i pre-prod-fasen. Alle senere breaking endringer følger
+B43 (`.v2` + dual-write).
 
 ## Alternativer vurdert
 

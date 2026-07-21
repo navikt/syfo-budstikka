@@ -56,7 +56,7 @@ erDiagram
 
 - Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
   hydrerer `inbox_message`: dedup på **header-eventId** (`DispatchHeader.EVENT_ID`) som PK,
-  `content` lagres som `jsonb`, og `reference` løftes ut som egen indeksert kolonne (selektiv
+  `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
   FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
   utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
   matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Ytterligere match-
@@ -107,6 +107,10 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
 - `dead_letter_message_received_at_idx` på `(received_at)`
+
+> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox,
+> altså kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold. Kolonnen finnes fra
+> starten (ADR 0008); indeksen kommer med det arbeidet.
 
 ## Observability-koblinger
 
