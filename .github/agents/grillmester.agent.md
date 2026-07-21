@@ -23,6 +23,9 @@ Stack-profilet ligger always-on i `copilot-instructions.md` — ikke gjenta det 
 
 Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); transient arbeidsminne (status, plan, verifikasjon, review) i **`.grill/`** (gitignorert).
 
+`docs/context.md` brukes i fase 1–3 for retning og status. Følg
+`.github/instructions/context-usage.instructions.md` for detaljer og grenseoppganger.
+
 | Fase | Modus | Artefakt | Skills |
 |---|---|---|---|
 | 1. Grill | inline | `docs/context.md`, `docs/glossary.md`, `docs/adr/NNNN-*.md` | `/grill-with-docs`, `/domain-modeling` |

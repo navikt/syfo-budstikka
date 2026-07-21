@@ -17,8 +17,11 @@ Et høykvalitets GitHub Copilot-oppsett for dette repoet, reframet Copilot-nativ
 6. **Kontrakter, ikke forbud** i alle instruksjoner.
 
 ## Durable vs transient: `docs/` og `.grill/`
-- **`docs/`** — committet, discoverable: `docs/adr/NNNN-*.md` (ADR), `docs/glossary.md` (domenespråk), `docs/context.md` (valgt tilnærming).
+- **`docs/`** — committet, discoverable: `docs/adr/NNNN-*.md` (bindende beslutninger), `docs/glossary.md` (domenespråk), `docs/context.md` (valgt tilnærming og status i design/plan).
 - **`.grill/`** — gitignorert, transient arbeidsminne per oppgave (`STATE.md`, `PLAN.md`, `VERIFICATION.md`, `REVIEW.md`, `DECISIONS.md`, `MODELL-STATUS.md`). Durabel verdi graduerer til `docs/`; `.grill/` overlever ikke oppgaven. Mekanikken (når den leses/skrives) eies av agent-fila.
+
+Følg `.github/instructions/context-usage.instructions.md` for når `docs/context.md`
+skal brukes, og når ADR er riktig kilde i kodekommentarer.
 
 ## Status og empirisk verifisering (gjenstår)
 Eksperimentell testbenk, brukt lokalt via **Copilot CLI** — ikke cloud agent på github.com (den ignorerer uansett `model:` og agent-delegering). GitHub-dokumentasjonen bekrefter at CLI støtter det oppsettet hviler på; det som gjenstår er en lokal røyktest:
