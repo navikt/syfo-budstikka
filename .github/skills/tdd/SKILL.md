@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Brukes når du skal bygge ny funksjonalitet eller fikse en feil test-først i dette Ktor-backendet — når noen nevner "red-green-refactor", "test først", ber om en reproduksjonstest for en bug, eller vil ha integrasjonstester mot en route/tjeneste. Trigger også når du står foran et nytt endepunkt, en ny domenetjeneste eller en Kafka-/databasenær endring og vil drive frem grensesnittet via tester.
+description: Bruk når test-først er eksplisitt ønsket: «red-green-refactor», «test først», eller reproduksjonstest før bugfiks. For vanlig testskriving, bruk /unit-tests, /integration-tests eller /e2e-tests.
 ---
 
 # Testdrevet utvikling (Ktor / no.nav.syfo)

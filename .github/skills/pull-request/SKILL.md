@@ -1,6 +1,6 @@
 ---
 name: pull-request
-description: Bruk når en endring i navikt/syfo-budstikka skal opprettes eller oppdateres som pull request: «opprett PR», «lag pull request», «oppdater PR», eller /pull-request etter grønt vertikalt snitt.
+description: Bruk når en endring i navikt/syfo-budstikka skal opprettes eller oppdateres som pull request: «opprett PR», «oppdater PR», eller /pull-request etter grønt vertikalt snitt.
 ---
 
 # Pull request
