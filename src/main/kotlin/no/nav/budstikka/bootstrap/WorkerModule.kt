@@ -22,12 +22,21 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
+import no.nav.budstikka.domain.decision.ReservationGate
 import no.nav.budstikka.domain.foundation.DeathLookup
+import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
-    provide<List<DecisionRule>> { listOf(DeathGate(resolve<DeathLookup>())) }
+    // Rekkefølge = anvendelses-rekkefølge for den rene folden (B55): DeathGate FØR ReservationGate,
+    // så en død mottaker short-circuiter til Dropped før reservasjons-/brevtransformasjonen (ADR 0009).
+    provide<List<DecisionRule>> {
+        listOf(
+            DeathGate(resolve<DeathLookup>()),
+            ReservationGate(resolve<ReservationLookup>()),
+        )
+    }
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
     provide<EffectuateDecision> {
         EffectuateDecision(

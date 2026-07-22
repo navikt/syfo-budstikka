@@ -54,6 +54,11 @@ spec:
       enabled: true
   accessPolicy:
     outbound:
+      rules:
+        # KRR (digdir-krr-proxy, GCP) for reservasjonsgaten (ADR 0009). VERIFISER namespace/app mot
+        # NAIS-konsollet før prod — team-rocket antatt fra gjeldende eierskap.
+        - application: digdir-krr-proxy
+          namespace: team-rocket
       external:
         - host: pdl-api.dev-fss-pub.nais.io # PDL i FSS; samme host/scope som esyfovarsel dev
         - host: dokdistfordeling-q1.dev-fss-pub.nais.io # Dokdistfordeling for BREV-kanalen
@@ -77,5 +82,11 @@ spec:
       value: https://dokdistfordeling-q1.dev-fss-pub.nais.io/rest/v1/distribuerjournalpost
     - name: DOCUMENT_DISTRIBUTOR_SCOPE
       value: api://dev-fss.teamdokumenthandtering.dokdistfordeling-q1/.default
+    # KRR (digdir-krr-proxy) for reservasjonsgaten (ADR 0009). VERIFISER endepunkt/scope mot
+    # digdir-krr-proxy sin gjeldende kontrakt i dev; stien ligger i KRR_URL (kontrakten isolert bak porten).
+    - name: KRR_URL
+      value: https://digdir-krr-proxy.intern.dev.nav.no/rest/v1/person
+    - name: KRR_SCOPE
+      value: api://dev-gcp.team-rocket.digdir-krr-proxy/.default
   # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
-  # KRR/narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.
+  # narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.

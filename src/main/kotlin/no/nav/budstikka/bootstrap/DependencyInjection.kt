@@ -11,6 +11,7 @@ import no.nav.budstikka.infrastructure.auth.config.authModule
 import no.nav.budstikka.infrastructure.auth.config.toTexasConfig
 import no.nav.budstikka.infrastructure.client.clientModule
 import no.nav.budstikka.infrastructure.client.config.toDocumentDistributorConfig
+import no.nav.budstikka.infrastructure.client.config.toKrrConfig
 import no.nav.budstikka.infrastructure.client.config.toPdlConfig
 import no.nav.budstikka.infrastructure.config.toPlatformConfig
 import no.nav.budstikka.infrastructure.database.config.databaseModule
@@ -35,6 +36,7 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         provide { config.toTexasConfig() }
         provide { config.toPdlConfig() }
         provide { config.toDocumentDistributorConfig() }
+        provide { config.toKrrConfig() }
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         provide<DispatchMetrics> { MicrometerDispatchMetrics(resolve<PrometheusMeterRegistry>()) }
         databaseModule()

@@ -77,3 +77,25 @@ private fun DispatchContent.draft(
     channel: Channel,
     recipient: Recipient,
 ): DeliveryDraft = DeliveryDraft(reference, operation, channel, recipient, this)
+
+/**
+ * BREV-leveransen en reservert brukers [BrukervarselCreate.brevFallback] gir opphav til (B8/ADR 0009),
+ * eller `null` når hendelsen ikke bærer noen fallback. Syntetiserer en [BrevCreate] slik at HELE den
+ * eksisterende BREV-stien (delivery-rad + `BrevChannelHandler` + dokdist, #21) gjenbrukes uendret –
+ * ingen ny kanal, tabell eller handler. Ren og total; brukes av [ReservationGate].
+ */
+internal fun BrukervarselCreate.brevFallbackDraft(reference: String): DeliveryDraft? =
+    brevFallback?.let { fallback ->
+        DeliveryDraft(
+            reference = reference,
+            operation = Operation.CREATE,
+            channel = Channel.BREV,
+            recipient = Recipient.Person(personIdentifier),
+            content =
+                BrevCreate(
+                    personIdentifier = personIdentifier,
+                    journalpostId = fallback.journalpostId,
+                    distributionType = fallback.distributionType,
+                ),
+        )
+    }
