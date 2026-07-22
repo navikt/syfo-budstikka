@@ -21,6 +21,7 @@ concurrency:
   cancel-in-progress: true
 env:
   TOPIC_DEV_FILES: nais/topics/kafka-dev.yaml
+  TOPIC_PROD_FILES: nais/topics/kafka-prod.yaml
 jobs:
   deploy-topic-to-dev:
     name: Deploy topic to dev
@@ -38,3 +39,23 @@ jobs:
           VAR: kafka-pool=nav-dev
           CLUSTER: dev-gcp
           RESOURCE: ${{ env.TOPIC_DEV_FILES }}
+
+  deploy-topic-to-prod:
+    name: Deploy topic to prod
+    # Kun på main (ikke PR/merge_group) — topic-endringer i prod skal bare skje ved merge.
+    if: github.ref == 'refs/heads/main'
+    needs: deploy-topic-to-dev
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Deploy topics to prod
+        uses: nais/deploy/actions/deploy@v2 # internal Nav action
+        env:
+          VAR: kafka-pool=nav-prod
+          CLUSTER: prod-gcp
+          RESOURCE: ${{ env.TOPIC_PROD_FILES }}

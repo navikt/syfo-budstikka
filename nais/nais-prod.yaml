@@ -1,0 +1,85 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: syfo-budstikka
+  namespace: team-esyfo
+  labels:
+    team: team-esyfo
+  annotations:
+    texas.nais.io/enabled: "true" # Texas token-sidecar for M2M (NAIS_TOKEN_ENDPOINT)
+spec:
+  image: {{image}}
+  port: 8080
+  # Stier MÅ matche InternalApi.kt (POD_HEALTH_PATH + is_alive/is_ready). Interne endepunkter er åpne (B48).
+  liveness:
+    path: /internal/health/is_alive
+    initialDelay: 10
+    timeout: 5
+    periodSeconds: 10
+    failureThreshold: 5
+  readiness:
+    path: /internal/health/is_ready
+    initialDelay: 10
+    periodSeconds: 5
+    timeout: 5
+  # VELG (ressurser): startpunkt speiler dev. Juster mot faktisk minne-/CPU-forbruk i dev før prod.
+  resources:
+    limits:
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  # VELG (antall pods): min 2 / max 4 gir HA i prod (én pod kan restarte/rulle uten stopp).
+  # SKIP LOCKED tåler N like instanser (B27); ingen leaderElection — periodiske sveip koordineres
+  # med Postgres advisory lock (B12/B42). Dev kjører 1/2; prod bør ha min ≥ 2.
+  replicas:
+    min: 2
+    max: 4
+  prometheus:
+    enabled: true
+    path: /internal/metrics # POD_METRICS_PATH; avstemmer B57/B48 (metrics, ikke prometheus)
+  observability:
+    logging:
+      destinations:
+        - id: loki
+    autoInstrumentation:
+      enabled: true
+      runtime: java # OTel-agent setter W3C traceparent → Tempo (B45/B48)
+  kafka:
+    pool: nav-prod # topic: nais/topics/kafka-prod.yaml (team-esyfo.budstikka.v1)
+  # M2M (client_credentials/entra_id) for PDL-død-gaten. startWorkers() resolver DeathGate→PdlClient
+  # eager ved boot (WorkerModule), som validerer NAIS_TOKEN_ENDPOINT + PDL_SCOPE → azure kreves for
+  # å boote. Budstikka har ingen innkommende HTTP-auth (ren consumer) → ingen inbound/claims.
+  azure:
+    application:
+      enabled: true
+  accessPolicy:
+    outbound:
+      external:
+        - host: pdl-api.prod-fss-pub.nais.io # PDL i FSS (prod)
+        - host: dokdistfordeling.prod-fss-pub.nais.io # Dokdistfordeling for BREV-kanalen (prod)
+  gcp:
+    sqlInstances:
+      - name: budstikka-instance
+        collation: nb_NO
+        type: POSTGRES_18 # esyfovarsel kjørte 17; budstikka på 18 (docs/teknologi.md)
+        # VELG (databasestørrelse): db-f1-micro (dev) er delt/burst og IKKE anbefalt for prod.
+        # db-custom-1-3840 = 1 vCPU / 3,75 GiB som et konservativt prod-startpunkt. Juster tier
+        # (og evt. pointInTimeRecovery/backup) mot forventet volum før prod-cutover.
+        tier: db-custom-1-3840
+        diskAutoresize: true
+        databases:
+          - name: budstikka-db
+            # application.conf leser BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
+            envVarPrefix: BUDSTIKKA_DB
+  env:
+    - name: PDL_URL
+      value: https://pdl-api.prod-fss-pub.nais.io/graphql
+    - name: PDL_SCOPE
+      value: api://prod-fss.pdl.pdl-api/.default
+    - name: DOCUMENT_DISTRIBUTOR_URL
+      value: https://dokdistfordeling.prod-fss-pub.nais.io/rest/v1/distribuerjournalpost
+    - name: DOCUMENT_DISTRIBUTOR_SCOPE
+      value: api://prod-fss.teamdokumenthandtering.dokdistfordeling/.default
+  # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
+  # KRR/narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.

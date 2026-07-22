@@ -70,13 +70,13 @@ jobs:
       resource: nais/nais-dev.yaml
       image: ${{ needs.build.outputs.image }}
 
-  # Prod aktiveres ved cutover (issue #38, docs/MIGRERING.md): opprett nais/nais-prod.yaml og
-  # avkommenter jobben under. Den gjenbruker samme signerte image som dev deployet.
-  # deploy-prod:
-  #   name: Deploy til prod-gcp
-  #   needs: [build, deploy-dev]
-  #   uses: ./.github/workflows/deploy-nais.yaml
-  #   with:
-  #     cluster: prod-gcp
-  #     resource: nais/nais-prod.yaml
-  #     image: ${{ needs.build.outputs.image }}
+  deploy-prod:
+    name: Deploy til prod-gcp
+    # Kun ved merge til main — aldri fra en test-branch (deploy.yaml kan trigge på branch for dev-test).
+    if: github.ref == 'refs/heads/main'
+    needs: [build, deploy-dev]
+    uses: ./.github/workflows/deploy-nais.yaml
+    with:
+      cluster: prod-gcp
+      resource: nais/nais-prod.yaml
+      image: ${{ needs.build.outputs.image }}
