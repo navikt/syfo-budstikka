@@ -1,0 +1,56 @@
+name: CI
+
+# Merge-gate for syfo-budstikka. Kjører den gjenbrukbare CI-en (ci-reusable.yml) på PR og i
+# merge-køen, og oppsummerer resultatet i én merge-gate-jobb. Sett `merge-gate` som eneste påkrevde
+# status-sjekk i branch protection / merge queue — da representerer den hele CI-en.
+on:
+  pull_request:
+  merge_group:
+    types:
+      - checks_requested
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci-reusable.yml
+
+  merge-gate:
+    name: Merge gate
+    needs:
+      - ci
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Sjekk påkrevde jobber
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          result="ci=${{ needs.ci.result }}"
+          printf '%s\n' "$result"
+
+          case "${{ needs.ci.result }}" in
+            success)
+              ;;
+            cancelled)
+              echo "::error::Påkrevd jobb ble avbrutt: $result. Sannsynlig årsak: en nyere push avbrøt en pågående kjøring (concurrency.cancel-in-progress), kjøringen ble avbrutt manuelt, eller merge-kø-forsøket ble forkastet/re-køet. Kjør CI på nytt fra siste commit eller merge-kø-innslag."
+              exit 1
+              ;;
+            skipped)
+              echo "Godtar skipped resultat: $result"
+              ;;
+            *)
+              echo "::error::Påkrevd jobb feilet: $result"
+              exit 1
+              ;;
+          esac

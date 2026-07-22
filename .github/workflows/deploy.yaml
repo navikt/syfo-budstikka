@@ -44,14 +44,14 @@ jobs:
         with:
           team: team-esyfo
 
-      - name: Bygg og push image med Jib
+      - name: Bygg, test og push image med Jib
         id: build-image
         run: |
           IMAGE_REPOSITORY="${{ steps.login.outputs.registry }}/syfo-budstikka"
           ./gradlew --no-daemon \
             -Pdocker.image.repository="$IMAGE_REPOSITORY" \
             -Pdocker.image.tag="$VERSION" \
-            jib
+            build jib
           DIGEST="$(cat build/jib-image.digest)"
           echo "image=$IMAGE_REPOSITORY:$VERSION" >> "$GITHUB_OUTPUT"
           echo "image_ref=$IMAGE_REPOSITORY@$DIGEST" >> "$GITHUB_OUTPUT"
