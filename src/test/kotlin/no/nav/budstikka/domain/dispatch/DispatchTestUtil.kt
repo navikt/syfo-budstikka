@@ -1,7 +1,5 @@
 package no.nav.budstikka.domain.dispatch
 
-import java.util.UUID
-
 fun envelope(content: DispatchContent) =
     Dispatch(
         reference = "ref-123",
