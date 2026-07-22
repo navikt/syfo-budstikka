@@ -5,7 +5,7 @@ dobbeltvarsling, tapte lukkinger eller spøkelses-data. Beslutninger er festet s
 i `context.md`. Grunnlaget er en kildekode-kartlegging av esyfovarsel (2026-07, HEAD
 `3ac54de`), se §«Type-inventar».
 
-## Kjernespenning
+## Hovedutfordring
 
 Varsler har **levetid**. Å lage nye varsler i budstikka er lett; det vanskelige er
 in-flight varsler som straddler cutoveren: den nedstrøms notifikasjonens identitet

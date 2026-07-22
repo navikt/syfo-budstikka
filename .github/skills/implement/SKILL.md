@@ -20,8 +20,11 @@ Implementeringsdisiplinen for `@grillmester` **fase 4**. Du omsetter `.grill/PLA
 
 - [ ] Les `.grill/STATE.md` FØRST for å orientere deg: hvor er vi, hva er gjort, hva er neste steg.
 - [ ] Les `.grill/PLAN.md` — de nummererte oppgavene med filstier, ferdig-når-kriterium, risiko-tag og påkrevde skills.
-- [ ] Les `docs/context.md` og `docs/glossary.md` så navngiving og grensesnitt matcher domenespråket.
+- [ ] Les `docs/context.md` og `docs/glossary.md` for overordnede rammer, navngiving og grensesnitt.
 - [ ] Sjekk `docs/adr/` for beslutninger som binder området du rører.
+
+Følg reglene i `.github/instructions/context-usage.instructions.md` for bruk av
+`docs/context.md` og ADR-referanser i kodekommentarer.
 
 Mangler `.grill/PLAN.md`, er du ikke klar for fase 4. Gå tilbake til plan-fasen (`/to-issues` / planlegging) eller `/grill-with-docs` hvis snittet trenger mer design.
 

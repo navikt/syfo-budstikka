@@ -5,11 +5,6 @@ import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.dispatch.Microfrontend
 
-/**
- * [ChannelHandler] for MICROFRONTEND-kanalen (B41): styrer av/på-synlighet på Min side via
- * [MicrofrontendPublisher]. Kaster (transient) videre til workeren; en payload som ikke matcher
- * kanalen er en permanent [DeliveryOutcome.Failed].
- */
 class MicrofrontendChannelHandler(
     private val publisher: MicrofrontendPublisher,
 ) : ChannelHandler {

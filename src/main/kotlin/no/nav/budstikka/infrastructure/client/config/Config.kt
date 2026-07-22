@@ -3,11 +3,6 @@ package no.nav.budstikka.infrastructure.client.config
 import io.ktor.server.config.ApplicationConfig
 import no.nav.budstikka.infrastructure.config.stringOrEmpty
 
-/**
- * PDL-oppsett for død-oppslaget (#52). [url] er GraphQL-endepunktet til pdl-api; [scope] er
- * Entra ID-target-en (`api://<cluster>.pdl.pdl-api/.default`) [no.nav.budstikka.infrastructure.auth.TokenProvider]
- * veksler M2M-token mot. Begge injiseres av plattformen (ingen hardkodede secrets).
- */
 data class PdlConfig(
     val url: String,
     val scope: String,

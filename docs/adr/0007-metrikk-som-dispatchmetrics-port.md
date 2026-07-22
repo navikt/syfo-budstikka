@@ -1,8 +1,8 @@
-# 0007: Metrikk-søm — DispatchMetrics-port + Micrometer-bindere
+# ADR 0007 — Metrikk-oppsett: DispatchMetrics-port + Micrometer-bindere
 
-- Status: besluttet (issue #28 «kun metrikker»-snitt; #41 lag-metrikk)
+- Status: besluttet (issue #28 metrics-only slice, #41 consumer-lag metric)
 - Dato: 2026-07-14
-- Relatert: B45–B49 i `docs/context.md` (observability), B57 (superseder B47s metrikk-navn),
+- Relatert: B45–B49 i `docs/context.md` (observability), B57 (erstatter B47s metrikk-navn),
   ADR 0003 (application-lag/porter), ADR 0004 (konkurrerende konsumenter), issue #28 og #41
 
 ## Kontekst
@@ -15,23 +15,23 @@ Prometheus-metrikkene fra koden. Grunnlaget fantes allerede — et delt `Prometh
 - Kafka-klientmetrikker (lag), som #41 trenger (`records-lag-max`),
 - domene-/worker-metrikker for inbox → beslutning → leveranse.
 
-Beslutningskjernen (`domain`) og use-case-workerne (`application`) skal ALDRI avhenge av
+Beslutningskjernen (`domain`) og use case-workerne (`application`) skal ALDRI avhenge av
 infrastructure (ADR 0003). Micrometer er en infrastruktur-bekymring, så domenemetrikkene kan ikke
 emitteres ved å importere Micrometer rett inn i workerne uten å bryte den grensen.
 
-Dette snittet dekker KUN metrikker. Tracing (OTel), strukturert logg-utvidelse, Grafana-dashboard og
-NAIS-alerts er bevisst utsatt til egne snitt (alerts/dashboard krever dessuten et NAIS app-manifest
+Denne ADR-en dekker kun metrikker. Tracing (OTel), strukturert logg-utvidelse, Grafana-dashboard og
+NAIS-alerts er bevisst utsatt til egne ADR-er (alerts/dashboard krever dessuten et NAIS app-manifest
 som ennå ikke finnes).
 
 ## Beslutning
 
-Tre lag, hvert på sin naturlige søm:
+Tre lag, hvert med sitt tydelige ansvar:
 
-1. **Infrastruktur-bindere (ingen app-endring).** `MicrometerMetrics`-pluginen installeres på det
-   delte registeret med JVM-/prosess-bindere → `ktor_http_server_requests_seconds_*` + `jvm_*`.
-   `KafkaClientMetrics` bindes per consumer → `kafka_consumer_*` inkl.
+1. **Metrics-wiring i `infrastructure` (ingen app-endring).** `MicrometerMetrics`-pluginen installeres på det
+   delte registeret med JVM-/prosess-metrics → `ktor_http_server_requests_seconds_*` + `jvm_*`.
+   `KafkaClientMetrics` wired per consumer → `kafka_consumer_*` inkl.
    `kafka_consumer_fetch_manager_records_lag_max` (metrikken #41 bygger på). Consumeren bygges på
-   nytt ved hver transient restart (ADR 0004-runner), så bindet lukkes-før-rebind for å unngå at
+   nytt ved hver transient restart (ADR 0004-runner), så wiring lukkes før rebind for å unngå at
    døde tidsserier (ny auto-generert `client.id`) akkumuleres.
 
 2. **Worker-livssyklus i `BackgroundLoop` (infrastruktur).** Løkka eier allerede runde-livssyklusen,
@@ -39,9 +39,9 @@ Tre lag, hvert på sin naturlige søm:
    måles generisk der, uten å røre `application`-workerne. Registeret injiseres nullbart — null gir
    ingen-op i enhetstester.
 
-3. **Domenemetrikker via `DispatchMetrics`-port (`application`).** En tynn port emitterer
+3. **Domenemetrikker via `DispatchMetrics`-port (`application`).** En tynn port sender ut
    inbox- og leveranse-hendelser; Micrometer-adapteren (`MicrometerDispatchMetrics`) i
-   infrastructure teller dem på det delte registeret, wiret i bootstrap. Samme port/adapter-søm som
+   infrastructure teller dem på det delte registeret, wired i bootstrap. Samme port/adapter-mønster som
    `TransactionRunner` og repositoriene — workerne holdes fri for Micrometer-import og forblir
    testbare med en opptaks-fake.
 

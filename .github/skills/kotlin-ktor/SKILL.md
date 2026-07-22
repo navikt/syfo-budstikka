@@ -1,11 +1,17 @@
 ---
 name: kotlin-ktor
-description: "Bruk ved arbeid på Ktor-backend i no.nav.syfo: nye routes/plugins, ContentNegotiation, auth (TokenX/Azure AD, JWT-claims som NAVident), Koin DI, CallId/CallLogging/MDC, StatusPages/ApiError-feilkontrakt, paginering, input-validering, Postgres/Flyway/Kafka-oppsett, avhengigheter via version catalog — eller når noen sier /kotlin-ktor."
+description: "Bruk ved Ktor-spesifikt arbeid i no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering, og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor. Bruk /kotlin for ren Kotlin-kode uten Ktor-oppsett."
 ---
 
 # Ktor — NAV-spesifikt (syfo-budstikka)
 
 Kotlin + Ktor 3.x på Netty, pakke `no.nav.syfo`. Java 25, Gradle. Norsk er arbeidsspråk.
+
+## Skill-grenser
+
+- Bruk `/kotlin-ktor` når endringen rører Ktor-rammeverket (routes, plugins, auth, app wiring).
+- Bruk `/kotlin` når endringen er ren Kotlin (domene, typer, nullability, coroutines, ny kode eller refaktorering) uten Ktor-oppsett.
+- Bruk `/unit-tests`, `/integration-tests` eller `/e2e-tests` for testtype-spesifikk flyt.
 
 ## Oppstart og moduler
 

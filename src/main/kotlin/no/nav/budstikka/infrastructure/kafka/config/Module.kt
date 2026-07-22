@@ -56,10 +56,7 @@ fun DependencyRegistry.kafkaModule() {
         val registry = resolve<PrometheusMeterRegistry>()
         val enabledConsumers = kafkaConfig.consumers.filterValues { it.enabled }
         enabledConsumers.map { (name, consumerConfig) ->
-            // Klientmetrikkene (bl.a. kafka_consumer_fetch_manager_records_lag_max, issue #41) bindes til
-            // den aktive consumeren. ConsumerRunner bygger en fersk consumer ved hver transient restart,
-            // så vi lukker det forrige bindet før vi binder det nye — ellers akkumuleres døde tidsserier
-            // (ny auto-generert client.id per restart).
+            // Close previous client metrics before rebinding on consumer restart.
             val clientMetrics = AtomicReference<KafkaClientMetrics?>()
             ConsumerRunner(
                 consumerFactory = {
@@ -72,8 +69,6 @@ fun DependencyRegistry.kafkaModule() {
                             valueDeserializer = StringDeserializer::class.java,
                         ),
                     ).also { consumer ->
-                        // Lukk-før-rebind: fjern forrige binder (og dens meters) FØR den nye bindes,
-                        // så en ny binding aldri kolliderer med meters vi straks lukker.
                         clientMetrics.getAndSet(null)?.close()
                         clientMetrics.set(KafkaClientMetrics(consumer).apply { bindTo(registry) })
                     }

@@ -1,4 +1,4 @@
-# 0004: Konkurrerende konsumenter på inbox — claim med SKIP LOCKED og lease
+# ADR 0004 — Konkurrerende konsumenter på inbox: claim med SKIP LOCKED og lease
 
 - Status: besluttet (issue #56, beslutnings-worker)
 - Dato: 2026-07-10
@@ -6,7 +6,7 @@
 
 ## Kontekst
 
-`InboxMessageWorker` skal kunne kjøre i **flere replicaer samtidig** — det er et hardt krav. Uten
+`InboxMessageWorker` skal kunne kjøre i **flere replicaer samtidig** — det er et tydelig krav. Uten
 koordinering ville to replicaer polle de samme `RECEIVED`-radene, slå opp de samme personene i
 PDL/KRR (unødig last på eksterne API-er) og i verste fall skrive `delivery`-rader dobbelt.
 
@@ -19,12 +19,12 @@ Vurderte familier:
 
 1. **Hold låsen (én rad om gangen, `FOR UPDATE` som spenner hele behandlingen).** Krasj-sikkert
    gratis (aborter → lås slippes), men kjører ekstern I/O inne i transaksjonen og binder en
-   DB-connection per melding under oppslag. Vraket: velkjent anti-mønster (lange transaksjoner
+   DB-connection per melding under oppslag. Forkastet: velkjent anti-mønster (lange transaksjoner
    bloater Postgres, tømmer connection-poolen).
 2. **Optimistisk (ingen claim-tilstand, kun atomisk `RECEIVED→PROCESSED`-CAS ved effektuering).**
    Krasj-sikkert og enkelt, men flere replicaer kan slå opp samme melding før én vinner CAS-en →
-   **dublett-oppslag mot eksterne API-er**. Vraket: hamrer PDL/KRR.
-3. **Leder-valg (én aktiv poller).** Vraket eksplisitt: vi vil ha ekte konkurrerende konsumenter, ikke
+   **dublett-oppslag mot eksterne API-er**. Forkastet: hamrer PDL/KRR.
+3. **Leder-valg (én aktiv poller).** Forkastet eksplisitt: vi vil ha ekte konkurrerende konsumenter, ikke
    én arbeidende node.
 
 ## Beslutning
@@ -66,8 +66,8 @@ verdi), og indeksen `(state, next_attempt_time)` dekker claim-spørringen.
 
 - ➕ Flere replicaer kan polle trygt; `SKIP LOCKED` gir disjunkte bunker uten blokkering.
 - ➕ Krasj-sikkert uten egen reaper — leasen er gjenopprettingsmekanismen.
-- ➕ Eksterne API-er hamres ikke: én oppslag per melding på happy path.
-- ➕ Gjenbruker den atomiske effektuerings-seamen; ingen schema-migrasjon.
+- ➕ Eksterne API-er hamres ikke: ett oppslag per melding på happy path.
+- ➕ Gjenbruker den atomiske effektueringsmekanismen; ingen schema-migrasjon.
 - ➖ En død worker sine rader venter én lease (default 5 min) før de behandles på nytt — bevisst
    avveining (heller sen gjenoppretting enn dublett-oppslag).
 - ➖ `CLAIMED` innfører en ikke-terminal tilstand i state-maskinen som drift må forstå (en rad kan stå
@@ -79,7 +79,7 @@ verdi), og indeksen `(state, next_attempt_time)` dekker claim-spørringen.
 ## Alternativer vurdert
 
 Se familiene 1–3 i kontekst-seksjonen over. De er beholdt der siden de forklarer hvorfor vi landet på
-claim + lease, og hva som ble vraket.
+claim + lease, og hva som ble forkastet.
 
 Utsatt (dokumentert, ikke besluttet nå): indeks-tuning for claim-spørringens `ORDER BY received_at`
 (nåværende `(state, next_attempt_time)`-indeks holder ved forventet volum), og

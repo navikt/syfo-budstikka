@@ -8,12 +8,6 @@ import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
-/**
- * Speiler `V3__delivery.sql` eksakt (jf. #50-lærdommen: skjema↔mapping må stemme, ellers
- * feiler det først i runtime mot ekte Postgres). Domenekolonner beholder domenespråket
- * (`reference`/`operation`/`channel`/`recipient_*`); infra-kolonner følger søster-tabellen
- * `inbox_delivery` (`state`/`attempt`/`next_attempt_time`/`created_at`).
- */
 @Suppress("unused")
 object DeliveryTable : Table("delivery") {
     val id = javaUUID("id").databaseGenerated()

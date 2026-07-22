@@ -4,12 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-// FERDIGSTILL / lukking (B38, B39). Typet variant pr. lukkbar kanal – kanal er implisitt i
-// typen og matchnøkkelen er typet (bevarer PII-maskering, B9). Hendelsen er THIN: kun
-// `referanse` + typet nøkkel. Selve lukkeoperasjonen nedstrøms avledes fra den lagrede
-// CREATE-raden (B39), aldri fra hendelsen. Matchnøkkel = OPPRETTs partisjonsanker.
-// BREV er urepresenterbart (ingen `BrevInaktiver`, B3/B21).
-
 /** Lukk brukervarsel; matchnøkkel = sykmeldt (CREATE-partisjonsanker). */
 @Serializable
 @SerialName("BrukervarselInactivate")

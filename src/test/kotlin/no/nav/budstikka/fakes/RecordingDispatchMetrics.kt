@@ -6,10 +6,6 @@ import no.nav.budstikka.domain.decision.DropReason
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Opptaks-fake for [DispatchMetrics]: teller kallene slik at worker-testene kan verifisere at riktig
- * metrikk emitteres, uten et ekte Micrometer-register.
- */
 class RecordingDispatchMetrics : DispatchMetrics {
     val inboxClaimed = AtomicInteger()
     val inboxEmptyPolls = AtomicInteger()

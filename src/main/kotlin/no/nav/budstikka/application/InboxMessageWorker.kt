@@ -51,10 +51,6 @@ class InboxMessageWorker(
         )
     }
 
-    /**
-     * `reference` på MDC korrelerer OPPRETT↔FERDIGSTILL i Loki (delt reference, ulik eventId, B59);
-     * `withContext(MDCContext())` bevarer feltet over suspensjon i decisionProcess/effektuering.
-     */
     private suspend fun processClaimed(message: InboxMessage) {
         val dispatch = Dispatch(reference = message.reference, content = message.content)
         MDC.putCloseable(MdcKeys.REFERENCE, message.reference).use {
@@ -87,23 +83,26 @@ class InboxMessageWorker(
 
     private fun Decision.logFields(): List<StructuredArgument> =
         when (this) {
-            is Decision.Processed ->
+            is Decision.Processed -> {
                 listOf(
                     kv("result", "PROCESSED"),
                     kv("deliveryCount", deliveries.size),
                 )
+            }
 
-            is Decision.Dropped ->
+            is Decision.Dropped -> {
                 listOf(
                     kv("result", "DROPPED"),
                     kv("dropReason", reason.name),
                 )
+            }
 
-            is Decision.Failed ->
+            is Decision.Failed -> {
                 listOf(
                     kv("result", "FAILED"),
                     kv("failureReason", errorMessage),
                 )
+            }
         }
 
     private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)

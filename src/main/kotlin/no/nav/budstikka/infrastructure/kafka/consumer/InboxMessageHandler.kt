@@ -113,9 +113,13 @@ class InboxMessageHandler(
 
         val dispatch =
             when (val parsed = parseDispatch(payload)) {
-                is ParseResult.Success -> parsed.dispatch
-                is ParseResult.Failure ->
+                is ParseResult.Success -> {
+                    parsed.dispatch
+                }
+
+                is ParseResult.Failure -> {
                     return InboxCandidate.DeadLetter(toDeadLetter(DeadLetter.UnparseablePayload, eventId = eventId))
+                }
             }
 
         return InboxCandidate.Valid(
@@ -129,9 +133,6 @@ class InboxMessageHandler(
     }
 }
 
-/**
- * Parser payloaden som [Dispatch]. Bærer aldri exception-meldingen videre — den kan inneholde fnr (B58).
- */
 internal fun parseDispatch(payload: String): ParseResult =
     try {
         ParseResult.Success(dispatchJson.decodeFromString<Dispatch>(payload))
@@ -159,7 +160,6 @@ internal sealed interface EventId {
     ) : EventId
 }
 
-/** Leser event_id fra Kafka-headeren; skiller manglende fra ugyldig UUID for riktig dead-letter-årsak. */
 internal fun ConsumerRecord<*, *>.readEventId(): EventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()

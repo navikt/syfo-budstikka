@@ -1,6 +1,6 @@
 ---
 name: unit-tests
-description: "Use for fast Kotest unit/component tests: domain logic, application services with fakes, builders, focused test data, or /unit-tests. Use /integration-tests for real adapters. Use /e2e-tests for app boot."
+description: "Use for fast Kotest unit/component tests: domain logic, application services with fakes, builders, focused test data, or /unit-tests. Prefer this over /tdd unless explicit red-green guidance is requested. Use /integration-tests for real adapters and /e2e-tests for app boot."
 ---
 
 # Unit Tests

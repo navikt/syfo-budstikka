@@ -8,7 +8,6 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** Installerer POST `/local/produce`-ruten. Må kalles i [BudstikkaTestApp.start]s `localRoutes`-lambda. */
 internal fun BudstikkaTestApp.installLocalProduceApi() {
     server.application.routing {
         post("/local/produce") {

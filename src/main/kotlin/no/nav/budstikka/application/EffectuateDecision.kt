@@ -7,13 +7,13 @@ import no.nav.budstikka.domain.decision.Decision
 import java.util.UUID
 
 /**
- * Effektueringen (B28, imperativt skall): skriver utfallet av [Decision] for ÉN inbox-melding til
+ * Effektueringen: skriver utfallet av [Decision] for ÉN inbox-melding til
  * databasen i ÉN transaksjon — delivery-rad(er) + inbox-status commits alt-eller-ingenting. Dette er
  * steget `DecisionProcess` bevisst lot stå åpent («skriving av leveranse-rad(er) +
  * inbox_hendelse.status i én DB-tx»).
  *
- * Per-melding atomisk er en hard invariant: én meldings feil ruller aldri tilbake en annens. Eksterne
- * oppslag (grunnlagsinnhenting) skjer FØR denne kalles, utenfor transaksjonen.
+ * Hver inbox-melding behandles atomisk: Feil i én melding ruller bare tilbake den meldingen, ikke andre.
+ * Eksterne oppslag (grunnlagsinnhenting) skjer før denne kalles, utenfor transaksjonen.
  *
  * [EffectuateDecision] utfører effectuate i en transaksjon.
  */
@@ -29,8 +29,7 @@ class EffectuateDecision(
         transactionRunner.transaction {
             when (decision) {
                 is Decision.Processed -> {
-                    // CAS først: bare den workeren som vinner CLAIMED→PROCESSED skriver delivery-rader.
-                    // En taper i et lease-kappløp treffer 0 rader og skriver ingenting (exactly-once).
+                    // Bare worker som vinner CLAIMED->PROCESSED skriver delivery-rader.
                     if (inboxMessageRepository.markProcessedInTransaction(inboxEventId)) {
                         deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
                     }
