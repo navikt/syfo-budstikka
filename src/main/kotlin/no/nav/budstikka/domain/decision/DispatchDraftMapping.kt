@@ -49,24 +49,34 @@ internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
     when (this) {
         is BrukervarselCreate ->
             draft(reference, Operation.CREATE, Channel.BRUKERVARSEL, Recipient.Person(personIdentifier))
+
         is BrukervarselInactivate ->
             draft(reference, Operation.INACTIVATE, Channel.BRUKERVARSEL, Recipient.Person(sykmeldt))
+
         is LedervarselCreate ->
             draft(reference, Operation.CREATE, Channel.LEDERVARSEL, Recipient.Person(sykmeldt))
+
         is LedervarselInactivate ->
             draft(reference, Operation.INACTIVATE, Channel.LEDERVARSEL, Recipient.Person(sykmeldt))
+
         is DittSykefravaerCreate ->
             draft(reference, Operation.CREATE, Channel.DITT_SYKEFRAVAER, Recipient.Person(personIdentifier))
+
         is DittSykefravaerInactivate ->
             draft(reference, Operation.INACTIVATE, Channel.DITT_SYKEFRAVAER, Recipient.Person(sykmeldt))
+
         is ArbeidsgivervarselCreate ->
             draft(reference, Operation.CREATE, Channel.ARBEIDSGIVERVARSEL, Recipient.Virksomhet(orgnummer))
+
         is ArbeidsgivervarselInactivate ->
             draft(reference, Operation.INACTIVATE, Channel.ARBEIDSGIVERVARSEL, Recipient.Virksomhet(orgnummer))
+
         is BrevCreate ->
             draft(reference, Operation.CREATE, Channel.BREV, Recipient.Person(personIdentifier))
+
         is MicrofrontendEnable ->
             draft(reference, Operation.CREATE, Channel.MICROFRONTEND, Recipient.Person(personIdentifier))
+
         is MicrofrontendDisable ->
             draft(reference, Operation.INACTIVATE, Channel.MICROFRONTEND, Recipient.Person(personIdentifier))
     }
@@ -80,9 +90,7 @@ private fun DispatchContent.draft(
 
 /**
  * BREV-leveransen en reservert brukers [BrukervarselCreate.brevFallback] gir opphav til (B8/ADR 0009),
- * eller `null` når hendelsen ikke bærer noen fallback. Syntetiserer en [BrevCreate] slik at HELE den
- * eksisterende BREV-stien (delivery-rad + `BrevChannelHandler` + dokdist, #21) gjenbrukes uendret –
- * ingen ny kanal, tabell eller handler. Ren og total; brukes av [ReservationGate].
+ * eller `null` når hendelsen ikke har noen fallback.
  */
 internal fun BrukervarselCreate.brevFallbackDraft(reference: String): DeliveryDraft? =
     brevFallback?.let { fallback ->

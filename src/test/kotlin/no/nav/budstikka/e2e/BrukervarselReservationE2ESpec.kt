@@ -83,8 +83,6 @@ class BrukervarselReservationE2ESpec :
 
                         documentDistributor.requests.map { it.journalpostId }.shouldContainExactly("jp-krr-1")
 
-                        // Ekstern varsling er undertrykt for den reserverte brukeren (B7) – verifisert
-                        // helt ut til publisher-porten, ikke bare i beslutningen.
                         val published = brukervarselPublisher.published.single()
                         (published.brukervarsel as BrukervarselCreate).externalVarsling shouldBe null
                     }

@@ -18,17 +18,10 @@ import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.KrrConfig
 
 /**
- * Ekte KRR-adapter (B22 anti-corruption, ADR 0009) for reservasjonsgaten: slår opp mottakerens
+ * (B22 anti-corruption, ADR 0009) for reservasjonsgaten: slår opp mottakerens
  * kontakt-/reservasjonsstatus i digdir-krr-proxy og oversetter til [ReservationLookup]-porten.
  * «Reservert» = KRR `kanVarsles == false` (kan ikke varsles digitalt – reservert ELLER mangler
  * verifisert kontaktkanal).
- *
- * Auth: maskin-til-maskin bearer-token fra [tokenProvider] (Texas, Azure AD `client_credentials`)
- * for KRR-scopet ([KrrConfig.scope]) – budstikka har ingen brukerkontekst, så TokenX/OBO er ikke
- * anvendbart (ADR 0009). Gjenbruker den delte utgående [httpClient].
- *
- * PII-disiplin (B46): fnr sendes til KRR i `Nav-Personident`-headeren, men aldri til logg;
- * KRR-feilresponser kan bære fnr i body, så feil kastes med KUN statuskode – aldri body/token.
  */
 class KrrClient(
     private val httpClient: HttpClient,
@@ -51,12 +44,6 @@ class KrrClient(
 
         private val json = Json { ignoreUnknownKeys = true }
 
-        /**
-         * Ren tolkning av KRR-svaret (testbar uten HTTP): reservert = `kanVarsles == false`. Kaster
-         * på ikke-2xx og på uparsebar/uventet body slik at skallet håndterer det som en
-         * (transient/permanent) feil – aldri stille tolket som «ikke reservert». Feilmeldingen bærer
-         * kun statuskode, aldri body (som kan inneholde fnr).
-         */
         internal fun parseIsReserved(
             status: HttpStatusCode,
             responseBody: String,

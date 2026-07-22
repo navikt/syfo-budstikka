@@ -29,7 +29,7 @@ import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
-    // Rekkefølge = anvendelses-rekkefølge for den rene folden (B55): DeathGate FØR ReservationGate,
+    // (B55): DeathGate FØR ReservationGate,
     // så en død mottaker short-circuiter til Dropped før reservasjons-/brevtransformasjonen (ADR 0009).
     provide<List<DecisionRule>> {
         listOf(
