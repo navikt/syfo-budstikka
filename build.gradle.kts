@@ -1,4 +1,6 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType
+import com.google.cloud.tools.jib.gradle.JibExtension
+import org.gradle.api.tasks.Exec
 
 buildscript {
     dependencies {
@@ -18,6 +20,20 @@ plugins {
 group = "no.nav.syfo"
 version = "1.0.0-SNAPSHOT"
 
+val javaMajorVersion = libs.versions.java.get()
+val chainguardBaseImage =
+    "europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jre:openjdk-$javaMajorVersion"
+val dockerImageRepository =
+    providers
+        .gradleProperty("docker.image.repository")
+        .orElse(providers.environmentVariable("DOCKER_IMAGE_REPOSITORY"))
+        .orElse(project.name)
+val dockerImageTag =
+    providers
+        .gradleProperty("docker.image.tag")
+        .orElse(providers.environmentVariable("DOCKER_IMAGE_TAG"))
+        .orElse(providers.provider { project.version.toString() })
+
 application {
     mainClass = "io.ktor.server.netty.EngineMain"
     applicationDefaultJvmArgs += "--enable-native-access=ALL-UNNAMED"
@@ -29,6 +45,42 @@ kotlin {
             .get()
             .toInt(),
     )
+}
+
+// Container-image bygges med ren Jib (Ktor-pluginen aktiverer JibPlugin), ikke Ktor sine
+// docker{}-tasks — se ADR 0009. Å sette Chainguard-basen (JRE 25) eksplisitt i from.image fjerner
+// Ktor-pluginens JRE-validering og setupJibLocal-stien (en Task.project-deprecation gjenstår i
+// jib-pluginens egne tasks — upstream, ikke vår kode).
+//
+// Jib kan ikke parse Chainguards OCI Image Index v1.1 (feltet "artifactType", ufikset upstream-bug
+// verifisert mot vår base). Derfor pre-pulles basen til lokal Docker-daemon (som håndterer OCI 1.1)
+// og Jib peker på daemon-imaget via docker://-referansen.
+val pullChainguardBaseImage =
+    tasks.register<Exec>("pullChainguardBaseImage") {
+        group = "jib"
+        description = "Pre-pulls Chainguard base image to the local Docker daemon for Jib."
+        commandLine("docker", "pull", chainguardBaseImage)
+    }
+
+configure<JibExtension> {
+    from {
+        image = "docker://$chainguardBaseImage"
+    }
+    to {
+        image = "${dockerImageRepository.get()}:${dockerImageTag.get()}"
+    }
+    container {
+        mainClass = application.mainClass.get()
+        ports = listOf("8080")
+        jvmFlags = listOf("-XX:MaxRAMPercentage=75", "--enable-native-access=ALL-UNNAMED")
+        environment = mapOf("TZ" to "Europe/Oslo")
+    }
+}
+
+listOf("jib", "jibDockerBuild", "jibBuildTar").forEach { jibTask ->
+    tasks.named(jibTask) {
+        dependsOn(pullChainguardBaseImage)
+    }
 }
 
 dependencies {

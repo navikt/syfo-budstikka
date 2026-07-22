@@ -1,0 +1,38 @@
+name: Deploy til Nais
+
+# Gjenbrukbar deploy (workflow_call). Bygg-jobben lager og signerer imaget ÉN gang; hvert miljø
+# kaller denne med samme image-referanse, slik at dev og prod deployer nøyaktig samme artefakt.
+# Nytt miljø = en ny kaller-jobb med annen cluster/resource (se deploy.yaml).
+on:
+  workflow_call:
+    inputs:
+      cluster:
+        description: "Nais-cluster, f.eks. dev-gcp eller prod-gcp"
+        required: true
+        type: string
+      resource:
+        description: "Sti til Nais-manifestet, f.eks. nais/nais-dev.yaml"
+        required: true
+        type: string
+      image:
+        description: "Full image-referanse (repo:tag) fra bygg-jobben"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # OIDC for nais/deploy
+
+jobs:
+  deploy:
+    name: Deploy til ${{ inputs.cluster }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - uses: nais/deploy/actions/deploy@v2 # intern Nav-action
+        env:
+          CLUSTER: ${{ inputs.cluster }}
+          RESOURCE: ${{ inputs.resource }}
+          VAR: image=${{ inputs.image }}

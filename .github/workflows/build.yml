@@ -32,6 +32,12 @@ jobs:
       - name: Bygg, lint og test
         run: ./gradlew build --no-daemon
 
+      # Deterministisk gate 3: bygg container-image med Jib UTEN push (ADR 0009). Fanger
+      # base-image-/Jib-konfigfeil i PR i stedet for på main-deploy. jibBuildTar pre-puller
+      # Chainguard-basen til docker-daemonen (docker:// pga OCI 1.1-bug), som finnes på runneren.
+      - name: Bygg container-image (Jib, no-push)
+        run: ./gradlew jibBuildTar --no-daemon
+
       # Neste steg (følg .github/instructions/github-actions.instructions.md):
       # SCA/CVE-skann (Trivy) + secret-skann (gitleaks) — legg til med PINNET
       # versjon/SHA, .trivyignore-baseline, og for org-repo gitleaks-lisens. Holdt
