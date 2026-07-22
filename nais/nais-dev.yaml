@@ -6,11 +6,10 @@ metadata:
   labels:
     team: team-esyfo
   annotations:
-    texas.nais.io/enabled: "true" # Texas token-sidecar for M2M (NAIS_TOKEN_ENDPOINT)
+    texas.nais.io/enabled: "true"
 spec:
   image: {{image}}
   port: 8080
-  # Stier MÅ matche InternalApi.kt (POD_HEALTH_PATH + is_alive/is_ready). Interne endepunkter er åpne (B48).
   liveness:
     path: /internal/health/is_alive
     initialDelay: 10
@@ -28,15 +27,12 @@ spec:
     requests:
       cpu: 100m
       memory: 512Mi
-  # MIDLERTIDIG AV: replicas 0/0 skrur workloaden av i dev inntil vi aktiverer den i egen PR.
-  # Når den skrus på: min 1 / max 2 (SKIP LOCKED tåler N like instanser, B27). Ingen leaderElection:
-  # periodiske sveip koordineres med Postgres advisory lock, ikke leder-valg (B12/B42).
   replicas:
     min: 1
     max: 2
   prometheus:
     enabled: true
-    path: /internal/metrics # POD_METRICS_PATH; avstemmer B57/B48 (metrics, ikke prometheus)
+    path: /internal/metrics
   observability:
     logging:
       destinations:
@@ -45,28 +41,27 @@ spec:
       enabled: true
       runtime: java # OTel-agent setter W3C traceparent → Tempo (B45/B48)
   kafka:
-    pool: nav-dev # topic: nais/topics/kafka-dev.yaml (team-esyfo.budstikka.v1)
-  # M2M (client_credentials/entra_id) for PDL-død-gaten. startWorkers() resolver DeathGate→PdlClient
-  # eager ved boot (WorkerModule), som validerer NAIS_TOKEN_ENDPOINT + PDL_SCOPE → azure kreves for
-  # å boote. Budstikka har ingen innkommende HTTP-auth (ren consumer) → ingen inbound/claims.
+    pool: nav-dev
   azure:
     application:
       enabled: true
   accessPolicy:
     outbound:
+      rules:
+        - application: digdir-krr-proxy
+          namespace: team-rocket
       external:
-        - host: pdl-api.dev-fss-pub.nais.io # PDL i FSS; samme host/scope som esyfovarsel dev
-        - host: dokdistfordeling-q1.dev-fss-pub.nais.io # Dokdistfordeling for BREV-kanalen
+        - host: pdl-api.dev-fss-pub.nais.io
+        - host: dokdistfordeling-q1.dev-fss-pub.nais.io
   gcp:
     sqlInstances:
       - name: budstikka-instance
         collation: nb_NO
-        type: POSTGRES_18 # esyfovarsel kjørte 17; budstikka på 18 (docs/teknologi.md)
+        type: POSTGRES_18
         tier: db-f1-micro
         diskAutoresize: true
         databases:
           - name: budstikka-db
-            # application.conf leser BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
             envVarPrefix: BUDSTIKKA_DB
   env:
     - name: PDL_URL
@@ -77,5 +72,9 @@ spec:
       value: https://dokdistfordeling-q1.dev-fss-pub.nais.io/rest/v1/distribuerjournalpost
     - name: DOCUMENT_DISTRIBUTOR_SCOPE
       value: api://dev-fss.teamdokumenthandtering.dokdistfordeling-q1/.default
+    - name: KRR_URL
+      value: https://digdir-krr-proxy.intern.dev.nav.no/rest/v1/person
+    - name: KRR_SCOPE
+      value: api://dev-gcp.team-rocket.digdir-krr-proxy/.default
   # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
-  # KRR/narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.
+  # narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.

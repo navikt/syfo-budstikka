@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.domain.dispatch.BrevFallback
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
@@ -14,6 +15,7 @@ import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.deadLookupFor
+import no.nav.budstikka.fakes.reservedLookupFor
 
 class DecisionProcessTest :
     FunSpec({
@@ -60,5 +62,45 @@ class DecisionProcessTest :
                     ),
                 )
             decision.shouldBeInstanceOf<Decision.Processed>()
+        }
+
+        test("death gate short-circuits before reservation: dead + reserved + brevFallback -> Dropped, no BREV") {
+            val decision =
+                DecisionProcess(
+                    listOf(
+                        DeathGate(deadLookupFor(TEST_SYKMELDT)),
+                        ReservationGate(reservedLookupFor(TEST_SYKMELDT)),
+                    ),
+                ).process(
+                    event(
+                        BrukervarselCreate(
+                            TEST_SYKMELDT,
+                            Varseltype.OPPGAVE,
+                            "text",
+                            brevFallback = BrevFallback(journalpostId = "jp-1"),
+                        ),
+                    ),
+                )
+            decision shouldBe Decision.Dropped(DropReason.DEAD)
+        }
+
+        test("alive + reserved + brevFallback via both gates -> Processed with in-app + BREV") {
+            val decision =
+                DecisionProcess(
+                    listOf(
+                        DeathGate(FakeDeathLookup()),
+                        ReservationGate(reservedLookupFor(TEST_SYKMELDT)),
+                    ),
+                ).process(
+                    event(
+                        BrukervarselCreate(
+                            TEST_SYKMELDT,
+                            Varseltype.OPPGAVE,
+                            "text",
+                            brevFallback = BrevFallback(journalpostId = "jp-1"),
+                        ),
+                    ),
+                )
+            decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 2
         }
     })

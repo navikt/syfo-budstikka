@@ -53,3 +53,33 @@ fun ApplicationConfig.toDocumentDistributorConfig(): DocumentDistributorConfig {
 
     return DocumentDistributorConfig(url = url, scope = scope)
 }
+
+/**
+ * KRR-oppsett (digdir-krr-proxy) for reservasjonsgaten (ADR 0009). [url] er endepunktet
+ * reservasjonsstatus slås opp mot; [scope] er Entra ID-target-en
+ * [no.nav.budstikka.infrastructure.auth.TokenProvider] veksler M2M-token mot. Begge injiseres av
+ * plattformen (ingen hardkodede secrets).
+ */
+data class KrrConfig(
+    val url: String,
+    val scope: String,
+)
+
+fun ApplicationConfig.toKrrConfig(): KrrConfig {
+    fun value(key: String): String = stringOrEmpty("krr.$key").trim()
+
+    val url = value("url")
+    val scope = value("scope")
+
+    val errors =
+        buildList {
+            if (url.isBlank()) add("krr.url must be set (KRR_URL)")
+            if (scope.isBlank()) add("krr.scope must be set (KRR_SCOPE)")
+        }
+
+    check(errors.isEmpty()) {
+        "Invalid KRR configuration: ${errors.joinToString(", ")}"
+    }
+
+    return KrrConfig(url = url, scope = scope)
+}

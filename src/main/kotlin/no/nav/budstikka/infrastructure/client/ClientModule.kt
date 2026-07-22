@@ -5,6 +5,7 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.domain.foundation.DeathLookup
+import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 
 fun DependencyRegistry.clientModule() {
@@ -20,6 +21,13 @@ fun DependencyRegistry.clientModule() {
             httpClient = resolve<HttpClient>(),
             config = resolve(),
             platformConfig = resolve(),
+            tokenProvider = resolve<TokenProvider>(),
+        )
+    }
+    provide<ReservationLookup> {
+        KrrClient(
+            httpClient = resolve<HttpClient>(),
+            config = resolve(),
             tokenProvider = resolve<TokenProvider>(),
         )
     }

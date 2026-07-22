@@ -2,8 +2,10 @@ package no.nav.budstikka
 
 import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.domain.foundation.DeathLookup
+import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
+import no.nav.budstikka.fakes.FakeReservationLookup
 import no.nav.budstikka.testsupport.BudstikkaTestApp
 import no.nav.budstikka.testsupport.KafkaTestContainer
 import no.nav.budstikka.testsupport.KafkaUiContainer
@@ -38,6 +40,8 @@ fun main() {
         ) {
             // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
             provide<DeathLookup> { FakeDeathLookup() }
+            // KRR-reservasjonsoppslaget byttes mot en fake (ingen Texas/tokens lokalt, B51).
+            provide<ReservationLookup> { FakeReservationLookup() }
             // Lokalt skal BREV-flyten ikke kalle dokdist/Texas.
             provide<DocumentDistributor> { FakeDocumentDistributor() }
         }
