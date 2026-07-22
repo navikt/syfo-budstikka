@@ -6,11 +6,10 @@ metadata:
   labels:
     team: team-esyfo
   annotations:
-    texas.nais.io/enabled: "true" # Texas token-sidecar for M2M (NAIS_TOKEN_ENDPOINT)
+    texas.nais.io/enabled: "true"
 spec:
   image: {{image}}
   port: 8080
-  # Stier MÅ matche InternalApi.kt (POD_HEALTH_PATH + is_alive/is_ready). Interne endepunkter er åpne (B48).
   liveness:
     path: /internal/health/is_alive
     initialDelay: 10
@@ -22,16 +21,19 @@ spec:
     initialDelay: 10
     periodSeconds: 5
     timeout: 5
-  # VELG (ressurser): startpunkt speiler dev. Juster mot faktisk minne-/CPU-forbruk i dev før prod.
+  # Ressurser: minne request = limit for forutsigbar planlegging og for å unngå OOM ved node-press
+  # (JVM MaxRAMPercentage=75 → ~768Mi heap ved 1024Mi). Ingen CPU-limit (unngår throttling); CPU
+  # request løftet litt over dev for jevnere scheduling under konsument-last.
   resources:
     limits:
       memory: 1024Mi
     requests:
-      cpu: 100m
-      memory: 512Mi
-  # VELG (antall pods): min 2 / max 4 gir HA i prod (én pod kan restarte/rulle uten stopp).
-  # SKIP LOCKED tåler N like instanser (B27); ingen leaderElection — periodiske sveip koordineres
-  # med Postgres advisory lock (B12/B42). Dev kjører 1/2; prod bør ha min ≥ 2.
+      cpu: 200m
+      memory: 1024Mi
+  # Antall pods: min 2 gir HA — appen overlever rullende deploy og node-tap uten stopp. Max 4 gir
+  # rom til å drenere delivery-/inbox-backlog (workerne er ikke partisjonsbundet — de poller DB med
+  # SKIP LOCKED, B27, så N like instanser er trygt). Ingen leaderElection: periodiske sveip
+  # koordineres med Postgres advisory lock (B12/B42).
   replicas:
     min: 2
     max: 4
@@ -47,27 +49,28 @@ spec:
       runtime: java # OTel-agent setter W3C traceparent → Tempo (B45/B48)
   kafka:
     pool: nav-prod # topic: nais/topics/kafka-prod.yaml (team-esyfo.budstikka.v1)
-  # M2M (client_credentials/entra_id) for PDL-død-gaten. startWorkers() resolver DeathGate→PdlClient
-  # eager ved boot (WorkerModule), som validerer NAIS_TOKEN_ENDPOINT + PDL_SCOPE → azure kreves for
-  # å boote. Budstikka har ingen innkommende HTTP-auth (ren consumer) → ingen inbound/claims.
   azure:
     application:
       enabled: true
   accessPolicy:
     outbound:
       external:
-        - host: pdl-api.prod-fss-pub.nais.io # PDL i FSS (prod)
-        - host: dokdistfordeling.prod-fss-pub.nais.io # Dokdistfordeling for BREV-kanalen (prod)
+        - host: pdl-api.prod-fss-pub.nais.io
+        - host: dokdistfordeling.prod-fss-pub.nais.io
   gcp:
     sqlInstances:
       - name: budstikka-instance
         collation: nb_NO
-        type: POSTGRES_18 # esyfovarsel kjørte 17; budstikka på 18 (docs/teknologi.md)
-        # VELG (databasestørrelse): db-f1-micro (dev) er delt/burst og IKKE anbefalt for prod.
-        # db-custom-1-3840 = 1 vCPU / 3,75 GiB som et konservativt prod-startpunkt. Juster tier
-        # (og evt. pointInTimeRecovery/backup) mot forventet volum før prod-cutover.
-        tier: db-custom-1-3840
-        diskAutoresize: true
+        type: POSTGRES_18
+        tier: db-custom-1-5120
+        diskAutoresize: true # vokser automatisk ved behov
+        diskSize: 10 # GiB startstørrelse
+        # Ikke pointInTimeRecovery: hele basen er avledet av Kafka (inbox/delivery/dead_letter), og
+        # kan gjenoppbygges via 90 dagers replay (B26) + idempotent konsum. Daglige automatiske
+        # backups dekker "hele basen tapt". Skru på hvis RPO-kravet skjerpes.
+        # Ikke highAvailability (regional): dobler kostnad, og en kort DB-failover er ikke kritisk
+        # her — Kafka beholder meldinger i 90 dager (B26) og konsumet er idempotent (retry/replay).
+        # Skru på hvis RPO/RTO-kravene skjerpes.
         databases:
           - name: budstikka-db
             # application.conf leser BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
@@ -81,5 +84,3 @@ spec:
       value: https://dokdistfordeling.prod-fss-pub.nais.io/rest/v1/distribuerjournalpost
     - name: DOCUMENT_DISTRIBUTOR_SCOPE
       value: api://prod-fss.teamdokumenthandtering.dokdistfordeling/.default
-  # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
-  # KRR/narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.
