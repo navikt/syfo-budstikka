@@ -64,7 +64,6 @@ spec:
         type: POSTGRES_18
         tier: db-custom-1-5120
         diskAutoresize: true # vokser automatisk ved behov
-        diskSize: 10 # GiB startstørrelse
         # Ikke pointInTimeRecovery: hele basen er avledet av Kafka (inbox/delivery/dead_letter), og
         # kan gjenoppbygges via 90 dagers replay (B26) + idempotent konsum. Daglige automatiske
         # backups dekker "hele basen tapt". Skru på hvis RPO-kravet skjerpes.
