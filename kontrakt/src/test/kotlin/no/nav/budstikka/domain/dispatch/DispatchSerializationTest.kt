@@ -73,18 +73,28 @@ class DispatchSerializationTest :
                     "DittSykefravaerInactivate" to
                         DittSykefravaerInactivate(reference = "ref-123", sykmeldt = TEST_SYKMELDT_2),
                     "ArbeidsgivervarselInactivate" to
-                        ArbeidsgivervarselInactivate(reference = "ref-123", orgnummer = Orgnummer(TEST_ORGNUMMER.value)),
+                        ArbeidsgivervarselInactivate(
+                            reference = "ref-123",
+                            orgnummer = Orgnummer(TEST_ORGNUMMER.value)
+                        ),
                 )
 
             variants.forEach { (name, content) ->
                 test("roundtrip preserves $name") {
-                    rundtur(content) shouldBe envelope(content)
+                    roundtrip(content) shouldBe envelope(content)
                 }
             }
         }
 
         test("polymorphic discriminator uses a stable type name") {
-            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldContain "\"type\":\"BrevCreate\""
+            dispatchJson.encodeToString(
+                envelope(
+                    BrevCreate(
+                        TEST_SYKMELDT_2,
+                        "jp-9"
+                    )
+                )
+            ) shouldContain "\"type\":\"BrevCreate\""
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {
@@ -119,6 +129,13 @@ class DispatchSerializationTest :
         }
 
         test("serialized payload carries the raw value (partitioning needs a real id)") {
-            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldContain TEST_SYKMELDT_2.value
+            dispatchJson.encodeToString(
+                envelope(
+                    BrevCreate(
+                        TEST_SYKMELDT_2,
+                        "jp-9"
+                    )
+                )
+            ) shouldContain TEST_SYKMELDT_2.value
         }
     })

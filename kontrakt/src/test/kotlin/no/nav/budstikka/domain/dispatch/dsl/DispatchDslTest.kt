@@ -19,6 +19,7 @@ import no.nav.budstikka.domain.dispatch.Orgnummer
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.domain.dispatch.dispatchJson
+import java.util.UUID
 
 private val SYKMELDT = PersonIdentifier("12345678901")
 private val ORGNR = Orgnummer("987654321")
@@ -34,7 +35,7 @@ class DispatchDslTest :
                     reference = "sak-1",
                     personIdentifier = SYKMELDT,
                     varseltype = Varseltype.BESKJED,
-                    text = "Du har fått et varsel",
+                    text = "Du har fått et varsel"
                 ) {
                     link = "https://nav.no/x"
                     eksternVarsling {

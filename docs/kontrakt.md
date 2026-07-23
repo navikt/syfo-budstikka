@@ -2,12 +2,13 @@
 
 Denne siden beskriver **faktisk implementert kontrakt i kode nå**.
 
-Kilde i kode:
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/Dispatch.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/Create.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/Inactivate.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/CommonTypes.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/decision/DispatchDraftMapping.kt`
+Kilde i kode (kontrakten bor nå i det publiserte `:kontrakt`-biblioteket, ADR 0010/0011):
+- `kontrakt/src/main/kotlin/no/nav/budstikka/domain/dispatch/Dispatch.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/domain/dispatch/Create.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/domain/dispatch/Inactivate.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/domain/dispatch/CommonTypes.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/domain/dispatch/dsl/` (Kotlin DSL + `EncodedDispatch`)
+- `src/main/kotlin/no/nav/budstikka/domain/decision/DispatchDraftMapping.kt` (app-intern mapping)
 
 ## Konvolutt
 
@@ -80,12 +81,12 @@ Det betyr:
 ## Felles typer i kontrakten
 
 - `Varseltype`: `BESKJED`, `OPPGAVE`
-- `ExternalChannel`: `SMS`, `EMAIL`
-- `ExternalVarsling(channels, smsText, emailTitle, emailText)`
+- `EksternKanal`: `SMS`, `EMAIL`
+- `EksternVarsling(kanaler, smsTekst, epostTittel, epostTekst)`
 - `DistributionType`: `IMPORTANT`, `OTHER`
 - `BrevFallback(journalpostId, distributionType)`
 - `SendingWindow`: `ONGOING`, `NKS_OPENING_HOURS`
-- `Tag`: `DIALOGMOETE`, `OPPFOELGING`
+- `Merkelapp`: `DIALOGMOETE`, `OPPFOELGING`
 - `AltinnResourceId`: `DIALOGMOETE`
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
 - `Sakstilknytning(sakId)`
@@ -112,7 +113,8 @@ Viktige valg:
 
 Merk:
 - `MicrofrontendDisable` har `@SerialName("MicrofrontendDisable")` (med k i type-navnet).
-- Inactivate-typene bruker `@SerialName("referanse")` på feltet `reference` for wire-kompatibilitet.
+- Inactivate-typenes felt `reference` serialiseres nå som `reference` (legacy `@SerialName("referanse")`
+  fjernet ved navnefrysen, B64 — ingen wire-kompatibilitet å bevare før prod).
 
 ## Ledervarsel-resolusjon (B24)
 

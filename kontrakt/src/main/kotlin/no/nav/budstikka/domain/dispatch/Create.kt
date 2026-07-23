@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-/** 1. Brukervarsel – sykmeldt, Min side. */
+/** Brukervarsel – sykmeldt. Eksponert på min side. */
 @Serializable
 @SerialName("BrukervarselCreate")
 data class BrukervarselCreate(
@@ -22,8 +22,8 @@ data class BrukervarselCreate(
 }
 
 /**
- * 2. Ledervarsel – nærmeste leder, Dine Sykmeldte. Bærer `(sykmeldt, orgnummer)` – IKKE
- * NL-fnr; budstikka resolver nærmeste leder selv (B24). Partisjonsanker = sykmeldt.
+ * Ledervarsel – nærmeste leder. Eksponeres på **Dine Sykmeldte**. Bærer `(sykmeldt, orgnummer)`.
+ * budstikka slår opp nærmeste leder selv. Partisjonsnøkkel = sykmeldt.
  */
 @Serializable
 @SerialName("LedervarselCreate")
@@ -39,7 +39,7 @@ data class LedervarselCreate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** 3. Ditt sykefravær-melding – sykmeldt. Ingen `variant`-felt (B40): nedstrøms har kun INFO. */
+/** Ditt sykefravær-melding – sykmeldt. */
 @Serializable
 @SerialName("DittSykefravaerCreate")
 data class DittSykefravaerCreate(
@@ -51,7 +51,7 @@ data class DittSykefravaerCreate(
     override val partitionKey: String get() = personIdentifier.value
 }
 
-/** 4. Arbeidsgivervarsel – Min side arbeidsgiver / Altinn. */
+/** Arbeidsgivervarsel – Min side arbeidsgiver / Altinn. */
 @Serializable
 @SerialName("ArbeidsgivervarselCreate")
 data class ArbeidsgivervarselCreate(
@@ -69,27 +69,24 @@ data class ArbeidsgivervarselCreate(
     override val partitionKey: String get() = orgnummer.value
 }
 
-/**
- * B32: de to mottaker-stiene kombineres ALDRI → sealed valg, ikke separate hendelsesvarianter.
- */
 @Serializable
 sealed interface ArbeidsgiverRecipient
 
-/** Personlig mottaker; budstikka resolver NL (B24) fra `(sykmeldt, orgnummer)`. */
+/** Personlig mottaker; budstikka slår opp nærmeste leder med `(sykmeldt, orgnummer)`. */
 @Serializable
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
 ) : ArbeidsgiverRecipient
 
-/** Alle med Altinn-rollen ved virksomheten; `ressurs` typet (B30). */
+/** Alle med Altinn-rollen ved virksomheten; `ressurs` typet */
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
 ) : ArbeidsgiverRecipient
 
-/** 5. Brev – sykmeldt, fysisk. INGEN ferdigstill (B3/B21). */
+/** Brev – sykmeldt, fysisk. INGEN ferdigstill */
 @Serializable
 @SerialName("BrevCreate")
 data class BrevCreate(

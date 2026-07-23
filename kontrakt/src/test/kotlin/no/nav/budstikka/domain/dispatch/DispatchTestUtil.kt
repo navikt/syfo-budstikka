@@ -10,7 +10,7 @@ fun envelope(content: DispatchContent) =
         content = content,
     )
 
-fun rundtur(content: DispatchContent): Dispatch {
+fun roundtrip(content: DispatchContent): Dispatch {
     val original = envelope(content)
     val json = dispatchJson.encodeToString(original)
     return dispatchJson.decodeFromString<Dispatch>(json)

@@ -30,7 +30,7 @@ data class EncodedDispatch(
     val headerName: String = DispatchHeader.EVENT_ID,
 )
 
-/** Pakker innholdet i konvolutten, serialiserer og genererer en fersk eventId (v4). */
+/** Pakker innholdet i konvolutten, serialiserer og genererer en ny eventId */
 internal fun DispatchContent.encode(reference: String): EncodedDispatch {
     val dispatch = Dispatch(reference = reference, content = this)
     return EncodedDispatch(

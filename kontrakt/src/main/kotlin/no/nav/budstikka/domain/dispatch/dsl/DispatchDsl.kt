@@ -30,10 +30,8 @@ import kotlin.time.Instant
 
 /**
  * Kotlin DSL for å bygge og serialisere en [no.nav.budstikka.domain.dispatch.Dispatch] (ADR 0011,
- * B64). Prinsipp: PÅKREVDE felt er funksjonsparametre (kompileringstid-håndhevet → svekker ikke
- * B21/B22), VALGFRIE felt settes i en `@DispatchDsl`-lambda. Én funksjon per variant → «nøyaktig
- * ett content» er strukturelt garantert. Hver funksjon returnerer [EncodedDispatch] (serialisert +
- * fersk eventId), klar for produsentens egen `ProducerRecord`.
+ * B64). Prinsipp: **påkrevde** felt er funksjonsparametre, **valgfrie** felt settes i en `@DispatchDsl`-lambda.
+ * Hver funksjon returnerer [EncodedDispatch] (serialisert) med en generert eventId, klar for produsentens egen `ProducerRecord`.
  */
 @DslMarker
 annotation class DispatchDsl
@@ -47,7 +45,7 @@ class EksternVarslingBuilder {
     var epostTittel: String? = null
     var epostTekst: String? = null
 
-    /** Begrens til utvalgte kanaler. Utelatt = bibliotekets default (SMS + e-post). */
+    /** Varsling på `SMS` og/eller `e-post`. Bibliotekets default er ingen ekstern varsling (tom liste). */
     fun kanaler(vararg kanaler: EksternKanal) {
         valgteKanaler += kanaler
     }
@@ -65,7 +63,7 @@ class EksternVarslingBuilder {
         }
 }
 
-// --- Arbeidsgiver-mottaker (sealed valg, B32) ---------------------------------------------------
+// --- Arbeidsgiver-mottaker ----------------------------------------------------------------------
 
 /** Personlig mottaker; budstikka resolver nærmeste leder selv (B24) fra `(sykmeldt, orgnummer)`. */
 fun narmesteLeder(sykmeldt: PersonIdentifier): ArbeidsgiverRecipient = NarmesteLeder(sykmeldt)
@@ -117,7 +115,8 @@ fun brukervarselCreate(
     varseltype: Varseltype,
     text: String,
     block: BrukervarselCreateBuilder.() -> Unit = {},
-): EncodedDispatch = BrukervarselCreateBuilder().apply(block).build(personIdentifier, varseltype, text).encode(reference)
+): EncodedDispatch =
+    BrukervarselCreateBuilder().apply(block).build(personIdentifier, varseltype, text).encode(reference)
 
 // --- Ledervarsel (CREATE) -----------------------------------------------------------------------
 
@@ -185,7 +184,7 @@ class ArbeidsgivervarselCreateBuilder {
         eksternVarsling = EksternVarslingBuilder().apply(block).build()
     }
 
-    /** B31: konsumenten eier saken; `sakId` mappes til grupperingsid nedstrøms. */
+    /** Saksid benyttes til å gruppere varslene downstream. */
     fun sakstilknytning(sakId: String) {
         sakstilknytning = Sakstilknytning(sakId)
     }
@@ -210,6 +209,10 @@ class ArbeidsgivervarselCreateBuilder {
     )
 }
 
+/**
+ * Varsel til min side arbeidsgiver med mulighet for ekstern varsling via SMS eller e-post.
+ * @see [ArbeidsgivervarselCreate]
+ * */
 fun arbeidsgivervarselCreate(
     reference: String,
     orgnummer: Orgnummer,
@@ -218,10 +221,15 @@ fun arbeidsgivervarselCreate(
     text: String,
     link: String,
     block: ArbeidsgivervarselCreateBuilder.() -> Unit = {},
-): EncodedDispatch = ArbeidsgivervarselCreateBuilder().apply(block).build(orgnummer, recipient, merkelapp, text, link).encode(reference)
+): EncodedDispatch =
+    ArbeidsgivervarselCreateBuilder().apply(block).build(orgnummer, recipient, merkelapp, text, link).encode(reference)
 
 // --- Brev (CREATE) ------------------------------------------------------------------------------
 
+/**
+ * Brev-utsending til mottaker med digital kontaktreservasjon.
+ * Default `distributionType` = IMPORTANT.
+ */
 fun brevCreate(
     reference: String,
     personIdentifier: PersonIdentifier,

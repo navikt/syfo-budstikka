@@ -54,7 +54,13 @@ enum class Merkelapp { DIALOGMOETE, OPPFOELGING }
 enum class AltinnResourceId { DIALOGMOETE, }
 
 /** B33: nøytral AG-meldingstype, separat fra Brukervarsels [Varseltype]. */
-enum class ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }
+enum class ArbeidsgiverMeldingstype {
+    /** En beskjed trenger ingen oppfølging fra brukeren. */
+    BESKJED,
+
+    /** En oppgave kan lukkes, og skal ferdigstilles av systemet. */
+    OPPGAVE
+}
 
 /** B31: konsumenten eier saken; `sakId` → grupperingsid nedstrøms. */
 @Serializable
