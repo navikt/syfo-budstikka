@@ -29,7 +29,7 @@ spec:
       memory: 1024Mi
     requests:
       cpu: 200m
-      memory: 1024Mi
+      memory: 512Mi
   # Antall pods: min 2 gir HA — appen overlever rullende deploy og node-tap uten stopp. Max 4 gir
   # rom til å drenere delivery-/inbox-backlog (workerne er ikke partisjonsbundet — de poller DB med
   # SKIP LOCKED, B27, så N like instanser er trygt). Ingen leaderElection: periodiske sveip
@@ -63,7 +63,8 @@ spec:
         collation: nb_NO
         type: POSTGRES_18
         tier: db-custom-1-5120
-        diskAutoresize: true # vokser automatisk ved behov
+        diskAutoresize: true
+        diskAutoresizeLimit: 20
         # Ikke pointInTimeRecovery: hele basen er avledet av Kafka (inbox/delivery/dead_letter), og
         # kan gjenoppbygges via 90 dagers replay (B26) + idempotent konsum. Daglige automatiske
         # backups dekker "hele basen tapt". Skru på hvis RPO-kravet skjerpes.
