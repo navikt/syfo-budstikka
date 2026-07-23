@@ -88,7 +88,10 @@ class LeaseBudgetDrainer(
                             error.cause?.let { add(kv("causeType", it.javaClass.simpleName)) }
                             addAll(failureFields(item))
                         }
-                    logger.warn("Failed processing claimed row; continuing with next row".withPlaceholders(fields), *fields.toTypedArray())
+                    logger.warn(
+                        "Failed processing claimed row; continuing with next row".withPlaceholders(fields),
+                        *fields.toTypedArray(),
+                    )
                     if (failures >= maxConsecutiveItemFailures) {
                         logger.error(
                             "Aborting batch drain after consecutive item failures; treating this as a systemic failure"
@@ -114,6 +117,4 @@ class LeaseBudgetDrainer(
             kv("claimedRows", total),
         )
     }
-
-    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 }

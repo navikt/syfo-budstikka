@@ -32,9 +32,11 @@ class DeliveryWorker(
             eventId = { it.inboxEventId?.toString() ?: it.id.toString() },
             failureFields = { it.failureFields() },
             claim = {
-                repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys).also { claimed ->
-                    if (claimed.isEmpty()) metrics.deliveryEmptyPoll() else metrics.deliveryClaimed(claimed.size)
-                }
+                repository
+                    .claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys)
+                    .also { claimed ->
+                        if (claimed.isEmpty()) metrics.deliveryEmptyPoll() else metrics.deliveryClaimed(claimed.size)
+                    }
             },
             process = { dispatch(it) },
         )
@@ -101,6 +103,4 @@ class DeliveryWorker(
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
         }
     }
-
-    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 }

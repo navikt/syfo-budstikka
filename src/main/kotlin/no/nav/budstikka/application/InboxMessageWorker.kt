@@ -104,6 +104,4 @@ class InboxMessageWorker(
                 )
             }
         }
-
-    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 }
