@@ -1,52 +1,52 @@
 name: Reusable CI
 
-# Gjenbrukbar CI-gate (workflow_call). Kjøres av ci.yaml på PR og i merge-køen. Deler de samme
-# deterministiske gatene som resten av repoet: agent-modell-pins, kompilering + ktlint + test, og
-# container-image-bygg (Jib, uten push). Se .github/instructions/github-actions.instructions.md.
+# Gjenbrukbar CI-gate (workflow_call). Executes ci.yaml on PR and in merge queue. Shares the same
+# deterministic gates as the rest of the repository: agent model pins, compilation + ktlint + test, and
+# container-image build (Jib, without push). See .github/instructions/github-actions.instructions.md.
 on:
   workflow_call:
 
 jobs:
   build:
-    name: Bygg, lint og test
+    name: Build, lint and test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write # OIDC for nais/login og nais/deploy
+      id-token: write # OIDC for nais/login and nais/deploy
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
 
-      # Deterministisk gate 1: agent-modell-pins på allowlist (hardt fail).
-      - name: Validér agent-modell-pins
+      # Deterministic gate 1: agent model pins on allowlist (hard fail).
+      - name: Validate agent model pins
         run: bash scripts/validate-agent-models.sh .github/agents
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
-          java-version: "25" # samsvar med jvmToolchain(25) i build.gradle.kts
+          java-version: "25" # should match the config in libs.versions.toml file
           cache: gradle
 
-      # Deterministisk gate 2: kompilering + ktlint + hele testsuiten (E2E ekskludert, ADR 0006).
-      - name: Bygg, lint og test
+      # Deterministic gate 2: compilation + ktlint + full test suite (E2E excluded, ADR 0006).
+      - name: Build, lint and test
         run: ./gradlew build --no-daemon
 
-      - name: Login GAR
+      - name: Login GAR (Google Artifact Registry)
         id: login
-        uses: nais/login@v0 # intern Nav-action; setter opp GAR-auth og gir registry-output
+        uses: nais/login@v0 # internal Nav-action; sets up GAR-auth and provides registry output
         with:
           team: team-esyfo
 
-      # Deterministisk gate 3: bygg container-image med Jib UTEN push (ADR 0009). Fanger
-      # base-image-/Jib-konfigfeil i PR i stedet for på main-deploy. jibBuildTar pre-puller
-      # Chainguard-basen til docker-daemonen (docker:// pga OCI 1.1-bug), som finnes på runneren.
-      - name: Bygg container-image (Jib, no-push)
+      # Deterministic gate 3: build container-image with Jib WITHOUT push (ADR 0010). Catches
+      # base-image-/Jib configuration errors in PR instead of on main-deploy. jibBuildTar pre-pulls
+      # Chainguard base to the docker daemon (docker:// due to OCI 1.1 bug), which is available on the runner.
+      - name: Build container-image (Jib, no-push)
         run: ./gradlew jibBuildTar --no-daemon
 
-      # Neste steg (følg .github/instructions/github-actions.instructions.md):
-      # SCA/CVE-skann (Trivy) + secret-skann (gitleaks) — legg til med PINNET
-      # versjon/SHA, .trivyignore-baseline, og for org-repo gitleaks-lisens. Holdt
-      # utenfor her til versjon + baseline er verifisert, så gaten ikke blir rød på
-      # uverifisert grunnlag.
+      # Next steps (follow .github/instructions/github-actions.instructions.md):
+      # SCA/CVE scan (Trivy) + secret scan (gitleaks) — add with PINNED
+      # version/SHA, .trivyignore-baseline, and for org-repo gitleaks license. Kept
+      # outside here until version + baseline is verified, so the gate does not turn red on
+      # unverified basis.

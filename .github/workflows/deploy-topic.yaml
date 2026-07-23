@@ -42,7 +42,6 @@ jobs:
 
   deploy-topic-to-prod:
     name: Deploy topic to prod
-    # Kun på main (ikke PR/merge_group) — topic-endringer i prod skal bare skje ved merge.
     if: github.ref == 'refs/heads/main'
     needs: deploy-topic-to-dev
     permissions:
