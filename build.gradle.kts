@@ -175,14 +175,4 @@ tasks {
     named("check") {
         dependsOn("ktlintCheck")
     }
-
-    shadowJar {
-        filesMatching("META-INF/services/**") {
-            duplicatesStrategy = DuplicatesStrategy.WARN
-        }
-        mergeServiceFiles()
-        archiveFileName.set("app.jar")
-        archiveClassifier.set("")
-        archiveVersion.set("")
-    }
 }
