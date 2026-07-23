@@ -8,25 +8,17 @@ data class PlatformConfig(
     val appName: String,
 )
 
-fun ApplicationConfig.toPlatformConfig(): PlatformConfig {
-    fun value(key: String): String = stringOrEmpty("nais.$key").trim()
-
-    val config =
+fun ApplicationConfig.toPlatformConfig() =
+    with(configFor("nais")) {
         PlatformConfig(
-            clusterName = value("clusterName"),
-            namespace = value("namespace"),
-            appName = value("appName"),
-        )
-    val errors =
-        buildList {
-            if (config.clusterName.isBlank()) add("nais.clusterName must be set")
-            if (config.namespace.isBlank()) add("nais.namespace must be set")
-            if (config.appName.isBlank()) add("nais.appName must be set")
+            clusterName = this("clusterName"),
+            namespace = this("namespace"),
+            appName = this("appName"),
+        ).validate { config ->
+            buildList {
+                if (config.clusterName.isBlank()) add("nais.clusterName must be set")
+                if (config.namespace.isBlank()) add("nais.namespace must be set")
+                if (config.appName.isBlank()) add("nais.appName must be set")
+            }
         }
-
-    check(errors.isEmpty()) {
-        "Invalid platform configuration: ${errors.joinToString(", ")}"
     }
-
-    return config
-}

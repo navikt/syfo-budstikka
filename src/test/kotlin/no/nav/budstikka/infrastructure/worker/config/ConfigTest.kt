@@ -10,7 +10,7 @@ import kotlin.time.Duration.Companion.seconds
 class ConfigTest :
     FunSpec({
         test("toWorkerConfig reads inbox-message and delivery settings") {
-            val config =
+            with(
                 config(
                     inboxIntervalSeconds = "10",
                     inboxBatchSize = "50",
@@ -24,24 +24,25 @@ class ConfigTest :
                     deliveryLeaseBudgetFraction = "0.6",
                     deliveryMaxAttempts = "8",
                     deliveryMaxConsecutiveItemFailures = "5",
-                ).toWorkerConfig()
-
-            config.inboxMessage.interval shouldBe 10.seconds
-            config.inboxMessage.batchSize shouldBe 50
-            config.inboxMessage.leaseDuration shouldBe 120.seconds
-            config.inboxMessage.leaseBudgetFraction shouldBe 0.5
-            config.inboxMessage.maxAttempts shouldBe 7
-            config.inboxMessage.maxConsecutiveItemFailures shouldBe 4
-            config.delivery.interval shouldBe 7.seconds
-            config.delivery.batchSize shouldBe 30
-            config.delivery.leaseDuration shouldBe 90.seconds
-            config.delivery.leaseBudgetFraction shouldBe 0.6
-            config.delivery.maxAttempts shouldBe 8
-            config.delivery.maxConsecutiveItemFailures shouldBe 5
+                ).toWorkerConfig(),
+            ) {
+                inboxMessage.interval shouldBe 10.seconds
+                inboxMessage.batchSize shouldBe 50
+                inboxMessage.leaseDuration shouldBe 120.seconds
+                inboxMessage.leaseBudgetFraction shouldBe 0.5
+                inboxMessage.maxAttempts shouldBe 7
+                inboxMessage.maxConsecutiveItemFailures shouldBe 4
+                delivery.interval shouldBe 7.seconds
+                delivery.batchSize shouldBe 30
+                delivery.leaseDuration shouldBe 90.seconds
+                delivery.leaseBudgetFraction shouldBe 0.6
+                delivery.maxAttempts shouldBe 8
+                delivery.maxConsecutiveItemFailures shouldBe 5
+            }
         }
 
         test("toWorkerConfig falls back to defaults when unset") {
-            val config =
+            with(
                 config(
                     inboxIntervalSeconds = "",
                     inboxBatchSize = "",
@@ -55,62 +56,63 @@ class ConfigTest :
                     deliveryLeaseBudgetFraction = "",
                     deliveryMaxAttempts = "",
                     deliveryMaxConsecutiveItemFailures = "",
-                ).toWorkerConfig()
-
-            config.inboxMessage.interval shouldBe LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS.seconds
-            config.inboxMessage.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
-            config.inboxMessage.leaseDuration shouldBe LeaseDrainConfig.DEFAULT_LEASE_SECONDS.seconds
-            config.inboxMessage.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
-            config.inboxMessage.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
-            config.inboxMessage.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
-            config.delivery.interval shouldBe LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS.seconds
-            config.delivery.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
-            config.delivery.leaseDuration shouldBe LeaseDrainConfig.DEFAULT_LEASE_SECONDS.seconds
-            config.delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
-            config.delivery.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
-            config.delivery.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
+                ).toWorkerConfig(),
+            ) {
+                inboxMessage.interval shouldBe LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS.seconds
+                inboxMessage.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
+                inboxMessage.leaseDuration shouldBe LeaseDrainConfig.DEFAULT_LEASE_SECONDS.seconds
+                inboxMessage.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
+                inboxMessage.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
+                inboxMessage.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
+                delivery.interval shouldBe LeaseDrainConfig.DEFAULT_INTERVAL_SECONDS.seconds
+                delivery.batchSize shouldBe LeaseDrainConfig.DEFAULT_BATCH_SIZE
+                delivery.leaseDuration shouldBe LeaseDrainConfig.DEFAULT_LEASE_SECONDS.seconds
+                delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
+                delivery.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
+                delivery.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
+            }
         }
 
         test("toWorkerConfig validates interval is a positive integer") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(inboxIntervalSeconds = "0").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.intervalSeconds must be a positive integer"
+            }.message shouldBe "Invalid configuration: workers.inboxMessage.intervalSeconds must be a positive integer"
         }
 
         test("toWorkerConfig validates batch size is a positive integer") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(inboxBatchSize = "-1").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.batchSize must be a positive integer"
+            }.message shouldBe "Invalid configuration: workers.inboxMessage.batchSize must be a positive integer"
         }
 
         test("toWorkerConfig validates lease is a positive integer") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(inboxLeaseSeconds = "0").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.leaseSeconds must be a positive integer"
+            }.message shouldBe "Invalid configuration: workers.inboxMessage.leaseSeconds must be a positive integer"
         }
 
         test("toWorkerConfig validates lease budget fraction is within (0.0, 1.0]") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(inboxLeaseBudgetFraction = "1.5").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.leaseBudgetFraction must be a number in (0.0, 1.0]"
+            }.message shouldBe "Invalid configuration: workers.inboxMessage.leaseBudgetFraction must be a number in (0.0, 1.0]"
         }
 
         test("toWorkerConfig validates max attempts is a positive integer") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(inboxMaxAttempts = "0").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.maxAttempts must be a positive integer"
+            }.message shouldBe "Invalid configuration: workers.inboxMessage.maxAttempts must be a positive integer"
         }
 
         test("toWorkerConfig validates delivery interval is a positive integer") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(deliveryIntervalSeconds = "0").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.delivery.intervalSeconds must be a positive integer"
+            }.message shouldBe "Invalid configuration: workers.delivery.intervalSeconds must be a positive integer"
         }
 
         test("toWorkerConfig validates max consecutive item failures is a positive integer") {
-            shouldThrow<IllegalArgumentException> {
+            shouldThrow<IllegalStateException> {
                 config(inboxMaxConsecutiveItemFailures = "0").toWorkerConfig()
-            }.message shouldBe "Invalid workers configuration: workers.inboxMessage.maxConsecutiveItemFailures must be a positive integer"
+            }.message shouldBe "Invalid configuration: workers.inboxMessage.maxConsecutiveItemFailures must be a positive integer"
         }
     })
 

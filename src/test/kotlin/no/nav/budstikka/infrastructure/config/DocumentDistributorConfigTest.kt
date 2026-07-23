@@ -27,7 +27,7 @@ class DocumentDistributorConfigTest :
             shouldThrow<IllegalStateException> {
                 config(url = "", scope = "").toDocumentDistributorConfig()
             }.message shouldBe
-                "Invalid document distributor configuration: " +
+                "Invalid configuration: " +
                 "documentDistributor.url must be set (DOCUMENT_DISTRIBUTOR_URL), documentDistributor.scope must be set (DOCUMENT_DISTRIBUTOR_SCOPE)"
         }
     })

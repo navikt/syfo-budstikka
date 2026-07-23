@@ -29,7 +29,7 @@ class PdlConfigTest :
             shouldThrow<IllegalStateException> {
                 config(url = "", scope = "", behandlingsnummer = "").toPdlConfig()
             }.message shouldBe
-                "Invalid PDL configuration: " +
+                "Invalid configuration: " +
                 "pdl.url must be set (PDL_URL), pdl.scope must be set (PDL_SCOPE), pdl.behandlingsnummer must be set (PDL_BEHANDLINGSNUMMER)"
         }
     })
