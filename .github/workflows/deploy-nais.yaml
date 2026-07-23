@@ -1,0 +1,38 @@
+name: Deploy til Nais
+
+# Deploy (workflow_call). Build creates and signs the image ONCE; each environment
+# calls this with the same image reference, so dev and prod deploy exactly the same artifact.
+# New environment = a new caller job with a different cluster/resource (see deploy.yaml).
+on:
+  workflow_call:
+    inputs:
+      cluster:
+        description: "Nais-cluster, for example dev-gcp or prod-gcp"
+        required: true
+        type: string
+      resource:
+        description: "Path to the Nais manifest, e.g., nais/nais-dev.yaml"
+        required: true
+        type: string
+      image:
+        description: "Full image reference (repo:tag) from the build job"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # OIDC for nais/deploy
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.cluster }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - uses: nais/deploy/actions/deploy@v2 # internal Nav-action
+        env:
+          CLUSTER: ${{ inputs.cluster }}
+          RESOURCE: ${{ inputs.resource }}
+          VAR: image=${{ inputs.image }}

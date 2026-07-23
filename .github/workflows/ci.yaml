@@ -1,0 +1,57 @@
+name: CI
+
+# Merge-gate for syfo-budstikka. Executes the reusable CI (ci-reusable.yml) on PR and in
+# merge queue, and summarizes the result in a single merge-gate job. Set `merge-gate` as the only required
+# status check in branch protection / merge queue — then it represents the entire CI.
+on:
+  pull_request:
+  merge_group:
+    types:
+      - checks_requested
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC for nais/login and nais/deploy
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci-reusable.yml
+
+  merge-gate:
+    name: Merge gate
+    needs:
+      - ci
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: { }
+    steps:
+      - name: Check required jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          result="ci=${{ needs.ci.result }}"
+          printf '%s\n' "$result"
+
+          case "${{ needs.ci.result }}" in
+            success)
+              ;;
+            cancelled)
+              echo "::error::Required job was cancelled: $result. Likely cause: a newer push interrupted an ongoing run (concurrency.cancel-in-progress), the run was manually cancelled, or the merge queue attempt was discarded/re-queued. Rerun CI from the latest commit or merge queue entry."
+              exit 1
+              ;;
+            skipped)
+              echo "Accepting skipped result: $result"
+              ;;
+            *)
+              echo "::error::Required job failed: $result"
+              exit 1
+              ;;
+          esac

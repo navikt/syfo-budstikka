@@ -1,0 +1,91 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: syfo-budstikka
+  namespace: team-esyfo
+  labels:
+    team: team-esyfo
+  annotations:
+    texas.nais.io/enabled: "true"
+spec:
+  image: {{image}}
+  port: 8080
+  liveness:
+    path: /internal/health/is_alive
+    initialDelay: 10
+    timeout: 5
+    periodSeconds: 10
+    failureThreshold: 5
+  readiness:
+    path: /internal/health/is_ready
+    initialDelay: 10
+    periodSeconds: 5
+    timeout: 5
+  # Ressurser: minne request = limit for forutsigbar planlegging og for å unngå OOM ved node-press
+  # (JVM MaxRAMPercentage=75 → ~768Mi heap ved 1024Mi). Ingen CPU-limit (unngår throttling); CPU
+  # request løftet litt over dev for jevnere scheduling under konsument-last.
+  resources:
+    limits:
+      memory: 1024Mi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  # Antall pods: min 2 gir HA — appen overlever rullende deploy og node-tap uten stopp. Max 4 gir
+  # rom til å drenere delivery-/inbox-backlog (workerne er ikke partisjonsbundet — de poller DB med
+  # SKIP LOCKED, B27, så N like instanser er trygt). Ingen leaderElection: periodiske sveip
+  # koordineres med Postgres advisory lock (B12/B42).
+  replicas:
+    min: 2
+    max: 4
+  prometheus:
+    enabled: true
+    path: /internal/metrics # POD_METRICS_PATH; avstemmer B57/B48 (metrics, ikke prometheus)
+  observability:
+    logging:
+      destinations:
+        - id: loki
+    autoInstrumentation:
+      enabled: true
+      runtime: java # OTel-agent setter W3C traceparent → Tempo (B45/B48)
+  kafka:
+    pool: nav-prod # topic: nais/topics/kafka-prod.yaml (team-esyfo.budstikka.v1)
+  azure:
+    application:
+      enabled: true
+  accessPolicy:
+    outbound:
+      external:
+        - host: pdl-api.prod-fss-pub.nais.io
+        - host: dokdistfordeling.prod-fss-pub.nais.io
+  gcp:
+    sqlInstances:
+      - name: budstikka-instance
+        collation: nb_NO
+        type: POSTGRES_18
+        tier: db-custom-1-5120
+        diskAutoresize: true
+        diskAutoresizeLimit: 20
+        # Ikke pointInTimeRecovery: hele basen er avledet av Kafka (inbox/delivery/dead_letter), og
+        # kan gjenoppbygges via 90 dagers replay (B26) + idempotent konsum. Daglige automatiske
+        # backups dekker "hele basen tapt". Skru på hvis RPO-kravet skjerpes.
+        # Ikke highAvailability (regional): dobler kostnad, og en kort DB-failover er ikke kritisk
+        # her — Kafka beholder meldinger i 90 dager (B26) og konsumet er idempotent (retry/replay).
+        # Skru på hvis RPO/RTO-kravene skjerpes.
+        databases:
+          - name: budstikka-db
+            # application.conf leser BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
+            envVarPrefix: BUDSTIKKA_DB
+  env:
+    - name: PDL_URL
+      value: https://pdl-api.prod-fss-pub.nais.io/graphql
+    - name: PDL_SCOPE
+      value: api://prod-fss.pdl.pdl-api/.default
+    - name: DOCUMENT_DISTRIBUTOR_URL
+      value: https://dokdistfordeling.prod-fss-pub.nais.io/rest/v1/distribuerjournalpost
+    - name: DOCUMENT_DISTRIBUTOR_SCOPE
+      value: api://prod-fss.teamdokumenthandtering.dokdistfordeling/.default
+    - name: KRR_URL
+      value: https://digdir-krr-proxy.intern.nav.no/rest/v1/person
+    - name: KRR_SCOPE
+      value: api://prod-gcp.team-rocket.digdir-krr-proxy/.default
+

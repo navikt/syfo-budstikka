@@ -1,47 +1,46 @@
 # CONTEXT — syfo-budstikka skal erstatte esyfovarsel
 
 ## Mål (fra bruker)
-syfo-budstikka skal overta for `esyfovarsel`: la domeneapper sende varsler til
-sykmeldte, nærmeste ledere og arbeidsgivere **uten** at budstikka bærer
-domenekunnskap (oppfølgingsplan, dialogmøte, aktivitetskrav osv.). Budstikka skal
-kun sørge for riktig kanal på en god måte. Ønsket arkitektur: Kafka, inbox/delivery,
-asynkron utsending, idempotens, innebygd retry og feilhåndtering, bedre logging med
-trace-id/tracing, enklere feilsøk, eget Grafana-board.
+
+syfo-budstikka skal overta for `esyfovarsel`: la domeneapper sende varsler til sykmeldte, nærmeste ledere og
+arbeidsgivere **uten** at budstikka bærer domenekunnskap (oppfølgingsplan, dialogmøte, aktivitetskrav osv.). Budstikka
+skal kun sørge for riktig kanal på en god måte. Ønsket arkitektur: Kafka, inbox/delivery, asynkron utsending,
+idempotens, innebygd retry og feilhåndtering, bedre logging med trace-id/tracing, enklere feilsøk, eget Grafana-board.
 
 ## Status og videre arbeid (per 2026-07-06)
 
-**Design og implementering pågår.** Beslutninger festes
-som nummererte B-er nedenfor og i temadokumentene. **B1–B55 er låst.** En fersk økt kan
-plukke opp arbeidet ved å lese denne fila + temadokumentene:
+**Design og implementering pågår.** Beslutninger festes som nummererte B-er nedenfor og i temadokumentene. **B1–B55 er
+låst.** En fersk økt kan plukke opp arbeidet ved å lese denne fila + temadokumentene:
 `glossary.md` (domenespråk), `kontrakt.md` (kanal-DTO-er), `datamodell.md` (inbox+delivery),
 `ferdigstill.md` (lukking), `flyt.md`, `migrering.md` (cutover-strategi, B34–B37),
 `teknologi.md` (teknologivalg, B44), `teststrategi.md` (lokal test/e2e, B50–B53),
 `adr/0001-domeneblind-varselruter.md`.
 
-**Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er ✅ (AG B29–B33;
-Inaktiver-typing B38–B39; tekstmodell/enums + microfrontend B40–B41) · 4 Observability ✅
-(B17 + B45–B49: korrelasjon=eventId, logging/PII, metrikk-katalog, endepunkter, varsling) ·
-5 Auth & ACL 🔶 (M2M-mønster låst — PDL/dokdist/KRR via Texas; KRR-reservasjon B62/ADR 0009;
-resten av ACL detaljeres per kanal ved implementering) · 6 Migrering ✅ (B34–B37, detaljer ved implementering) ·
-7 Lokal test/e2e ✅ (B50–B53: delt substrat i `src/test`, prod-grense via build, Testcontainers, port-fakes).
+**Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er ✅ (AG B29–B33; Inaktiver-typing B38–B39;
+tekstmodell/enums + microfrontend B40–B41) · 4 Observability ✅ (B17 + B45–B49: korrelasjon=eventId, logging/PII,
+metrikk-katalog, endepunkter, varsling) · 5 Auth & ACL 🔶 (M2M-mønster låst — PDL/dokdist/KRR via Texas; KRR-reservasjon
+B62/ADR 0009; resten av ACL detaljeres per kanal ved implementering) · 6 Migrering ✅ (B34–B37, detaljer ved
+implementering) · 7 Lokal test/e2e ✅ (B50–B53: delt substrat i `src/test`, prod-grense via build, Testcontainers,
+port-fakes).
 
-**Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42),
-topic-identitet/navn låst (B43: `team-esyfo.budstikka.v1`, rot-type `Dispatch`),
-teknologivalg låst (B44), observability ferdig-grillet (B45–B49) og lokal test/e2e-strategi
-låst (B50–B53). Gjenstår kun å grille område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy;
-ventet rett-fram da esyfovarsel har Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på `navikt/syfo-budstikka`
+**Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42), topic-identitet/navn låst (B43:
+`team-esyfo.budstikka.v1`, rot-type `Dispatch`), teknologivalg låst (B44), observability ferdig-grillet (B45–B49) og
+lokal test/e2e-strategi låst (B50–B53). Gjenstår kun å grille område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy;
+ventet rett-fram da esyfovarsel har Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på
+`navikt/syfo-budstikka`
 (kontrakt, datamodell, worker-topologi og retensjon er implementeringsklare).
 
-**Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved
-usikkerhet, fest durable beslutninger her i `docs/` med nye B-nummer, commit per ferdig
-delområde. Domeneblindhet (B1) er den røde tråden: budstikka forgrener aldri på domenetype.
+**Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved usikkerhet, fest durable
+beslutninger her i `docs/` med nye B-nummer, commit per ferdig delområde. Domeneblindhet (B1) er den røde tråden:
+budstikka forgrener aldri på domenetype.
 
 ## Hva esyfovarsel er og gjør i dag
-Sentral varsel-router for eSyfo. Konsumerer ett topic `team-esyfo.varselbus`,
-mapper hver hendelse til riktig flate, og håndterer tilstand rundt utsending,
-ferdigstilling, retry og fallback til fysisk brev. 25 `HendelseType` (SM_/NL_/AG_).
+
+Sentral varsel-router for eSyfo. Konsumerer ett topic `team-esyfo.varselbus`, mapper hver hendelse til riktig flate, og
+håndterer tilstand rundt utsending, ferdigstilling, retry og fallback til fysisk brev. 25 `HendelseType` (SM_/NL_/AG_).
 
 ### Kanaler (flater) ut
+
 - BRUKERNOTIFIKASJON → `min-side.aapen-brukervarsel-v1` (tms varsel-builder)
 - DINE_SYKMELDTE → `team-esyfo.dinesykmeldte-hendelser-v2`
 - DITT_SYKEFRAVAER → `flex.ditt-sykefravaer-melding`
@@ -50,17 +49,19 @@ ferdigstilling, retry og fallback til fysisk brev. 25 `HendelseType` (SM_/NL_/AG
 - MIN_SIDE_MICROFRONTEND → `min-side.aapen-microfrontend-v1`
 
 ### Nedstrøms-tjenester
-pdl-api, digdir-krr-proxy (reservasjon/digital kontakt), syfosmregister (aktiv sm),
-narmesteleder, notifikasjon-produsent-api, dokdistfordeling, istilgangskontroll.
-Kanalvalg via AccessControlService (KRR + sm-register) → digital ellers brev.
+
+pdl-api, digdir-krr-proxy (reservasjon/digital kontakt), syfosmregister (aktiv sm), narmesteleder,
+notifikasjon-produsent-api, dokdistfordeling, istilgangskontroll. Kanalvalg via AccessControlService (KRR +
+sm-register) → digital ellers brev.
 
 ### Konsumenter (produsenter inn)
-isdialogmote, syfomotebehov, syfooppfolgingsplanservice, isoppfolgingsplan,
-syfo-oppfolgingsplan-backend, aktivitetskrav-backend, isarbeidsuforhet,
-ismanglendemedvirkning, ismeroppfolging, meroppfolging-backend, isfrisktilarbeid,
-syfo-dokumentporten. Alle via `team-esyfo.varselbus`.
+
+isdialogmote, syfomotebehov, syfooppfolgingsplanservice, isoppfolgingsplan, syfo-oppfolgingsplan-backend,
+aktivitetskrav-backend, isarbeidsuforhet, ismanglendemedvirkning, ismeroppfolging, meroppfolging-backend,
+isfrisktilarbeid, syfo-dokumentporten. Alle via `team-esyfo.varselbus`.
 
 ### Embedded domenekunnskap (det vi vil VEKK fra)
+
 - synligTom-regler per domene (aktivitetskrav +30d, mer veiledning +13u, dialogmøte motetidspunkt)
 - microfrontend-livssyklus per domene (åpne/lukke på spesifikke hendelser)
 - VarselTexts.kt: all kopitekst hardkodet i appen
@@ -68,104 +69,582 @@ syfo-dokumentporten. Alle via `team-esyfo.varselbus`.
 - AktivitetspliktForhandsvarsel: kjenner sendForhandsvarsel-flagg, brevtype VIKTIG
 
 ### Arkitektur i dag
-Postgres 17, tabeller: utsendt_varsel, utsendt_varsel_feilet, microfrontend_synlighet,
-arbeidsgivernotifikasjoner, fodselsdato, planlagt_varsel (dorment). CronJob
-(esyfovarsel-job) retter feilede + lukker microfronter. Ingen outbox; Kafka+DB ikke
-transaksjonelt. Leader election. Ktor 3.4, Kotlin 2.3, JVM 21.
+
+Postgres 17, tabeller: utsendt_varsel, utsendt_varsel_feilet, microfrontend_synlighet, arbeidsgivernotifikasjoner,
+fodselsdato, planlagt_varsel (dorment). CronJob (esyfovarsel-job) retter feilede + lukker microfronter. Ingen outbox;
+Kafka+DB ikke transaksjonelt. Leader election. Ktor 3.4, Kotlin 2.3, JVM 21.
 
 ## syfo-budstikka i dag
-Ktor-backend med Kafka-konsum, claim/lease-workers, Exposed/Flyway-datamodell og
-kanaladaptere i aktiv utvikling. JVM 25, Ktor 3.5.1, ktlint. Pakke `no.nav.budstikka`.
+
+Ktor-backend med Kafka-konsum, claim/lease-workers, Exposed/Flyway-datamodell og kanaladaptere i aktiv utvikling. JVM
+25, Ktor 3.5.1, ktlint. Pakke `no.nav.budstikka`.
 
 ## Låste beslutninger
+
 - B1: Konsument eier tekst + utløp (synligTom). Budstikka kjenner ikke domenet.
-- B2: Konsument oppgir mottaker (SM/NL/AG) + tillatte kanaler. Budstikka gjør KRR/digital-sjekk og velger digital vs. brev + fallback.
-- B3: 1 Kafka-topic `team-esyfo.budstikka.v1` (NY budstikka-eid topic — IKKE esyfovarsels legacy «varselbus»; navn/versjon/rot-type fastsatt i B43), enkelthendelse (ingen liste), gjenbrukt for alle mottakere. Mottaker + handling er FELT, ikke topics. Ferdigstilling = egen hendelse. Brev kan ikke ferdigstilles.
-- B4: Produsent oppgir eventId (inbox-dedup) + referanse (kobler FERDIGSTILL→OPPRETT). Budstikka kjenner ikke domenet. (NYANSERT av B61/ADR 0008: eventId leveres KUN som Kafka-header `DispatchHeader.EVENT_ID`, ikke i payloaden — teknisk id for dedup/korrelasjon, ikke domenedata; referanse forblir i konvolutten. Faktisk FERDIGSTILL-match er `(reference, recipient_id, channel)` per B19/B39 — «matcher kun på referanse» var upresist; recipient/channel utledes fra `content` for inbox-rader uten egne kolonner.)
-- B5: Partisjonsnøkkel = mottakeranker som konsumenten kjenner (SM=fnr, NL=sykmeldt-fnr, AG=orgnr). Ingen antakelse om at alt handler om en sykmeldt — bygg fleksibelt.
-- B6: Eksplisitt kanal pr. hendelse + kanalspesifikt payload (sealed/typet). Ingen array av kanaler. Vil konsument ha flere kanaler → flere hendelser.
-- B7: Alltid-på eligibility-gate i budstikka: død (PDL) → `DROPPED` i `inbox_message` + metrikk; reservert (KRR) → styrer kun ekstern varsling.
-- B8: Brukervarsel har valgfritt nøstet `brevFallback`-objekt: tilstedeværelse = send brev ved reservasjon, og objektet bærer påkrevd `journalpostId` (typesikker validering). `externalVarsling` er strukturert (SMS/e-post-felt), ikke bare bool.
-- B9: Mottaker er kanalspesifikk (modell A), med value-class `PersonIdentifier`/`Orgnummer` som maskerer fnr i logg (toString="***"). Ikke delt sealed-hierarki.
-- Begreper: Reservasjon (KRR) styrer kun ekstern varsling; brukervarsel vises på Min side uansett. Microfrontend er i scope (brukerkommunikasjon).
-- B10: Tre faser — (1) Inbox: dedup på eventId, ingen forretningslogikk (NYANSERT av B61/ADR 0008: syntaktisk parse + hydrering av raden ved ingest er lov; eligibility/kanalvalg/fallback/FERDIGSTILL-matching bor fortsatt i Beslutning); (2) Beslutning: eligibility-gate (død/KRR) resolveres og FRYSES til konkrete deliveries; (3) Delivery: én rad pr. konkret delivery, worker utfører. Transaksjon: eksterne lesekall (KRR/PDL) først, så én DB-tx (skriv delivery + marker inbox behandlet).
-- B11: Retry sentralt — transient feil signaliseres ved exception og raden står `CLAIMED` til lease utløper; permanent feil markeres `FAILED`. `attempt` og `next_attempt_time` oppdateres ved claim.
-- B12: Prosesseringstopologi — decoupled workers. Konsument skriver kun til inbox (rask, idempotent). Egen beslutnings-worker + delivery-worker drevet av kontinuerlig polling med DB-radlås (FOR UPDATE SKIP LOCKED), så flere podder deler last uten dobbeltlevering. Ingen leader election.
+- B2: Konsument oppgir mottaker (SM/NL/AG) + tillatte kanaler. Budstikka gjør KRR/digital-sjekk og velger digital vs.
+  brev + fallback.
+- B3: 1 Kafka-topic `team-esyfo.budstikka.v1` (NY budstikka-eid topic — IKKE esyfovarsels legacy «varselbus»;
+  navn/versjon/rot-type fastsatt i B43), enkelthendelse (ingen liste), gjenbrukt for alle mottakere. Mottaker + handling
+  er FELT, ikke topics. Ferdigstilling = egen hendelse. Brev kan ikke ferdigstilles.
+- B4: Produsent oppgir eventId (inbox-dedup) + referanse (kobler FERDIGSTILL→OPPRETT). Budstikka kjenner ikke domenet.
+  (NYANSERT av B61/ADR 0008: eventId leveres KUN som Kafka-header `DispatchHeader.EVENT_ID`, ikke i payloaden — teknisk
+  id for dedup/korrelasjon, ikke domenedata; referanse forblir i konvolutten. Faktisk FERDIGSTILL-match er
+  `(reference, recipient_id, channel)` per B19/B39 — «matcher kun på referanse» var upresist; recipient/channel utledes
+  fra `content` for inbox-rader uten egne kolonner.)
+- B5: Partisjonsnøkkel = mottakeranker som konsumenten kjenner (SM=fnr, NL=sykmeldt-fnr, AG=orgnr). Ingen antakelse om
+  at alt handler om en sykmeldt — bygg fleksibelt.
+- B6: Eksplisitt kanal pr. hendelse + kanalspesifikt payload (sealed/typet). Ingen array av kanaler. Vil konsument ha
+  flere kanaler → flere hendelser.
+- B7: Alltid-på eligibility-gate i budstikka: død (PDL) → `DROPPED` i `inbox_message` + metrikk; reservert (KRR) →
+  styrer kun ekstern varsling.
+- B8: Brukervarsel har valgfritt nøstet `brevFallback`-objekt: tilstedeværelse = send brev ved reservasjon, og objektet
+  bærer påkrevd `journalpostId` (typesikker validering). `externalVarsling` er strukturert (SMS/e-post-felt), ikke bare
+  bool.
+- B9: Mottaker er kanalspesifikk (modell A), med value-class `PersonIdentifier`/`Orgnummer` som maskerer fnr i logg
+  (toString="***"). Ikke delt sealed-hierarki.
+- Begreper: Reservasjon (KRR) styrer kun ekstern varsling; brukervarsel vises på Min side uansett. Microfrontend er i
+  scope (brukerkommunikasjon).
+- B10: Tre faser — (1) Inbox: dedup på eventId, ingen forretningslogikk (NYANSERT av B61/ADR 0008: syntaktisk parse +
+  hydrering av raden ved ingest er lov; eligibility/kanalvalg/fallback/FERDIGSTILL-matching bor fortsatt i Beslutning);
+  (2) Beslutning: eligibility-gate (død/KRR) resolveres og FRYSES til konkrete deliveries; (3) Delivery: én rad pr.
+  konkret delivery, worker utfører. Transaksjon: eksterne lesekall (KRR/PDL) først, så én DB-tx (skriv delivery + marker
+  inbox behandlet).
+- B11: Retry sentralt — transient feil signaliseres ved exception og raden står `CLAIMED` til lease utløper; permanent
+  feil markeres `FAILED`. `attempt` og `next_attempt_time` oppdateres ved claim.
+- B12: Prosesseringstopologi — decoupled workers. Konsument skriver kun til inbox (rask, idempotent). Egen
+  beslutnings-worker + delivery-worker drevet av kontinuerlig polling med DB-radlås (FOR UPDATE SKIP LOCKED), så flere
+  podder deler last uten dobbeltlevering. Ingen leader election.
 
 ## Datamodell-beslutninger (se docs/datamodell.md)
-- B13: Topologi A — to tabeller: `inbox_message` + `delivery`. `referanse` + `inbox_event_id` på leveranse holder døren åpen for senere varsel-aggregat (B) via additiv migrering.
-- B14: Status på delivery-raden (`READY`/`CLAIMED`/`SENT`/`FAILED`). Transient feil = rad blir stående `CLAIMED` og kan re-claimes når lease utløper. Ingen separat failed-tabell.
-- B15: Delivery-worker bruker claim/lease med `FOR UPDATE SKIP LOCKED` for å fordele arbeid mellom flere pollere uten dobbeltlevering.
-- B16: Idempotensnøkkel mot kanaler = vår genererte `delivery.id` (UUID), gjenbrukt ved retry + FERDIGSTILL. `ekstern_respons_id` (nullable) lagrer kanalens retur-id for sporing.
-- B17: Sporing — enkelt-id spores i Grafana via Loki (logger) + Tempo (traces). Prometheus-metrikker kun lav kardinalitet (kanal/status/mottaker_type/feiltype), aldri id/fnr som label. REVIDERT av B45: korrelasjons-iden er `eventId` (produsent-oppgitt), ingen egen `trace_id`-kolonne.
-- B18: Inbox-livsløp — konsument skriver `RECEIVED`; beslutnings-workeren setter `PROCESSED`/`DROPPED` (`drop_reason=DEAD`)/`FAILED` i én tx. Inbox har `attempt`/`next_attempt_time` for claim/lease. Død-dropp logges som status på inbox (justerer B7: ingen egen tabell). PII-at-rest: fnr i klartekst (CloudSQL-kryptert, maskert i logg); retensjon/GDPR LUKKET av B42 (hard delete pr. tabell) + B61 (DL-retensjon). (NYANSERT av B61/ADR 0008: på inbox ligger personident i `content` jsonb, ikke i en egen `recipient_id`-kolonne; `recipient_id`-kolonnen er på `delivery`.)
-- B61: HYDRERT INBOX — FULL PARSE VED INGEST, EVENTID KUN I HEADER (SUPERSEDER ADR 0002; se ADR 0008; REVERSERER B54s «payload autoritativ»; nyanserer B4/B21; trigget av #27). Ingest PARSER hele `Dispatch` (konvolutt + sealed `content`) og hydrerer inbox-raden i stedet for ADR 0002s parse-frie «rå payload byte-eksakt». (1) EVENTID LEVER KUN I KAFKA-HEADEREN (`DispatchHeader.EVENT_ID`) og FJERNES fra payloaden → `Dispatch` blir `{ reference, content }`; eventId er en teknisk id (dedup+korrelasjon), ikke domenedata. DEDUP på HEADER-eventId som PK/`ON CONFLICT DO NOTHING`, lest FØR parse → skjema-uavhengig. Headeren er dermed AUTORITATIV og OBLIGATORISK: manglende/ugyldig → dead-letter (`MISSING_EVENT_ID`/`INVALID_EVENT_ID`), ingen payload-fallback. Løser tvillingkilden ved å ELIMINERE payload-kilden (ikke rangere), reverserer B54. (2) `content` lagres som `jsonb<DispatchContent>` (speiler `delivery`), rå `payload text` DROPPES; `event_id` (PK) settes fra headeren; `reference` løftes ut som EGEN KOLONNE (selektiv FERDIGSTILL-match-nøkkel B39 + eneste konvolutt-felt utenfor `content`-jsonb; indeks legges til med inbox-hold-matching #1). `recipient`/`channel`/`operation` løftes IKKE (utledbare fra `content` `partitionKey`/`type`, brukes kun til avgrensning innenfor et reference-treff → ingen spekulativ schema; ytterligere match-kolonner legges til KUN hvis #1 = inbox-hold). `ignoreUnknownKeys=true` beholdes → ukjente felt forsvinner BEVISST (kontrakt = sannhet, B1/B22 — ukjent produsent-data er ikke vårt ansvar). (3) `event_id` beholdes best-effort på `dead_letter_message` (nullable): payload-parse-feil med gyldig header lagres MED eventId → full produsent-korrelasjon; kun manglende header gir null. (4) FEILTAKSONOMI skiller SYNTAKTISK fra SEMANTISK: manglende/ugyldig header, tom/korrupt payload, konvolutt uten reference, ukjent sealed-subtype → dead-letter + offset committes; representable-men-ulovlig kombinasjon (B21) når inbox NORMALT og håndteres av beslutnings-worker (`PROCESSED` + `ugyldig_kombinasjon`-metrikk, INGEN `FAILED`/alert — B21s defense-in-depth uendret, IKKE DL); transient (DB nede) → kast, ingen commit, re-poll. (5) REPLAY etter parser-oppgradering: dead-lettet ukjent-subtype replayes fra Kafka (≤90d, B26) eller re-injiseres fra DL-rad — trygt fordi dedup er på header-eventId (`ON CONFLICT DO NOTHING`); operasjonell prosedyre, ikke automatikk. (6) DL-RETENSJON (UTVIDER B42): `dead_letter_message` bærer nå rå payload m/fnr (art.9-nær) og er primær landingsplass for parse-feil → hard delete ved alder > ~100d (samme disiplin/coroutine som `inbox_message`, B42-scope utvides); parse-feil logges aldri rått (B58). KONSEKVENS: «undecodable content → inbox FAILED hos beslutnings-worker» (ADR 0002) UTGÅR — content garantert parsebar på hver RECEIVED-rad → `SerializationException` i beslutnings-worker elimineres (jf. B58-lekkasjen). BEVISST KOSTNAD: ekte kontraktbrudd (ukjent subtype ved versjons-skew) dead-letteres → manuell replay. HOLD-PLASSERING (inbox vs outbox, `DECISIONS.md` #1) forblir ÅPEN men er nå AVBLOKKERT — hydrert inbox gjør både outbox-hold-med-`CANCELLED` og ekte inbox-hold (pre-send-annullering) billigere. UNNTAK FRA B43: å fjerne `eventId` fra `Dispatch` er en breaking endring på `.v1` — gjøres in-place (ikke `.v2`+dual-write som B43 krever) fordi tjenesten er pre-prod med én konsument og ingen prod-kompatibilitet å bevare; unntaket gjelder KUN denne endringen, B43 gjelder fullt ut igjen ved prod. Vraket: on-the-fly-deserialisering ved lukking, eget hydrert mellomlag (overengineering), `reference` som ny header (utvider kontrakt + tvillingkilde), behold eventId i payload som autoritativ (opprinnelig ADR-0008-forslag — forkastet av team: eventId er en teknisk id, ett kildested renere; hard header-avhengighet tatt bevisst).
+
+- B13: Topologi A — to tabeller: `inbox_message` + `delivery`. `referanse` + `inbox_event_id` på leveranse holder døren
+  åpen for senere varsel-aggregat (B) via additiv migrering.
+- B14: Status på delivery-raden (`READY`/`CLAIMED`/`SENT`/`FAILED`). Transient feil = rad blir stående `CLAIMED` og kan
+  re-claimes når lease utløper. Ingen separat failed-tabell.
+- B15: Delivery-worker bruker claim/lease med `FOR UPDATE SKIP LOCKED` for å fordele arbeid mellom flere pollere uten
+  dobbeltlevering.
+- B16: Idempotensnøkkel mot kanaler = vår genererte `delivery.id` (UUID), gjenbrukt ved retry + FERDIGSTILL.
+  `ekstern_respons_id` (nullable) lagrer kanalens retur-id for sporing.
+- B17: Sporing — enkelt-id spores i Grafana via Loki (logger) + Tempo (traces). Prometheus-metrikker kun lav
+  kardinalitet (kanal/status/mottaker_type/feiltype), aldri id/fnr som label. REVIDERT av B45: korrelasjons-iden er
+  `eventId` (produsent-oppgitt), ingen egen `trace_id`-kolonne.
+- B18: Inbox-livsløp — konsument skriver `RECEIVED`; beslutnings-workeren setter `PROCESSED`/`DROPPED`
+  (`drop_reason=DEAD`)/`FAILED` i én tx. Inbox har `attempt`/`next_attempt_time` for claim/lease. Død-dropp logges som
+  status på inbox (justerer B7: ingen egen tabell). PII-at-rest: fnr i klartekst (CloudSQL-kryptert, maskert i logg);
+  retensjon/GDPR LUKKET av B42 (hard delete pr. tabell) + B61 (DL-retensjon). (NYANSERT av B61/ADR 0008: på inbox ligger
+  personident i `content` jsonb, ikke i en egen `recipient_id`-kolonne; `recipient_id`-kolonnen er på `delivery`.)
+- B61: HYDRERT INBOX — FULL PARSE VED INGEST, EVENTID KUN I HEADER (SUPERSEDER ADR 0002; se ADR 0008; REVERSERER B54s
+  «payload autoritativ»; nyanserer B4/B21; trigget av #27). Ingest PARSER hele `Dispatch` (konvolutt + sealed `content`)
+  og hydrerer inbox-raden i stedet for ADR 0002s parse-frie «rå payload byte-eksakt». (1) EVENTID LEVER KUN I
+  KAFKA-HEADEREN (`DispatchHeader.EVENT_ID`) og FJERNES fra payloaden → `Dispatch` blir `{ reference, content }`;
+  eventId er en teknisk id (dedup+korrelasjon), ikke domenedata. DEDUP på HEADER-eventId som PK/
+  `ON CONFLICT DO NOTHING`, lest FØR parse → skjema-uavhengig. Headeren er dermed AUTORITATIV og OBLIGATORISK:
+  manglende/ugyldig → dead-letter (`MISSING_EVENT_ID`/`INVALID_EVENT_ID`), ingen payload-fallback. Løser tvillingkilden
+  ved å ELIMINERE payload-kilden (ikke rangere), reverserer B54. (2) `content` lagres som `jsonb<DispatchContent>`
+  (speiler `delivery`), rå `payload text` DROPPES; `event_id` (PK) settes fra headeren; `reference` løftes ut som EGEN
+  KOLONNE (selektiv FERDIGSTILL-match-nøkkel B39 + eneste konvolutt-felt utenfor `content`-jsonb; indeks legges til med
+  inbox-hold-matching #1). `recipient`/`channel`/`operation` løftes IKKE (utledbare fra `content` `partitionKey`/`type`,
+  brukes kun til avgrensning innenfor et reference-treff → ingen spekulativ schema; ytterligere match-kolonner legges
+  til KUN hvis #1 = inbox-hold). `ignoreUnknownKeys=true` beholdes → ukjente felt forsvinner BEVISST (kontrakt =
+  sannhet, B1/B22 — ukjent produsent-data er ikke vårt ansvar). (3) `event_id` beholdes best-effort på
+  `dead_letter_message` (nullable): payload-parse-feil med gyldig header lagres MED eventId → full
+  produsent-korrelasjon; kun manglende header gir null. (4) FEILTAKSONOMI skiller SYNTAKTISK fra SEMANTISK:
+  manglende/ugyldig header, tom/korrupt payload, konvolutt uten reference, ukjent sealed-subtype → dead-letter + offset
+  committes; representable-men-ulovlig kombinasjon (B21) når inbox NORMALT og håndteres av beslutnings-worker
+  (`PROCESSED` + `ugyldig_kombinasjon`-metrikk, INGEN `FAILED`/alert — B21s defense-in-depth uendret, IKKE DL);
+  transient (DB nede) → kast, ingen commit, re-poll. (5) REPLAY etter parser-oppgradering: dead-lettet ukjent-subtype
+  replayes fra Kafka (≤90d, B26) eller re-injiseres fra DL-rad — trygt fordi dedup er på header-eventId
+  (`ON CONFLICT DO NOTHING`); operasjonell prosedyre, ikke automatikk. (6) DL-RETENSJON (UTVIDER B42):
+  `dead_letter_message` bærer nå rå payload m/fnr (art.9-nær) og er primær landingsplass for parse-feil → hard delete
+  ved alder > ~100d (samme disiplin/coroutine som `inbox_message`, B42-scope utvides); parse-feil logges aldri rått
+  (B58). KONSEKVENS: «undecodable content → inbox FAILED hos beslutnings-worker» (ADR 0002) UTGÅR — content garantert
+  parsebar på hver RECEIVED-rad → `SerializationException` i beslutnings-worker elimineres (jf. B58-lekkasjen). BEVISST
+  KOSTNAD: ekte kontraktbrudd (ukjent subtype ved versjons-skew) dead-letteres → manuell replay. HOLD-PLASSERING (inbox
+  vs outbox, `DECISIONS.md` #1) forblir ÅPEN men er nå AVBLOKKERT — hydrert inbox gjør både outbox-hold-med-`CANCELLED`
+  og ekte inbox-hold (pre-send-annullering) billigere. UNNTAK FRA B43: å fjerne `eventId` fra `Dispatch` er en breaking
+  endring på `.v1` — gjøres in-place (ikke `.v2`+dual-write som B43 krever) fordi tjenesten er pre-prod med én konsument
+  og ingen prod-kompatibilitet å bevare; unntaket gjelder KUN denne endringen, B43 gjelder fullt ut igjen ved prod.
+  Vraket: on-the-fly-deserialisering ved lukking, eget hydrert mellomlag (overengineering), `reference` som ny header
+  (utvider kontrakt + tvillingkilde), behold eventId i payload som autoritativ (opprinnelig ADR-0008-forslag — forkastet
+  av team: eventId er en teknisk id, ett kildested renere; hard header-avhengighet tatt bevisst).
 
 ## FERDIGSTILL-beslutninger (se docs/ferdigstill.md)
-- B19: FERDIGSTILL er kanal-eksplisitt (referanse pr. kanal/mottaker, symmetrisk med B6). Matching på (referanse, recipient_id, kanal). Lukking gjenbruker delivery-maskineriet: en `delivery`-rad med `operation=INAKTIVER` og samme idempotensmodell som OPPRETT.
-- B20: FERDIGSTILL-edge — ingen matchende OPPRETT er ikke hard feil: inbox `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`.
-- B21: Ulovlige kombinasjoner (f.eks. FERDIGSTILL+BREV) gjøres urepresenterbare i typede sealed-kontrakter + JSON Schema (feil ved bygg, ikke drift). Runtime = defense-in-depth: logg + metrikk `ugyldig_kombinasjon`, ingen `FAILED`/alert. Kafka-offset committes alltid etter inbox-skriving; terminal DB-status blokkerer aldri partisjonen.
+
+- B19: FERDIGSTILL er kanal-eksplisitt (referanse pr. kanal/mottaker, symmetrisk med B6). Matching på (referanse,
+  recipient_id, kanal). Lukking gjenbruker delivery-maskineriet: en `delivery`-rad med `operation=INAKTIVER` og samme
+  idempotensmodell som OPPRETT.
+- B20: FERDIGSTILL-edge — ingen matchende OPPRETT er ikke hard feil: inbox `PROCESSED`, ingen delivery-rad, logg +
+  metrikk `ferdigstill_uten_treff`.
+- B21: Ulovlige kombinasjoner (f.eks. FERDIGSTILL+BREV) gjøres urepresenterbare i typede sealed-kontrakter + JSON Schema
+  (feil ved bygg, ikke drift). Runtime = defense-in-depth: logg + metrikk `ugyldig_kombinasjon`, ingen `FAILED`/alert.
+  Kafka-offset committes alltid etter inbox-skriving; terminal DB-status blokkerer aldri partisjonen.
 
 ## Kontrakt/kanal-DTO-beslutninger (se docs/kontrakt.md)
-- B22: Kontraktstruktur — felles konvolutt (eventId, referanse) + sealed `DispatchContent` med diskriminator. Operasjon (OPPRETT/FERDIGSTILL) kodes inn i sealed-typen (ingen separat handling-enum), så B21 håndheves av kompilatoren. Lukking = typede, tynne `Inactivate`-varianter per lukkbar kanal. (NYANSERT av B61/ADR 0008: `eventId` er fjernet fra konvolutten og lever kun som Kafka-header → konvolutten er `{ reference, content }`.)
-- B23: Egen NØYTRAL kanalabstraksjon for ALLE kanaler (anti-corruption-lag), formet rundt konsumentbehov — ikke nedstrøms-form. Budstikka mapper internt til tms/dokdist/notifikasjon-produsent-api. Nedstrøms-felt lekker aldri inn i offentlig kontrakt. Tekstmodell er vår egen (skjermtekst + valgfri ekstern SMS/e-post-override + foretrukne kanaler).
-- B24: NL-resolusjon SENTRALISERES i budstikka. Kontrakten for ledervarsel bærer `(arbeidstakerFnr, orgnummer)` — IKKE `narmesteLederFnr`. Budstikka slår opp aktiv leder i narmesteleder-registeret i Beslutning-fasen (samme fase som KRR/PDL, B10). Begrunnelse (research 2026-07): dagens esyfovarsel er en hybrid med DOBBELTOPPSLAG (både produsent og esyfovarsel kaller narmesteleder for samme dialogmøte-hendelse); produsentene har allerede narmesteleder-integrasjon → Alt B er ikke ekstra stress, eliminerer duplisering, gir én konsistent oppførsel og korrekt leder på sendetidspunkt (robust mot lederbytte). Konsekvens: narmesteleder blir budstikka-avhengighet (accessPolicy + Azure AD M2M); partisjonsnøkkel for ledervarsel = `arbeidstakerFnr` (stabil anker, nyanserer B5); FERDIGSTILL-matching = `(referanse, arbeidstakerFnr, kanal)`.
-- B25: SENDEVINDU eies av budstikka som nøytralt begrep (anti-corruption, B23) og operasjonaliseres i outbox. Nøytral `SendingWindow` (`LOEPENDE`, `NKS_AAPNINGSTID`, utvidbar). Budstikka SELF-operasjonaliserer: `tidligst_sending`-kolonne på leveranse beregnes i Beslutning-fasen fra vindu + NKS-kalender; outbox-poller gater `AND tidligst_sending <= now()`; budstikka sender ALLTID LØPENDE nedstrøms (aldri nedstrøms-native vindu) → lik oppførsel uansett kanal + hele ventetiden synlig i egen DB/Grafana. Default = `NKS_AAPNINGSTID` for eksternbærende leveranser (brukervarsel m/externalVarsling, ledervarsel m/ekstern, arbeidsgivervarsel), `LOEPENDE` for brev/microfrontend/ren in-app. Konsument kan overstyre pr. hendelse (valgfritt `sendevindu`-felt). Vinduet holder HELE leveransen (in-app + ekstern samlet) — unngår avhengighet til nedstrøms utsatt-sending. Kostnad tatt bevisst: NKS-åpningstidskalender (helg/helligdag) bor i budstikka.
-- B26: Inbound-topic `team-esyfo.budstikka.v1` får BOUNDED retention: 90 dager, `cleanup.policy=delete` (tidsbasert; IKKE compaction — dette er en kommando/event-strøm, ikke keyed changelog). Bounded er valgt bevisst av GDPR-dataminimering (topicet bærer fnr) + fordi inbox-tabellen (DB) er sannhetskilden, ikke topicet. HARD KOBLING: retention = replay-vindu (reset offset), og replay er kun trygt så lenge inbox-dedup-radene (event_id) fortsatt finnes → **inbox-dedup-rader MÅ holdes ≥ 90 dager**, ellers gir replay dobbeltvarsling. Setter dermed gulv for inbox-retention (åpent GDPR-punkt). Under migrering fra esyfovarsel gir 90 dager ekstra sikkerhetsnett.
-- B43: TOPIC-IDENTITET/NAVN. Budstikkas innkommende topic er en NY, budstikka-EID topic `team-esyfo.budstikka.v1` — ikke esyfovarsels legacy `team-esyfo.varselbus` (konsum av varselbus var aldri planen; issue #17 refererte den feilaktig og er rettet). Provisjoneres via Kafkarator `Topic`-CRD (egen oppgave, blokkerer Kafka-konsum-snittet); retention pr. B26 (90d, `cleanup.policy=delete`). ROT-TYPEN omdøpt `Varselbestilling` → `Dispatch` (og `Hendelsesinnhold` → `DispatchContent`) fordi topicen bærer IKKE bare varsler, men også microfrontend-synlighet (B41 — en av/på-flate på Min side, ikke et varsel) samt brev og e-post: «varsel»/«bestilling» var for smalt (og «bestilling» rammer feil — det er ikke en ordre til budstikka, men selve tingen som skal ut). «Dispatch» navngir HANDLINGEN å nå ut til en mottaker, kanal- og artefakt-agnostisk → dekker varsel, brev, e-post og microfrontend ærlig. Versjonssuffiks `.v1` per Kafka-navnekonvensjon (`<team>.<domene>.v<versjon>`) gir eksplisitt event-evolusjonssti (breaking → `.v2`, dual-write). Domenespråket festet i nytt `docs/glossary.md` med «Dispatch» som paraplybegrep. GLOSSARET innført samtidig (første durable ordliste for domenet).
+
+- B22: Kontraktstruktur — felles konvolutt (eventId, referanse) + sealed `DispatchContent` med diskriminator. Operasjon
+  (OPPRETT/FERDIGSTILL) kodes inn i sealed-typen (ingen separat handling-enum), så B21 håndheves av kompilatoren.
+  Lukking = typede, tynne `Inactivate`-varianter per lukkbar kanal. (NYANSERT av B61/ADR 0008: `eventId` er fjernet fra
+  konvolutten og lever kun som Kafka-header → konvolutten er `{ reference, content }`.)
+- B23: Egen NØYTRAL kanalabstraksjon for ALLE kanaler (anti-corruption-lag), formet rundt konsumentbehov — ikke
+  nedstrøms-form. Budstikka mapper internt til tms/dokdist/notifikasjon-produsent-api. Nedstrøms-felt lekker aldri inn i
+  offentlig kontrakt. Tekstmodell er vår egen (skjermtekst + valgfri ekstern SMS/e-post-override + foretrukne kanaler).
+- B24: NL-resolusjon SENTRALISERES i budstikka. Kontrakten for ledervarsel bærer `(arbeidstakerFnr, orgnummer)` — IKKE
+  `narmesteLederFnr`. Budstikka slår opp aktiv leder i narmesteleder-registeret i Beslutning-fasen (samme fase som
+  KRR/PDL, B10). Begrunnelse (research 2026-07): dagens esyfovarsel er en hybrid med DOBBELTOPPSLAG (både produsent og
+  esyfovarsel kaller narmesteleder for samme dialogmøte-hendelse); produsentene har allerede narmesteleder-integrasjon →
+  Alt B er ikke ekstra stress, eliminerer duplisering, gir én konsistent oppførsel og korrekt leder på sendetidspunkt
+  (robust mot lederbytte). Konsekvens: narmesteleder blir budstikka-avhengighet (accessPolicy + Azure AD M2M);
+  partisjonsnøkkel for ledervarsel = `arbeidstakerFnr` (stabil anker, nyanserer B5); FERDIGSTILL-matching =
+  `(referanse, arbeidstakerFnr, kanal)`.
+- B25: SENDEVINDU eies av budstikka som nøytralt begrep (anti-corruption, B23) og operasjonaliseres i outbox. Nøytral
+  `SendingWindow` (`LOEPENDE`, `NKS_AAPNINGSTID`, utvidbar). Budstikka SELF-operasjonaliserer: `tidligst_sending`
+  -kolonne på leveranse beregnes i Beslutning-fasen fra vindu + NKS-kalender; outbox-poller gater
+  `AND tidligst_sending <= now()`; budstikka sender ALLTID LØPENDE nedstrøms (aldri nedstrøms-native vindu) → lik
+  oppførsel uansett kanal + hele ventetiden synlig i egen DB/Grafana. Default = `NKS_AAPNINGSTID` for eksternbærende
+  leveranser (brukervarsel m/externalVarsling, ledervarsel m/ekstern, arbeidsgivervarsel), `LOEPENDE` for
+  brev/microfrontend/ren in-app. Konsument kan overstyre pr. hendelse (valgfritt `sendevindu`-felt). Vinduet holder HELE
+  leveransen (in-app + ekstern samlet) — unngår avhengighet til nedstrøms utsatt-sending. Kostnad tatt bevisst:
+  NKS-åpningstidskalender (helg/helligdag) bor i budstikka.
+- B26: Inbound-topic `team-esyfo.budstikka.v1` får BOUNDED retention: 90 dager, `cleanup.policy=delete` (tidsbasert;
+  IKKE compaction — dette er en kommando/event-strøm, ikke keyed changelog). Bounded er valgt bevisst av
+  GDPR-dataminimering (topicet bærer fnr) + fordi inbox-tabellen (DB) er sannhetskilden, ikke topicet. HARD KOBLING:
+  retention = replay-vindu (reset offset), og replay er kun trygt så lenge inbox-dedup-radene (event_id) fortsatt
+  finnes → **inbox-dedup-rader MÅ holdes ≥ 90 dager**, ellers gir replay dobbeltvarsling. Setter dermed gulv for
+  inbox-retention (åpent GDPR-punkt). Under migrering fra esyfovarsel gir 90 dager ekstra sikkerhetsnett.
+- B43: TOPIC-IDENTITET/NAVN. Budstikkas innkommende topic er en NY, budstikka-EID topic `team-esyfo.budstikka.v1` — ikke
+  esyfovarsels legacy `team-esyfo.varselbus` (konsum av varselbus var aldri planen; issue #17 refererte den feilaktig og
+  er rettet). Provisjoneres via Kafkarator `Topic`-CRD (egen oppgave, blokkerer Kafka-konsum-snittet); retention pr. B26
+  (90d, `cleanup.policy=delete`). ROT-TYPEN omdøpt `Varselbestilling` → `Dispatch` (og `Hendelsesinnhold` →
+  `DispatchContent`) fordi topicen bærer IKKE bare varsler, men også microfrontend-synlighet (B41 — en av/på-flate på
+  Min side, ikke et varsel) samt brev og e-post: «varsel»/«bestilling» var for smalt (og «bestilling» rammer feil — det
+  er ikke en ordre til budstikka, men selve tingen som skal ut). «Dispatch» navngir HANDLINGEN å nå ut til en mottaker,
+  kanal- og artefakt-agnostisk → dekker varsel, brev, e-post og microfrontend ærlig. Versjonssuffiks `.v1` per
+  Kafka-navnekonvensjon (`<team>.<domene>.v<versjon>`) gir eksplisitt event-evolusjonssti (breaking → `.v2`,
+  dual-write). Domenespråket festet i nytt `docs/glossary.md` med «Dispatch» som paraplybegrep. GLOSSARET innført
+  samtidig (første durable ordliste for domenet).
 
 ## Worker-/prosesseringsbeslutninger
-- B27: Worker-topologi = ÉN generisk dyp modul + tynn `Kanalhandler`-seam (dispatch på `kanal`). Det generiske maskineriet (poll, `FOR UPDATE SKIP LOCKED`-radlås, retry/backoff, statusoverganger, tracing, metrikker) bor ÉN gang; kanalspesifikt (bygg tms-varsel, kall dokdist, GraphQL mot notifikasjon-produsent-api) er tynne handler-implementasjoner bak et smalt grensesnitt. Ny kanal = én handler + registrering (ingen ny deploy/topic/tabell). Skalerer horisontalt via SKIP LOCKED (N like instanser). IKKE én worker-deployment per type (dupliserer maskineriet, øker sprawl) og IKKE saga/prosess-manager (hver leveranse er én idempotent, retrybar side-effekt uten distribuert tx å kompensere; brev-fallback + OPPRETT→INAKTIVER er allerede egne rader + tilstandsoverganger = routing-slip/state-machine, riktig vekt). Isolasjon dekkes billig: stramme per-kanal-timeouts (B15) + circuit breaker + backoff; trenger én kanal ekte isolasjon → dedikert poller-coroutine `WHERE kanal='X'` i SAMME deployment (config, ikke rearkitektur). `kanal`-kolonnen + `Kanalhandler` ER sømmen som muliggjør senere per-kanal-splitt uten å røre handler-kode.
-- B28: Beslutnings-workeren struktureres som FUNCTIONAL CORE / IMPERATIVE SHELL i tre sammenhengende steg i samme poller-løp: (1) `Grunnlagsinnhenter` (imperative shell, I/O): henter PDL/KRR/NL → immutabelt `Beslutningsgrunnlag`; her bor suspending-kall, timeouts, transient-vs-permanent-klassifisering. (2) `decide(hendelse, grunnlag): Beslutning` (PURE core, null I/O): sealed `Beslutning` = `Dropp(DOD)` / `Utsett(backoff)` / `Leveranser(List<LeveranseUtkast>)`; ALL forretningslogikk (død-dropp, reservasjon→kanalvalg, brev-fallback-trigger, sendevindu-default, ugyldig-kombinasjon-forsvar) — testes uttømmende med rene data, ingen mocks. (3) Effektuering (imperative shell, tx): skriver leveranse-rader + inbox-status i én DB-tx. Flyt: `poll → hent → beslutt → persister`. Samme skille i Outbox: anti-corruption-mappingen `byggNedstrømsforespørsel(leveranse)` er REN (testbar), `send(request)` er I/O. Datainnhenting er BETINGET på hendelsestype (start enkelt; evt. `Databehov`-deklarasjon per `Kanalhandler` senere). Fallgruve unngått bevisst: stopp på TRE steg — ikke N tynne pass-through-lag.
+
+- B27: Worker-topologi = ÉN generisk dyp modul + tynn `Kanalhandler`-seam (dispatch på `kanal`). Det generiske
+  maskineriet (poll, `FOR UPDATE SKIP LOCKED`-radlås, retry/backoff, statusoverganger, tracing, metrikker) bor ÉN gang;
+  kanalspesifikt (bygg tms-varsel, kall dokdist, GraphQL mot notifikasjon-produsent-api) er tynne
+  handler-implementasjoner bak et smalt grensesnitt. Ny kanal = én handler + registrering (ingen ny
+  deploy/topic/tabell). Skalerer horisontalt via SKIP LOCKED (N like instanser). IKKE én worker-deployment per type
+  (dupliserer maskineriet, øker sprawl) og IKKE saga/prosess-manager (hver leveranse er én idempotent, retrybar
+  side-effekt uten distribuert tx å kompensere; brev-fallback + OPPRETT→INAKTIVER er allerede egne rader +
+  tilstandsoverganger = routing-slip/state-machine, riktig vekt). Isolasjon dekkes billig: stramme per-kanal-timeouts
+  (B15) + circuit breaker + backoff; trenger én kanal ekte isolasjon → dedikert poller-coroutine `WHERE kanal='X'` i
+  SAMME deployment (config, ikke rearkitektur). `kanal`-kolonnen + `Kanalhandler` ER sømmen som muliggjør senere
+  per-kanal-splitt uten å røre handler-kode.
+- B28: Beslutnings-workeren struktureres som FUNCTIONAL CORE / IMPERATIVE SHELL i tre sammenhengende steg i samme
+  poller-løp: (1) `Grunnlagsinnhenter` (imperative shell, I/O): henter PDL/KRR/NL → immutabelt `Beslutningsgrunnlag`;
+  her bor suspending-kall, timeouts, transient-vs-permanent-klassifisering. (2) `decide(hendelse, grunnlag): Beslutning`
+  (PURE core, null I/O): sealed `Beslutning` = `Dropp(DOD)` / `Utsett(backoff)` / `Leveranser(List<LeveranseUtkast>)`;
+  ALL forretningslogikk (død-dropp, reservasjon→kanalvalg, brev-fallback-trigger, sendevindu-default,
+  ugyldig-kombinasjon-forsvar) — testes uttømmende med rene data, ingen mocks. (3) Effektuering (imperative shell, tx):
+  skriver leveranse-rader + inbox-status i én DB-tx. Flyt: `poll → hent → beslutt → persister`. Samme skille i Outbox:
+  anti-corruption-mappingen `byggNedstrømsforespørsel(leveranse)` er REN (testbar), `send(request)` er I/O.
+  Datainnhenting er BETINGET på hendelsestype (start enkelt; evt. `Databehov`-deklarasjon per `Kanalhandler` senere).
+  Fallgruve unngått bevisst: stopp på TRE steg — ikke N tynne pass-through-lag.
 
 ## Arbeidsgivervarsel-beslutninger (se docs/kontrakt.md)
-- B29: AG-INNHOLD/E-POST — budstikka eier IKKE e-postmal/ramme; plattformen nedstrøms (notifikasjon-produsent-api for AG, min-side-varsler for brukervarsel) eier branding/innpakning. Research 2026-07: esyfovarsel har INGEN delt e-postramme (kun 3–5 tynne setninger, ingen logo/header/footer) — branding delegeres allerede nedstrøms, så konsistensen bor der, ikke i budstikka. Konsument oppgir nøytralt REN-TEKST-innhold via `EksternVarsling` (`epostTittel`, `epostTekst`, `smsTekst`) — separate strenger, helt ulike skjermteksten `tekst` (research: ikke avledet i dag). Budstikka SANITERER (escaper, linjeskift→`<br>`) — aldri rå konsument-HTML fra Kafka (esyfovarsel saniterer ikke fordi tekster er hardkodet; når innhold kommer fra Kafka MÅ vi). INGEN rikt format nå (YAGNI — dagens e-poster har ingen punktlister/persondata/inline-lenker); strukturert innholdsformat kan legges til senere ved reelt behov. Gjelder alle eksternbærende kanaler, ikke bare AG.
-- B30: MERKELAPP modelleres som typet LUKKET enum i budstikkas DELTE KONTRAKTBIBLIOTEK (ikke opak streng, ikke budstikka-eid runtime-authz). Navnet beholdes `merkelapp` (IKKE rename til `tema` — kolliderer med NAV arkiv/Gosys-temakoder). Begrunnelse: gir konsument-DX (kompileringsvalg + autocomplete + tidlig feil ved BYGGETID — Kafka-transporten er async, så ingen synkron innsendingsvalidering finnes uansett; eneste tidlige signal er konsumentens byggetid via delt lib). LUKKET form er bevisst: den TVINGER fager-registrering (`PRODUSENT_REGISTER.tillatteMerkelapper`, verifisert i kildekode) og budstikka-onboarding til å skje sammen → holder de to listene i synk mot drift. Dette er den MILDE formen for domenekobling: en NAVNELISTE uten oppførsel — budstikka forgrener ALDRI på merkelapp (`when(merkelapp)` finnes ikke), bærer den kun videre til produsent-api. Domeneblind-prinsippet (B1) gjelder OPPFØRSEL, ikke denne navnelisten. Fager-registeret forblir den faktiske håndhevelsen (`kanSendeTil`); enumen er DX-laget over den. Akseptert kostnad tatt med åpne øyne: budstikkas kontrakt navngir domeneområder → budstikka i release-stien for nye merkelapper (inkrementelt — fager er det uansett). Migrering: budstikka legges inn i eksisterende `ESYFO`-produsent (`accessPolicy` er en liste) → arver `tillatteMerkelapper` (Dialogmøte, Oppfølging) + `tillatteMottakere` uten re-registrering; parallell produksjon under cutover (jf. område 5/6).
-- B31: MERKELAPP vs SAK er to nivåer. `merkelapp` = KATEGORI (typet enum, B30, budstikka eier settet). Sak-INSTANSEN = `grupperingsid` nedstrøms, eies av KONSUMENTEN → valgfri `Sakstilknytning(sakId)` i kontrakt; budstikka mapper sakId → grupperingsid i anti-corruption-laget (B23). Sak/Kalenderavtale-LIVSLØP ligger hos konsument (research: i dag tett koblet til dialogmøte-domenet → skal ut av budstikka). Research bekreftet at merkelapp er hardkodet (konsument-oppgir-ikke) i esyfovarsels Altinn-sti — styrker at budstikka eier merkelapp-settet mens konsument eier saken.
-- B32: AG-MOTTAKER-MODELL = én `ArbeidsgivervarselCreate` + sealed `AgMottaker` = `NarmesteLeder(sykmeldt)` | `AltinnRessurs(ressurs)`. De to stiene kombineres ALDRI (research: to separate kodegrener) → sealed VALG, ikke separate hendelsesvarianter. NL-sti: budstikka resolver nærmeste leder selv (B24) fra (sykmeldt, orgnummer) og gir produsent-api `NærmesteLederMottaker` (én personlig mottaker). Altinn-sti: `ressursId` (→ produsent-api `AltinnRessursMottaker`; ALLE med Altinn-rollen ved virksomheten) modelleres som typet enum `AltinnRessursId` — samme register-håndhevede verdi som merkelapp (fager `tillatteMottakere`), jf. B30. Partisjonsnøkkel = orgnummer (virksomhet), felles for begge stier. FALLBACK ved manglende NL: BESLUTTET modell = OPT-IN, konsument-erklært Altinn-fallback — men UTSATT til fase 2 (nice-to-have; esyfovarsel har det ikke i dag → ikke launch-kritisk). Viktig nyanse: NL→Altinn er IKKE et speil av brevFallback (B8, kanalbytte for SAMME person) — det er MOTTAKER-UTVIDELSE (én leder → N rollehavere) med konfidensialitets-implikasjon (helsenær info til bredere krets), derfor MÅ det være opt-in: konsument samtykker til utvidelsen + oppgir målet. Budstikka eier MEKANISMEN (resolve NL → oppdag manglende → rut til erklært mål), konsument eier POLICYEN. V1-default = OBSERVERBAR drop ved manglende NL (metrikk/alert, ikke stille). Feltet legges til kontrakten når implementert (valgfritt → non-breaking); utelates fra v1 for å unngå falsk affordance (et felt som ignoreres er verre enn fravær).
-- B33: AG-MELDINGSTYPE = nøytral enum `ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }` (produsent-api-native, men universelt «FYI vs krever handling»; budstikka forgrener ikke, bærer konsumentens valg). Holdes SEPARAT fra Brukervarsels `Varseltype` (samme konsept, men kan drifte — AG-OPPGAVE kan få frist/påminnelse; unngå prematur kobling, slå evt. sammen senere hvis identiske). Frist/påminnelse (OPPGAVE-ekstra) UTSATT (YAGNI; valgfrie felt → non-breaking senere). VIKTIG KOBLING flagget til Inaktiver-grilling (⟡ #3): OPPGAVE har et livsløp BESKJED ikke har — riktig lukking av en OPPGAVE er trolig produsent-api `oppgaveUtført` (vises som «utført»), ikke `hardDelete`; Inaktiver-mekanismen (B19–B21) må slå opp lagret meldingstype/sti ved AG-lukking, ikke bare kanal. Med B33 er ARBEIDSGIVERVARSEL ferdig-grillet (rest = Inaktiver-typing, felles åpent punkt).
+
+- B29: AG-INNHOLD/E-POST — budstikka eier IKKE e-postmal/ramme; plattformen nedstrøms (notifikasjon-produsent-api for
+  AG, min-side-varsler for brukervarsel) eier branding/innpakning. Research 2026-07: esyfovarsel har INGEN delt
+  e-postramme (kun 3–5 tynne setninger, ingen logo/header/footer) — branding delegeres allerede nedstrøms, så
+  konsistensen bor der, ikke i budstikka. Konsument oppgir nøytralt REN-TEKST-innhold via `EksternVarsling`
+  (`epostTittel`, `epostTekst`, `smsTekst`) — separate strenger, helt ulike skjermteksten `tekst` (research: ikke
+  avledet i dag). Budstikka SANITERER (escaper, linjeskift→`<br>`) — aldri rå konsument-HTML fra Kafka (esyfovarsel
+  saniterer ikke fordi tekster er hardkodet; når innhold kommer fra Kafka MÅ vi). INGEN rikt format nå (YAGNI — dagens
+  e-poster har ingen punktlister/persondata/inline-lenker); strukturert innholdsformat kan legges til senere ved reelt
+  behov. Gjelder alle eksternbærende kanaler, ikke bare AG.
+- B30: MERKELAPP modelleres som typet LUKKET enum i budstikkas DELTE KONTRAKTBIBLIOTEK (ikke opak streng, ikke
+  budstikka-eid runtime-authz). Navnet beholdes `merkelapp` (IKKE rename til `tema` — kolliderer med NAV
+  arkiv/Gosys-temakoder). Begrunnelse: gir konsument-DX (kompileringsvalg + autocomplete + tidlig feil ved BYGGETID —
+  Kafka-transporten er async, så ingen synkron innsendingsvalidering finnes uansett; eneste tidlige signal er
+  konsumentens byggetid via delt lib). LUKKET form er bevisst: den TVINGER fager-registrering
+  (`PRODUSENT_REGISTER.tillatteMerkelapper`, verifisert i kildekode) og budstikka-onboarding til å skje sammen → holder
+  de to listene i synk mot drift. Dette er den MILDE formen for domenekobling: en NAVNELISTE uten oppførsel — budstikka
+  forgrener ALDRI på merkelapp (`when(merkelapp)` finnes ikke), bærer den kun videre til produsent-api.
+  Domeneblind-prinsippet (B1) gjelder OPPFØRSEL, ikke denne navnelisten. Fager-registeret forblir den faktiske
+  håndhevelsen (`kanSendeTil`); enumen er DX-laget over den. Akseptert kostnad tatt med åpne øyne: budstikkas kontrakt
+  navngir domeneområder → budstikka i release-stien for nye merkelapper (inkrementelt — fager er det uansett).
+  Migrering: budstikka legges inn i eksisterende `ESYFO`-produsent (`accessPolicy` er en liste) → arver
+  `tillatteMerkelapper` (Dialogmøte, Oppfølging) + `tillatteMottakere` uten re-registrering; parallell produksjon under
+  cutover (jf. område 5/6).
+- B31: MERKELAPP vs SAK er to nivåer. `merkelapp` = KATEGORI (typet enum, B30, budstikka eier settet). Sak-INSTANSEN =
+  `grupperingsid` nedstrøms, eies av KONSUMENTEN → valgfri `Sakstilknytning(sakId)` i kontrakt; budstikka mapper sakId →
+  grupperingsid i anti-corruption-laget (B23). Sak/Kalenderavtale-LIVSLØP ligger hos konsument (research: i dag tett
+  koblet til dialogmøte-domenet → skal ut av budstikka). Research bekreftet at merkelapp er hardkodet
+  (konsument-oppgir-ikke) i esyfovarsels Altinn-sti — styrker at budstikka eier merkelapp-settet mens konsument eier
+  saken.
+- B32: AG-MOTTAKER-MODELL = én `ArbeidsgivervarselCreate` + sealed `AgMottaker` = `NarmesteLeder(sykmeldt)` |
+  `AltinnRessurs(ressurs)`. De to stiene kombineres ALDRI (research: to separate kodegrener) → sealed VALG, ikke
+  separate hendelsesvarianter. NL-sti: budstikka resolver nærmeste leder selv (B24) fra (sykmeldt, orgnummer) og gir
+  produsent-api `NærmesteLederMottaker` (én personlig mottaker). Altinn-sti: `ressursId` (→ produsent-api
+  `AltinnRessursMottaker`; ALLE med Altinn-rollen ved virksomheten) modelleres som typet enum `AltinnRessursId` — samme
+  register-håndhevede verdi som merkelapp (fager `tillatteMottakere`), jf. B30. Partisjonsnøkkel = orgnummer
+  (virksomhet), felles for begge stier. FALLBACK ved manglende NL: BESLUTTET modell = OPT-IN, konsument-erklært
+  Altinn-fallback — men UTSATT til fase 2 (nice-to-have; esyfovarsel har det ikke i dag → ikke launch-kritisk). Viktig
+  nyanse: NL→Altinn er IKKE et speil av brevFallback (B8, kanalbytte for SAMME person) — det er MOTTAKER-UTVIDELSE (én
+  leder → N rollehavere) med konfidensialitets-implikasjon (helsenær info til bredere krets), derfor MÅ det være opt-in:
+  konsument samtykker til utvidelsen + oppgir målet. Budstikka eier MEKANISMEN (resolve NL → oppdag manglende → rut til
+  erklært mål), konsument eier POLICYEN. V1-default = OBSERVERBAR drop ved manglende NL (metrikk/alert, ikke stille).
+  Feltet legges til kontrakten når implementert (valgfritt → non-breaking); utelates fra v1 for å unngå falsk affordance
+  (et felt som ignoreres er verre enn fravær).
+- B33: AG-MELDINGSTYPE = nøytral enum `ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }` (produsent-api-native, men
+  universelt «FYI vs krever handling»; budstikka forgrener ikke, bærer konsumentens valg). Holdes SEPARAT fra
+  Brukervarsels `Varseltype` (samme konsept, men kan drifte — AG-OPPGAVE kan få frist/påminnelse; unngå prematur
+  kobling, slå evt. sammen senere hvis identiske). Frist/påminnelse (OPPGAVE-ekstra) UTSATT (YAGNI; valgfrie felt →
+  non-breaking senere). VIKTIG KOBLING flagget til Inaktiver-grilling (⟡ #3): OPPGAVE har et livsløp BESKJED ikke har —
+  riktig lukking av en OPPGAVE er trolig produsent-api `oppgaveUtført` (vises som «utført»), ikke `hardDelete`;
+  Inaktiver-mekanismen (B19–B21) må slå opp lagret meldingstype/sti ved AG-lukking, ikke bare kanal. Med B33 er
+  ARBEIDSGIVERVARSEL ferdig-grillet (rest = Inaktiver-typing, felles åpent punkt).
 
 ## Inaktiver-beslutninger (se docs/ferdigstill.md + kontrakt.md)
-- B38: INAKTIVER-TYPING = typet variant PR. LUKKBAR KANAL (`BrukervarselInactivate`, `LedervarselInactivate`, `DittSykefravaerInactivate`, `ArbeidsgivervarselInactivate`) — IKKE felles thin variant med generisk `mottakerident: String`. Kanal er IMPLISITT i typen; matchnøkkelen er typet (`PersonIdentifier`/`Orgnummer`) → bevarer PII-maskering (B9, `toString="***"`) og gjør ulovlige `(kanal, nøkkel)`-par UREPRESENTERBARE (samme filosofi som B6/B21/B22/B30/B32). NYANSERER B22 sin «felles thin `Inaktiver` med `mottakerident: String`»: fortsatt thin (kun `referanse` + typet nøkkel, ingen rik OPPRETT-duplisering), men typet. Matchnøkkel = PARTISJONSANKERET til OPPRETT (det konsumenten KJENNER ved OPPRETT), IKKE den faktiske resolverte mottakeren: BRUKERVARSEL/DITT_SYKEFRAVAER = sykmeldt fnr; LEDERVARSEL = sykmeldt fnr (B24 — konsument kjenner aldri NL-fnr); ARBEIDSGIVERVARSEL = orgnummer. `LukkbarKanal`-enumen utgår (kanal bæres av typen). Begrep: teamet foretrekker «nøkkel» framfor «anker» for denne matcheidentifikatoren.
-- B39: INAKTIVER-OPERASJON AVLEDES FRA LAGRET OPPRETT-RAD, ikke fra hendelsen. FERDIGSTILL-hendelsen er THIN (referanse + typet nøkkel, B38); den bærer ALDRI meldingstype/sti/operation. Flyt (functional core, B28): (1) `FoundationFetcher` finner matchende OPPRETT-delivery på `(referanse, recipient_id, kanal)`; (2) `decide()` FRYSER lukkeparametrene fra OPPRETT-raden onto INAKTIVER-delivery (`meldingstype`, sti NL/Altinn, `ekstern_respons_id`, `grupperingsid`, opprinnelig `delivery.id`); (3) `ChannelHandler` (B27) dispatcher på LAGREDE TEKNISKE attributter — AG: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` — ALDRI på domenetype/merkelapp (domeneblind B1/B30: forgrening på tekniske kanalattributter er lov, på domenetype ikke). `delivery.recipient_id` = MATCHNØKKEL (sykmeldt-fnr for LEDERVARSEL, orgnr for AG); resolvert NL-fnr/`ekstern_respons_id`/`grupperingsid` bor i payload/egne kolonner (justerer DATAMODELL `recipient_id`-semantikk). KOMPATIBILITET med B34–B37 (verifisert): klebrig eierskap ruter FERDIGSTILL til systemet som gjorde OPPRETT → budstikka mottar ALDRI close for fremmed OPPRETT → lagret rad finnes alltid, avledning treffer alltid. Det motsatte valget (bær info i hendelsen = stateless close) impliserer nettopp fremmed-close som MIGRERING §15–22 forkaster (fasade/state-handover/referanse-kontinuitet). Lukker AG ⟡ #3 og designområde 3 sin Inaktiver-typing.
-- B40: TEKSTMODELL/ENUMS. (1) `Varseltype { BESKJED, OPPGAVE }` beholdt og eksplisitt definert i kontraktlib (tms har også `Innboks`, men esyfovarsel bruker den aldri → utelatt, YAGNI/utvidbar). (2) `variant`/`Meldingsvariant` FJERNET fra `DittSykefravaerCreate` — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum har KUN `INFO` (verifisert i esyfovarsel `DittSykefravaerMelding.kt`); et felt konsumenten ikke kan variere = falsk affordance (jf. B32). Budstikka sender alltid INFO; legges til non-breaking senere hvis flex utvider. (3) Felles `tekst`/`lenke` holdes INLINE pr. variant, IKKE trukket ut i delt `Innholdstekst` — bevarer AG sin `lenke`-required-invariant (urepresenterbar-ulovlig ellers), og dette er deklarasjonsduplisering, ikke logikk-duplisering (ingen delt validering på in-app-skjermtekst; sanitering B29 gjelder kun ekstern SMS/e-post).
-- B41: MICROFRONTEND UTENFOR INAKTIVER — eget `MicrofrontendEnable`/`MicrofrontendDisable`-par. Det er synlighet på Min side, ikke en leveranse-med-mottaker: `Deaktiver` matcher IKKE en lagret OPPRETT-leveranse på `referanse` (som Inaktiver B39), og har ingen `meldingstype`/sti/`ekstern_respons_id` å fryse — bare en av/på-bryter for `(person, microfrontendId)`. Konsistent med B38 (`LukkbarKanal` inkluderte aldri MICROFRONTEND). Med B40–B41 er DESIGNOMRÅDE 3 (kanal-DTO-er) LUKKET.
+
+- B38: INAKTIVER-TYPING = typet variant PR. LUKKBAR KANAL (`BrukervarselInactivate`, `LedervarselInactivate`,
+  `DittSykefravaerInactivate`, `ArbeidsgivervarselInactivate`) — IKKE felles thin variant med generisk
+  `mottakerident: String`. Kanal er IMPLISITT i typen; matchnøkkelen er typet (`PersonIdentifier`/`Orgnummer`) → bevarer
+  PII-maskering (B9, `toString="***"`) og gjør ulovlige `(kanal, nøkkel)`-par UREPRESENTERBARE (samme filosofi som
+  B6/B21/B22/B30/B32). NYANSERER B22 sin «felles thin `Inaktiver` med `mottakerident: String`»: fortsatt thin (kun
+  `referanse` + typet nøkkel, ingen rik OPPRETT-duplisering), men typet. Matchnøkkel = PARTISJONSANKERET til OPPRETT
+  (det konsumenten KJENNER ved OPPRETT), IKKE den faktiske resolverte mottakeren: BRUKERVARSEL/DITT_SYKEFRAVAER =
+  sykmeldt fnr; LEDERVARSEL = sykmeldt fnr (B24 — konsument kjenner aldri NL-fnr); ARBEIDSGIVERVARSEL = orgnummer.
+  `LukkbarKanal`-enumen utgår (kanal bæres av typen). Begrep: teamet foretrekker «nøkkel» framfor «anker» for denne
+  matcheidentifikatoren.
+- B39: INAKTIVER-OPERASJON AVLEDES FRA LAGRET OPPRETT-RAD, ikke fra hendelsen. FERDIGSTILL-hendelsen er THIN
+  (referanse + typet nøkkel, B38); den bærer ALDRI meldingstype/sti/operation. Flyt (functional core, B28): (1)
+  `FoundationFetcher` finner matchende OPPRETT-delivery på `(referanse, recipient_id, kanal)`; (2) `decide()` FRYSER
+  lukkeparametrene fra OPPRETT-raden onto INAKTIVER-delivery (`meldingstype`, sti NL/Altinn, `ekstern_respons_id`,
+  `grupperingsid`, opprinnelig `delivery.id`); (3) `ChannelHandler` (B27) dispatcher på LAGREDE TEKNISKE attributter —
+  AG: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` — ALDRI på domenetype/merkelapp
+  (domeneblind B1/B30: forgrening på tekniske kanalattributter er lov, på domenetype ikke). `delivery.recipient_id` =
+  MATCHNØKKEL (sykmeldt-fnr for LEDERVARSEL, orgnr for AG); resolvert NL-fnr/`ekstern_respons_id`/`grupperingsid` bor i
+  payload/egne kolonner (justerer DATAMODELL `recipient_id`-semantikk). KOMPATIBILITET med B34–B37 (verifisert): klebrig
+  eierskap ruter FERDIGSTILL til systemet som gjorde OPPRETT → budstikka mottar ALDRI close for fremmed OPPRETT → lagret
+  rad finnes alltid, avledning treffer alltid. Det motsatte valget (bær info i hendelsen = stateless close) impliserer
+  nettopp fremmed-close som MIGRERING §15–22 forkaster (fasade/state-handover/referanse-kontinuitet). Lukker AG ⟡ #3 og
+  designområde 3 sin Inaktiver-typing.
+- B40: TEKSTMODELL/ENUMS. (1) `Varseltype { BESKJED, OPPGAVE }` beholdt og eksplisitt definert i kontraktlib (tms har
+  også `Innboks`, men esyfovarsel bruker den aldri → utelatt, YAGNI/utvidbar). (2) `variant`/`Meldingsvariant` FJERNET
+  fra `DittSykefravaerCreate` — nedstrøms `flex.ditt-sykefravaer-melding` sin `Variant`-enum har KUN `INFO` (verifisert
+  i esyfovarsel `DittSykefravaerMelding.kt`); et felt konsumenten ikke kan variere = falsk affordance (jf. B32).
+  Budstikka sender alltid INFO; legges til non-breaking senere hvis flex utvider. (3) Felles `tekst`/`lenke` holdes
+  INLINE pr. variant, IKKE trukket ut i delt `Innholdstekst` — bevarer AG sin `lenke`-required-invariant
+  (urepresenterbar-ulovlig ellers), og dette er deklarasjonsduplisering, ikke logikk-duplisering (ingen delt validering
+  på in-app-skjermtekst; sanitering B29 gjelder kun ekstern SMS/e-post).
+- B41: MICROFRONTEND UTENFOR INAKTIVER — eget `MicrofrontendEnable`/`MicrofrontendDisable`-par. Det er synlighet på Min
+  side, ikke en leveranse-med-mottaker: `Deaktiver` matcher IKKE en lagret OPPRETT-leveranse på `referanse` (som
+  Inaktiver B39), og har ingen `meldingstype`/sti/`ekstern_respons_id` å fryse — bare en av/på-bryter for
+  `(person, microfrontendId)`. Konsistent med B38 (`LukkbarKanal` inkluderte aldri MICROFRONTEND). Med B40–B41 er
+  DESIGNOMRÅDE 3 (kanal-DTO-er) LUKKET.
 
 ## Retensjon/GDPR-beslutninger (se docs/datamodell.md)
-- B42: RETENSJON/GDPR. DATA: Fortrolig (fnr i `recipient_id`, resolvert NL-fnr i payload) + selve eksistensen av et sykefravær-oppfølgingsvarsel er helserelatert (art. 9, nær Strengt fortrolig) → aggressiv sletting, minimal eksponering. MODELL: ulik retensjon pr. tabell, HARD DELETE (ikke anonymisering — observability bor i Loki/Tempo/Prometheus B17, ingen analysebehov i radene). `inbox_message`: slett ved alder > ~100 dager (90d B26-gulv for replay-dedup + buffer). `delivery`: slett når TERMINAL og alder > ~180 dager (dekker 90d replay + dialogmøte/AG-sak-lukkevindu ~4 mnd + margin; alle rader blir terminale innen `frist_tid`, B11). FK `inbox_event_id` → `ON DELETE SET NULL` (inbox kan slettes før leveranse). 180d ≈ Loki-loggretensjon (maks ~6 mnd) → logg-drill-down (B17) dekker HELE radens levetid, ingen foreldreløs logg/rad. MEKANISME: in-app periodisk coroutine (gjenbruker poller-mønster, ingen egen Naisjob), batchet idempotent DELETE (`LIMIT`-løkke, korte låser), INGEN leader election (B12) — Postgres advisory lock (`pg_try_advisory_lock`) per sveip unngår bortkastet dobbeltarbeid; kjøres ~hver time. JURIDISK (egen oppgave, ikke kode): avklaring med jurist/personvernombud + dokumentasjon (DPIA/PVK, ROS, behandlingsprotokoll art. 30) før prod. Lukker DATAMODELL åpent retensjonspunkt.
+
+- B42: RETENSJON/GDPR. DATA: Fortrolig (fnr i `recipient_id`, resolvert NL-fnr i payload) + selve eksistensen av et
+  sykefravær-oppfølgingsvarsel er helserelatert (art. 9, nær Strengt fortrolig) → aggressiv sletting, minimal
+  eksponering. MODELL: ulik retensjon pr. tabell, HARD DELETE (ikke anonymisering — observability bor i
+  Loki/Tempo/Prometheus B17, ingen analysebehov i radene). `inbox_message`: slett ved alder > ~100 dager (90d B26-gulv
+  for replay-dedup + buffer). `delivery`: slett når TERMINAL og alder > ~180 dager (dekker 90d replay +
+  dialogmøte/AG-sak-lukkevindu ~4 mnd + margin; alle rader blir terminale innen `frist_tid`, B11). FK `inbox_event_id` →
+  `ON DELETE SET NULL` (inbox kan slettes før leveranse). 180d ≈ Loki-loggretensjon (maks ~6 mnd) → logg-drill-down
+  (B17) dekker HELE radens levetid, ingen foreldreløs logg/rad. MEKANISME: in-app periodisk coroutine (gjenbruker
+  poller-mønster, ingen egen Naisjob), batchet idempotent DELETE (`LIMIT`-løkke, korte låser), INGEN leader election
+  (B12) — Postgres advisory lock (`pg_try_advisory_lock`) per sveip unngår bortkastet dobbeltarbeid; kjøres ~hver time.
+  JURIDISK (egen oppgave, ikke kode): avklaring med jurist/personvernombud + dokumentasjon (DPIA/PVK, ROS,
+  behandlingsprotokoll art. 30) før prod. Lukker DATAMODELL åpent retensjonspunkt.
 
 ## Migreringsbeslutninger (se docs/migrering.md)
-- B34: MIGRERINGSRYGGRAD = klebrig eierskap, operasjonalisert som PER-PROSESS PRODUSENT-RUTET cutover. Systemet som gjorde OPPRETT eier hele livsløpet; produsenten ruter FERDIGSTILL + oppfølgings-hendelser til SAMME system. Migreringsenhet = prosess/gruppering (hel dialogmøte-sak, møtebehov-runde, brev), ikke enkeltvarsel. FORKASTET: fasade (unødvendig for selv-utløpende, utilstrekkelig for dialogmøte-delt-SAK), referanse-kontinuitet (umulig — referanser er stort sett UUID.randomUUID() kun i esyfovarsels DB), state-handover (kompleks/risikabel). Anti-dobbeltvarsling: produsenten flipper sin egen OPPRETT-output → hver prosess til nøyaktig ett system. Ingen race: OPPRETT/FERDIGSTILL deler partisjonsnøkkel (B5/B24/B32) → ordnet på samme partisjon.
-- B35: HYBRID cutover-strategi etter varselets natur. (a) Selv-utløpende/informativ/fire-and-forget → HARD SWITCH per type + la utløpe, INGEN close-maskineri. (b) Ekte oppgave/sak uten tidscap + tilfeldig referanse → prosess-rutet drain-close (kolonne, B37). (c) Grensetilfeller (oppfølgingsplan-appene, AG-sak ~4 uker) → godta ~4-ukers stale-vindu (bevisst forenkling). VIKTIG: dialogmøte trenger prosess-ruting IKKE pga. utløpstid (microfrontend utløper på møtedato, AG-sak på hardDeleteDate +4mnd) men fordi det er en TILSTANDSMASKIN der oppfølgings-hendelser (NYTT_TID_STED/AVLYST/REFERAT) må treffe SAMME sak — ellers spøkelses-møter (flyttet/avlyst møte vises som aktivt). Tvangslukke tidlig = fjerner påminnelse før møtet = også regresjon.
-- B36: SEKVENSERING per (type × produsent), ALDRI big-bang (konsentrerer risiko). Rekkefølge: (1) fire-and-forget BREV (isarbeidsuforhet/ismanglendemedvirkning/isfrisktilarbeid) — beviser pipeline, null straddle; (2) BESKJED uten close (syfo-oppfolgingsplan-backend, *_TILBAKEMELDING); (3) tidsbaserte fler-kanal (meroppfolging-backend, ismeroppfolging); (4) aktivitetskrav-backend (auto-lukke-jobb budstikka overtar); (5) SIST: dialogmøte-familien + AG-Altinn (isdialogmote — delt SAK, den store jobben; + syfomotebehov, syfo-dokumentporten).
-- B37: KOLONNE-SCOPE for klebrig-eierskap-close = KUN isdialogmote + syfomotebehov (av 12 produsenter). Kriterium: event-drevet lukking uten tidsutløp + tilfeldig referanse. Flagget `varselsystem ∈ {ESYFOVARSEL, BUDSTIKKA}` bor i PRODUSENTENS EGEN prosess-tabell (ikke budstikka), settes ved OPPRETT, leses ved FERDIGSTILL. isdialogmote: flagg på DIALOGMØTET/SAKEN (ikke enkeltvarsel) → hele oppfølgingskjeden rutes konsistent. syfomotebehov: flagg på møtebehov-runden. Oppfølgingsplan-appene (isoppfolgingsplan, syfooppfolgingsplanservice) får IKKE kolonne — godtar ~4-ukers stale-vindu. MERK: syfooppfolgingsplanservice er deprecated (skrus av etter sommeren 2026) → utenfor migreringsscope; funksjonen forsvinner HELT (flyttes ikke), så budstikka bygger aldri *_OPPFOLGINGSPLAN_SENDT_TIL_GODKJENNING. Kun isoppfolgingsplan gjenstår som grensetilfelle. Foretrekkes fremfor dato-regel fordi flagget overlever rollback. Selv-utløpende (mer_veiledning/kartlegging/aktivitetsplikt = OPPGAVE med tidscap; microfrontend = synligTom) trenger ingenting.
+
+- B34: MIGRERINGSRYGGRAD = klebrig eierskap, operasjonalisert som PER-PROSESS PRODUSENT-RUTET cutover. Systemet som
+  gjorde OPPRETT eier hele livsløpet; produsenten ruter FERDIGSTILL + oppfølgings-hendelser til SAMME system.
+  Migreringsenhet = prosess/gruppering (hel dialogmøte-sak, møtebehov-runde, brev), ikke enkeltvarsel. FORKASTET: fasade
+  (unødvendig for selv-utløpende, utilstrekkelig for dialogmøte-delt-SAK), referanse-kontinuitet (umulig — referanser er
+  stort sett UUID.randomUUID () kun i esyfovarsels DB), state-handover (kompleks/risikabel). Anti-dobbeltvarsling:
+  produsenten flipper sin egen OPPRETT-output → hver prosess til nøyaktig ett system. Ingen race: OPPRETT/FERDIGSTILL
+  deler partisjonsnøkkel (B5/B24/B32) → ordnet på samme partisjon.
+- B35: HYBRID cutover-strategi etter varselets natur. (a) Selv-utløpende/informativ/fire-and-forget → HARD SWITCH per
+  type + la utløpe, INGEN close-maskineri. (b) Ekte oppgave/sak uten tidscap + tilfeldig referanse → prosess-rutet
+  drain-close (kolonne, B37). (c) Grensetilfeller (oppfølgingsplan-appene, AG-sak ~4 uker) → godta ~4-ukers stale-vindu
+  (bevisst forenkling). VIKTIG: dialogmøte trenger prosess-ruting IKKE pga. utløpstid (microfrontend utløper på
+  møtedato, AG-sak på hardDeleteDate +4mnd) men fordi det er en TILSTANDSMASKIN der oppfølgings-hendelser
+  (NYTT_TID_STED/AVLYST/REFERAT) må treffe SAMME sak — ellers spøkelses-møter (flyttet/avlyst møte vises som aktivt).
+  Tvangslukke tidlig = fjerner påminnelse før møtet = også regresjon.
+- B36: SEKVENSERING per (type × produsent), ALDRI big-bang (konsentrerer risiko). Rekkefølge: (1) fire-and-forget BREV
+  (isarbeidsuforhet/ismanglendemedvirkning/isfrisktilarbeid) — beviser pipeline, null straddle; (2) BESKJED uten close
+  (syfo-oppfolgingsplan-backend, *_TILBAKEMELDING); (3) tidsbaserte fler-kanal (meroppfolging-backend, ismeroppfolging);
+  (4) aktivitetskrav-backend (auto-lukke-jobb budstikka overtar); (5) SIST: dialogmøte-familien + AG-Altinn
+  (isdialogmote — delt SAK, den store jobben; + syfomotebehov, syfo-dokumentporten).
+- B37: KOLONNE-SCOPE for klebrig-eierskap-close = KUN isdialogmote + syfomotebehov (av 12 produsenter). Kriterium:
+  event-drevet lukking uten tidsutløp + tilfeldig referanse. Flagget `varselsystem ∈ {ESYFOVARSEL, BUDSTIKKA}` bor i
+  PRODUSENTENS EGEN prosess-tabell (ikke budstikka), settes ved OPPRETT, leses ved FERDIGSTILL. isdialogmote: flagg på
+  DIALOGMØTET/SAKEN (ikke enkeltvarsel) → hele oppfølgingskjeden rutes konsistent. syfomotebehov: flagg på
+  møtebehov-runden. Oppfølgingsplan-appene (isoppfolgingsplan, syfooppfolgingsplanservice) får IKKE kolonne — godtar ~
+  4-ukers stale-vindu. MERK: syfooppfolgingsplanservice er deprecated (skrus av etter sommeren 2026) → utenfor
+  migreringsscope; funksjonen forsvinner HELT (flyttes ikke), så budstikka bygger aldri *_
+  OPPFOLGINGSPLAN_SENDT_TIL_GODKJENNING. Kun isoppfolgingsplan gjenstår som grensetilfelle. Foretrekkes fremfor
+  dato-regel fordi flagget overlever rollback. Selv-utløpende (mer_veiledning/kartlegging/aktivitetsplikt = OPPGAVE med
+  tidscap; microfrontend = synligTom) trenger ingenting.
 
 ## Teknologivalg (se docs/teknologi.md)
-- B44: TEKNOLOGIVALG. Idiomatisk moderne Kotlin, IKKE Spring-aktig; testbarhet er førsteklasses. RAMMEVERK: Ktor + Netty med Ktors INNEBYGDE DI (Ktor 3.2+) — ikke Koin, ikke Spring → `domain` holdes rammeverksfritt (nyanserer `kotlin.instructions.md` som nevner Koin). DATA: Postgres 18 (esyfovarsel kjørte 17) + Exposed DSL (typet SQL-DSL, IKKE DAO/ORM eller rå JDBC; parameterisert av DSL-en; må uttrykke `FOR UPDATE SKIP LOCKED` for B15/B27) + HikariCP + Flyway (additivt). UUID v7 (tidssortert) for interne id-er som `delivery.id` (B16) → bedre B-tree-lokalitet enn v4 + hjelper alders-`DELETE` (B42); Postgres 18 har `uuidv7()` INNEBYGD → id genereres av DB via `DEFAULT uuidv7()` (Flyway), ingen app-side generator. STANDARD: `java.util.UUID` via Exposed `javaUUID()` (ingen experimental opt-in, best interop mot Kafka/JDBC på JVM) — IKKE `uuid()` (som i Exposed 1.0 er `kotlin.uuid.Uuid` + krever `@OptIn(ExperimentalUuidApi::class)`); bruk `.databaseGenerated()`, IKKE `.autoGenerate()` (gir klient-side v4). `eventId` B4 settes av produsent-appene, ikke budstikkas DB. KAFKA: plain `kafka-clients` i egen coroutine (ikke Rapids & Rivers). STRUKTUR (DDD/ports & adapters under `no.nav.budstikka`): `domain` = ren kjerne/functional core (B28, ingen I/O) · `infrastructure` = imperative shell (Kafka, Exposed-repos, eksterne klienter, DataSource) · `api` = Ktor-routes (interne endepunkter, ev. admin). TEST: Kotest FunSpec + MockK + Testcontainers (Kotest-extension); to nivåer — raske, parallelle, rene enhetstester av `domain` + container-integrasjonstester; ktlint for stil. Alle avhengigheter via version catalog (`libs.*`/`ktorLibs.*`), aldri hardkodede versjoner.
+
+- B44: TEKNOLOGIVALG. Idiomatisk moderne Kotlin, IKKE Spring-aktig; testbarhet er førsteklasses. RAMMEVERK: Ktor + Netty
+  med Ktors INNEBYGDE DI (Ktor 3.2+) — ikke Koin, ikke Spring → `domain` holdes rammeverksfritt (nyanserer
+  `kotlin.instructions.md` som nevner Koin). DATA: Postgres 18 (esyfovarsel kjørte 17) + Exposed DSL (typet SQL-DSL,
+  IKKE DAO/ORM eller rå JDBC; parameterisert av DSL-en; må uttrykke `FOR UPDATE SKIP LOCKED` for B15/B27) + HikariCP +
+  Flyway (additivt). UUID v7 (tidssortert) for interne id-er som `delivery.id` (B16) → bedre B-tree-lokalitet enn v4 +
+  hjelper alders-`DELETE` (B42); Postgres 18 har `uuidv7()` INNEBYGD → id genereres av DB via `DEFAULT uuidv7()`
+  (Flyway), ingen app-side generator. STANDARD: `java.util.UUID` via Exposed `javaUUID()` (ingen experimental opt-in,
+  best interop mot Kafka/JDBC på JVM) — IKKE `uuid()` (som i Exposed 1.0 er `kotlin.uuid.Uuid` + krever
+  `@OptIn(ExperimentalUuidApi::class)`); bruk `.databaseGenerated()`, IKKE `.autoGenerate()` (gir klient-side v4).
+  `eventId` B4 settes av produsent-appene, ikke budstikkas DB. KAFKA: plain `kafka-clients` i egen coroutine (ikke
+  Rapids & Rivers). STRUKTUR (DDD/ports & adapters under `no.nav.budstikka`): `domain` = ren kjerne/functional core
+  (B28, ingen I/O) · `infrastructure` = imperative shell (Kafka, Exposed-repos, eksterne klienter, DataSource) · `api` =
+  Ktor-routes (interne endepunkter, ev. admin). TEST: Kotest FunSpec + MockK + Testcontainers (Kotest-extension); to
+  nivåer — raske, parallelle, rene enhetstester av `domain` + container-integrasjonstester; ktlint for stil. Alle
+  avhengigheter via version catalog (`libs.*`/`ktorLibs.*`), aldri hardkodede versjoner.
 
 ## Observability-beslutninger (se docs/datamodell.md, flyt.md; jf. B17)
-- B45: KORRELASJONS-ID = `eventId` (REVIDERER B17). Ingen egen `trace_id`-kolonne. `eventId` (B4, produsent-oppgitt PK for dedup) ER den persisterte korrelasjons-iden for ett hendelsesløp: trådes til leveranse via `inbox_event_id`-FK, re-attacheres på MDC i hvert prosesseringssteg (konsum, `decide()`, poller, send) → Loki-filter `| eventId="X"` viser hele per-hendelse-livsløpet på tvers av tid og instanser. GRATIS kryss-system-sporing: siden eventId er produsent-oppgitt, korrelerer den også inn i den PRODUSERENDE appens logger dersom produsenten logger sin egen eventId — ingen egen `Nav-Callid`-header nødvendig. KRYSS-HENDELSE: OPPRETT→FERDIGSTILL er to ULIKE events med ulik eventId → korreleres på `referanse` (B39-oppslagsnøkkel, allerede indeksert), også MDC/logg-felt. OTEL: W3C `traceparent` settes av NAIS-agenten per eksekvering (kortlevd, per hopp — dekker ALDRI hele det asynkrone outbox-løpet) → logg OTel `trace_id`+`span_id` per hopp for Tempo-drill-down; DISTINKT fra `eventId` (teknisk per-hopp vs forretning per-hendelse). NAVNEKOLLISJON unngått: forretnings-korrelasjon heter `eventId`/`referanse` i logg/MDC, `trace_id` reserveres OTel. Prometheus uendret (lav kardinalitet; aldri eventId/fnr som label — drill-down kun via Loki/Tempo). KONSEKVENS: `trace_id`-kolonne fjernet fra inbox+leveranse; «trace_id via Kafka-header» utgår (DATAMODELL/KONTRAKT/FLYT ryddet).
-- B46: LOGGING & PII-GRENSE. FORMAT: `logstash-logback-encoder` → én JSON-linje/logg til stdout (NAIS-Loki henter; ingen filskriving); strukturerte felt via `StructuredArguments.kv(...)`, aldri streng-interpolasjon; MDC bærer B45-feltene. NORMALE logger inneholder KUN ikke-PII: `eventId`, `leveranse_id`, `referanse`, `kanal`, `mottaker_type`, `status`, `drop_aarsak`, `feiltype`, OTel-id-er. ALDRI `recipient_id`/fnr, `payload`, resolvert NL-fnr eller meldingstekst. B9-maskering (`toString="***"` på `PersonIdentifier`/`Orgnummer`) = forsvar-i-dybden ved uhell. INGEN secure-logs (`team-logs`) i v1: korrelasjon på ikke-PII (`eventId`/`referanse`) + DB-oppslag under tilgangskontroll dekker feilsøking → minimalt PII-fotavtrykk (B42 «minimal eksponering»); secure-logs legges til KUN ved konkret senere behov. INGEN CEF-auditlogg (budstikka er domeneblind ruter uten interaktiv menneskelig PII-tilgang). RISIKO: eksterne feilresponser (KRR/PDL/dokdist/notifikasjon-api) kan bære fnr i body/stacktrace → logg kun statuskode + teknisk kontekst, aldri rå respons-body. Erstatter skjelettets plaintext `logback.xml`.
-- B47: METRIKK-KATALOG. Micrometer → Prometheus; `snake_case`, `_total`/`_seconds`-suffiks, lav-kardinalitets labels (B17/B45 — aldri `eventId`/fnr/`leveranse_id`). FUNNEL (counters): `hendelse_mottatt_total{handling}`, `hendelse_behandlet_total{handling,resultat}` (resultat=besluttet/droppet/ugyldig), `leveranse_sendt_total{kanal,operation}`, `leveranse_feilet_total{kanal,feiltype}` (transient/permanent), `leveranse_utlopt_total{kanal}` (B11). AVVIK (counters): `dropp_total{aarsak}` (dod B7 / nl_mangler B32 / …), `ferdigstill_uten_treff_total` (B20), `ugyldig_kombinasjon_total` (B21). VARIGHET (histograms): `decide_varighet_seconds`, `ekstern_kall_varighet_seconds{tjeneste,utfall}` (krr/pdl/dokdist/notifikasjon-api), `leveranse_leveringstid_seconds{kanal}` = `tidligst_sending`→`sendt_tid` (HELSE-SLI). GAUGES: `outbox_klar_antall{kanal}` (kvalifisert-nå backlog), `outbox_venter_antall{kanal}` (planlagt sendevindu-venting B25). Kafka consumer-lag (`kafka_consumergroup_lag`) + HikariCP-pool kommer fra NAIS/auto-bindere — lages ikke selv. Labels bundet til små enums: kanal(~6), operation, handling, resultat, feiltype, aarsak, tjeneste. ENDE-TIL-ENDE-LATENCY = alt. A: måler ventetid ETTER kvalifisering (ikke `mottatt`→`sendt`) → planlagt sendevindu-venting synlig separat via gauge, så alarmer/board ikke slår falskt ut på legitim venting.
-- B48: OBSERVABILITY-DRIFT (endepunkter, wiring, board). ENDEPUNKTER: `/internal/isalive` (liveness = prosess oppe), `/internal/isready` (readiness = KUN Postgres-pool nåbar — Kafka-konsument-helse dekkes av lag-alarm B49, IKKE readiness: en readiness-flipp fikser ikke en stallet consumer og gir bare deploy-støy; budstikka har ~ingen innkommende HTTP-trafikk), `/internal/prometheus` (scrape). Stier MÅ matche NAIS-manifestet; `/internal` er åpent (ingen auth). WIRING: Ktor `MicrometerMetrics` + delt `PrometheusMeterRegistry`; JVM-bindere (memory/gc/processor) + HikariCP-binder; OTel auto-instrumentation via NAIS-agent (traceparent → Tempo). BOARD (baseline, bygges når metrikk-settet er stabilt): funnel-rate, feilrate per kanal, `leveranse_leveringstid_seconds` p95/p99, `outbox_klar/venter`-gauges, consumer-lag, dropp/avvik-rater, JVM/pool/pod-restarts; template-variabler `app`/`namespace`/`cluster`.
-- B49: VARSLING. NAIS `Alert`/PrometheusRule → Slack; forsiktige defaults, terskler tunes i dev-gcp før prod. SIGNALER: Kafka consumer-lag vedvarende høy (warning→critical), `leveranse_feilet{feiltype=permanent}` rate høy per kanal (warning), `leveranse_utlopt` spike (warning, B11), `dropp_total{aarsak=nl_mangler}` spike (warning, B32), pod crashloop/restarts (critical), HikariCP-pool utmattet (warning). BEVISST UTELATT: `dropp_total{aarsak=dod}` (B7) er legitim lav-rate-drop → kun board, ikke alarm. Consumer-lag valgt som ENESTE primærsignal for backlog (outbox-backlog overlapper → unngår dobbelt-alarm for samme symptom).
-- B57: METRIKK-NAVN PÅ ENGELSK (SUPERSEDER B47s norske katalog; se ADR 0007, issue #28/#41). Metrikk-navn og labels er TEKNISK plumbing → engelsk (navnekonvensjon: norsk kun på domeneord), i tråd med språk-refaktoreringen (`Leveranse→Delivery`, `Kanal→Channel`, `Beslutning→Decision`) som gjorde disse begrepene engelske i koden, og med issue #28s egne engelske eksempler (`delivery_total{channel}`, `worker_*`). LEVERT («kun metrikker»-snitt): (a) infra-bindere — Ktor `MicrometerMetrics` + JVM/prosess-bindere (`ktor_http_server_requests_seconds_*`, `jvm_*`) og `KafkaClientMetrics` per consumer (`kafka_consumer_*`, inkl. `records-lag-max` for #41), lukket-før-rebind mot restart-churn; (b) worker-livssyklus i `BackgroundLoop` — `worker_runs_total`/`worker_duration_seconds`/`worker_failures_total{worker}`; (c) domenemetrikker via `DispatchMetrics`-port (application) med Micrometer-adapter (infrastructure): `inbox_message_claimed_total`, `inbox_message_empty_polls_total`, `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`, `inbox_message_failed_total`, `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`. Labels lav-kardinale/PII-frie (B45/B46). SCRAPE-STI er `/internal/metrics` (eksisterende kode), IKKE B48s `/internal/prometheus` — sti-navnet avstemmes mot NAIS-manifestet når det opprettes. UTSATT (egne snitt): OTel-tracing, dashboard, NAIS-alerts (#41-alerten krever app-manifest), HikariCP-binder, og B47s funnel-/histogram-/gauge-metrikker utover det som er levert her.
-- B58: LOGG-KORRELASJON LEVERT + Nav-Call-Id FORKASTET (issue #90; FULLFØRER B45/B46s logg-del). Issue #90 var opprinnelig malskrevet med en `Nav-Call-Id`-header lest fra Kafka + propagert på utgående HTTP + `CallLogging`. AVVIST etter grilling: mekanismen er nettopp den B45 forkastet — en request-scoped id (Nav-Call-Id like mye som OTel `trace_id`) DØR ved første asynkrone grense (konsum→[DB-gap]→beslutning→[DB-gap]→leveranse) med mindre den PERSISTERES i raden. `eventId` ER allerede persistert (inbox-PK → delivery `inbox_event_id`-FK), så Loki `| event_id="X"` dekker hele det asynkrone outbox-løpet på tvers av tid/podder — u-persistert Nav-Call-Id ville gitt FALSK dekning (#90 la ikke til kolonne). Kryss-tjeneste-sporing ut dekkes av OTel `traceparent` (agenten, per hopp → Tempo). LEVERT: (a) `eventId` re-attaches på MDC ved KONSUM-steget (`InboxMessageHandler`) — hullet mot B45 («hvert prosesseringssteg: konsum, decide, poller, send»); decide/poller/send hadde det alt via `LeaseBudgetDrainer`. MDC-nøkkel = `MdcKeys.EVENT_ID` (`event_id`, snake_case) konsistent på tvers av steg. (b) Strukturerte logg-felt via `StructuredArguments.kv(...)` i konsum-loggene (B46), aldri streng-interpolasjon. (c) `trace_id`/`span_id`: ZERO-CODE — NAIS OTel-agenten (`autoInstrumentation.enabled`) injiserer i logback-MDC, `LogstashEncoder` tar med MDC → JSON automatisk; no-op uten agent. (d) PII-AUDIT (AC5, B46): reell lekkasje funnet og tettet — `InboxMessageWorker` logget/persisterte rå `SerializationException.message` som kotlinx echo-er payload («JSON input: …» m/fnr) inn i; nå kun exception-TYPE, aldri message/throwable (RED→GREEN-test). `PdlClient` sin PDL-`error.message`-tekst vurdert AKSEPTABEL (ikke rå body/fnr). UTSATT (follow-up): repo-bred `kv()`-migrering av øvrige logglinjer, OTel-span-instrumentering gjennom flyten, `referanse`-på-MDC i beslutnings-worker (kryss-hendelse OPPRETT→FERDIGSTILL).
-- B59: LOGG-KORRELASJON FULLFØRT (`reference`-på-MDC) + OTel MANUELLE SPANS FORKASTET (foreløpig). Fullfører B45/B58-sporet. (a) `reference` re-attaches på MDC i beslutnings-workeren (`InboxMessageWorker`, etter decode) OG i leveranse-workeren (`DeliveryWorker`, via `ClaimedDelivery.reference` — kolonnen fantes, kun lagt i claim-SELECT/DTO) → `| reference="X"` i Loki korrelerer OPPRETT↔FERDIGSTILL (to ULIKE events, ulik eventId, delt reference; B39-oppslagsnøkkel). MDC-nøkkel = `reference` (glossar: engelsk kodeord; «referanse» er legacy). Feltet settes via `MDC.putCloseable(...).use { withContext(MDCContext()) { … } }` (samme idiom som `LeaseBudgetDrainer` for eventId) → overlever suspensjon (I/O) fram til logglinja. (b) OTel MANUELLE spans (navngitt `decide()`/dispatch-span) BEVISST IKKE innført (issue #102): NAIS-agenten spanner alt alle I/O-hopp (Kafka/JDBC/HTTP) → Tempo har per-hopp-latens + `trace_id`/`span_id` i logg allerede; arketype (flaggskipet) OG forgjenger (esyfovarsel) har NULL manuelle spans (agent-only). En manuell decide-span gir mest en navngitt forelder, ikke ny latens-innsikt, til pris av ny `opentelemetry-api`-dependency (versjon-pin mot agent), coroutine-kontekstpropagering (`asContextElement`) og en NY PII-flate (span-attributter). Gevinstene som teller (`eventId`+`reference` i Loki på tvers av async-løpet, per-hopp `trace_id`) er alt levert → manuelle spans utsettes til konkret behov (#102, egen ADR ved innføring). UTSATT videre: repo-bred `kv()`-migrering (#101).
+
+- B45: KORRELASJONS-ID = `eventId` (REVIDERER B17). Ingen egen `trace_id`-kolonne. `eventId` (B4, produsent-oppgitt PK
+  for dedup) ER den persisterte korrelasjons-iden for ett hendelsesløp: trådes til leveranse via `inbox_event_id`-FK,
+  re-attacheres på MDC i hvert prosesseringssteg (konsum, `decide()`, poller, send) → Loki-filter `| eventId="X"` viser
+  hele per-hendelse-livsløpet på tvers av tid og instanser. GRATIS kryss-system-sporing: siden eventId er
+  produsent-oppgitt, korrelerer den også inn i den PRODUSERENDE appens logger dersom produsenten logger sin egen
+  eventId — ingen egen `Nav-Callid`-header nødvendig. KRYSS-HENDELSE: OPPRETT→FERDIGSTILL er to ULIKE events med ulik
+  eventId → korreleres på `referanse` (B39-oppslagsnøkkel, allerede indeksert), også MDC/logg-felt. OTEL: W3C
+  `traceparent` settes av NAIS-agenten per eksekvering (kortlevd, per hopp — dekker ALDRI hele det asynkrone
+  outbox-løpet) → logg OTel `trace_id`+`span_id` per hopp for Tempo-drill-down; DISTINKT fra `eventId` (teknisk per-hopp
+  vs forretning per-hendelse). NAVNEKOLLISJON unngått: forretnings-korrelasjon heter `eventId`/`referanse` i logg/MDC,
+  `trace_id` reserveres OTel. Prometheus uendret (lav kardinalitet; aldri eventId/fnr som label — drill-down kun via
+  Loki/Tempo). KONSEKVENS: `trace_id`-kolonne fjernet fra inbox+leveranse; «trace_id via Kafka-header» utgår
+  (DATAMODELL/KONTRAKT/FLYT ryddet).
+- B46: LOGGING & PII-GRENSE. FORMAT: `logstash-logback-encoder` → én JSON-linje/logg til stdout (NAIS-Loki henter; ingen
+  filskriving); strukturerte felt via `StructuredArguments.kv(...)`, aldri streng-interpolasjon; MDC bærer B45-feltene.
+  NORMALE logger inneholder KUN ikke-PII: `eventId`, `leveranse_id`, `referanse`, `kanal`, `mottaker_type`, `status`,
+  `drop_aarsak`, `feiltype`, OTel-id-er. ALDRI `recipient_id`/fnr, `payload`, resolvert NL-fnr eller meldingstekst.
+  B9-maskering (`toString="***"` på `PersonIdentifier`/`Orgnummer`) = forsvar-i-dybden ved uhell. INGEN secure-logs
+  (`team-logs`) i v1: korrelasjon på ikke-PII (`eventId`/`referanse`) + DB-oppslag under tilgangskontroll dekker
+  feilsøking → minimalt PII-fotavtrykk (B42 «minimal eksponering»); secure-logs legges til KUN ved konkret senere behov.
+  INGEN CEF-auditlogg (budstikka er domeneblind ruter uten interaktiv menneskelig PII-tilgang). RISIKO: eksterne
+  feilresponser (KRR/PDL/dokdist/notifikasjon-api) kan bære fnr i body/stacktrace → logg kun statuskode + teknisk
+  kontekst, aldri rå respons-body. Erstatter skjelettets plaintext `logback.xml`.
+- B47: METRIKK-KATALOG. Micrometer → Prometheus; `snake_case`, `_total`/`_seconds`-suffiks, lav-kardinalitets labels
+  (B17/B45 — aldri `eventId`/fnr/`leveranse_id`). FUNNEL (counters): `hendelse_mottatt_total{handling}`,
+  `hendelse_behandlet_total{handling,resultat}` (resultat=besluttet/droppet/ugyldig),
+  `leveranse_sendt_total{kanal,operation}`, `leveranse_feilet_total{kanal,feiltype}` (transient/permanent),
+  `leveranse_utlopt_total{kanal}` (B11). AVVIK (counters): `dropp_total{aarsak}` (dod B7 / nl_mangler B32 / …),
+  `ferdigstill_uten_treff_total` (B20), `ugyldig_kombinasjon_total` (B21). VARIGHET (histograms):
+  `decide_varighet_seconds`, `ekstern_kall_varighet_seconds{tjeneste,utfall}` (krr/pdl/dokdist/notifikasjon-api),
+  `leveranse_leveringstid_seconds{kanal}` = `tidligst_sending`→`sendt_tid` (HELSE-SLI). GAUGES:
+  `outbox_klar_antall{kanal}` (kvalifisert-nå backlog), `outbox_venter_antall{kanal}` (planlagt sendevindu-venting B25).
+  Kafka consumer-lag (`kafka_consumergroup_lag`) + HikariCP-pool kommer fra NAIS/auto-bindere — lages ikke selv. Labels
+  bundet til små enums: kanal (~6), operation, handling, resultat, feiltype, aarsak, tjeneste. ENDE-TIL-ENDE-LATENCY =
+  alt. A: måler ventetid ETTER kvalifisering (ikke `mottatt`→`sendt`) → planlagt sendevindu-venting synlig separat via
+  gauge, så alarmer/board ikke slår falskt ut på legitim venting.
+- B48: OBSERVABILITY-DRIFT (endepunkter, wiring, board). ENDEPUNKTER: `/internal/isalive` (liveness = prosess oppe),
+  `/internal/isready` (readiness = KUN Postgres-pool nåbar — Kafka-konsument-helse dekkes av lag-alarm B49, IKKE
+  readiness: en readiness-flipp fikser ikke en stallet consumer og gir bare deploy-støy; budstikka har ~ingen
+  innkommende HTTP-trafikk), `/internal/prometheus` (scrape). Stier MÅ matche NAIS-manifestet; `/internal` er åpent
+  (ingen auth). WIRING: Ktor `MicrometerMetrics` + delt `PrometheusMeterRegistry`; JVM-bindere (memory/gc/processor) +
+  HikariCP-binder; OTel auto-instrumentation via NAIS-agent (traceparent → Tempo). BOARD (baseline, bygges når
+  metrikk-settet er stabilt): funnel-rate, feilrate per kanal, `leveranse_leveringstid_seconds` p95/p99,
+  `outbox_klar/venter`-gauges, consumer-lag, dropp/avvik-rater, JVM/pool/pod-restarts; template-variabler `app`/
+  `namespace`/`cluster`.
+- B49: VARSLING. NAIS `Alert`/PrometheusRule → Slack; forsiktige defaults, terskler tunes i dev-gcp før prod. SIGNALER:
+  Kafka consumer-lag vedvarende høy (warning→critical), `leveranse_feilet{feiltype=permanent}` rate høy per kanal
+  (warning), `leveranse_utlopt` spike (warning, B11), `dropp_total{aarsak=nl_mangler}` spike (warning, B32), pod
+  crashloop/restarts (critical), HikariCP-pool utmattet (warning). BEVISST UTELATT: `dropp_total{aarsak=dod}` (B7) er
+  legitim lav-rate-drop → kun board, ikke alarm. Consumer-lag valgt som ENESTE primærsignal for backlog (outbox-backlog
+  overlapper → unngår dobbelt-alarm for samme symptom).
+- B57: METRIKK-NAVN PÅ ENGELSK (SUPERSEDER B47s norske katalog; se ADR 0007, issue #28/#41). Metrikk-navn og labels er
+  TEKNISK plumbing → engelsk (navnekonvensjon: norsk kun på domeneord), i tråd med språk-refaktoreringen
+  (`Leveranse→Delivery`, `Kanal→Channel`, `Beslutning→Decision`) som gjorde disse begrepene engelske i koden, og med
+  issue #28s egne engelske eksempler (`delivery_total{channel}`, `worker_*`). LEVERT («kun metrikker»-snitt): (a)
+  infra-bindere — Ktor `MicrometerMetrics` + JVM/prosess-bindere (`ktor_http_server_requests_seconds_*`, `jvm_*`) og
+  `KafkaClientMetrics` per consumer (`kafka_consumer_*`, inkl. `records-lag-max` for #41), lukket-før-rebind mot
+  restart-churn; (b) worker-livssyklus i `BackgroundLoop` — `worker_runs_total`/`worker_duration_seconds`/
+  `worker_failures_total{worker}`; (c) domenemetrikker via `DispatchMetrics`-port (application) med Micrometer-adapter
+  (infrastructure): `inbox_message_claimed_total`, `inbox_message_empty_polls_total`, `inbox_message_processed_total`,
+  `inbox_message_dropped_total{reason}`, `inbox_message_failed_total`, `delivery_claimed_total`,
+  `delivery_empty_polls_total`, `delivery_total{channel,result}`. Labels lav-kardinale/PII-frie (B45/B46). SCRAPE-STI er
+  `/internal/metrics` (eksisterende kode), IKKE B48s `/internal/prometheus` — sti-navnet avstemmes mot NAIS-manifestet
+  når det opprettes. UTSATT (egne snitt): OTel-tracing, dashboard, NAIS-alerts (#41-alerten krever app-manifest),
+  HikariCP-binder, og B47s funnel-/histogram-/gauge-metrikker utover det som er levert her.
+- B58: LOGG-KORRELASJON LEVERT + Nav-Call-Id FORKASTET (issue #90; FULLFØRER B45/B46s logg-del). Issue #90 var
+  opprinnelig malskrevet med en `Nav-Call-Id`-header lest fra Kafka + propagert på utgående HTTP + `CallLogging`. AVVIST
+  etter grilling: mekanismen er nettopp den B45 forkastet — en request-scoped id (Nav-Call-Id like mye som OTel
+  `trace_id`) DØR ved første asynkrone grense (konsum→[DB-gap]→beslutning→[DB-gap]→leveranse) med mindre den PERSISTERES
+  i raden. `eventId` ER allerede persistert (inbox-PK → delivery `inbox_event_id`-FK), så Loki `| event_id="X"` dekker
+  hele det asynkrone outbox-løpet på tvers av tid/podder — u-persistert Nav-Call-Id ville gitt FALSK dekning (#90 la
+  ikke til kolonne). Kryss-tjeneste-sporing ut dekkes av OTel `traceparent` (agenten, per hopp → Tempo). LEVERT: (a)
+  `eventId` re-attaches på MDC ved KONSUM-steget (`InboxMessageHandler`) — hullet mot B45 («hvert prosesseringssteg:
+  konsum, decide, poller, send»); decide/poller/send hadde det alt via `LeaseBudgetDrainer`. MDC-nøkkel =
+  `MdcKeys.EVENT_ID` (`event_id`, snake_case) konsistent på tvers av steg. (b) Strukturerte logg-felt via
+  `StructuredArguments.kv(...)` i konsum-loggene (B46), aldri streng-interpolasjon. (c) `trace_id`/`span_id`:
+  ZERO-CODE — NAIS OTel-agenten (`autoInstrumentation.enabled`) injiserer i logback-MDC, `LogstashEncoder` tar med MDC →
+  JSON automatisk; no-op uten agent. (d) PII-AUDIT (AC5, B46): reell lekkasje funnet og tettet — `InboxMessageWorker`
+  logget/persisterte rå `SerializationException.message` som kotlinx echo-er payload («JSON input: …» m/fnr) inn i; nå
+  kun exception-TYPE, aldri message/throwable (RED→GREEN-test). `PdlClient` sin PDL-`error.message`-tekst vurdert
+  AKSEPTABEL (ikke rå body/fnr). UTSATT (follow-up): repo-bred `kv()`-migrering av øvrige logglinjer,
+  OTel-span-instrumentering gjennom flyten, `referanse`-på-MDC i beslutnings-worker (kryss-hendelse
+  OPPRETT→FERDIGSTILL).
+- B59: LOGG-KORRELASJON FULLFØRT (`reference`-på-MDC) + OTel MANUELLE SPANS FORKASTET (foreløpig). Fullfører
+  B45/B58-sporet. (a) `reference` re-attaches på MDC i beslutnings-workeren (`InboxMessageWorker`, etter decode) OG i
+  leveranse-workeren (`DeliveryWorker`, via `ClaimedDelivery.reference` — kolonnen fantes, kun lagt i
+  claim-SELECT/DTO) → `| reference="X"` i Loki korrelerer OPPRETT↔FERDIGSTILL (to ULIKE events, ulik eventId, delt
+  reference; B39-oppslagsnøkkel). MDC-nøkkel = `reference` (glossar: engelsk kodeord; «referanse» er legacy). Feltet
+  settes via `MDC.putCloseable(...).use { withContext(MDCContext()) { … } }` (samme idiom som `LeaseBudgetDrainer` for
+  eventId) → overlever suspensjon (I/O) fram til logglinja. (b) OTel MANUELLE spans (navngitt `decide()`/dispatch-span)
+  BEVISST IKKE innført (issue #102): NAIS-agenten spanner alt alle I/O-hopp (Kafka/JDBC/HTTP) → Tempo har
+  per-hopp-latens + `trace_id`/`span_id` i logg allerede; arketype (flaggskipet) OG forgjenger (esyfovarsel) har NULL
+  manuelle spans (agent-only). En manuell decide-span gir mest en navngitt forelder, ikke ny latens-innsikt, til pris av
+  ny `opentelemetry-api`-dependency (versjon-pin mot agent), coroutine-kontekstpropagering (`asContextElement`) og en NY
+  PII-flate (span-attributter). Gevinstene som teller (`eventId`+`reference` i Loki på tvers av async-løpet, per-hopp
+  `trace_id`) er alt levert → manuelle spans utsettes til konkret behov (#102, egen ADR ved innføring). UTSATT videre:
+  repo-bred `kv()`-migrering (#101).
 
 ## Lokal test/e2e-beslutninger (se docs/teststrategi.md)
-- B50: LOKAL TEST/E2E-SUBSTRAT & PROD-GRENSE. Fakes (PDL død / KRR-reservasjon / nærmeste leder / de 6 kanalene) + Kafka/Postgres-bootstrap + scenario-byggere bygges ÉN gang og deles av BÅDE automatiske e2e-tester OG (senere) et interaktivt lokalt løp — aldri to sett (unngår drift; DRY). PLASSERING: STANDARD er alt i `src/test` (fakes, scenario-byggere, Testcontainers-base, e2e, senere lokal `main()`) — innenfor ett modul er `src/test` allerede delt, ingen ekstra plugin trengs; `src/test` ser også `internal` i `src/main`. Et eget `testFixtures`-source-set (`java-test-fixtures`, Gradle-navn — koden er Kotlin) innføres KUN ved konkret delingsbehov (flere moduler / ekstern fake-konsument). ALDRI i `src/main`. GARANTI mot prod-lekkasje er BUILD-GRENSEN: prod-artefakten (fat-jar/Docker-image) bygges kun fra `src/main`, så fakes er fysisk fraværende fra prod-jaren — håndhevet av Gradle/kompilator, ikke av disiplin. Ktor-DI (B44) muliggjør det: `Application.module(deps)` tar avhengigheter som parametre; prod-entrypoint (`Main.kt`) wirer EKTE adaptere, lokal `main()` wirer fakes. AVVIST ANTI-MØNSTER: en `if (System.getenv("USE_FAKES"))`-adapterbytte inne i `src/main` (da ligger fakes i prod-jaren og én feilkonfig flipper dem) — grensen skal være i bygget, ikke i en env-var.
-- B51: INFRA-BOOTSTRAP = Testcontainers-fra-kode (Kafka + Postgres), samme oppsett som integrasjonstestene bruker (holder B50s «én kilde»-løfte) — INGEN docker-compose (unngår en separat fil som drifter fra test-konfigen). DB-tabeller (`inbox_message`/`delivery`) er fullt inspiserbare UNDER kjøring: containeren mapper Postgres-porten til localhost så lenge prosessen lever; logg JDBC-URL ved oppstart (evt. pinn fast host-port). Ferskt miljø per kjøring; data overlever ikke prosess-restart (live-inspeksjon under kjøring får du uansett). `withReuse(true)` (persistens over restart uten compose) utsatt til konkret behov. KONSEKVENS av B52-fakes: lokalt trengs KUN Kafka+Postgres — INGEN Texas/token-sidecar, ingen ekte tokens, ingen TokenX-validering, ingen compose (fakene erstatter alt autentisert nedstrøms; token-laget lever i de ekte adapterne i `src/main`, som ikke er på lokalt classpath).
-- B52: FAKE-MEKANISME = in-process port-fakes som STANDARD. Kotlin-implementasjoner av portgrensesnittene (dødsoppslag/reservasjon/nærmeste-leder/kanal) i minne, styrbare (`fake.marker(ident)` = «gjør død») — ingen nettverk, ingen tokens, raske, deles med enhets-/integrasjonstester. Portgrensesnittene (B28 ports & adapters) ER sømmen som gjør byttet mulig. WireMock/mockserver reservert for UTVALGTE klient-kontrakttester der vi bevisst vil verifisere en ekte HTTP-klients kontrakt/serialisering — IKKE for det brede e2e/lokale løpet. Ktor MockEngine ikke valgt (fake på for lavt abstraksjonsnivå for en domeneblind ruter).
-- B53: TEST/LØP-STRATEGI & SCOPE. NÅ: automatiske Kotest e2e-specs som booter hele appen (konsument + workers + Ktor) in-process mot Testcontainers (B51) med port-fakes (B52) wiret inn, og asserter at fake-kanalene mottok forventet leveranse — dekker inbox→`decide()`→outbox→levering ende-til-ende via delte scenario-byggere (B50). Async workers → assert med Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand. UTSATT (bygges når behovet melder seg, som et TYNT lag oppå samme substrat): interaktivt lokalt HTTP kontroll-plan (`main()` som står og kjører + dev-only routes `POST /dev/dispatch`, fake-toggle-endepunkter, navngitte scenarier) og live-inspeksjon via kafka-ui/pgweb. Ingen ny build-kompleksitet: e2e og et framtidig lokalt løp deler fakes + scenario-byggere.
-- B54: EVENTID SOM KAFKA-HEADER (dedup-fast-path). [REVERSERT DELVIS av B61/ADR 0008: eventId lever nå KUN i headeren — den er AUTORITATIV, og `Dispatch.eventId` FJERNES fra payloaden. «PAYLOAD FORBLIR AUTORITATIV» og `payload.eventId == header.eventId`-valideringen under er dermed UTGÅTT (tvillingkilden elimineres ved å fjerne payload-kilden). Resten står: header som dedup-nøkkel, delt konstant `DispatchHeader.EVENT_ID`, dead-letter ved manglende header.] Beslutter DATAMODELLs tidligere «Vurdert»-punkt: produsentene SPEILER `eventId` som Kafka-header (navn festet som delt kontrakt-konstant `DispatchHeader.EVENT_ID` = `"eventId"` i kontraktlib, #18). PAYLOAD FORBLIR AUTORITATIV (B4/B43): `Dispatch.eventId` er sannheten; headeren er en fast-path, IKKE en erstatning. GEVINST: konsumenten dedup-er (`INSERT … ON CONFLICT DO NOTHING`, B4) og dumper rå payload til `inbox_message` UTEN å deserialisere bodyen → dedup løsrives fra payload-skjemaet; `UGYLDIG_JSON`-triggeren ved ingest forsvinner. FEILFLATER holdt fra hverandre (uendret): header mangler/korrupt → ingen PK → `dead_letter_message` (`MISSING_EVENT_ID`); konvolutt OK men `innhold` dekoder ikke → `inbox_message.status=FAILED` hos beslutnings-worker. VALIDERING: når workeren senere deserialiserer, verifiser `payload.eventId == header.eventId`; avvik = poison (håndterer «to kilder»-divergensen). «Obligatorisk» = KONTRAKT, ikke broker-garanti (en produsent-bug kan utelate den) → derfor beholdes `dead_letter_message`. `referanse` leses fortsatt strukturelt fra konvolutten (ikke i header) → kun dedup/dump er null-parse; om `referanse` også skal deferres til workeren avgjøres i #19. REVIDERER B45 KUN for tracing-delen («trace_id via Kafka-header utgår» står ved lag) — eventId-header er en distinkt forretnings-dedup-fast-path, ikke en tracing-header. INGEN producer-klient i budstikka (konsument-app; produsentene eier egen publisering). Header-HÅNDTERING (lesing/validering/inbox-dump) implementeres i #19; #18 leverer kun navnekonstanten.
-- B55: BESLUTNINGSKJERNEN = KOMPONERBARE GATER (REVIDERER B28s indre form; functional core / imperative shell står ved lag). Erstatter «én ren `decide(hendelse, grunnlag)` matet av ETT delt `Beslutningsgrunnlag`» med en LISTE av gater (`DecisionRule`), hver delt i to faser: (1) `resolve(event): ResolvedRule` — imperativt skall (I/O): gaten slår opp sitt EGET grunnlag ut fra den immutable `Dispatch` og binder det i en closure (INGEN delt grunnlag-struct); (2) `ResolvedRule.apply(deliveries): Beslutning` — ren kjerne: transformerer leveranse-utkastene (kan endre kanal / utvide listen — `reservasjon→kanalvalg`, `brev-fallback`) eller avbryter med `Dropp`/`Feilet`. `DecisionProcess` seeder utkastet fra hendelsen, kjører alle gaters `resolve` KONKURRENT (`async`+`awaitAll`), og folder de rene `apply` SEKVENSIELT; første ikke-`Behandlet`-utfall short-circuiter. Sentral type→policy/regel-ruting UTGÅR: hver gate self-selekterer (f.eks. `DeathGate` via `gatedPerson()`); «ingen gate» = tom regelliste. MOTIVASJON: delt `Beslutningsgrunnlag` (og «én policy per meldingstype») blir en grunn god-struct som vokser for hver ny regel; lokal grunnlags-eierskap per gate skalerer additivt. AVVEINING: parallell `resolve` short-circuiter IKKE I/O (tidlig dropp ⇒ et samtidig oppslag var forgjeves) — bevisst, latensgevinsten ved overlappende billige oppslag på samme person veier tyngre. Rekkefølge i regellista = anvendelses-rekkefølge for folden (billigst/mest droppende først), ikke for I/O. FJERNER det parallelle policy-laget og det døde `decide()`/`FoundationFetcher`/`DecisionFoundation`-sporet (én kilde, DRY).
-- B56: OPT-IN GATING AV FULLE E2E-TESTER + WIRING-SØM (LEVERER #35; se ADR 0006, docs/teststrategi.md; REVIDERER B53s implisitte «e2e kjører i den vanlige testkjøringen»). LEVERT: et delt substrat `BudstikkaTestApp` (i `src/test/.../testsupport`) booter HELE appen (Kafka-konsument + workers + Ktor) in-process mot Testcontainers (Postgres via `PostgresTestFixture`, Kafka via `KafkaTestContainer`) med port-fakes wiret inn — samme substrat driver BÅDE de automatiske e2e-specene OG et kjørbart lokalt løp `LocalApp.main` (`./gradlew runLocal`), som oppfyller B50/B53s «senere lokal `main()`» og B53s UTSATT-punkt (den KJØRBARE delen; interaktivt HTTP-kontrollplan forblir utsatt). WIRING-SØM: `Application.kt` har null-arg `module()` (referert fra `application.conf`, wirer EKTE adaptere) som delegerer til `configureApplication(overrides: DependencyRegistry.() -> Unit)`; test/lokalt løp sender `overrides` som `provide`-er fakes SIST. Sømmen er `ktor.di.conflictPolicy = "OverridePrevious"` satt KUN i test-konfigen (senere `provide` vinner); prod beholder default-policy → duplikat-`provide` kaster (utilsiktet override umulig i prod). Fakene finnes aldri i prod-jaren (build-grensen, B50). OPT-IN GATING (kravet fra #35: «CI/CD skal ikke vente på trege e2e ved hver deploy»): full-boot-specene merkes `@Tags("E2E")`; default `test`/`check` kjører `kotest.tags=!E2E` (ekskluderer e2e → rask deploy-gate), egen `./gradlew e2eTest`-task kjører `kotest.tags=E2E` (KUN e2e, ikke wiret i `check`, `shouldRunAfter("test")`). VIKTIG UNNTAK: schema-drift-testen (`PostgresTestFixture` + `MigrationUtils`) er bevisst UTEN E2E-tag og kjører i default-gaten (rask, høy verdi). AVVIST: env-var-switch i én test-task (gjør default-gaten ikke-deterministisk, skjuler hva som kjørte) og eget source-set/modul (build-kompleksitet B50 utsetter). KAFKA-IMAGE: `confluentinc/cp-kafka` (Confluent-distro) i test — mest utprøvde Testcontainers-Kafka på arm64; appen er distro-uavhengig, dette er en ren test-detalj (B51s «Kafka fra kode» står ved lag).
-- B60: DELT POSTGRES-CONTAINER + SCHEMA-ISOLASJON PER FIXTURE (TEST-YTELSE; se docs/teststrategi.md; FORFINER B51s «ferskt miljø per kjøring» og B56s `PostgresTestFixture`-oppsett). PROBLEM: hver `PostgresTestFixture()` startet OG stoppet sin egen Postgres-container (`init { postgres.start() }` / `close() { postgres.stop() }`) → container-oppstart var den dominerende kaldkjørings-kostnaden på DB-testene. LEVERT: `PostgresTestFixture` lazy-starter ÉN delt container per JVM (companion `sharedPostgres`), og isolerer hver instans i sitt EGET schema `test_<uuid>` (opprettet i `init`, droppet i `close()`). `migrate()` kjører Flyway inn i fixture-schemaet (`.schemas(schema).defaultSchema(schema)`); `database`-tilkoblingen og `jdbcUrl` setter `currentSchema` dit. Samtidige specer (Kotest `Concurrent`, `BudstikkaTestConfiguration`) tråkker derfor IKKE på hverandres rader selv om `reset()` fortsatt `TRUNCATE`-er per schema. FULL-BOOT: `BudstikkaTestApp.testConfig` peker den bootede appens `database.url` mot samme fixture-schema (`?currentSchema=<schema>`), så boot-migrering (`Application.kt` `dataSource.migrate()`), konsument, workers OG assertions (`postgres.database`) ser samme schema — ELLERS ville e2e/`runLocal` migrere til fixture-schema men lese/skrive `public` (fanget og fikset i denne endringen). `close()` stopper IKKE lenger containeren (Testcontainers Ryuk river den ved JVM-slutt) — kun schema droppes. MÅLT: full `./gradlew test` ~8.8s → ~4.4s. `TableDefinitionTest` bruker `fixture.schema` (ikke hardkodet `public`) i «every migrated table is registered»-sjekken. `withReuse(true)` fortsatt utsatt (B51).
+
+- B50: LOKAL TEST/E2E-SUBSTRAT & PROD-GRENSE. Fakes (PDL død / KRR-reservasjon / nærmeste leder / de 6 kanalene) +
+  Kafka/Postgres-bootstrap + scenario-byggere bygges ÉN gang og deles av BÅDE automatiske e2e-tester OG (senere) et
+  interaktivt lokalt løp — aldri to sett (unngår drift; DRY). PLASSERING: STANDARD er alt i `src/test` (fakes,
+  scenario-byggere, Testcontainers-base, e2e, senere lokal `main()`) — innenfor ett modul er `src/test` allerede delt,
+  ingen ekstra plugin trengs; `src/test` ser også `internal` i `src/main`. Et eget `testFixtures`-source-set
+  (`java-test-fixtures`, Gradle-navn — koden er Kotlin) innføres KUN ved konkret delingsbehov (flere moduler / ekstern
+  fake-konsument). ALDRI i `src/main`. GARANTI mot prod-lekkasje er BUILD-GRENSEN: prod-artefakten
+  (fat-jar/Docker-image) bygges kun fra `src/main`, så fakes er fysisk fraværende fra prod-jaren — håndhevet av
+  Gradle/kompilator, ikke av disiplin. Ktor-DI (B44) muliggjør det: `Application.module(deps)` tar avhengigheter som
+  parametre; prod-entrypoint (`Main.kt`) wirer EKTE adaptere, lokal `main()` wirer fakes. AVVIST ANTI-MØNSTER: en
+  `if (System.getenv("USE_FAKES"))`-adapterbytte inne i `src/main` (da ligger fakes i prod-jaren og én feilkonfig
+  flipper dem) — grensen skal være i bygget, ikke i en env-var.
+- B51: INFRA-BOOTSTRAP = Testcontainers-fra-kode (Kafka + Postgres), samme oppsett som integrasjonstestene bruker
+  (holder B50s «én kilde»-løfte) — INGEN docker-compose (unngår en separat fil som drifter fra test-konfigen).
+  DB-tabeller (`inbox_message`/`delivery`) er fullt inspiserbare UNDER kjøring: containeren mapper Postgres-porten til
+  localhost så lenge prosessen lever; logg JDBC-URL ved oppstart (evt. pinn fast host-port). Ferskt miljø per kjøring;
+  data overlever ikke prosess-restart (live-inspeksjon under kjøring får du uansett). `withReuse(true)` (persistens over
+  restart uten compose) utsatt til konkret behov. KONSEKVENS av B52-fakes: lokalt trengs KUN Kafka+Postgres — INGEN
+  Texas/token-sidecar, ingen ekte tokens, ingen TokenX-validering, ingen compose (fakene erstatter alt autentisert
+  nedstrøms; token-laget lever i de ekte adapterne i `src/main`, som ikke er på lokalt classpath).
+- B52: FAKE-MEKANISME = in-process port-fakes som STANDARD. Kotlin-implementasjoner av portgrensesnittene
+  (dødsoppslag/reservasjon/nærmeste-leder/kanal) i minne, styrbare (`fake.marker(ident)` = «gjør død») — ingen nettverk,
+  ingen tokens, raske, deles med enhets-/integrasjonstester. Portgrensesnittene (B28 ports & adapters) ER sømmen som
+  gjør byttet mulig. WireMock/mockserver reservert for UTVALGTE klient-kontrakttester der vi bevisst vil verifisere en
+  ekte HTTP-klients kontrakt/serialisering — IKKE for det brede e2e/lokale løpet. Ktor MockEngine ikke valgt (fake på
+  for lavt abstraksjonsnivå for en domeneblind ruter).
+- B53: TEST/LØP-STRATEGI & SCOPE. NÅ: automatiske Kotest e2e-specs som booter hele appen (konsument + workers + Ktor)
+  in-process mot Testcontainers (B51) med port-fakes (B52) wiret inn, og asserter at fake-kanalene mottok forventet
+  leveranse — dekker inbox→`decide()`→outbox→levering ende-til-ende via delte scenario-byggere (B50). Async workers →
+  assert med Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand. UTSATT (bygges når behovet melder
+  seg, som et TYNT lag oppå samme substrat): interaktivt lokalt HTTP kontroll-plan (`main()` som står og kjører +
+  dev-only routes `POST /dev/dispatch`, fake-toggle-endepunkter, navngitte scenarier) og live-inspeksjon via
+  kafka-ui/pgweb. Ingen ny build-kompleksitet: e2e og et framtidig lokalt løp deler fakes + scenario-byggere.
+- B54: EVENTID SOM KAFKA-HEADER
+  (dedup-fast-path). [REVERSERT DELVIS av B61/ADR 0008: eventId lever nå KUN i headeren — den er AUTORITATIV, og
+  `Dispatch.eventId` FJERNES fra payloaden. «PAYLOAD FORBLIR AUTORITATIV» og
+  `payload.eventId == header.eventId`-valideringen under er dermed UTGÅTT (tvillingkilden elimineres ved å fjerne payload-kilden). Resten står: header som dedup-nøkkel, delt konstant
+  `DispatchHeader.EVENT_ID`, dead-letter ved manglende header.] Beslutter DATAMODELLs tidligere «Vurdert»-punkt:
+  produsentene SPEILER `eventId` som Kafka-header (navn festet som delt kontrakt-konstant `DispatchHeader.EVENT_ID` =
+  `"eventId"` i kontraktlib, #18). PAYLOAD FORBLIR AUTORITATIV (B4/B43): `Dispatch.eventId` er sannheten; headeren er en
+  fast-path, IKKE en erstatning. GEVINST: konsumenten dedup-er (`INSERT … ON CONFLICT DO NOTHING`, B4) og dumper rå
+  payload til `inbox_message` UTEN å deserialisere bodyen → dedup løsrives fra payload-skjemaet; `UGYLDIG_JSON`
+  -triggeren ved ingest forsvinner. FEILFLATER holdt fra hverandre (uendret): header mangler/korrupt → ingen PK →
+  `dead_letter_message` (`MISSING_EVENT_ID`); konvolutt OK men `innhold` dekoder ikke → `inbox_message.status=FAILED`
+  hos beslutnings-worker. VALIDERING: når workeren senere deserialiserer, verifiser `payload.eventId == header.eventId`;
+  avvik = poison (håndterer «to kilder»-divergensen). «Obligatorisk» = KONTRAKT, ikke broker-garanti (en produsent-bug
+  kan utelate den) → derfor beholdes `dead_letter_message`. `referanse` leses fortsatt strukturelt fra konvolutten (ikke
+  i header) → kun dedup/dump er null-parse; om `referanse` også skal deferres til workeren avgjøres i #19. REVIDERER B45
+  KUN for tracing-delen («trace_id via Kafka-header utgår» står ved lag) — eventId-header er en distinkt
+  forretnings-dedup-fast-path, ikke en tracing-header. INGEN producer-klient i budstikka (konsument-app; produsentene
+  eier egen publisering). Header-HÅNDTERING (lesing/validering/inbox-dump) implementeres i #19; #18 leverer kun
+  navnekonstanten.
+- B55: BESLUTNINGSKJERNEN = KOMPONERBARE GATER (REVIDERER B28s indre form; functional core / imperative shell står ved
+  lag). Erstatter «én ren `decide(hendelse, grunnlag)` matet av ETT delt `Beslutningsgrunnlag`» med en LISTE av gater
+  (`DecisionRule`), hver delt i to faser: (1) `resolve(event): ResolvedRule` — imperativt skall (I/O): gaten slår opp
+  sitt EGET grunnlag ut fra den immutable `Dispatch` og binder det i en closure (INGEN delt grunnlag-struct); (2)
+  `ResolvedRule.apply(deliveries): Beslutning` — ren kjerne: transformerer leveranse-utkastene (kan endre kanal / utvide
+  listen — `reservasjon→kanalvalg`, `brev-fallback`) eller avbryter med `Dropp`/`Feilet`. `DecisionProcess` seeder
+  utkastet fra hendelsen, kjører alle gaters `resolve` KONKURRENT (`async`+`awaitAll`), og folder de rene `apply`
+  SEKVENSIELT; første ikke-`Behandlet`-utfall short-circuiter. Sentral type→policy/regel-ruting UTGÅR: hver gate
+  self-selekterer (f.eks. `DeathGate` via `gatedPerson()`); «ingen gate» = tom regelliste. MOTIVASJON: delt
+  `Beslutningsgrunnlag` (og «én policy per meldingstype») blir en grunn god-struct som vokser for hver ny regel; lokal
+  grunnlags-eierskap per gate skalerer additivt. AVVEINING: parallell `resolve` short-circuiter IKKE I/O (tidlig dropp ⇒
+  et samtidig oppslag var forgjeves) — bevisst, latensgevinsten ved overlappende billige oppslag på samme person veier
+  tyngre. Rekkefølge i regellista = anvendelses-rekkefølge for folden (billigst/mest droppende først), ikke for I/O.
+  FJERNER det parallelle policy-laget og det døde `decide()`/`FoundationFetcher`/`DecisionFoundation`-sporet (én kilde,
+  DRY).
+- B56: OPT-IN GATING AV FULLE E2E-TESTER + WIRING-SØM (LEVERER #35; se ADR 0006, docs/teststrategi.md; REVIDERER B53s
+  implisitte «e2e kjører i den vanlige testkjøringen»). LEVERT: et delt substrat `BudstikkaTestApp` (i
+  `src/test/.../testsupport`) booter HELE appen (Kafka-konsument + workers + Ktor) in-process mot Testcontainers
+  (Postgres via `PostgresTestFixture`, Kafka via `KafkaTestContainer`) med port-fakes wiret inn — samme substrat driver
+  BÅDE de automatiske e2e-specene OG et kjørbart lokalt løp `LocalApp.main` (`./gradlew runLocal`), som oppfyller
+  B50/B53s «senere lokal `main()`» og B53s UTSATT-punkt (den KJØRBARE delen; interaktivt HTTP-kontrollplan forblir
+  utsatt). WIRING-SØM: `Application.kt` har null-arg `module()` (referert fra `application.conf`, wirer EKTE adaptere)
+  som delegerer til `configureApplication(overrides: DependencyRegistry.() -> Unit)`; test/lokalt løp sender `overrides`
+  som `provide`-er fakes SIST. Sømmen er `ktor.di.conflictPolicy = "OverridePrevious"` satt KUN i test-konfigen (senere
+  `provide` vinner); prod beholder default-policy → duplikat-`provide` kaster (utilsiktet override umulig i prod).
+  Fakene finnes aldri i prod-jaren (build-grensen, B50). OPT-IN GATING (kravet fra #35: «CI/CD skal ikke vente på trege
+  e2e ved hver deploy»): full-boot-specene merkes `@Tags("E2E")`; default `test`/`check` kjører `kotest.tags=!E2E`
+  (ekskluderer e2e → rask deploy-gate), egen `./gradlew e2eTest`-task kjører `kotest.tags=E2E` (KUN e2e, ikke wiret i
+  `check`, `shouldRunAfter("test")`). VIKTIG UNNTAK: schema-drift-testen (`PostgresTestFixture` + `MigrationUtils`) er
+  bevisst UTEN E2E-tag og kjører i default-gaten (rask, høy verdi). AVVIST: env-var-switch i én test-task (gjør
+  default-gaten ikke-deterministisk, skjuler hva som kjørte) og eget source-set/modul (build-kompleksitet B50 utsetter).
+  KAFKA-IMAGE: `confluentinc/cp-kafka` (Confluent-distro) i test — mest utprøvde Testcontainers-Kafka på arm64; appen er
+  distro-uavhengig, dette er en ren test-detalj (B51s «Kafka fra kode» står ved lag).
+- B62: CONTAINER-BYGG MED JIB, IKKE DOCKERFILE (dev-POC; se ADR 0010). Ren `jib { }` i `build.gradle.kts` (ikke Ktor
+  `docker { }`-tasks → unngår Gradle 10-deprecation fra `setupJibLocal` + JRE-validering); Chainguard-base i
+  `from.image` via `docker://` + pre-pull (`docker pull`), fordi Jib feiler på Chainguards OCI 1.1-manifest
+  (`artifactType`, verifisert). Deploy: `nais/login` → `./gradlew jib` (direkte push) → digest fra
+  `build/jib-image.digest` → `nais/attest-sign` (bevarer SLSA/signering fra `nais/docker-build-push`). Image-path fra
+  `nais/login`-registry-output; tag `YYYY.MM.DD-HH.mm-<sha>`; tredjeparts-actions SHA-pinnet. PR-gate får `jibBuildTar`
+  (no-push) for tidlig brudd-fangst. `Dockerfile` beholdes som rollback til dev-deploy er verifisert.
+- B60: DELT POSTGRES-CONTAINER + SCHEMA-ISOLASJON PER FIXTURE (TEST-YTELSE; se docs/teststrategi.md; FORFINER B51s
+  «ferskt miljø per kjøring» og B56s `PostgresTestFixture`-oppsett). PROBLEM: hver `PostgresTestFixture()` startet OG
+  stoppet sin egen Postgres-container (`init { postgres.start() }` / `close() { postgres.stop() }`) → container-oppstart
+  var den dominerende kaldkjørings-kostnaden på DB-testene. LEVERT: `PostgresTestFixture` lazy-starter ÉN delt container
+  per JVM (companion `sharedPostgres`), og isolerer hver instans i sitt EGET schema `test_<uuid>` (opprettet i `init`,
+  droppet i `close()`). `migrate()` kjører Flyway inn i fixture-schemaet (`.schemas(schema).defaultSchema(schema)`);
+  `database`-tilkoblingen og `jdbcUrl` setter `currentSchema` dit. Samtidige specer (Kotest `Concurrent`,
+  `BudstikkaTestConfiguration`) tråkker derfor IKKE på hverandres rader selv om `reset()` fortsatt `TRUNCATE`-er per
+  schema. FULL-BOOT: `BudstikkaTestApp.testConfig` peker den bootede appens `database.url` mot samme fixture-schema
+  (`?currentSchema=<schema>`), så boot-migrering (`Application.kt` `dataSource.migrate()`), konsument, workers OG
+  assertions (`postgres.database`) ser samme schema — ELLERS ville e2e/`runLocal` migrere til fixture-schema men
+  lese/skrive `public` (fanget og fikset i denne endringen). `close()` stopper IKKE lenger containeren (Testcontainers
+  Ryuk river den ved JVM-slutt) — kun schema droppes. MÅLT: full `./gradlew test` ~8.8s → ~4.4s. `TableDefinitionTest`
+  bruker `fixture.schema` (ikke hardkodet `public`) i «every migrated table is registered»-sjekken. `withReuse(true)`
+  fortsatt utsatt (B51).
 
 ## Auth & ACL-beslutninger (område 5; se docs/adr/0009)
-- B62: KRR-RESERVASJON SOM BESLUTNINGSGATE + BREVFALLBACK (OPERASJONALISERER B2/B7/B8; se ADR 0009; issue #22, epic #15). Første del av det ugrillede området 5. (1) AUTH: KRR (digdir-krr-proxy) kalles Azure AD M2M (`client_credentials` via Texas, `entra_id`), IKKE TokenX — budstikka er ren Kafka-konsument uten innkommende brukerkontekst, så det finnes ikke noe brukertoken å veksle OBO (jf. `/auth-overview`-beslutningstre); samme M2M-mønster som PDL/dokdist, gjenbruker `TexasTokenProvider` + eget KRR-scope. «TokenX der relevant» (issue-tekst) er IKKE relevant her. (2) FALLBACK-TRIGGER: budstikkas nøytrale «reservert» (B7) modelleres som «kan ikke varsles digitalt» = KRR `kanVarsles == false` (dekker BÅDE reservert-mot-digital OG mangler-verifisert-kontaktkanal) — tryggere for innbygger enn `reservert` alene (person uten kontaktinfo ville ellers verken fått digitalt varsel eller brev). Domeneblind port `ReservationLookup.isReserved(ident): Boolean`; KRR-kontrakt lekker aldri inn (B23). (3) GATE: `ReservationGate` er en `DecisionRule` (B55) som self-selekterer på `BrukervarselCreate` og slår opp KRR KUN når `externalVarsling != null || brevFallback != null` (rene in-app-brukervarsler + andre varianter slippes uendret, ingen KRR-kall). Ved reservert gjør ren `apply`: (a) UNDERTRYKKER ekstern varsling — BRUKERVARSEL-innhold `copy(externalVarsling = null)` (in-app vises på Min side uansett, B7); (b) LEGGER TIL brev hvis `brevFallback` finnes — syntetiserer BREV-`DeliveryDraft` med `BrevCreate(personIdentifier, journalpostId, distributionType)` som gjenbruker HELE BREV-stien (#21: delivery-rad + `BrevChannelHandler` + dokdist) — ingen ny kanal/tabell/handler. Rekkefølge `[DeathGate, ReservationGate]`: død short-circuiter før reservasjonstransform (ingen brev til død). Transient KRR-feil kastes fra `resolve` (I/O) → skallets backoff, aldri stille «ikke reservert» (som `PdlClient`). INGEN skjemaendring — reservasjon resolveres ved beslutning og fryses inn i leveransene, persisteres ikke. KONSEKVENS: ny nedstrøms-avhengighet (`accessPolicy.outbound` + `KRR_URL`/`KRR_SCOPE` samme PR); fnr til KRR men aldri til logg (B46, KRR-feilrespons kun statuskode); ny personopplysningskilde → DPIA/behandlingsprotokoll før prod (B42, juridisk spor). VERIFISERES I DEV FØR PROD: eksakt KRR-endepunkt (`/rest/v1/person` vs `/rest/v1/personer`), namespace (team-rocket) og scope-streng mot digdir-krr-proxy sin gjeldende kontrakt — stien ligger i `KRR_URL` (config), kontrakten isolert bak porten så wire-justering ikke rører domenet. VRAKET: TokenX/OBO (ingen brukerkontekst), trigge kun på `reservert` (person uten kontaktinfo faller mellom to stoler), egen brev-kanal for fallback (`BrevCreate` round-tripper alt), la tms håndtere reservasjon implisitt (budstikka self-operasjonaliserer B7/B25).
+
+- B62: KRR-RESERVASJON SOM BESLUTNINGSGATE + BREVFALLBACK (OPERASJONALISERER B2/B7/B8; se ADR 0009; issue #22, epic
+  #15). Første del av det ugrillede området 5. (1) AUTH: KRR (digdir-krr-proxy) kalles Azure AD M2M
+  (`client_credentials` via Texas, `entra_id`), IKKE TokenX — budstikka er ren Kafka-konsument uten innkommende
+  brukerkontekst, så det finnes ikke noe brukertoken å veksle OBO (jf. `/auth-overview`-beslutningstre); samme
+  M2M-mønster som PDL/dokdist, gjenbruker `TexasTokenProvider` + eget KRR-scope. «TokenX der relevant» (issue-tekst) er
+  IKKE relevant her. (2) FALLBACK-TRIGGER: budstikkas nøytrale «reservert» (B7) modelleres som «kan ikke varsles
+  digitalt» = KRR `kanVarsles == false` (dekker BÅDE reservert-mot-digital OG mangler-verifisert-kontaktkanal) —
+  tryggere for innbygger enn `reservert` alene (person uten kontaktinfo ville ellers verken fått digitalt varsel eller
+  brev). Domeneblind port `ReservationLookup.isReserved(ident): Boolean`; KRR-kontrakt lekker aldri inn (B23). (3) GATE:
+  `ReservationGate` er en `DecisionRule` (B55) som self-selekterer på `BrukervarselCreate` og slår opp KRR KUN når
+  `externalVarsling != null || brevFallback != null` (rene in-app-brukervarsler + andre varianter slippes uendret, ingen
+  KRR-kall). Ved reservert gjør ren `apply`: (a) UNDERTRYKKER ekstern varsling — BRUKERVARSEL-innhold
+  `copy(externalVarsling = null)` (in-app vises på Min side uansett, B7); (b) LEGGER TIL brev hvis `brevFallback`
+  finnes — syntetiserer BREV-`DeliveryDraft` med `BrevCreate(personIdentifier, journalpostId, distributionType)` som
+  gjenbruker HELE BREV-stien (#21: delivery-rad + `BrevChannelHandler` + dokdist) — ingen ny kanal/tabell/handler.
+  Rekkefølge `[DeathGate, ReservationGate]`: død short-circuiter før reservasjonstransform (ingen brev til død).
+  Transient KRR-feil kastes fra `resolve` (I/O) → skallets backoff, aldri stille «ikke reservert» (som `PdlClient`).
+  INGEN skjemaendring — reservasjon resolveres ved beslutning og fryses inn i leveransene, persisteres ikke. KONSEKVENS:
+  ny nedstrøms-avhengighet (`accessPolicy.outbound` + `KRR_URL`/`KRR_SCOPE` samme PR); fnr til KRR men aldri til logg
+  (B46, KRR-feilrespons kun statuskode); ny personopplysningskilde → DPIA/behandlingsprotokoll før prod (B42, juridisk
+  spor). VERIFISERES I DEV FØR PROD: eksakt KRR-endepunkt (`/rest/v1/person` vs `/rest/v1/personer`), namespace
+  (team-rocket) og scope-streng mot digdir-krr-proxy sin gjeldende kontrakt — stien ligger i `KRR_URL` (config),
+  kontrakten isolert bak porten så wire-justering ikke rører domenet. VRAKET: TokenX/OBO (ingen brukerkontekst), trigge
+  kun på `reservert` (person uten kontaktinfo faller mellom to stoler), egen brev-kanal for fallback (`BrevCreate`
+  round-tripper alt), la tms håndtere reservasjon implisitt (budstikka self-operasjonaliserer B7/B25).
 
 ## Kjernespenning å designe rundt
-Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan
-flytte resten til konsument? Kontrakt: hva sender domeneappen, hva eier budstikka.
+
+Hvor mye domenekunnskap MÅ ligge igjen for å velge kanal/tekst/fallback, og hvordan flytte resten til konsument?
+Kontrakt: hva sender domeneappen, hva eier budstikka.
