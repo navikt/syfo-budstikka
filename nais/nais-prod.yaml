@@ -84,3 +84,8 @@ spec:
       value: https://dokdistfordeling.prod-fss-pub.nais.io/rest/v1/distribuerjournalpost
     - name: DOCUMENT_DISTRIBUTOR_SCOPE
       value: api://prod-fss.teamdokumenthandtering.dokdistfordeling/.default
+    - name: KRR_URL
+      value: https://digdir-krr-proxy.intern.nav.no/rest/v1/person
+    - name: KRR_SCOPE
+      value: api://prod-gcp.team-rocket.digdir-krr-proxy/.default
+
