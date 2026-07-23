@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      id-token: write # OIDC for nais/login og nais/deploy
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
@@ -31,6 +32,12 @@ jobs:
       # Deterministisk gate 2: kompilering + ktlint + hele testsuiten (E2E ekskludert, ADR 0006).
       - name: Bygg, lint og test
         run: ./gradlew build --no-daemon
+
+      - name: Login GAR
+        id: login
+        uses: nais/login@v0 # intern Nav-action; setter opp GAR-auth og gir registry-output
+        with:
+          team: team-esyfo
 
       # Deterministisk gate 3: bygg container-image med Jib UTEN push (ADR 0009). Fanger
       # base-image-/Jib-konfigfeil i PR i stedet for på main-deploy. jibBuildTar pre-puller

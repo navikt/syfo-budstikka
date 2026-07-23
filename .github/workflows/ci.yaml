@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # OIDC for nais/login og nais/deploy
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
