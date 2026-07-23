@@ -10,8 +10,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import no.nav.budstikka.infrastructure.auth.config.TexasConfig
+import sharedJson
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -20,7 +20,7 @@ import kotlin.time.Instant
 
 /**
  * [TokenProvider] mot NAIS Texas token-sidecar: veksler et maskin-til-maskin-token
- * (Entra ID `client_credentials`) per [target] og cacher det til rett før utløp.
+ * (Entra ID `client_credentials`) per target og cacher det til rett før utløp.
  *
  * Texas returnerer selv aldri et utløpt token, men å cache her sparer et sidecar-rundtur
  * på hvert nedstrøms-kall. Tokens er hemmeligheter: de logges aldri og legges aldri i
@@ -59,7 +59,7 @@ class TexasTokenProvider(
         }
         val body =
             try {
-                json.decodeFromString<TexasTokenResponse>(response.bodyAsText())
+                sharedJson.decodeFromString<TexasTokenResponse>(response.bodyAsText())
             } catch (_: SerializationException) {
                 throw IllegalStateException("Invalid Texas token response")
             }
@@ -79,7 +79,6 @@ class TexasTokenProvider(
     companion object {
         // Renew slightly before expiry to handle skew and call latency.
         private val EXPIRY_LEEWAY: Duration = 30.seconds
-        private val json = Json { ignoreUnknownKeys = true }
     }
 }
 
