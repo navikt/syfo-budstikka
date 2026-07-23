@@ -1,0 +1,50 @@
+name: Publiser kontraktbibliotek
+
+# Publiserer `no.nav.syfo:budstikka-kontrakt` til GitHub Packages (ADR 0010, B63).
+# Frikoblet fra app-deploy: trigges KUN av en tag `kontrakt/vX.Y.Z` (eller manuelt).
+on:
+  push:
+    tags:
+      - "kontrakt/v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versjon å publisere (semver, f.eks. 0.1.0). 0.x fram til prod."
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      # Utled versjon: fra tag (`kontrakt/v0.1.0` -> `0.1.0`) eller fra manuell input.
+      - name: Utled versjon
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#kontrakt/v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Bygg + test kontrakten før publisering (deterministisk gate).
+      - name: Bygg og test kontrakten
+        run: ./gradlew :kontrakt:build --no-daemon -PkontraktVersion=${{ steps.version.outputs.value }}
+
+      - name: Publiser til GitHub Packages
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :kontrakt:publish --no-daemon -PkontraktVersion=${{ steps.version.outputs.value }}

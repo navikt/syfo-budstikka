@@ -20,3 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "syfo-budstikka"
+include(":kontrakt")

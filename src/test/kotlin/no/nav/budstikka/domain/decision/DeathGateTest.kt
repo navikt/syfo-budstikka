@@ -13,9 +13,9 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
+import no.nav.budstikka.domain.dispatch.Merkelapp
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -79,7 +79,7 @@ class DeathGateTest :
                 ArbeidsgivervarselCreate(
                     orgnummer = TEST_ORGNUMMER,
                     recipient = AltinnResource(AltinnResourceId.DIALOGMOETE),
-                    tag = Tag.OPPFOELGING,
+                    merkelapp = Merkelapp.OPPFOELGING,
                     text = "t",
                     link = "https://nav.no",
                 )

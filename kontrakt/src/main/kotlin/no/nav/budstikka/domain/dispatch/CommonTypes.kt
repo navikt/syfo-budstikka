@@ -10,18 +10,18 @@ sealed interface Brukervarsel {
 }
 
 /** Ekstern varslingskanal (SMS/e-post) i tillegg til flaten. */
-enum class ExternalChannel { SMS, EMAIL }
+enum class EksternKanal { SMS, EMAIL }
 
 /**
  * Vår egen modell for ekstern varsling (B23), mappes internt til tms. `null`-tekster =
  * NAV-standardtekst nedstrøms. Konsument oppgir ren tekst; budstikka saniterer (B29).
  */
 @Serializable
-data class ExternalVarsling(
-    val channels: Set<ExternalChannel> = setOf(ExternalChannel.SMS, ExternalChannel.EMAIL),
-    val smsText: String? = null,
-    val emailTitle: String? = null,
-    val emailText: String? = null,
+data class EksternVarsling(
+    val kanaler: Set<EksternKanal> = setOf(EksternKanal.SMS, EksternKanal.EMAIL),
+    val smsTekst: String? = null,
+    val epostTittel: String? = null,
+    val epostTekst: String? = null,
 )
 
 /** Distribusjonstype for brev-utsending nedstrøms. */
@@ -48,7 +48,7 @@ enum class SendingWindow { ONGOING, NKS_OPENING_HOURS }
  * aldri på den; bæres kun til produsent-api. Lukket form tvinger fager-registrering og
  * budstikka-onboarding i synk. Utvides ved onboarding.
  */
-enum class Tag { DIALOGMOETE, OPPFOELGING }
+enum class Merkelapp { DIALOGMOETE, OPPFOELGING }
 
 /** B32: Altinn-ressurs → produsent-api ressursId (register-håndhevet). */
 enum class AltinnResourceId { DIALOGMOETE, }

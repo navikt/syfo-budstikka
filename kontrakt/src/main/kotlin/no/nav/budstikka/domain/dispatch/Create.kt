@@ -13,7 +13,7 @@ data class BrukervarselCreate(
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val externalVarsling: ExternalVarsling? = null,
+    val eksternVarsling: EksternVarsling? = null,
     val brevFallback: BrevFallback? = null,
     val sendingWindow: SendingWindow? = null,
 ) : DispatchContent,
@@ -33,7 +33,7 @@ data class LedervarselCreate(
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val externalVarsling: ExternalVarsling? = null,
+    val eksternVarsling: EksternVarsling? = null,
     val sendingWindow: SendingWindow? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = sykmeldt.value
@@ -56,12 +56,11 @@ data class DittSykefravaerCreate(
 @SerialName("ArbeidsgivervarselCreate")
 data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,
-    @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
-    val tag: Tag,
+    val merkelapp: Merkelapp,
     val text: String,
     val link: String,
-    val externalVarsling: ExternalVarsling? = null,
+    val eksternVarsling: EksternVarsling? = null,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,

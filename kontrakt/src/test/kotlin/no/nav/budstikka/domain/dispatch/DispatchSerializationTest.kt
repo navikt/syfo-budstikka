@@ -4,8 +4,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import no.nav.budstikka.fakes.TEST_ORGNUMMER
-import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import kotlin.time.Instant
 
 class DispatchSerializationTest :
@@ -20,7 +18,7 @@ class DispatchSerializationTest :
                             text = "Du har en oppgave",
                             link = "https://nav.no/x",
                             visibleUntil = Instant.parse("2026-01-01T00:00:00Z"),
-                            externalVarsling = ExternalVarsling(smsText = "Sjekk Min side"),
+                            eksternVarsling = EksternVarsling(smsTekst = "Sjekk Min side"),
                             brevFallback = BrevFallback(journalpostId = "jp-1"),
                             sendingWindow = SendingWindow.NKS_OPENING_HOURS,
                         ),
@@ -39,7 +37,7 @@ class DispatchSerializationTest :
                         ArbeidsgivervarselCreate(
                             orgnummer = Orgnummer(TEST_ORGNUMMER.value),
                             recipient = NarmesteLeder(sykmeldt = TEST_SYKMELDT_2),
-                            tag = Tag.DIALOGMOETE,
+                            merkelapp = Merkelapp.DIALOGMOETE,
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                             meldingstype = ArbeidsgiverMeldingstype.OPPGAVE,
@@ -49,7 +47,7 @@ class DispatchSerializationTest :
                         ArbeidsgivervarselCreate(
                             orgnummer = Orgnummer(TEST_ORGNUMMER.value),
                             recipient = AltinnResource(resource = AltinnResourceId.DIALOGMOETE),
-                            tag = Tag.OPPFOELGING,
+                            merkelapp = Merkelapp.OPPFOELGING,
                             text = "Oppfølging",
                             link = "https://nav.no/ag",
                         ),
@@ -107,7 +105,7 @@ class DispatchSerializationTest :
                     ArbeidsgivervarselCreate(
                         orgnummer = Orgnummer(TEST_ORGNUMMER.value),
                         recipient = NarmesteLeder(sykmeldt = TEST_SYKMELDT_2),
-                        tag = Tag.DIALOGMOETE,
+                        merkelapp = Merkelapp.DIALOGMOETE,
                         text = "Dialogmøte",
                         link = "https://nav.no/ag",
                     )

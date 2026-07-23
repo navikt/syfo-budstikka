@@ -55,6 +55,13 @@ Dette gir lavere ventetid på oppslag og samtidig forutsigbar regelrekkefølge.
 
 Se [overordnet flyt](docs/flyt.md) for claim/lease, batch insert, kanal-mapping og flere detaljer.
 
+## Kontraktbibliotek for produsenter
+
+Produsent-apper sender meldinger via det publiserte biblioteket `no.nav.syfo:budstikka-kontrakt`
+(Gradle-modulen `:kontrakt`). Det gir typede meldinger og en Kotlin DSL, uten å dra med budstikkas
+infrastruktur. Se [`kontrakt/README.md`](kontrakt/README.md) for oppsett og eksempler, og
+`docs/adr/0010`/`docs/adr/0011` for designet.
+
 ## Kjøre lokalt
 
 Forutsetninger: [mise](https://mise.jdx.dev/) og en container-runtime (Docker eller podman) som kjører. `mise` gir deg riktig Java-versjon og oppgavene under.

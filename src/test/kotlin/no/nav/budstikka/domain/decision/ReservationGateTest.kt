@@ -10,7 +10,7 @@ import no.nav.budstikka.domain.dispatch.BrevFallback
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
+import no.nav.budstikka.domain.dispatch.EksternVarsling
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeReservationLookup
@@ -27,10 +27,10 @@ class ReservationGateTest :
             content: DispatchContent,
         ): Decision = DecisionProcess(listOf(ReservationGate(lookup))).process(event(content))
 
-        val externalVarsling = ExternalVarsling(smsText = "Du har et nytt varsel")
+        val eksternVarsling = EksternVarsling(smsTekst = "Du har et nytt varsel")
         val brevFallback = BrevFallback(journalpostId = "jp-1")
 
-        test("reserved + externalVarsling + brevFallback -> in-app (no external) + BREV") {
+        test("reserved + eksternVarsling + brevFallback -> in-app (no external) + BREV") {
             val decision =
                 decide(
                     reservedLookupFor(TEST_SYKMELDT),
@@ -38,7 +38,7 @@ class ReservationGateTest :
                         TEST_SYKMELDT,
                         Varseltype.OPPGAVE,
                         "text",
-                        externalVarsling = externalVarsling,
+                        eksternVarsling = eksternVarsling,
                         brevFallback = brevFallback,
                     ),
                 )
@@ -47,7 +47,7 @@ class ReservationGateTest :
             deliveries shouldHaveSize 2
 
             val brukervarsel = deliveries.single { it.channel == Channel.BRUKERVARSEL }
-            (brukervarsel.content as BrukervarselCreate).externalVarsling shouldBe null
+            (brukervarsel.content as BrukervarselCreate).eksternVarsling shouldBe null
 
             val brev = deliveries.single { it.channel == Channel.BREV }
             brev.operation shouldBe Operation.CREATE
@@ -55,20 +55,20 @@ class ReservationGateTest :
             (brev.content as BrevCreate).personIdentifier shouldBe TEST_SYKMELDT
         }
 
-        test("reserved + externalVarsling, no brevFallback -> in-app only, external suppressed") {
+        test("reserved + eksternVarsling, no brevFallback -> in-app only, external suppressed") {
             val decision =
                 decide(
                     reservedLookupFor(TEST_SYKMELDT),
-                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "text", externalVarsling = externalVarsling),
+                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "text", eksternVarsling = eksternVarsling),
                 )
 
             val deliveries = decision.shouldBeInstanceOf<Decision.Processed>().deliveries
             deliveries shouldHaveSize 1
             deliveries.single().channel shouldBe Channel.BRUKERVARSEL
-            (deliveries.single().content as BrukervarselCreate).externalVarsling shouldBe null
+            (deliveries.single().content as BrukervarselCreate).eksternVarsling shouldBe null
         }
 
-        test("reserved + brevFallback, no externalVarsling -> in-app + BREV") {
+        test("reserved + brevFallback, no eksternVarsling -> in-app + BREV") {
             val decision =
                 decide(
                     reservedLookupFor(TEST_SYKMELDT),
@@ -88,7 +88,7 @@ class ReservationGateTest :
                         TEST_SYKMELDT,
                         Varseltype.OPPGAVE,
                         "text",
-                        externalVarsling = externalVarsling,
+                        eksternVarsling = eksternVarsling,
                         brevFallback = brevFallback,
                     ),
                 )
@@ -96,7 +96,7 @@ class ReservationGateTest :
             val deliveries = decision.shouldBeInstanceOf<Decision.Processed>().deliveries
             deliveries shouldHaveSize 1
             deliveries.single().channel shouldBe Channel.BRUKERVARSEL
-            (deliveries.single().content as BrukervarselCreate).externalVarsling shouldBe externalVarsling
+            (deliveries.single().content as BrukervarselCreate).eksternVarsling shouldBe eksternVarsling
         }
 
         test("brukervarsel with neither external nor fallback -> no KRR lookup, unchanged") {

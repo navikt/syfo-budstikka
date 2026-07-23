@@ -4,8 +4,8 @@ import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.domain.dispatch.Brukervarsel
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.ExternalChannel
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
+import no.nav.budstikka.domain.dispatch.EksternKanal
+import no.nav.budstikka.domain.dispatch.EksternVarsling
 import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.tms.varsel.builder.InaktiverVarselBuilder
 import no.nav.tms.varsel.builder.OpprettVarselBuilder
@@ -59,7 +59,7 @@ private fun BrukervarselCreate.toCreateMessage(
             withProdusent(platformConfig.clusterName, platformConfig.namespace, platformConfig.appName)
             link?.let(::withLink)
             visibleUntil?.let { withAktivFremTil(it.toZonedDateTime()) }
-            externalVarsling?.let { withEksternVarsling(it.toTms()) }
+            eksternVarsling?.let { withEksternVarsling(it.toTms()) }
         }.build()
 
 private fun toInactivateMessage(
@@ -78,18 +78,18 @@ private fun DomainVarseltype.toTms(): TmsVarseltype =
         DomainVarseltype.OPPGAVE -> TmsVarseltype.Oppgave
     }
 
-private fun ExternalVarsling.toTms(): OpprettVarselBuilder.EksternVarslingBuilder =
+private fun EksternVarsling.toTms(): OpprettVarselBuilder.EksternVarslingBuilder =
     OpprettVarselBuilder.eksternVarsling().apply {
         preferredChannel()?.let(::withPreferertKanal)
-        smsText?.let(::withSmsVarslingstekst)
-        emailTitle?.let(::withEpostVarslingstittel)
-        emailText?.let(::withEpostVarslingstekst)
+        smsTekst?.let(::withSmsVarslingstekst)
+        epostTittel?.let(::withEpostVarslingstittel)
+        epostTekst?.let(::withEpostVarslingstekst)
     }
 
-private fun ExternalVarsling.preferredChannel(): TmsEksternKanal? =
-    when (channels.singleOrNull()) {
-        ExternalChannel.SMS -> TmsEksternKanal.SMS
-        ExternalChannel.EMAIL -> TmsEksternKanal.EPOST
+private fun EksternVarsling.preferredChannel(): TmsEksternKanal? =
+    when (kanaler.singleOrNull()) {
+        EksternKanal.SMS -> TmsEksternKanal.SMS
+        EksternKanal.EMAIL -> TmsEksternKanal.EPOST
         null -> null
     }
 

@@ -27,10 +27,10 @@ internal class ReservationGate(
     }
 }
 
-private fun BrukervarselCreate.hasExternalReach(): Boolean = externalVarsling != null || brevFallback != null
+private fun BrukervarselCreate.hasExternalReach(): Boolean = eksternVarsling != null || brevFallback != null
 
 private fun DeliveryDraft.applyReservation(): List<DeliveryDraft> {
     val brukervarsel = content as? BrukervarselCreate ?: return listOf(this)
-    val inAppOnly = copy(content = brukervarsel.copy(externalVarsling = null))
+    val inAppOnly = copy(content = brukervarsel.copy(eksternVarsling = null))
     return listOfNotNull(inAppOnly, brukervarsel.brevFallbackDraft(reference))
 }

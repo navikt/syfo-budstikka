@@ -12,7 +12,7 @@ import no.nav.budstikka.domain.dispatch.BrevFallback
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
+import no.nav.budstikka.domain.dispatch.EksternVarsling
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.domain.dispatch.dispatchJson
 import no.nav.budstikka.domain.foundation.DeathLookup
@@ -61,7 +61,7 @@ class BrukervarselReservationE2ESpec :
                                     personIdentifier = TEST_SYKMELDT,
                                     varseltype = Varseltype.OPPGAVE,
                                     text = "Du har en oppgave",
-                                    externalVarsling = ExternalVarsling(smsText = "Nytt varsel"),
+                                    eksternVarsling = EksternVarsling(smsTekst = "Nytt varsel"),
                                     brevFallback = BrevFallback(journalpostId = "jp-krr-1"),
                                 ),
                         )
@@ -84,7 +84,7 @@ class BrukervarselReservationE2ESpec :
                         documentDistributor.requests.map { it.journalpostId }.shouldContainExactly("jp-krr-1")
 
                         val published = brukervarselPublisher.published.single()
-                        (published.brukervarsel as BrukervarselCreate).externalVarsling shouldBe null
+                        (published.brukervarsel as BrukervarselCreate).eksternVarsling shouldBe null
                     }
                 }
         }

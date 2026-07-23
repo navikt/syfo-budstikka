@@ -115,3 +115,18 @@ Kontrollen som stanser dispatch til en person registrert som død.
 
 **BrevFallback**:
 Å sende brev når recipienten ikke kan varsles digitalt.
+
+## Kontraktbibliotek
+
+**Kontraktbibliotek (`budstikka-kontrakt`)**:
+Det publiserte Gradle-artefaktet (`no.nav.syfo:budstikka-kontrakt`) som produsent-appene
+kompilerer mot for å bygge og serialisere `Dispatch`-meldinger. Ekstrahert fra `:kontrakt`-modulen;
+kafka-fritt, avhenger kun av kotlinx-serialization.
+
+**EncodedDispatch**:
+Kafka-fri data-holder DSL-en munner ut i: `(partitionKey, value, eventId, headerName)` — alt
+produsenten trenger for å bygge sin egen `ProducerRecord`. Budstikka eier ingen producer-klient (B54).
+
+**Merkelapp**:
+Typet lukket kategori-enum i kontrakten (B30), båret videre til produsent-api. Budstikka forgrener
+aldri på den. _Unngå_: tag (kodenavn som drev vekk fra B30), tema (kolliderer med Gosys-temakoder).

@@ -8,7 +8,6 @@ import kotlin.time.Instant
 @Serializable
 @SerialName("BrukervarselInactivate")
 data class BrukervarselInactivate(
-    @SerialName("referanse")
     val reference: String,
     val sykmeldt: PersonIdentifier,
 ) : DispatchContent,
@@ -20,7 +19,6 @@ data class BrukervarselInactivate(
 @Serializable
 @SerialName("LedervarselInactivate")
 data class LedervarselInactivate(
-    @SerialName("referanse")
     val reference: String,
     val sykmeldt: PersonIdentifier,
 ) : DispatchContent {
@@ -31,7 +29,6 @@ data class LedervarselInactivate(
 @Serializable
 @SerialName("DittSykefravaerInactivate")
 data class DittSykefravaerInactivate(
-    @SerialName("referanse")
     val reference: String,
     val sykmeldt: PersonIdentifier,
 ) : DispatchContent {
@@ -42,7 +39,6 @@ data class DittSykefravaerInactivate(
 @Serializable
 @SerialName("ArbeidsgivervarselInactivate")
 data class ArbeidsgivervarselInactivate(
-    @SerialName("referanse")
     val reference: String,
     val orgnummer: Orgnummer,
 ) : DispatchContent {
