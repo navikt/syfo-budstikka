@@ -11,8 +11,7 @@ data class PdlConfig(
 )
 
 fun ApplicationConfig.toPdlConfig() =
-    with(configFor("pdl"))
-    {
+    with(configFor("pdl")) {
         PdlConfig(
             url = this("url"),
             scope = this("scope"),
@@ -32,8 +31,7 @@ data class DocumentDistributorConfig(
 )
 
 fun ApplicationConfig.toDocumentDistributorConfig() =
-    with(configFor("documentDistributor"))
-    {
+    with(configFor("documentDistributor")) {
         DocumentDistributorConfig(
             url = this("url"),
             scope = this("scope"),
@@ -57,8 +55,7 @@ data class KrrConfig(
 )
 
 fun ApplicationConfig.toKrrConfig() =
-    with(configFor("krr"))
-    {
+    with(configFor("krr")) {
         KrrConfig(
             url = this("url"),
             scope = this("scope"),

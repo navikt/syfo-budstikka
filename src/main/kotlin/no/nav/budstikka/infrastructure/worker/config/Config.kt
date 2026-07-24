@@ -18,8 +18,7 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
     )
 
 private fun ApplicationConfig.leaseDrainConfig(prefix: String) =
-    with(configFor(prefix))
-    {
+    with(configFor(prefix)) {
         LeaseDrainConfig(
             interval =
                 this("intervalSeconds").toLongOrNull()?.takeIf { it > 0 }?.seconds
@@ -42,7 +41,8 @@ private fun ApplicationConfig.leaseDrainConfig(prefix: String) =
         ).validate {
             buildList {
                 val raw = this@with
-                if (raw("intervalSeconds").isNotBlank() && raw("intervalSeconds")
+                if (raw("intervalSeconds").isNotBlank() &&
+                    raw("intervalSeconds")
                         .toLongOrNull()
                         ?.takeIf { it > 0 } == null
                 ) {
