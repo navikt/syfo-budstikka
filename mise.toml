@@ -2,25 +2,13 @@
 java = "25"
 
 [env]
-BUDSTIKKA_DB_HOST = "localhost"
-BUDSTIKKA_DB_PORT = "5432"
-BUDSTIKKA_DB_DATABASE = "budstikka"
 BUDSTIKKA_DB_USERNAME = "budstikka"
-BUDSTIKKA_DB_PASSWORD = "dummy-password"
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+BUDSTIKKA_DB_PASSWORD = "budstikka"
+# With testcontainers, the port is dynamically allocated. To test flyway migrations copy and paste the url in your local mise.local.toml file. The url can be found in the logs when running mr dev:tc.
+BUDSTIKKA_DB_URL = "jdbc:postgresql://localhost:32816/budstikka?loggerLevel=OFF&currentSchema=test_42e4c56c077141f58edda92f552e50a4"
 KAFKA_BUDSTIKKA_ENABLED = "true"
-KAFKA_BUDSTIKKA_TOPIC = "team-esyfo.budstikka.v1"
-KAFKA_BUDSTIKKA_GROUP_ID = "syfo-budstikka-budstikka-v1"
-KAFKA_BUDSTIKKA_AUTO_OFFSET_RESET = "earliest"
 
 # App lifecycle
-[tasks.go]
-description = "Start local infrastructure and run app"
-run = [
-    { task = "infra" },
-    { task = "dev" },
-]
-
 [tasks.dev]
 description = "Run app using gradle"
 run = './gradlew run'
@@ -80,6 +68,6 @@ run = '''
   -Dflyway.locations=filesystem:src/main/resources/database.migration \
   -Dflyway.user="${BUDSTIKKA_DB_USERNAME}" \
   -Dflyway.password="${BUDSTIKKA_DB_PASSWORD}" \
-  -Dflyway.url="jdbc:postgresql://${BUDSTIKKA_DB_HOST}:${BUDSTIKKA_DB_PORT}/${BUDSTIKKA_DB_DATABASE}" \
+  -Dflyway.url="${BUDSTIKKA_DB_URL}" \
   "${usage_flyway_task?}"
 '''

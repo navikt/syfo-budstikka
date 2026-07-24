@@ -68,7 +68,7 @@ class InboxMessageWorker(
         metrics.record(decision)
         val fields = decision.logFields()
         logger.info(
-            "Inbox message processed".withPlaceholders(fields),
+            withPlaceholders("Inbox message processed", fields),
             *fields.toTypedArray(),
         )
     }
@@ -104,6 +104,4 @@ class InboxMessageWorker(
                 )
             }
         }
-
-    private fun String.withPlaceholders(fields: List<StructuredArgument>): String = this + " {}".repeat(fields.size)
 }

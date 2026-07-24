@@ -11,11 +11,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.KrrConfig
+import sharedJson
 
 /**
  * (B22 anti-corruption, ADR 0009) for reservasjonsgaten: slår opp mottakerens
@@ -42,8 +42,6 @@ class KrrClient(
     companion object {
         private const val NAV_PERSONIDENT_HEADER = "Nav-Personident"
 
-        private val json = Json { ignoreUnknownKeys = true }
-
         internal fun parseIsReserved(
             status: HttpStatusCode,
             responseBody: String,
@@ -51,7 +49,7 @@ class KrrClient(
             check(status.isSuccess()) { "KRR svarte med status ${status.value}" }
             val person =
                 try {
-                    json.decodeFromString<KrrPerson>(responseBody)
+                    sharedJson.decodeFromString<KrrPerson>(responseBody)
                 } catch (_: SerializationException) {
                     // Ikke behold cause: dens melding kan gjengi body (med fnr) i en stacktrace.
                     error("KRR returnerte et ugyldig svar med status ${status.value}")

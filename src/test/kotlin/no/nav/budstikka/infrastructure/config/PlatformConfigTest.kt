@@ -27,7 +27,7 @@ class PlatformConfigTest :
             shouldThrow<IllegalStateException> {
                 config(clusterName = "", namespace = "", appName = "").toPlatformConfig()
             }.message shouldBe
-                "Invalid platform configuration: " +
+                "Invalid configuration: " +
                 "nais.clusterName must be set, nais.namespace must be set, nais.appName must be set"
         }
     })

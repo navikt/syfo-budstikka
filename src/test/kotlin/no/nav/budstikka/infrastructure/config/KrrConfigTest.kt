@@ -27,7 +27,7 @@ class KrrConfigTest :
             shouldThrow<IllegalStateException> {
                 config(url = "", scope = "").toKrrConfig()
             }.message shouldBe
-                "Invalid KRR configuration: krr.url must be set (KRR_URL), krr.scope must be set (KRR_SCOPE)"
+                "Invalid configuration: krr.url must be set (KRR_URL), krr.scope must be set (KRR_SCOPE)"
         }
     })
 

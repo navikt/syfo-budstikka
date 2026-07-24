@@ -27,7 +27,7 @@ class ConfigTest :
         test("toKafkaConfig validates consumer enabled value") {
             shouldThrow<IllegalStateException> {
                 config(enabled = "maybe").toKafkaConfig()
-            }.message shouldBe "Invalid kafka configuration: kafka.consumers.$CONSUMER_NAME.enabled must be true or false"
+            }.message shouldBe "Invalid configuration: kafka.consumers.$CONSUMER_NAME.enabled must be true or false"
         }
 
         test("toKafkaConfig reads producer topic") {
@@ -39,7 +39,7 @@ class ConfigTest :
         test("toKafkaConfig validates producer topic is set") {
             shouldThrow<IllegalStateException> {
                 config(producerTopic = "").toKafkaConfig()
-            }.message shouldBe "Invalid kafka configuration: kafka.producers.$PRODUCER_NAME.topic must be set"
+            }.message shouldBe "Invalid configuration: kafka.producers.$PRODUCER_NAME.topic must be set"
         }
     })
 

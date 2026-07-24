@@ -10,11 +10,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.PdlConfig
+import sharedJson
 
 /**
  * Ekte PDL-adapter (B22 anti-corruption) for død-gaten: stiller GraphQL-spørringen `hentPerson`
@@ -37,15 +37,13 @@ class PdlClient(
                 contentType(ContentType.Application.Json)
                 bearerAuth(token)
                 header(BEHANDLINGSNUMMER_HEADER, config.behandlingsnummer)
-                setBody(json.encodeToString(personQuery(ident.value)))
+                setBody(sharedJson.encodeToString(personQuery(ident.value)))
             }
         return parseIsDead(response.bodyAsText())
     }
 
     companion object {
         private const val BEHANDLINGSNUMMER_HEADER = "Behandlingsnummer"
-
-        private val json = Json { ignoreUnknownKeys = true }
 
         private const val HENT_PERSON_QUERY =
             "query(\$ident: ID!) { hentPerson(ident: \$ident) { doedsfall { doedsdato } } }"
@@ -59,7 +57,7 @@ class PdlClient(
          * skallet, aldri stille tolkes som «ikke død».
          */
         internal fun parseIsDead(responseBody: String): Boolean {
-            val response = json.decodeFromString<GraphqlResponse>(responseBody)
+            val response = sharedJson.decodeFromString<GraphqlResponse>(responseBody)
             if (!response.errors.isNullOrEmpty()) {
                 error("PDL svarte med feil: ${response.errors.joinToString { it.message }}")
             }
