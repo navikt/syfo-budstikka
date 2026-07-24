@@ -10,6 +10,7 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.domain.dispatch.Oppgavetype
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -57,6 +58,7 @@ class DecisionProcessTest :
                         LedervarselCreate(
                             TEST_SYKMELDT,
                             TEST_ORGNUMMER,
+                            Oppgavetype.DIALOGMOTE_INNKALLING,
                             "text",
                         ),
                     ),

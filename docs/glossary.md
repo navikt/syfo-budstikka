@@ -62,6 +62,12 @@ Påminnelse via SMS eller e-post i tillegg til flaten.
 Recipientens reservasjon mot digital kontakt. Styrer kun ekstern varsling og brevfallback —
 ikke om varselet vises på flaten.
 
+**Oppgavetype (`oppgavetype`)**:
+Kategorien til et ledervarsel på Dine Sykmeldte-channelen, som styrer gruppering i
+oversikten hos nærmeste leder. Modelleres som lukket, budstikka-eid enum (ADR 0008);
+budstikka forgrener aldri på den, men bærer den videre til dinesykmeldte via `wireValue`.
+_Unngå_: hendelsestype, varseltype (det er en egen ting)
+
 ## Kobling og lukking
 
 **(`eventId`)**:

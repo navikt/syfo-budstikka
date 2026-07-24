@@ -9,6 +9,26 @@ sealed interface Brukervarsel {
     val partitionKey: String
 }
 
+/** Marker-grensesnitt for LEDERVARSEL-kanalens content (speiler [Brukervarsel]); dispatch-seam i handler. */
+sealed interface Ledervarsel {
+    val partitionKey: String
+}
+
+/**
+ * Oppgavetype for LEDERVARSEL (B61, ADR 0008) – LUKKET, budstikka-eid enum (samme mønster som
+ * [Tag]/[AltinnResourceId]), IKKE opak streng. Påkrevd av dinesykmeldte-kontrakten
+ * (`OpprettHendelse.oppgavetype`, del av konsumentens PK `(id, oppgavetype)` + UI-gruppering).
+ * Budstikka forgrener ALDRI på verdien (`when(oppgavetype)` finnes ikke, B30/B39) – enumen er en
+ * navneliste. Kotlin-identifikatoren er frikoblet fra wiren via [wireValue]: dinesykmeldte kan
+ * endre en wire-streng uten å røre produsentene. #108 leverer ÉN representativ verdi; resten
+ * fylles additivt ved onboarding (B36).
+ */
+enum class Oppgavetype(
+    val wireValue: String,
+) {
+    DIALOGMOTE_INNKALLING("DIALOGMOTE_INNKALLING"),
+}
+
 /** Ekstern varslingskanal (SMS/e-post) i tillegg til flaten. */
 enum class ExternalChannel { SMS, EMAIL }
 

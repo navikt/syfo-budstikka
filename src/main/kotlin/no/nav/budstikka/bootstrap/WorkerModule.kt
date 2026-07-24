@@ -10,11 +10,13 @@ import no.nav.budstikka.application.DeliveryWorker
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageWorker
 import no.nav.budstikka.application.LeaseBudgetDrainer
+import no.nav.budstikka.application.LedervarselChannelHandler
 import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.port.TransactionRunner
@@ -48,6 +50,7 @@ fun DependencyRegistry.workerModule() {
     provide<Map<Channel, ChannelHandler>> {
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
+            Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
         )
