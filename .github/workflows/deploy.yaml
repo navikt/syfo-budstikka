@@ -55,7 +55,7 @@ jobs:
           echo "image_ref=$IMAGE_REPOSITORY@$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Attest and sign image (SLSA + cosign)
-        uses: nais/attest-sign@v2 # internal Nav-action; preserves SLSA guarantee from nais/docker-build-push
+        uses: nais/attest-sign@v2.0.14 # internal Nav-action; preserves SLSA guarantee from nais/docker-build-push
         with:
           image_ref: ${{ steps.build-image.outputs.image_ref }}
 
