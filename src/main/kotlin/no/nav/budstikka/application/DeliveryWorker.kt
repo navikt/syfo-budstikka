@@ -85,7 +85,7 @@ class DeliveryWorker(
         if (repository.markSent(delivery.id)) {
             metrics.deliverySent(delivery.channel)
             val fields = delivery.logFields()
-            logger.info("Delivery sent successfully".withPlaceholders(fields), *fields.toTypedArray())
+            logger.info(withPlaceholders("Delivery sent successfully", fields), *fields.toTypedArray())
         } else {
             logger.warn("Could not mark delivery as SENT because row is no longer CLAIMED")
         }
@@ -98,7 +98,7 @@ class DeliveryWorker(
         if (repository.markFailed(delivery.id, reason)) {
             metrics.deliveryFailed(delivery.channel)
             val fields = delivery.logFields() + kv("reason", reason)
-            logger.warn("Marked delivery as FAILED".withPlaceholders(fields), *fields.toTypedArray())
+            logger.warn(withPlaceholders("Marked delivery as FAILED", fields), *fields.toTypedArray())
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
         }

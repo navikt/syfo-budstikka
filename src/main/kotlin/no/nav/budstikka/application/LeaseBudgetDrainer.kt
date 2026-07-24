@@ -89,13 +89,15 @@ class LeaseBudgetDrainer(
                             addAll(failureFields(item))
                         }
                     logger.warn(
-                        "Failed processing claimed row; continuing with next row".withPlaceholders(fields),
+                        withPlaceholders("Failed processing claimed row; continuing with next row", fields),
                         *fields.toTypedArray(),
                     )
                     if (failures >= maxConsecutiveItemFailures) {
                         logger.error(
-                            "Aborting batch drain after consecutive item failures; treating this as a systemic failure"
-                                .withPlaceholders(fields),
+                            withPlaceholders(
+                                "Aborting batch drain after consecutive item failures; treating this as a systemic failure",
+                                fields,
+                            ),
                             *(fields + error).toTypedArray(),
                         )
                         throw AlreadyLoggedWorkerFailure(error)

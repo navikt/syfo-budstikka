@@ -68,7 +68,7 @@ class InboxMessageWorker(
         metrics.record(decision)
         val fields = decision.logFields()
         logger.info(
-            "Inbox message processed".withPlaceholders(fields),
+            withPlaceholders("Inbox message processed", fields),
             *fields.toTypedArray(),
         )
     }
