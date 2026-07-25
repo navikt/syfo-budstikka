@@ -1,20 +1,22 @@
 package no.nav.budstikka.infrastructure.kafka.producer
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.clients.producer.ProducerRecord
-import java.util.concurrent.TimeUnit
+import org.apache.kafka.clients.producer.RecordMetadata
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 data class PublishedMessage(
     val topic: String,
     val id: String,
     val value: String,
 )
-
-const val TIMEOUT_IN_SECONDS = 10L
 
 fun interface MessagePublisher : AutoCloseable {
     suspend fun publish(message: PublishedMessage)
@@ -23,6 +25,7 @@ fun interface MessagePublisher : AutoCloseable {
 }
 
 internal class MessagePublisherImpl(
+    private val timeoutMillis: Duration = 3000.milliseconds,
     private val producerFactory: () -> Producer<String, String>,
 ) : MessagePublisher,
     AutoCloseable {
@@ -32,15 +35,23 @@ internal class MessagePublisherImpl(
 
     override suspend fun publish(message: PublishedMessage) {
         val activeProducer = producer()
-        withContext(Dispatchers.IO) {
-            activeProducer
-                .send(
-                    ProducerRecord(
-                        message.topic,
-                        message.id,
-                        message.value,
-                    ),
-                ).get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS)
+        withTimeout(timeoutMillis) {
+            suspendCancellableCoroutine<RecordMetadata> { continuation ->
+                activeProducer
+                    .send(
+                        ProducerRecord(
+                            message.topic,
+                            message.id,
+                            message.value,
+                        ),
+                    ) { metadata, exception ->
+                        if (exception == null) {
+                            continuation.resume(metadata)
+                        } else {
+                            continuation.resumeWithException(exception)
+                        }
+                    }
+            }
         }
     }
 
