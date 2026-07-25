@@ -35,9 +35,8 @@ internal class MessagePublisherImpl(
 
     override suspend fun publish(message: PublishedMessage) {
         val activeProducer = producer()
-        withTimeout(timeoutMillis)
-        {
-            suspendCancellableCoroutine<RecordMetadata> { cont ->
+        withTimeout(timeoutMillis) {
+            suspendCancellableCoroutine<RecordMetadata> { continuation ->
                 activeProducer
                     .send(
                         ProducerRecord(
@@ -46,10 +45,10 @@ internal class MessagePublisherImpl(
                             message.value,
                         ),
                     ) { metadata, exception ->
-                        if (exception != null) {
-                            cont.resumeWithException(exception)
+                        if (exception == null) {
+                            continuation.resume(metadata)
                         } else {
-                            cont.resume(metadata)
+                            continuation.resumeWithException(exception)
                         }
                     }
             }
