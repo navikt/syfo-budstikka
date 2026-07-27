@@ -44,17 +44,17 @@ class DeliveryWorker(
 
     private fun ClaimedDelivery.failureFields() =
         listOf(
-            kv("deliveryId", id.toString()),
-            kv("deliveryChannel", channel.toString()),
-            kv("reference", reference),
-            kv("handler", handlers[channel]?.javaClass?.simpleName ?: "missing"),
+            kv(MdcKeys.DELIVERY_ID, id.toString()),
+            kv(MdcKeys.DELIVERY_CHANNEL, channel.toString()),
+            kv(MdcKeys.REFERENCE, reference),
+            kv(MdcKeys.HANDLER, handlers[channel]?.javaClass?.simpleName ?: "missing"),
         )
 
     private fun ClaimedDelivery.logFields(): List<StructuredArgument> =
         listOf(
-            kv("eventId", (inboxEventId ?: id).toString()),
-            kv("deliveryId", id.toString()),
-            kv("reference", reference),
+            kv(MdcKeys.EVENT_ID, (inboxEventId ?: id).toString()),
+            kv(MdcKeys.DELIVERY_ID, id.toString()),
+            kv(MdcKeys.REFERENCE, reference),
         )
 
     private suspend fun dispatch(delivery: ClaimedDelivery) {
@@ -97,7 +97,7 @@ class DeliveryWorker(
     ) {
         if (repository.markFailed(delivery.id, reason)) {
             metrics.deliveryFailed(delivery.channel)
-            val fields = delivery.logFields() + kv("reason", reason)
+            val fields = delivery.logFields() + kv(MdcKeys.REASON, reason)
             logger.warn(withPlaceholders("Marked delivery as FAILED", fields), *fields.toTypedArray())
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
