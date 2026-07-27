@@ -73,9 +73,9 @@ class DeliveryWorkerTest :
             }
 
             val event = appender.list.single { it.formattedMessage.contains("Delivery sent successfully") }
-            event.formattedMessage shouldContain "eventId=00000000-0000-0000-0000-000000000301"
-            event.formattedMessage shouldContain "deliveryId=$deliveryId"
-            event.formattedMessage shouldContain "reference=ref-1"
+            event.formattedMessage shouldContain "${MdcKeys.EVENT_ID}=00000000-0000-0000-0000-000000000301"
+            event.formattedMessage shouldContain "${MdcKeys.DELIVERY_ID}=$deliveryId"
+            event.formattedMessage shouldContain "${MdcKeys.REFERENCE}=ref-1"
             event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000301"
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }
@@ -99,10 +99,10 @@ class DeliveryWorkerTest :
             }
 
             val event = appender.list.single { it.formattedMessage.contains("Marked delivery as FAILED") }
-            event.formattedMessage shouldContain "eventId=00000000-0000-0000-0000-000000000302"
-            event.formattedMessage shouldContain "deliveryId=$deliveryId"
-            event.formattedMessage shouldContain "reference=ref-2"
-            event.formattedMessage shouldContain "reason=Payload does not match MICROFRONTEND channel"
+            event.formattedMessage shouldContain "${MdcKeys.EVENT_ID}=00000000-0000-0000-0000-000000000302"
+            event.formattedMessage shouldContain "${MdcKeys.DELIVERY_ID}=$deliveryId"
+            event.formattedMessage shouldContain "${MdcKeys.REFERENCE}=ref-2"
+            event.formattedMessage shouldContain "${MdcKeys.REASON}=Payload does not match MICROFRONTEND channel"
             event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000302"
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-2"
         }
