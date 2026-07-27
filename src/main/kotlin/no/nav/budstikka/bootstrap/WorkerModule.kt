@@ -30,7 +30,7 @@ import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 private class AlwaysAliveLookup : DeathLookup {
-    override suspend fun isDead(ident: PersonIdentifier) = true
+    override suspend fun isDead(ident: PersonIdentifier) = false
 }
 
 fun DependencyRegistry.workerModule() {
