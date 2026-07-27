@@ -16,18 +16,18 @@ import java.util.concurrent.CountDownLatch
 
 private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
 
-// Fast app-port for det lokale løpet, så Bruno-collection og Prometheus-scrape har en stabil URL.
-// Utenfor typiske reserverte porter (3000/8080/8081/9090). E2e bruker port 0 (random) for parallellitet.
+// Fixed app port for the local run, so the Bruno collection and Prometheus scrape have a stable URL.
+// Outside the typical reserved ports (3000/8080/8081/9090). E2e uses port 0 (random) for parallelism.
 private const val LOCAL_PORT = 8282
 
 /**
- * Lokalt løp (B50/B53): booter HELE appen mot Testcontainers (Postgres + Kafka) med port-fakes
- * wiret inn via samme substrat som e2e-harnessen — ingen Texas/tokens/compose (B51). Kjøres med
- * `./gradlew runLocal`. Alt ligger i `src/test`, så fakene kan aldri havne i prod-jaren.
+ * Local run (B50/B53): boots the entire app against Testcontainers (Postgres + Kafka) with port fakes
+ * wired through the same substrate as the e2e harness — no Texas/tokens/compose (B51). Run with
+ * `./gradlew runLocal`. Everything is in `src/test`, so the fakes can never end up in the production JAR.
  *
- * Live-inspeksjon: koble psql/DataGrip mot den loggede JDBC-URL-en, åpne Kafka UI på den loggede
- * URL-en (topics/meldinger/konsumentgrupper), eller koble en Kafka-klient mot bootstrap-serverne,
- * så lenge prosessen lever. Avslutt med Ctrl+C.
+ * Live inspection: connect psql/DataGrip to the logged JDBC URL, open Kafka UI at the logged URL
+ * (topics/messages/consumer groups), or connect a Kafka client to the bootstrap servers while the
+ * process is running. Stop with Ctrl+C.
  */
 fun main() {
     val kafka = KafkaTestContainer(enableNetworkListener = true)
@@ -35,34 +35,34 @@ fun main() {
         BudstikkaTestApp.start(
             kafka = kafka,
             port = LOCAL_PORT,
-            // Monitoring (Grafana/Prometheus) styres av monitoring.enabled i application-local.conf.
+            // Monitoring (Grafana/Prometheus) is controlled by monitoring.enabled in application-local.conf.
             withMonitoring = ::MonitoringContainers,
         ) {
-            // Demonstrerer fake-sømmen: den ekte PDL-adapteren byttes mot en styrbar in-memory-fake.
+            // Demonstrates the fake seam: the real PDL adapter is replaced with a configurable in-memory fake.
             provide<DeathLookup> { FakeDeathLookup() }
-            // KRR-reservasjonsoppslaget byttes mot en fake (ingen Texas/tokens lokalt, B51).
+            // The KRR reservation lookup is replaced with a fake (no Texas/tokens locally, B51).
             provide<ReservationLookup> { FakeReservationLookup() }
-            // Lokalt skal BREV-flyten ikke kalle dokdist/Texas.
+            // The local BREV flow must not call dokdist/Texas.
             provide<DocumentDistributor> { FakeDocumentDistributor() }
         }
     app.installLocalProduceApi()
 
-    // Kafka UI kobles på Kafka via det delte Docker-nettet (intern adresse kafka:19092); kun lokalt.
+    // Kafka UI connects to Kafka through the shared Docker network (internal address kafka:19092); local only.
     val kafkaUi = KafkaUiContainer(app.network!!, app.internalBootstrapServers!!)
 
-    logger.info("Budstikka kjører lokalt mot Testcontainers")
+    logger.info("Budstikka runs locally against Testcontainers")
     logger.info("  App                     : http://localhost:{}", LOCAL_PORT)
     logger.info("  Kafka bootstrap servers : {}", app.bootstrapServers)
     logger.info("  Budstikka-topic         : {}", app.budstikkaTopic)
     logger.info("  Postgres JDBC-URL        : {}", app.jdbcUrl)
     logger.info("  Kafka UI                : {}", kafkaUi.url)
     app.grafanaUrl?.let { logger.info("  Grafana URL             : {}", it) }
-    logger.info("Trykk Ctrl+C for å stoppe.")
+    logger.info("Press Ctrl+C to stop.")
 
     val latch = CountDownLatch(1)
     Runtime.getRuntime().addShutdownHook(
         Thread {
-            logger.info("Stopper Budstikka og river ned containerne...")
+            logger.info("Stopping Budstikka and tearing down containers...")
             kafkaUi.close()
             app.close()
             latch.countDown()

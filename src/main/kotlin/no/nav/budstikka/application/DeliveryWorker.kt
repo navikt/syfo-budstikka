@@ -12,10 +12,10 @@ import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
 /**
- * Outbox-workeren claimer `delivery`-rader for de kanalene den har en [ChannelHandler] for
- * (FOR UPDATE SKIP LOCKED + lease, ADR 0004 — flere replicaer samtidig), og dispatcher hver rad til
- * riktig handler. Workeren avhenger kun av [handlers] — ikke av konkrete publishers — så en
- * ny kanal er én handler + registrering.
+ * Outbox worker claims `delivery` rows for channels with a [ChannelHandler] (FOR UPDATE SKIP LOCKED
+ * plus lease, ADR 0004: several replicas concurrently) and dispatches every row to the appropriate
+ * handler. The worker depends only on [handlers], not concrete publishers, so a new channel is one
+ * handler plus registration.
  */
 class DeliveryWorker(
     private val repository: DeliveryRepository,

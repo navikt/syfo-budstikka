@@ -7,15 +7,14 @@ import no.nav.budstikka.domain.decision.Decision
 import java.util.UUID
 
 /**
- * Effektueringen: skriver utfallet av [Decision] for ÉN inbox-melding til
- * databasen i ÉN transaksjon — delivery-rad(er) + inbox-status commits alt-eller-ingenting. Dette er
- * steget `DecisionProcess` bevisst lot stå åpent («skriving av leveranse-rad(er) +
- * inbox_hendelse.status i én DB-tx»).
+ * Effectuation writes the [Decision] result for ONE inbox message to the database in ONE transaction:
+ * delivery row(s) and inbox status commit all or nothing. This is the step deliberately left open by
+ * `DecisionProcess` (“write delivery row(s) and `inbox_hendelse.status` in one database transaction”).
  *
- * Hver inbox-melding behandles atomisk: Feil i én melding ruller bare tilbake den meldingen, ikke andre.
- * Eksterne oppslag (grunnlagsinnhenting) skjer før denne kalles, utenfor transaksjonen.
+ * Each inbox message is handled atomically: a failure rolls back only that message, not others.
+ * External lookups (input fetching) run before this call, outside the transaction.
  *
- * [EffectuateDecision] utfører effectuate i en transaksjon.
+ * [EffectuateDecision] effectuates in a transaction.
  */
 class EffectuateDecision(
     private val transactionRunner: TransactionRunner,
@@ -29,7 +28,7 @@ class EffectuateDecision(
         transactionRunner.transaction {
             when (decision) {
                 is Decision.Processed -> {
-                    // Bare worker som vinner CLAIMED->PROCESSED skriver delivery-rader.
+                    // Only the worker winning CLAIMED->PROCESSED writes delivery rows.
                     if (inboxMessageRepository.markProcessedInTransaction(inboxEventId)) {
                         deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
                     }

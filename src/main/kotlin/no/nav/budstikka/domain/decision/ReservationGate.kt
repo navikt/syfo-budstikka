@@ -5,8 +5,8 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.foundation.ReservationLookup
 
 /**
- * (B7/B8, ADR 0009): styrer ekstern varsling og brev-fallback for en
- * brukervarsel-CREATE ut fra om mottakeren kan varsles digitalt (KRR, [ReservationLookup]).
+ * B7/B8, ADR 0009: controls external notification and letter fallback for a Brukervarsel CREATE
+ * based on whether its recipient can receive a digital notification (KRR, [ReservationLookup]).
  */
 internal class ReservationGate(
     private val reservationLookup: ReservationLookup,

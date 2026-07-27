@@ -3,10 +3,10 @@ package no.nav.budstikka.application
 import kotlin.time.Duration
 
 /**
- * Operasjonelle innstillinger for én claim-lease-drain-worker (inbox eller delivery). Ren verdi-type i
- * `application`; parsing fra `application.conf` bor i `infrastructure.worker.config` slik at
- * workerne ikke avhenger av Ktor-config. En framtidig cleanup-worker bærer et retensjonsvindu (ikke
- * batchSize/lease) og får sin egen type.
+ * Operational settings for one claim-lease drain worker (inbox or delivery). Pure value type in
+ * `application`; parsing from `application.conf` belongs in `infrastructure.worker.config`, so
+ * workers do not depend on Ktor configuration. A future cleanup worker carries a retention window,
+ * not batch size/lease, and receives its own type.
  */
 data class LeaseDrainConfig(
     val interval: Duration,
@@ -35,8 +35,8 @@ data class LeaseDrainConfig(
         const val DEFAULT_LEASE_BUDGET_FRACTION = 0.8
         const val DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES = 3
 
-        // Terminal-gate mot poison rows (#71): en rad som er claimet så mange ganger uten å nå
-        // terminal status blir markert FAILED i stedet for å reclaimes for alltid.
+        // Terminal gate for poison rows (#71): a row claimed this many times without reaching a
+        // terminal state becomes FAILED instead of being reclaimed forever.
         const val DEFAULT_MAX_ATTEMPTS = 10
     }
 }

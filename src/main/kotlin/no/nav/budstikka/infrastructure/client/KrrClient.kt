@@ -18,10 +18,9 @@ import no.nav.budstikka.infrastructure.client.config.KrrConfig
 import sharedJson
 
 /**
- * (B22 anti-corruption, ADR 0009) for reservasjonsgaten: slår opp mottakerens
- * kontakt-/reservasjonsstatus i digdir-krr-proxy og oversetter til [ReservationLookup]-porten.
- * «Reservert» = KRR `kanVarsles == false` (kan ikke varsles digitalt – reservert ELLER mangler
- * verifisert kontaktkanal).
+ * B22 anti-corruption adapter for the reservation gate (ADR 0009): looks up recipient contact and
+ * reservation status in digdir-krr-proxy and translates it to [ReservationLookup]. “Reserved” means
+ * KRR `kanVarsles == false`: no digital notification, either reserved or lacking a verified contact channel.
  */
 class KrrClient(
     private val httpClient: HttpClient,
@@ -46,13 +45,13 @@ class KrrClient(
             status: HttpStatusCode,
             responseBody: String,
         ): Boolean {
-            check(status.isSuccess()) { "KRR svarte med status ${status.value}" }
+            check(status.isSuccess()) { "KRR responded with status ${status.value}" }
             val person =
                 try {
                     sharedJson.decodeFromString<KrrPerson>(responseBody)
                 } catch (_: SerializationException) {
-                    // Ikke behold cause: dens melding kan gjengi body (med fnr) i en stacktrace.
-                    error("KRR returnerte et ugyldig svar med status ${status.value}")
+                    // Do not retain the cause: its message can echo the body, including fnr, in a stacktrace.
+                    error("KRR returned an invalid response with status ${status.value}")
                 }
             return !person.kanVarsles
         }

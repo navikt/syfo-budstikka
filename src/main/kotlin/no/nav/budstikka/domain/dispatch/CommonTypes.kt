@@ -2,19 +2,19 @@ package no.nav.budstikka.domain.dispatch
 
 import kotlinx.serialization.Serializable
 
-/** Brukervarsel-type på Min side (B40). tms støtter også `Innboks`, men den brukes aldri → utelatt. */
+/** Brukervarsel type on Min side (B40). tms also supports `Innboks`, but it is never used and is omitted. */
 enum class Varseltype { BESKJED, OPPGAVE }
 
 sealed interface Brukervarsel {
     val partitionKey: String
 }
 
-/** Ekstern varslingskanal (SMS/e-post) i tillegg til flaten. */
+/** External notification channel (SMS/email) in addition to the surface. */
 enum class ExternalChannel { SMS, EMAIL }
 
 /**
- * Vår egen modell for ekstern varsling (B23), mappes internt til tms. `null`-tekster =
- * NAV-standardtekst nedstrøms. Konsument oppgir ren tekst; budstikka saniterer (B29).
+ * Our model for external notifications (B23), mapped internally to tms. `null` text means the
+ * downstream NAV standard text. The consumer supplies plain text; budstikka sanitises it (B29).
  */
 @Serializable
 data class ExternalVarsling(
@@ -24,12 +24,12 @@ data class ExternalVarsling(
     val emailText: String? = null,
 )
 
-/** Distribusjonstype for brev-utsending nedstrøms. */
+/** Distribution type for downstream letter sending. */
 enum class DistributionType { IMPORTANT, OTHER }
 
 /**
- * B8: tilstedeværelse = send brev når mottakeren er reservert mot digital kontakt.
- * `journalpostId` er allerede opprettet av konsumenten.
+ * B8: presence means send a letter when the recipient is reserved against digital contact.
+ * `journalpostId` has already been created by the consumer.
  */
 @Serializable
 data class BrevFallback(
@@ -38,25 +38,25 @@ data class BrevFallback(
 )
 
 /**
- * Sendevindu (B25) – nøytralt begrep, self-operasjonalisert i outbox. Default settes av
- * budstikka (NKS_AAPNINGSTID for eksternbærende, ONGOING ellers). Utvidbar.
+ * Sending window (B25): neutral term, operationalised by the outbox. Budstikka sets the default
+ * (`NKS_AAPNINGSTID` for external-notification-bearing messages, `ONGOING` otherwise). Extensible.
  */
 enum class SendingWindow { ONGOING, NKS_OPENING_HOURS }
 
 /**
- * Merkelapp (B30) – typet LUKKET enum (kategori, ikke oppførsel). Budstikka forgrener
- * aldri på den; bæres kun til produsent-api. Lukket form tvinger fager-registrering og
- * budstikka-onboarding i synk. Utvides ved onboarding.
+ * Tag (B30): typed CLOSED enum (category, not behaviour). Budstikka never branches on it; it is
+ * carried only to the producer API. The closed form keeps team registration and budstikka onboarding
+ * in sync. Extend it during onboarding.
  */
 enum class Tag { DIALOGMOETE, OPPFOELGING }
 
-/** B32: Altinn-ressurs → produsent-api ressursId (register-håndhevet). */
+/** B32: Altinn resource → producer API resource ID (registry-enforced). */
 enum class AltinnResourceId { DIALOGMOETE, }
 
-/** B33: nøytral AG-meldingstype, separat fra Brukervarsels [Varseltype]. */
+/** B33: neutral employer message type, separate from Brukervarsel [Varseltype]. */
 enum class ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }
 
-/** B31: konsumenten eier saken; `sakId` → grupperingsid nedstrøms. */
+/** B31: the consumer owns the case; `sakId` → downstream grouping ID. */
 @Serializable
 data class Sakstilknytning(
     val sakId: String,

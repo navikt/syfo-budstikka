@@ -47,14 +47,14 @@ kotlin {
     )
 }
 
-// Container-image bygges med ren Jib (Ktor-pluginen aktiverer JibPlugin), ikke Ktor sine
-// docker{}-tasks — se ADR 0009. Å sette Chainguard-basen (JRE 25) eksplisitt i from.image fjerner
-// Ktor-pluginens JRE-validering og setupJibLocal-stien (en Task.project-deprecation gjenstår i
-// jib-pluginens egne tasks — upstream, ikke vår kode).
+// The container image is built with plain Jib (the Ktor plugin activates JibPlugin), not Ktor's
+// docker{} tasks; see ADR 0010. Explicitly setting the Chainguard base (JRE 25) in from.image removes
+// the Ktor plugin's JRE validation and setupJibLocal path (a Task.project deprecation remains in
+// the Jib plugin's own tasks: upstream, not our code).
 //
-// Jib kan ikke parse Chainguards OCI Image Index v1.1 (feltet "artifactType", ufikset upstream-bug
-// verifisert mot vår base). Derfor pre-pulles basen til lokal Docker-daemon (som håndterer OCI 1.1)
-// og Jib peker på daemon-imaget via docker://-referansen.
+// Jib cannot parse Chainguard's OCI Image Index v1.1 (`artifactType`; an unresolved upstream bug
+// verified against our base). Pre-pull the base to the local Docker daemon, which supports OCI 1.1,
+// and point Jib to the daemon image through the `docker://` reference.
 val pullChainguardBaseImage =
     tasks.register<Exec>("pullChainguardBaseImage") {
         group = "jib"
@@ -129,9 +129,9 @@ tasks {
 
     test {
         useJUnitPlatform()
-        // De trege full-boot-e2e-testene (Kotest-tag "E2E") ekskluderes fra default-løpet slik at
-        // CI/CD ikke venter på Testcontainers-oppstart ved hver deploy. Schema-drift- og
-        // repository-integrasjonstestene er ikke tagget og kjører derfor uansett her.
+        // Slow full-boot e2e tests (Kotest tag "E2E") are excluded from the default run, so CI/CD
+        // does not await Testcontainers startup on every deployment. Schema-drift and repository
+        // integration tests are untagged and therefore still run here.
         systemProperty("kotest.tags", "!E2E")
         testlogger {
             theme = ThemeType.MOCHA_PARALLEL
@@ -140,10 +140,10 @@ tasks {
         }
     }
 
-    // Opt-in: `./gradlew e2eTest` kjører KUN de E2E-taggede specene. Ikke koblet til `check`, så
-    // default-bygget forblir raskt; kjøres manuelt eller i en egen/nattlig CI-jobb.
+    // Opt-in: `./gradlew e2eTest` runs ONLY E2E-tagged specs. It is not connected to `check`, keeping
+    // the default build fast; run it manually or in a separate nightly CI job.
     register<Test>("e2eTest") {
-        description = "Kjører opt-in full-boot-e2e (Kotest-tag E2E) mot Testcontainers."
+        description = "Runs opt-in full-boot e2e tests (Kotest tag E2E) against Testcontainers."
         group = "verification"
         useJUnitPlatform()
         testClassesDirs = sourceSets["test"].output.classesDirs
@@ -158,17 +158,17 @@ tasks {
         }
     }
 
-    // Booter hele appen lokalt mot Testcontainers (Postgres + Kafka) med fakes wiret inn via
-    // test-substratet i src/test. Samme main-klasse som e2e-harnessen bruker. Se docs/teststrategi.md.
+    // Boots the full application locally against Testcontainers (Postgres + Kafka), with fakes wired
+    // through the test substrate in src/test. Uses the same main class as the e2e harness. See docs/teststrategi.md.
     register<JavaExec>("runLocal") {
-        description = "Booter appen lokalt mot Testcontainers (Postgres + Kafka) med fakes."
+        description = "Boots the application locally against Testcontainers (Postgres + Kafka) with fakes."
         group = "application"
         mainClass.set("no.nav.budstikka.LocalAppKt")
         classpath = sourceSets["test"].runtimeClasspath
         standardInput = System.`in`
         jvmArgs("--enable-native-access=ALL-UNNAMED")
-        // Menneskelig lesbar logg lokalt (src/test/resources/logback-local.xml). Prod bruker
-        // fortsatt JSON via logback.xml. Filen finnes bare i test-classpath, aldri i prod-jaren.
+        // Human-readable local logs (src/test/resources/logback-local.xml). Production still uses
+        // JSON through logback.xml. This file exists only on the test classpath, never in the production JAR.
         systemProperty("logback.configurationFile", "logback-local.xml")
     }
 

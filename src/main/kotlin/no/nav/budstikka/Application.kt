@@ -31,8 +31,8 @@ fun main(args: Array<String>) {
 }
 
 /*#
- * Prod-entrypoint referert fra application.conf (`ApplicationKt.module`). Zero-arg med vilje:
- * Ktor slår opp modulen ved navn, så vi holder denne overload-fri. Den delegerer til [configureApplication].
+ * Production entrypoint referenced by application.conf (`ApplicationKt.module`). Deliberately zero-arg:
+ * Ktor looks up the module by name, so this remains overload-free. It delegates to [configureApplication].
  */
 @Suppress("unused")
 fun Application.module() {

@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Konvolutten på den nøytrale Kafka-kontrakten (B22, B43). `eventId` er ikke en del av payloaden,
- * men lever kun som Kafka-header [DispatchHeader.EVENT_ID] (ADR 0008).
+ * Envelope for the neutral Kafka contract (B22, B43). `eventId` is not part of the payload; it
+ * exists only as the Kafka header [DispatchHeader.EVENT_ID] (ADR 0008).
  */
 @Serializable
 data class Dispatch(
@@ -14,10 +14,10 @@ data class Dispatch(
 )
 
 /**
- * Sealed rot for alt content (B22). Operasjonen (CREATE/FERDIGSTILL/aktiver) er kodet inn i
- * typen, så B21 håndheves av kompilatoren. [partitionKey] er Kafka-record-key (B5) =
- * mottakerens id, slik at hendelser for samme mottaker havner ordnet på samme partisjon.
- * Getteren har ingen backing field og serialiseres derfor ikke.
+ * Sealed root for all content (B22). Operation (CREATE/FERDIGSTILL/activate) is encoded in the
+ * type, so the compiler enforces B21. [partitionKey] is the Kafka record key (B5) = recipient ID,
+ * keeping events for one recipient ordered on the same partition. The getter has no backing field
+ * and is therefore not serialised.
  */
 @Serializable
 sealed interface DispatchContent {
@@ -25,9 +25,9 @@ sealed interface DispatchContent {
 }
 
 /**
- * Kanonisk Json-oppsett for [Dispatch]-kontrakten. Polymorf diskriminator er `type`
- * (matcher `@SerialName` på hver variant). `ignoreUnknownKeys` gjør additive felt-tillegg
- * non-breaking for eldre konsumenter/versjoner.
+ * Canonical JSON configuration for the [Dispatch] contract. The polymorphic discriminator is `type`
+ * (matching `@SerialName` on every variant). `ignoreUnknownKeys` makes additive fields non-breaking
+ * for older consumers and versions.
  */
 val dispatchJson: Json =
     Json {

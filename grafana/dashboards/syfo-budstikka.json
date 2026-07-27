@@ -1278,17 +1278,17 @@
           "targets": [
             {
               "expr": "sum(increase(worker_failures_total{worker=\"inbox-message\"}[1h]))",
-              "legendFormat": "inbox-message iterasjonsfeil",
+              "legendFormat": "inbox-message iteration failures",
               "refId": "A"
             }
           ],
-          "title": "Inbox Worker Iteration-feil (1h)",
-          "description": "Antall iterasjoner der inbox-workeren kastet en exception siste time (worker_failures_total). NB: dette er iterasjonsfeil, IKKE pod-/consumer-restarter.",
+          "title": "Inbox worker iteration failures (1h)",
+          "description": "Iterations in which the inbox worker threw an exception during the last hour (worker_failures_total). These are iteration failures, not pod or consumer restarts.",
           "type": "timeseries"
         }
       ],
       "title": "Internals / tuning",
-      "description": "Innmat for tuning/diagnostikk, kollapset for å holde hovedvisningen ren. Empty-poll-ratio og claimed-rate finnes tilsvarende for delivery-workeren (delivery_empty_polls_total/delivery_claimed_total) og kan legges til her ved behov.",
+      "description": "Detail for tuning and diagnosis, collapsed to keep the main view clean. Equivalent empty-poll and claimed rates exist for the delivery worker (delivery_empty_polls_total/delivery_claimed_total) and can be added here when needed.",
       "type": "row"
     }
   ],

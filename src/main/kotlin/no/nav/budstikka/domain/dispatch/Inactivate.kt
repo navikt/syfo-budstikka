@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-/** Lukk brukervarsel; matchnøkkel = sykmeldt (CREATE-partisjonsanker). */
+/** Close Brukervarsel; matching key = sykmeldt (CREATE partition anchor). */
 @Serializable
 @SerialName("BrukervarselInactivate")
 data class BrukervarselInactivate(
@@ -16,7 +16,7 @@ data class BrukervarselInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Lukk ledervarsel; matchnøkkel = sykmeldt, IKKE NL-fnr (B24 – ukjent for konsument). */
+/** Close Ledervarsel; matching key = sykmeldt, NOT NL fnr (B24: unknown to the consumer). */
 @Serializable
 @SerialName("LedervarselInactivate")
 data class LedervarselInactivate(
@@ -27,7 +27,7 @@ data class LedervarselInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Lukk Ditt sykefravær-melding; matchnøkkel = sykmeldt. */
+/** Close Ditt sykefravær message; matching key = sykmeldt. */
 @Serializable
 @SerialName("DittSykefravaerInactivate")
 data class DittSykefravaerInactivate(
@@ -38,7 +38,7 @@ data class DittSykefravaerInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Lukk arbeidsgivervarsel; matchnøkkel = virksomhet (B32). */
+/** Close Arbeidsgivervarsel; matching key = organisation (B32). */
 @Serializable
 @SerialName("ArbeidsgivervarselInactivate")
 data class ArbeidsgivervarselInactivate(
@@ -50,10 +50,10 @@ data class ArbeidsgivervarselInactivate(
 }
 
 /**
- * Microfrontend (B41) – synlighet på Min side, holdt UTENFOR Inaktiver-mekanismen. Eget
- * aktiver/deaktiver-par: en av/på-bryter for `(person, microfrontendId)`, ikke en
- * leveranse-med-mottaker som matches på `referanse`. Egen sealed subtype så produsent-siden
- * tar imot nettopp dette paret – kompilatoren håndhever uttømmende `when` uten `else`.
+ * Microfrontend (B41): visibility on Min side, kept OUTSIDE the Inactivate mechanism. It is a
+ * separate activate/deactivate pair, an on/off switch for `(person, microfrontendId)`, not a
+ * delivery-with-recipient matched by `referanse`. A separate sealed subtype lets the producer side
+ * accept exactly this pair; the compiler enforces exhaustive `when` without `else`.
  */
 @Serializable
 sealed interface Microfrontend : DispatchContent {
@@ -70,7 +70,7 @@ data class MicrofrontendEnable(
     val visibleUntil: Instant? = null,
 ) : Microfrontend
 
-/** Microfrontendens «ferdigstill» – deaktiver synlighet (B41). */
+/** Microfrontend “ferdigstill”: disable visibility (B41). */
 @Serializable
 @SerialName("MicrofrontendDisable")
 data class MicrofrontendDisable(

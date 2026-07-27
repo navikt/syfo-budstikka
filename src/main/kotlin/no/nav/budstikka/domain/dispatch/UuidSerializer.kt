@@ -9,8 +9,8 @@ import kotlinx.serialization.encoding.Encoder
 import java.util.UUID
 
 /**
- * Serialiserer [UUID] som ISO-streng. Teknisk serialiserings-adapter for kontrakten (ikke en
- * domenemodell); repoets standard er java.util.UUID (unngår experimental opt-in).
+ * Serialises [UUID] as an ISO string. Technical serialisation adapter for the contract (not a
+ * domain model); repository standard is java.util.UUID (avoids experimental opt-in).
  */
 object UuidSerializer : KSerializer<UUID> {
     override val descriptor: SerialDescriptor =

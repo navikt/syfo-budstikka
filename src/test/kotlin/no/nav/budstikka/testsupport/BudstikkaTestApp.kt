@@ -22,12 +22,12 @@ import org.testcontainers.containers.Network
 import java.util.Properties
 
 /**
- * Delt ende-til-ende-substrat (B50/B51): starter Postgres + Kafka fra kode, booter HELE appen
- * (konsument + workers + Ktor) in-process mot containerne, og lar [overrides] bytte ekte adaptere
- * mot fakes via wiring-sømmen [configureApplication]. Samme substrat brukes av e2e-specene og av
- * det lokale løpet ([no.nav.budstikka.LocalApp]).
+ * Shared end-to-end substrate (B50/B51): starts Postgres + Kafka in code, boots the entire app
+ * (consumer + workers + Ktor) in process against the containers, and lets [overrides] replace real adapters
+ * with fakes through the [configureApplication] wiring seam. The same substrate is used by e2e specs and the
+ * local run ([no.nav.budstikka.LocalApp]).
  *
- * Prod-grensen holder: alt her ligger i `src/test`, aldri i prod-jaren.
+ * The production boundary holds: everything here is in `src/test`, never in the production JAR.
  */
 class BudstikkaTestApp private constructor(
     private val postgres: PostgresTestFixture,
@@ -36,7 +36,7 @@ class BudstikkaTestApp private constructor(
     private val appConfig: ApplicationConfig,
     private val monitoring: MonitoringContainers? = null,
 ) : AutoCloseable {
-    /** Egen tilkobling for assertions/inspeksjon mot samme Postgres-container som appen bruker. */
+    /** Separate connection for assertions/inspection against the same Postgres container as the app. */
     val database: Database
         get() = postgres.database
 
@@ -44,17 +44,17 @@ class BudstikkaTestApp private constructor(
         get() = kafka.bootstrapServers
 
     /**
-     * Delt Docker-nett når appen ble startet med `enableKafkaNetwork = true` (kun lokalt løp);
-     * ellers null. Brukes til å plassere Kafka UI på samme nett som Kafka.
+     * Shared Docker network when the app starts with `enableKafkaNetwork = true` (local run only);
+     * otherwise null. Used to place Kafka UI on the same network as Kafka.
      */
     val network: Network?
         get() = kafka.network
 
-    /** Intern bootstrap-adresse (`kafka:19092`) på det delte nettet; null uten nett-lytter. */
+    /** Internal bootstrap address (`kafka:19092`) on the shared network; null without a network listener. */
     val internalBootstrapServers: String?
         get() = kafka.internalBootstrapServers
 
-    /** JDBC-URL til den kjørende Postgres-containeren — logges ved lokalt løp for live-inspeksjon (B51). */
+    /** JDBC URL for the running Postgres container — logged during a local run for live inspection (B51). */
     val jdbcUrl: String
         get() = postgres.jdbcUrl
 
@@ -64,7 +64,7 @@ class BudstikkaTestApp private constructor(
     val budstikkaTopic: String
         get() = appConfig.property("kafka.consumers.budstikka.topic").getString()
 
-    /** Publiserer en record til [topic] med valgfrie headere (typisk eventId, jf. B54). */
+    /** Publishes a record to [topic] with optional headers (typically eventId; see B54). */
     fun produce(
         topic: String,
         key: String?,
@@ -92,11 +92,11 @@ class BudstikkaTestApp private constructor(
 
     companion object {
         /**
-         * Starter containerne, booter appen med [overrides] og venter til serveren er oppe.
-         * Kaller [AutoCloseable] (evt. via `use { }`) for å rive alt ned.
+         * Starts the containers, boots the app with [overrides], and waits until the server is ready.
+         * Call [AutoCloseable] (for example via `use { }`) to tear everything down.
          *
-         * Med [enableKafkaNetwork] = true får Kafka et delt Docker-nett + intern lytter, slik at
-         * det lokale løpet kan koble Kafka UI på samme nett. E2e lar den stå av (default).
+         * With [enableKafkaNetwork] = true, Kafka receives a shared Docker network and an internal listener,
+         * allowing the local run to connect Kafka UI on the same network. E2e leaves it disabled (the default).
          */
         fun start(
             kafka: KafkaTestContainer = KafkaTestContainer(),
@@ -111,8 +111,8 @@ class BudstikkaTestApp private constructor(
                     embeddedServer(
                         Netty,
                         environment = applicationEnvironment { config = appConfig },
-                        // port = 0 gir en tilfeldig ledig port (e2e kjører parallelt uten kollisjon);
-                        // LocalApp sender en fast port for stabil Bruno-/Grafana-URL.
+                        // port = 0 picks a random free port (e2e runs in parallel without collisions);
+                        // LocalApp passes a fixed port for stable Bruno/Grafana URLs.
                         configure = { connector { this.port = port } },
                         module = {
                             configureApplication(overrides)
@@ -158,9 +158,9 @@ class BudstikkaTestApp private constructor(
                         "database.name" to postgres.postgres.databaseName,
                         "database.username" to postgres.username,
                         "database.password" to postgres.password,
-                        // Peker den bootede appen (boot-migrering + konsument + workers) mot det
-                        // samme per-fixture-schemaet som assertions leser fra (PostgresTestFixture.schema),
-                        // slik at den delte containeren kan kjøre flere løp isolert/parallelt.
+                        // Points the booted app (boot migration + consumer + workers) at the same per-fixture
+                        // schema read by assertions (PostgresTestFixture.schema), so the shared container can
+                        // run multiple isolated runs in parallel.
                         "database.url" to "postgresql://$host:$port/${postgres.postgres.databaseName}?currentSchema=${postgres.schema}",
                         "kafka.bootstrapServers" to bootstrapServers,
                     ),

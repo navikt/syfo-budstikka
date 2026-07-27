@@ -4,7 +4,7 @@ import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 fun interface ReservationLookup {
     /**
-     * @return `true` hvis [ident] ikke kan varsles digitalt (skal få brev i stedet), ellers `false`.
+     * @return `true` when [ident] cannot receive a digital notification (and must receive a letter), otherwise `false`.
      */
     suspend fun isReserved(ident: PersonIdentifier): Boolean
 }

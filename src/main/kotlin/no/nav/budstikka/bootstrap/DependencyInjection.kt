@@ -22,9 +22,10 @@ import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics
 import no.nav.budstikka.infrastructure.worker.config.toWorkerConfig
 
 /**
- * [overrides] kjøres SIST slik at et test-/lokalt løp kan bytte porter mot fakes. Med
- * `ktor.di.conflictPolicy = "OverridePrevious"` (kun i test-/lokal-konfig) vinner den siste
- * registreringen; i prod er policyen default og en duplikat-registrering kaster (fanger uhell).
+ * [overrides] runs LAST so a test or local run can replace ports with fakes. With
+ * `ktor.di.conflictPolicy = "OverridePrevious"` (only in test/local configuration), the last
+ * registration wins; production uses the default policy, where a duplicate registration throws and
+ * catches mistakes.
  */
 internal fun Application.installDependencyInjection(overrides: DependencyRegistry.() -> Unit = {}) {
     val config = environment.config

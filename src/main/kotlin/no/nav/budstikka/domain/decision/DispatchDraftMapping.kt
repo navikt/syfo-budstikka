@@ -15,19 +15,19 @@ import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 /*
- * Ren mapping fra [DispatchContent] til rute-attributtene på et [DeliveryDraft] (kanal, operasjon,
- * mottaker), samt hvilken person en person-gate (f.eks. [DeathGate]) eventuelt gjelder for. Ingen
- * I/O, total og deterministisk – testes med rene data.
+ * Pure mapping from [DispatchContent] to [DeliveryDraft] route attributes (channel, operation, and
+ * recipient), and to the person a person gate (for example [DeathGate]) may apply to. No I/O; total
+ * and deterministic, tested with pure data.
  */
 
 /**
- * Personen en person-gate gjelder for, eller `null` når hendelsen ikke er en brukerrettet CREATE.
- * Gatene bruker dette til self-selection: en gate uten gated person slipper leveransen uendret
- * gjennom, og [DeathGate] slår ikke opp PDL når svaret uansett ikke kan gate.
+ * Person a person gate applies to, or `null` when the event is not a user-directed CREATE. Gates use
+ * this for self-selection: a gate without a gated person leaves the delivery unchanged, and
+ * [DeathGate] does not query PDL when the result cannot gate.
  *
- * `when` er bevisst totalt (ingen `else`): en ny [DispatchContent]-variant skal gi kompilerings-
- * feil her, slik at gate-beslutningen tas eksplisitt og ingen ny brukerrettet CREATE stille slipper
- * forbi person-gatene.
+ * The `when` is deliberately total (no `else`): a new [DispatchContent] variant must cause a
+ * compilation error here, making the gate decision explicit and preventing a new user-directed
+ * CREATE from silently bypassing person gates.
  */
 internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
     when (this) {
@@ -89,8 +89,8 @@ private fun DispatchContent.draft(
 ): DeliveryDraft = DeliveryDraft(reference, operation, channel, recipient, this)
 
 /**
- * BREV-leveransen en reservert brukers [BrukervarselCreate.brevFallback] gir opphav til (B8/ADR 0009),
- * eller `null` når hendelsen ikke har noen fallback.
+ * The BREV delivery created by a reserved user's [BrukervarselCreate.brevFallback] (B8/ADR 0009),
+ * or `null` when the event has no fallback.
  */
 internal fun BrukervarselCreate.brevFallbackDraft(reference: String): DeliveryDraft? =
     brevFallback?.let { fallback ->

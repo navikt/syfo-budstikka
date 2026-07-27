@@ -4,7 +4,7 @@ import no.nav.budstikka.domain.dispatch.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
 
-/** En hydrert inbox-rad (ADR 0008): [eventId] fra Kafka-headeren, [reference]/[content] parset ved ingest. */
+/** Hydrated inbox row (ADR 0008): [eventId] from the Kafka header; [reference]/[content] parsed at ingest. */
 data class InboxMessage(
     val eventId: UUID,
     val reference: String,
@@ -15,15 +15,15 @@ interface InboxMessageRepository {
     suspend fun saveBatch(messages: List<InboxMessage>)
 
     /**
-     * Griper (claimer) inntil [limit] mottatte meldinger for behandling og markerer dem CLAIMED med
-     * en lease ([lease]) i ÉN transaksjon. Bruker `FOR UPDATE SKIP LOCKED`, slik at flere replicaer
-     * får disjunkte bunker uten å blokkere hverandre (konkurrerende konsumenter, ingen leder — ADR
-     * 0004). Plukker også opp CLAIMED-rader hvis leasen er utløpt (krasj-gjenoppretting). Radene er
-     * usynlige for andre pollere til leasen løper ut eller de effektueres.
+     * Claims up to [limit] received messages for processing and marks them CLAIMED with a [lease] in
+     * ONE transaction. Uses `FOR UPDATE SKIP LOCKED`, so replicas receive disjoint batches without
+     * blocking each other (competing consumers, no leader: ADR 0004). Also picks up CLAIMED rows when
+     * their lease expires (crash recovery). Rows remain invisible to other pollers until lease expiry
+     * or effectuation.
      *
-     * Poison-gate (#71): en rad som er claimet [maxAttempts] ganger uten å nå terminal status blir
-     * markert FAILED i stedet for å reclaimes på nytt, slik at en deterministisk feilrad ikke
-     * blokkerer hodet av køen (`receivedAt ASC`) for alltid.
+     * Poison gate (#71): a row claimed [maxAttempts] times without a terminal state becomes FAILED
+     * instead of being reclaimed again, so a deterministic failing row cannot block the queue head
+     * (`receivedAt ASC`) forever.
      */
     suspend fun claim(
         limit: Int,
@@ -32,11 +32,10 @@ interface InboxMessageRepository {
     ): List<InboxMessage>
 
     /**
-     * Terminal-overgangene for beslutnings-workeren. De åpner IKKE egen transaksjon — de kjøres
-     * inne i [TransactionRunner.transaction], sammen
-     * med delivery-skrivingen, slik at én melding effektueres alt-eller-ingenting (#56). Overgangen
-     * gjelder kun fra CLAIMED (idempotent compare-and-set: en allerede terminert eller re-claimet
-     * melding gir `false`, og en taper i et lease-kappløp skriver da ingen delivery-rader).
+     * Terminal transitions for the decision worker. They do NOT open their own transaction: they run
+     * inside [TransactionRunner.transaction] with delivery writes, so one message is effectuated all
+     * or nothing (#56). The transition applies only from CLAIMED (idempotent compare-and-set: an
+     * already terminal or reclaimed message returns `false`, so a loser in a lease race writes no deliveries).
      */
     fun markProcessedInTransaction(eventId: UUID): Boolean
 

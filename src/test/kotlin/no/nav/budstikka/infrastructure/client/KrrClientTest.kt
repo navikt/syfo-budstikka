@@ -36,22 +36,22 @@ class KrrClientTest :
 
         fun krrBody(kanVarsles: Boolean): String = """{"personident":"11111111111","kanVarsles":$kanVarsles,"reservert":${!kanVarsles}}"""
 
-        test("kanVarsles=false tolkes som reservert") {
+        test("kanVarsles=false is interpreted as reserved") {
             KrrClient.parseIsReserved(HttpStatusCode.OK, krrBody(kanVarsles = false)) shouldBe true
         }
 
-        test("kanVarsles=true tolkes som ikke reservert") {
+        test("kanVarsles=true is interpreted as not reserved") {
             KrrClient.parseIsReserved(HttpStatusCode.OK, krrBody(kanVarsles = true)) shouldBe false
         }
 
-        test("ukjente felter ignoreres (framoverkompatibel)") {
+        test("unknown fields are ignored (forward compatible)") {
             KrrClient.parseIsReserved(
                 HttpStatusCode.OK,
                 """{"kanVarsles":false,"spraak":"nb","noeNytt":1}""",
             ) shouldBe true
         }
 
-        test("ikke-2xx kaster med kun statuskode (aldri body med fnr)") {
+        test("non-2xx throws with the status code only (never a body containing fnr)") {
             val exception =
                 shouldThrow<IllegalStateException> {
                     KrrClient.parseIsReserved(HttpStatusCode.InternalServerError, """{"fnr":"11111111111"}""")
@@ -60,7 +60,7 @@ class KrrClientTest :
             exception.message shouldNotContain "11111111111"
         }
 
-        test("manglende kanVarsles-felt kaster sanitert (aldri body med fnr)") {
+        test("a missing kanVarsles field throws a sanitized exception (never a body containing fnr)") {
             val exception =
                 shouldThrow<IllegalStateException> {
                     KrrClient.parseIsReserved(HttpStatusCode.OK, """{"personident":"11111111111"}""")
@@ -69,18 +69,18 @@ class KrrClientTest :
             exception.message shouldNotContain "11111111111"
         }
 
-        test("helt korrupt (ikke-JSON) body kaster sanitert uten cause som kan bære fnr") {
+        test("a completely corrupt (non-JSON) body throws sanitized without a cause that may carry fnr") {
             val exception =
                 shouldThrow<IllegalStateException> {
                     KrrClient.parseIsReserved(HttpStatusCode.OK, "ikke-json-med-fnr-11111111111")
                 }
             exception.message shouldContain "200"
             exception.message shouldNotContain "11111111111"
-            // Ingen cause: kotlinx-exceptionen (som kan gjengi body m/fnr) skal ikke kjedes videre.
+            // No cause: the kotlinx exception (which may render the body with fnr) must not be chained.
             exception.cause shouldBe null
         }
 
-        test("isReserved veksler token for KRR-scopet og sender fnr i Nav-Personident mot krr.url") {
+        test("isReserved obtains a token for the KRR scope and sends fnr in Nav-Personident to krr.url") {
             val tokenProvider = RecordingKrrTokenProvider("tok-42")
             var capturedUrl: String? = null
             var capturedAuth: String? = null

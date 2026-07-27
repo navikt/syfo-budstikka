@@ -11,12 +11,12 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 
 /**
- * Delt maskineri for claim-lease-workerne (inbox og delivery): claim en bunke, prosesser hver rad
- * innenfor en andel [leaseBudgetFraction] av leasen, og stopp å starte nye rader når budsjettet er
- * brukt. Uberørte claimede rader blir stående til leasen utløper og plukkes opp av en senere poll
- * (evt. av en peer, ADR 0004). Hver rad prosesseres med sin eventId i MDC for korrelasjon.
- * Radspesifikke feil isoleres per item; draineren avbryter først etter
- * [maxConsecutiveItemFailures] på rad (systemisk-feil-heuristikk). *
+ * Shared machinery for claim-lease workers (inbox and delivery): claim a batch, process each row
+ * within [leaseBudgetFraction] of the lease, and stop starting rows once the budget is spent.
+ * Untouched claimed rows remain until lease expiry and a later poll (or a peer, ADR 0004) picks them
+ * up. Each row is processed with its eventId in MDC for correlation. Item-specific failures are
+ * isolated; the drainer stops only after [maxConsecutiveItemFailures] consecutive failures (a
+ * systemic-failure heuristic).
  */
 class LeaseBudgetDrainer(
     private val leaseBudgetFraction: Double,
@@ -55,11 +55,10 @@ class LeaseBudgetDrainer(
     }
 
     /**
-     * Prosesserer én claimet rad med sin eventId i MDC. Ved suksess nullstilles telleren (retur 0);
-     * ved radspesifikk feil isoleres den (logges og telleren økes) slik at neste rad kan fortsette,
-     * med mindre [maxConsecutiveItemFailures] er nådd – da rethrowes feilen som systemisk. Loggingen
-     * skjer inne i MDC-scopet slik at linjene bærer [MdcKeys.EVENT_ID]. Returnerer nytt antall feil
-     * på rad.
+     * Processes one claimed row with its eventId in MDC. On success the counter resets (returns 0).
+     * An item-specific failure is isolated (logged and counted) so the next row can continue, unless
+     * [maxConsecutiveItemFailures] is reached; then the failure is rethrown as systemic. Logging is
+     * inside the MDC scope so entries carry [MdcKeys.EVENT_ID]. Returns the new consecutive count.
      */
     private suspend fun <T> processItem(
         item: T,

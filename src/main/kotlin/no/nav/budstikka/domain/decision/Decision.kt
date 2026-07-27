@@ -5,21 +5,21 @@ import no.nav.budstikka.domain.dispatch.Orgnummer
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 /**
- * Channelene budstikka kan rute til (B27). Én nøytral kanalabstraksjon; nedstrøms-former lekker
- * aldri inn (B22). Brukes som `leveranse.kanal` (jf. `docs/datamodell.md`).
+ * Channels that budstikka can route to (B27). One neutral channel abstraction; downstream forms
+ * never leak in (B22). Used as `leveranse.kanal` (see `docs/datamodell.md`).
  */
 enum class Channel { BRUKERVARSEL, LEDERVARSEL, DITT_SYKEFRAVAER, ARBEIDSGIVERVARSEL, BREV, MICROFRONTEND }
 
-/** CREATE = ny utsending; INACTIVATE = lukking/ferdigstill av en tidligere CREATE (B21/B38). */
+/** CREATE = a new send; INACTIVATE = closing/ferdigstill of a previous CREATE (B21/B38). */
 enum class Operation { CREATE, INACTIVATE }
 
-/** Hvorfor en hendelse ble droppet uten leveranse. Nå kun død-gaten («ikke send til død person»). */
+/** Why an event was dropped without a delivery. Currently only the death gate (“do not send to a dead person”). */
 enum class DropReason { DEAD, }
 
 /**
- * Match-/partisjonsanker (B5) for en leveranse = `mottaker_id` i `docs/datamodell.md`. PII;
- * maskeres i logg via value-typene (B9). Resolvert nærmeste leder (B24) ligger IKKE her – den
- * fryses på leveranse-payloaden senere, ikke som matchnøkkel.
+ * Matching/partition anchor (B5) for a delivery = `mottaker_id` in `docs/datamodell.md`. PII is
+ * masked in logs through value types (B9). Resolved nærmeste leder (B24) is NOT held here: it is
+ * frozen onto the delivery payload later, not used as a matching key.
  */
 sealed interface Recipient {
     data class Person(
@@ -32,9 +32,9 @@ sealed interface Recipient {
 }
 
 /**
- * Frosset draft til én leveranse (én kanal, én mottaker) som den rene [decide]-funksjonen
- * produserer. Rute-attributtene fryses her; detaljert kanal-DTO-frysing av payload (område 3,
- * jf. `docs/datamodell.md`) er utsatt – derfor bæres kildeinnholdet [content] uendret videre.
+ * Frozen draft for one delivery (one channel, one recipient), produced by pure [decide]. Route
+ * attributes are frozen here; detailed channel DTO payload freezing (area 3, see
+ * `docs/datamodell.md`) is deferred, so source [content] continues unchanged.
  */
 data class DeliveryDraft(
     val reference: String,
@@ -45,10 +45,10 @@ data class DeliveryDraft(
 )
 
 /**
- * Utfallet av den rene beslutningen (B28) for én inbox-hendelse. Speiler tilstandsovergangene
- * på `inbox_hendelse.status` (jf. `docs/datamodell.md`): [Processed]→`BEHANDLET`,
- * [Dropped]→`DROPPET`, [Failed]→`FEILET`. Transient feil (PDL/KRR nede) er IKKE et utfall her –
- * det oppstår i grunnlagsinnhentingen (I/O) og håndteres av skallet med backoff.
+ * Result of the pure decision (B28) for one inbox event. Mirrors state transitions on
+ * `inbox_hendelse.status` (see `docs/datamodell.md`): [Processed]→`BEHANDLET`,
+ * [Dropped]→`DROPPET`, [Failed]→`FEILET`. A transient failure (PDL/KRR unavailable) is NOT a result
+ * here: it occurs while fetching inputs (I/O) and is handled by the shell with backoff.
  */
 sealed interface Decision {
     data class Processed(

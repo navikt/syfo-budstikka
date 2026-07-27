@@ -19,12 +19,12 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
- * [TokenProvider] mot NAIS Texas token-sidecar: veksler et maskin-til-maskin-token
- * (Entra ID `client_credentials`) per target og cacher det til rett før utløp.
+ * [TokenProvider] for the NAIS Texas token sidecar: exchanges a machine-to-machine token
+ * (Entra ID `client_credentials`) per target and caches it until just before expiry.
  *
- * Texas returnerer selv aldri et utløpt token, men å cache her sparer et sidecar-rundtur
- * på hvert nedstrøms-kall. Tokens er hemmeligheter: de logges aldri og legges aldri i
- * exception-meldinger (kun statuskode ved feil).
+ * Texas never returns an expired token, but caching here saves a sidecar round trip on every
+ * downstream call. Tokens are secrets: never log them or include them in exception messages
+ * (only the status code on failure).
  */
 class TexasTokenProvider(
     private val httpClient: HttpClient,

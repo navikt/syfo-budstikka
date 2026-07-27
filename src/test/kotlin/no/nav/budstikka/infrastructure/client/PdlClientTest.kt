@@ -41,34 +41,34 @@ class PdlClientTest :
                 """{"data":{"hentPerson":{"doedsfall":[]}}}"""
             }
 
-        test("doedsfall med oppføring tolkes som død") {
+        test("a doedsfall entry is interpreted as dead") {
             PdlClient.parseIsDead(pdlBody(dead = true)) shouldBe true
         }
 
-        test("tom doedsfall-liste tolkes som ikke død") {
+        test("an empty doedsfall list is interpreted as not dead") {
             PdlClient.parseIsDead(pdlBody(dead = false)) shouldBe false
         }
 
-        test("manglende doedsfall-felt tolkes som ikke død") {
+        test("a missing doedsfall field is interpreted as not dead") {
             PdlClient.parseIsDead("""{"data":{"hentPerson":{}}}""") shouldBe false
         }
 
-        test("GraphQL-errors kaster i stedet for å tolkes som ikke død") {
+        test("GraphQL errors are thrown instead of being interpreted as not dead") {
             val body = """{"errors":[{"message":"Ikke autentisert"}],"data":null}"""
             shouldThrow<IllegalStateException> { PdlClient.parseIsDead(body) }
                 .message shouldContain "Ikke autentisert"
         }
 
-        test("ukjente felter ignoreres (framoverkompatibel)") {
+        test("unknown fields are ignored (forward compatible)") {
             val body = """{"data":{"hentPerson":{"doedsfall":[{"doedsdato":"2020-01-01","ukjent":1}]}},"extensions":{}}"""
             PdlClient.parseIsDead(body) shouldBe true
         }
 
-        test("request bærer ident som variabel") {
+        test("request carries ident as a variable") {
             PdlClient.personQuery("11111111111").variables.ident shouldBe "11111111111"
         }
 
-        test("isDead veksler token for PDL-scopet og sender det som Bearer mot pdl.url") {
+        test("isDead obtains a token for the PDL scope and sends it as Bearer to pdl.url") {
             val tokenProvider = RecordingTokenProvider("tok-42")
             var capturedUrl: String? = null
             var capturedAuth: String? = null
@@ -99,7 +99,7 @@ class PdlClientTest :
             capturedBody!! shouldContain "11111111111"
         }
 
-        test("isDead returnerer false når PDL ikke har doedsfall") {
+        test("isDead returns false when PDL has no doedsfall") {
             val httpClient =
                 HttpClient(
                     MockEngine {

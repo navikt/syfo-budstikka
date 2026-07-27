@@ -26,9 +26,9 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Full BREV-spor for #21: Kafka → inbox → beslutning → delivery → BREV-handler → dokdist-port.
- * Dokdist og PDL byttes mot fakes via test-harnessen, men appen bootes med ekte DB, Kafka,
- * konsumenter og workers.
+ * Full BREV path for #21: Kafka → inbox → decision → delivery → BREV handler → dokdist port.
+ * Dokdist and PDL are replaced with fakes through the test harness, while the app boots with real DB, Kafka,
+ * consumers, and workers.
  */
 @Tags("E2E")
 class BrevDistributionE2ESpec :
