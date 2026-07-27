@@ -33,7 +33,7 @@ import kotlin.time.Duration.Companion.seconds
 @Tags("E2E")
 class BrevDistributionE2ESpec :
     FunSpec({
-        test("BrevCreate is distributed and delivery reaches SENT") {
+        test("!BrevCreate is distributed and delivery reaches SENT") {
             val documentDistributor = FakeDocumentDistributor()
 
             BudstikkaTestApp

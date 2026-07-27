@@ -41,7 +41,7 @@ import kotlin.time.Duration.Companion.seconds
 @Tags("E2E")
 class BrukervarselReservationE2ESpec :
     FunSpec({
-        test("reserved user with brevFallback -> in-app brukervarsel without external + BREV via dokdist") {
+        test("!reserved user with brevFallback -> in-app brukervarsel without external + BREV via dokdist") {
             val documentDistributor = FakeDocumentDistributor()
             val brukervarselPublisher = RecordingMinSideBrukervarselPublisher()
 
