@@ -63,7 +63,7 @@ class InboxMessageWorkerTest :
             repository.failedMessages.shouldBeEmpty()
         }
 
-        test("valid dispatch carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
+        test("valid dispatch carries reference on MDC for cross-event (CREATE->INACTIVATE) correlation") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             val repository =
                 PollingInboxMessageRepository(

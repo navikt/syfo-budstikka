@@ -20,7 +20,7 @@ import no.nav.budstikka.domain.dispatch.Dispatch
  * does not prevent another lookup: both have already started. Add a new lookup (such as nærmeste
  * leder) to avoid unnecessary calls through self-selection, not through early return:
  *
- * 1. **Port** (`domain/foundation`): define a domain-blind, I/O-free lookup interface; make it
+ * 1. **Port** (`domain/foundation`): define a `domeneblind`, I/O-free lookup interface; make it
  *    `suspend` so the adapter can call the network, mirroring [DeathLookup]. For example,
  *    `fun interface NearestLeaderLookup { suspend fun forPerson(ident: PersonIdentifier): Leder? }`.
  * 2. **Adapter** (`infrastructure/client`): implement the port against the real service (reuse the

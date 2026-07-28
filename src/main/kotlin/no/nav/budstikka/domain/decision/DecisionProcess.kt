@@ -17,11 +17,10 @@ import no.nav.budstikka.domain.dispatch.Dispatch
  * transforms deliveries must precede gates reading that transformation, and the first stopping gate
  * determines the outcome ([Decision.Dropped]/[Decision.Failed]).
  *
- * Deliberately OUTSIDE this slice (deferred until the #19 foundation exists):
- * - polling `inbox_hendelse` (`FOR UPDATE SKIP LOCKED`),
- * - effectuation: writing delivery row(s) and `inbox_hendelse.status` in one database transaction,
- * - retry/backoff for transient input-fetch I/O failures.
- * The decision result ([Decision]) is exactly the data that effectuation writes.
+ * This class owns only input resolution and the pure fold. `InboxMessageWorker` owns polling and
+ * lease handling; `EffectuateDecision` writes delivery rows and `inbox_message.state` atomically.
+ * Transient input-fetch failures propagate to the worker so the claimed row can be retried after
+ * its lease expires.
  */
 class DecisionProcess internal constructor(
     private val rules: List<DecisionRule>,

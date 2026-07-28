@@ -18,7 +18,7 @@ import sharedJson
 
 /**
  * Real PDL adapter (B22 anti-corruption) for the death gate: issues GraphQL query `hentPerson` and
- * determines death from the `doedsfall` list. Domain-blind: translates only the PDL response to
+ * determines death from the `doedsfall` list. Domeneblind: translates only the PDL response to
  * [DeathLookup].
  *
  * Auth: obtains a machine-to-machine bearer token from [tokenProvider] (Texas, #48) for the PDL

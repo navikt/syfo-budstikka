@@ -45,10 +45,10 @@ data class DeliveryDraft(
 )
 
 /**
- * Result of the pure decision (B28) for one inbox event. Mirrors state transitions on
- * `inbox_hendelse.status` (see `docs/datamodell.md`): [Processed]→`BEHANDLET`,
- * [Dropped]→`DROPPET`, [Failed]→`FEILET`. A transient failure (PDL/KRR unavailable) is NOT a result
- * here: it occurs while fetching inputs (I/O) and is handled by the shell with backoff.
+ * Result of the pure decision (B28) for one inbox event. The application layer maps [Processed],
+ * [Dropped], and [Failed] to `PROCESSED`, `DROPPED`, and `FAILED` in `inbox_message.state`.
+ * A transient failure (PDL/KRR unavailable) is NOT a result here: input fetching throws, and the
+ * claim remains available for retry after its lease expires.
  */
 sealed interface Decision {
     data class Processed(

@@ -8,8 +8,8 @@ import java.util.UUID
 
 /**
  * Effectuation writes the [Decision] result for ONE inbox message to the database in ONE transaction:
- * delivery row(s) and inbox status commit all or nothing. This is the step deliberately left open by
- * `DecisionProcess` (“write delivery row(s) and `inbox_hendelse.status` in one database transaction”).
+ * delivery row(s) and `inbox_message.state` commit all or nothing. This is the persistence boundary
+ * that follows [DecisionProcess].
  *
  * Each inbox message is handled atomically: a failure rolls back only that message, not others.
  * External lookups (input fetching) run before this call, outside the transaction.
