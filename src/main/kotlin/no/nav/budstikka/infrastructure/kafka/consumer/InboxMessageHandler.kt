@@ -58,10 +58,10 @@ class InboxMessageHandler(
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
-                kv("failureReason", deadLetter.failureReason),
-                kv("topic", deadLetter.topic),
-                kv("partition", deadLetter.partition),
-                kv("kafkaOffset", deadLetter.kafkaOffset),
+                kv(MdcKeys.REASON, deadLetter.failureReason),
+                kv(MdcKeys.TOPIC, deadLetter.topic),
+                kv(MdcKeys.PARTITION, deadLetter.partition),
+                kv(MdcKeys.KAFKA_OFFSET, deadLetter.kafkaOffset),
             )
         }
     }
@@ -76,9 +76,9 @@ class InboxMessageHandler(
             MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(
                     "Inbox message handled {} {} {}",
-                    kv("topic", record.topic),
-                    kv("partition", record.partition),
-                    kv("kafkaOffset", record.kafkaOffset),
+                    kv(MdcKeys.TOPIC, record.topic),
+                    kv(MdcKeys.PARTITION, record.partition),
+                    kv(MdcKeys.KAFKA_OFFSET, record.kafkaOffset),
                 )
             }
         }

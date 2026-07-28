@@ -40,7 +40,10 @@ class DeliveryRepositoryIntegrationTest :
             val inboxEventId = UUID.randomUUID()
             InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
-                DeliveryRepositoryImpl(fixture.database).saveInTransaction(inboxEventId, listOf(draft.copy(reference = reference)))
+                DeliveryRepositoryImpl(fixture.database).saveInTransaction(
+                    inboxEventId,
+                    listOf(draft.copy(reference = reference)),
+                )
             }
         }
 
@@ -75,7 +78,8 @@ class DeliveryRepositoryIntegrationTest :
             saveDraft("micro-ref", microfrontendDraft())
             saveDraft("bruker-ref", brukervarselDraft())
 
-            val claimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+            val claimed =
+                repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
 
             claimed.shouldHaveSize(1)
             claimed.single().channel shouldBe Channel.MICROFRONTEND
@@ -90,12 +94,14 @@ class DeliveryRepositoryIntegrationTest :
             val repository = DeliveryRepositoryImpl(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
 
-            val initialClaim = repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+            val initialClaim =
+                repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
             initialClaim.shouldHaveSize(1)
             val deliveryId = initialClaim.single().id
             expireLease(deliveryId)
 
-            val reclaimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+            val reclaimed =
+                repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
 
             reclaimed.shouldHaveSize(1)
             reclaimed.single().id shouldBe deliveryId
@@ -152,12 +158,15 @@ class DeliveryRepositoryIntegrationTest :
             val channels = setOf(Channel.MICROFRONTEND)
 
             repeat(maxAttempts) {
-                val claimed = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels)
+                val claimed =
+                    repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels)
                 claimed.shouldHaveSize(1)
                 expireLease(claimed.single().id)
             }
 
-            repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels).shouldHaveSize(0)
+            repository
+                .claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels)
+                .shouldHaveSize(0)
 
             val row = rowForReference("poison-ref")
             row[DeliveryTable.state] shouldBe "FAILED"
@@ -186,8 +195,7 @@ class DeliveryRepositoryIntegrationTest :
             event.formattedMessage shouldContain "poison-ref"
             event.formattedMessage shouldContain "CREATE"
             event.formattedMessage shouldContain "MICROFRONTEND"
-            event.formattedMessage shouldContain "attempt=2"
-            event.formattedMessage shouldContain "maxAttempts=2"
+            event.formattedMessage shouldContain "max_attempts=2"
         }
 
         test("a poison delivery does not block a healthy newer delivery on the same channel") {
@@ -197,7 +205,8 @@ class DeliveryRepositoryIntegrationTest :
             val poisonId = rowForReference("poison-ref")[DeliveryTable.id]
             makePoison(poisonId, attempt = 3)
 
-            val claimed = repository.claim(limit = 1, lease = lease, maxAttempts = 3, channels = setOf(Channel.MICROFRONTEND))
+            val claimed =
+                repository.claim(limit = 1, lease = lease, maxAttempts = 3, channels = setOf(Channel.MICROFRONTEND))
 
             claimed.map { it.id } shouldBe listOf(rowForReference("healthy-ref")[DeliveryTable.id])
             rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"

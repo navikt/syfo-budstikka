@@ -82,7 +82,7 @@ class InboxMessageWorkerTest :
 
             val event = appender.list.single { it.formattedMessage.contains("Inbox message processed") }
             event.formattedMessage shouldContain "result=PROCESSED"
-            event.formattedMessage shouldContain "deliveryCount=1"
+            event.formattedMessage shouldContain "${MdcKeys.DELIVERY_COUNT}=1"
             event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId.toString()
             event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
         }

@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
 import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -119,8 +120,8 @@ class InboxMessageRepositoryImpl(
         }
         logger.warn(
             "Failed poison inbox message(s) after reaching max attempts {} {}",
-            kv("poisonCount", poisonIds.size),
-            kv("maxAttempts", maxAttempts),
+            kv(MdcKeys.POISON_COUNT, poisonIds.size),
+            kv(MdcKeys.MAX_ATTEMPTS, maxAttempts),
         )
     }
 

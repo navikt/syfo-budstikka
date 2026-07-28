@@ -45,7 +45,7 @@ class InboxHandlerMdcTest :
             handler.handleBatch(listOf(testRecord(value = "ugyldig", eventId = null)))
 
             val event = appender.list.single { it.formattedMessage.contains("dead-lettered") }
-            event.formattedMessage shouldContain "failureReason=MISSING_EVENT_ID"
+            event.formattedMessage shouldContain "${MdcKeys.REASON}=MISSING_EVENT_ID"
             event.mdcPropertyMap[MdcKeys.EVENT_ID].shouldBeNull()
         }
     })

@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
 import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
@@ -159,13 +160,13 @@ class DeliveryRepositoryImpl(
         poisonRows.forEach { row ->
             logger.warn(
                 "Failed poison delivery row after reaching max attempts {} {} {} {} {} {} {}",
-                kv("deliveryId", row.id.toString()),
-                kv("eventId", row.inboxEventId?.toString()),
-                kv("reference", row.reference),
-                kv("operation", row.operation),
-                kv("deliveryChannel", row.channel),
-                kv("attempt", row.attempt),
-                kv("maxAttempts", maxAttempts),
+                kv(MdcKeys.DELIVERY_ID, row.id.toString()),
+                kv(MdcKeys.EVENT_ID, row.inboxEventId?.toString()),
+                kv(MdcKeys.REFERENCE, row.reference),
+                kv(MdcKeys.OPERATION, row.operation),
+                kv(MdcKeys.DELIVERY_CHANNEL, row.channel),
+                kv(MdcKeys.DELIVERY_COUNT, row.attempt),
+                kv(MdcKeys.MAX_ATTEMPTS, maxAttempts),
             )
         }
     }
