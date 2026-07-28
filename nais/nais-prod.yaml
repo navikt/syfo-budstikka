@@ -21,8 +21,8 @@ spec:
     initialDelay: 10
     periodSeconds: 5
     timeout: 5
-  # Resources: memory request = limit for predictable scheduling and to avoid OOM under node pressure
-  # (JVM MaxRAMPercentage=75 → ~768Mi heap at 1024Mi). No CPU limit (avoids throttling); the CPU
+  # Resources: a 512Mi memory request reserves baseline capacity, while the 1024Mi limit leaves
+  # headroom (JVM MaxRAMPercentage=75 → up to ~768Mi heap). No CPU limit avoids throttling; the CPU
   # request is slightly above dev for steadier scheduling under consumer load.
   resources:
     limits:
