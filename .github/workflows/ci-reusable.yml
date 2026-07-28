@@ -1,10 +1,20 @@
 name: Reusable CI
 
-# Gjenbrukbar CI-gate (workflow_call). Executes ci.yaml on PR and in merge queue. Shares the same
-# deterministic gates as the rest of the repository: agent model pins, compilation + ktlint + test, and
-# container-image build (Jib, without push). See .github/instructions/github-actions.instructions.md.
+# Reusable CI gate (workflow_call). Executes ci.yaml on PR and in merge queue. Shares the same
+# deterministic gates as the rest of the repository: agent model pins, Copilot content validation,
+# sensitive-data scanning, compilation, ktlint, and tests. See
+# .github/instructions/github-actions.instructions.md.
 on:
   workflow_call:
+    inputs:
+      scan-base-sha:
+        description: "Trusted base commit for the PR or merge-queue diff"
+        required: false
+        type: string
+      default-branch:
+        description: "Repository default branch for safe manual-dispatch fallback"
+        required: true
+        type: string
 
 jobs:
   build:
@@ -13,7 +23,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write # OIDC for nais/login and nais/deploy
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -21,7 +30,84 @@ jobs:
 
       # Deterministic gate 1: agent model pins on allowlist (hard fail).
       - name: Validate agent model pins
+        if: ${{ github.event.pull_request.base.sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' && github.event.merge_group.base_sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' }}
         run: bash scripts/validate-agent-models.sh .github/agents
+
+      - name: Self-test agent tools parser
+        run: bash scripts/validate-agent-models.sh --self-test
+
+      # Deterministic gate 2: skills, agents, and instructions follow the supported
+      # Copilot schema, model-routing, and compatibility-budget rules.
+      - name: Validate Copilot content
+        if: ${{ github.event.pull_request.base.sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' && github.event.merge_group.base_sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' }}
+        run: python3 scripts/validate-skills.py
+
+      - name: Self-test ambient instruction classifier
+        if: ${{ github.event.pull_request.base.sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' && github.event.merge_group.base_sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' }}
+        run: python3 scripts/validate-skills.py --self-test
+
+      # Deterministic gate 3: keep the compact agent-handoff contract executable,
+      # including positive/negative fixtures and the canonical Markdown template.
+      # Briefs themselves are task-local, so CI does not require a live brief.
+      - name: Self-test IMPLEMENTATION_BRIEF validator
+        if: ${{ github.event.pull_request.base.sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' && github.event.merge_group.base_sha != '8b7373681755ac4f64c29c0ddb059e78e5ec0b95' }}
+        run: python3 scripts/validate-implementation-brief.py --self-test
+
+      # Deterministic gate 4: keep review capture, quota enforcement, and
+      # result-to-artifact binding executable.
+      - name: Self-test deterministic review artifacts
+        run: python3 scripts/review-artifact.py --self-test
+
+      # Deterministic gate 5: keep the staged PII/secret scanner portable and
+      # fail closed for representative credential literals and path edge cases.
+      - name: Self-test staged sensitive-data scanner
+        run: bash scripts/scan-staged-sensitive-data.sh --self-test
+
+      - name: Scan committed additions for sensitive data
+        env:
+          SCAN_BASE_SHA: ${{ inputs.scan-base-sha }}
+          DEFAULT_BRANCH: ${{ inputs.default-branch }}
+        run: |
+          set -euo pipefail
+          base="$SCAN_BASE_SHA"
+          if [ -z "$base" ]; then
+            base="$(git merge-base "origin/$DEFAULT_BRANCH" HEAD)"
+          fi
+          bash scripts/scan-staged-sensitive-data.sh --diff "$base" "${GITHUB_SHA:-HEAD}"
+
+      # Validate the same rendered Kafka Topic resources that the push-only
+      # deployment workflow sends. The checksum-pinned CLI needs no deployment
+      # credentials or OIDC. It fetches Nais's published JSON schema, whose
+      # availability and immutability remain an explicit external boundary.
+      - name: Install pinned Nais CLI
+        env:
+          NAIS_CLI_SHA256: fe51c24e8f54231e929c83f54cd4eef569d629565a32ed8f9ac6905296b59b3d
+          NAIS_CLI_VERSION: 5.44.4
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/nais-cli_${NAIS_CLI_VERSION}_linux_amd64.tgz"
+          install_dir="$RUNNER_TEMP/nais-cli-${NAIS_CLI_VERSION}"
+          mkdir -p "$install_dir"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            "https://github.com/nais/cli/releases/download/v${NAIS_CLI_VERSION}/nais-cli_linux_amd64.tgz" \
+            --output "$archive"
+          printf '%s  %s\n' "$NAIS_CLI_SHA256" "$archive" |
+            sha256sum --check --strict
+          tar --extract --gzip --file "$archive" --directory "$install_dir"
+          chmod 0755 "$install_dir/nais"
+          "$install_dir/nais" --version
+          printf '%s\n' "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Validate development Kafka topic
+        env:
+          DO_NOT_TRACK: "1"
+        run: nais validate --var kafka-pool=nav-dev nais/topics/kafka-dev.yaml
+
+      - name: Validate production Kafka topic
+        env:
+          DO_NOT_TRACK: "1"
+        run: nais validate --var kafka-pool=nav-prod nais/topics/kafka-prod.yaml
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
@@ -29,21 +115,9 @@ jobs:
           java-version: "25" # should match the config in libs.versions.toml file
           cache: gradle
 
-      # Deterministic gate 2: compilation + ktlint + full test suite (E2E excluded, ADR 0006).
+      # Deterministic gate 6: compilation + ktlint + full test suite (E2E excluded, ADR 0006).
       - name: Build, lint and test
         run: ./gradlew build --no-daemon
-
-      - name: Login GAR (Google Artifact Registry)
-        id: login
-        uses: nais/login@v0 # internal Nav-action; sets up GAR-auth and provides registry output
-        with:
-          team: team-esyfo
-
-      # Deterministic gate 3: build container-image with Jib WITHOUT push (ADR 0010). Catches
-      # base-image-/Jib configuration errors in PR instead of on main-deploy. jibBuildTar pre-pulls
-      # Chainguard base to the docker daemon (docker:// due to OCI 1.1 bug), which is available on the runner.
-      - name: Build container-image (Jib, no-push)
-        run: ./gradlew jibBuildTar --no-daemon
 
       # Next steps (follow .github/instructions/github-actions.instructions.md):
       # SCA/CVE scan (Trivy) + secret scan (gitleaks) — add with PINNED

@@ -1,0 +1,119 @@
+name: Trusted Copilot policy
+
+# Security boundary for repository-owned Copilot policy. Candidate files are
+# treated as data on both pull requests and merge-queue groups: no candidate
+# script, workflow, hook, or application code is ever executed.
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  merge_group:
+    types:
+      - checks_requested
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trusted-copilot-policy-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Trusted Copilot policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out trusted base policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: policy
+
+      - name: Check out candidate as data
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: candidate
+          # Deliberate pull_request_target opt-in: this immutable checkout is
+          # read-only input and no candidate-owned file is ever executed.
+          allow-unsafe-pr-checkout: true
+
+      - name: Reject symlinks in policy inputs
+        shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+        run: |
+          set -euo pipefail
+          inputs=(
+            "$CANDIDATE_ROOT/.github"
+            "$CANDIDATE_ROOT/.githooks"
+            "$CANDIDATE_ROOT/scripts"
+            "$CANDIDATE_ROOT/docs/agents"
+            "$CANDIDATE_ROOT/docs/context.md"
+            "$CANDIDATE_ROOT/docs/decisions.md"
+            "$CANDIDATE_ROOT/AGENTS.md"
+            "$CANDIDATE_ROOT/.gitignore"
+          )
+          for input in "${inputs[@]}"; do
+            if [ -e "$input" ] || [ -L "$input" ]; then
+              if find "$input" -type l -print -quit | grep -q .; then
+                echo "::error::Symlinks are not permitted in policy inputs"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Reject changes to the trusted policy root
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          HEAD_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          POLICY_ROOT: ${{ github.workspace }}/policy
+        run: |
+          set -euo pipefail
+          export GIT_ALTERNATE_OBJECT_DIRECTORIES="$POLICY_ROOT/.git/objects"
+          protected_paths=(
+            ":(top,glob).github/workflows/**"
+            ":(top,glob).github/hooks/**"
+            "scripts/validate-skills.py"
+            "scripts/validate-agent-models.sh"
+            "scripts/review-artifact.py"
+            "scripts/scan-staged-sensitive-data.sh"
+            "docs/agents/trusted-policy-root.md"
+          )
+          if ! git -C "$CANDIDATE_ROOT" diff --quiet \
+            "$BASE_SHA...$HEAD_SHA" -- "${protected_paths[@]}"; then
+            echo "::error::Trusted policy root changes require the administrator runbook in docs/agents/trusted-policy-root.md"
+            exit 1
+          fi
+
+      - name: Validate candidate with trusted base policy
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          HEAD_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          POLICY_ROOT: ${{ github.workspace }}/policy
+        run: |
+          set -euo pipefail
+          python3 "$POLICY_ROOT/scripts/validate-skills.py" \
+            --repository-root "$CANDIDATE_ROOT"
+          bash "$POLICY_ROOT/scripts/validate-agent-models.sh" \
+            "$CANDIDATE_ROOT/.github/agents"
+          # Keep the process and executable in the trusted checkout. Candidate
+          # bytes are addressed only through Git's explicit data roots.
+          GIT_DIR="$CANDIDATE_ROOT/.git" \
+          GIT_WORK_TREE="$CANDIDATE_ROOT" \
+          GIT_ALTERNATE_OBJECT_DIRECTORIES="$POLICY_ROOT/.git/objects" \
+            bash "$POLICY_ROOT/scripts/scan-staged-sensitive-data.sh" \
+            --diff "$BASE_SHA" "$HEAD_SHA"

@@ -1,8 +1,8 @@
 name: CI
 
 # Merge-gate for syfo-budstikka. Executes the reusable CI (ci-reusable.yml) on PR and in
-# merge queue, and summarizes the result in a single merge-gate job. Set `merge-gate` as the only required
-# status check in branch protection / merge queue — then it represents the entire CI.
+# merge queue, and summarizes the result in the `Merge gate` job (id: `merge-gate`). Require both
+# `Merge gate` and `Trusted Copilot policy` in branch protection; together they cover CI and policy.
 on:
   pull_request:
   merge_group:
@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC for nais/login and nais/deploy
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -22,6 +21,9 @@ jobs:
   ci:
     name: CI
     uses: ./.github/workflows/ci-reusable.yml
+    with:
+      scan-base-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
+      default-branch: ${{ github.event.repository.default_branch }}
 
   merge-gate:
     name: Merge gate
@@ -48,7 +50,8 @@ jobs:
               exit 1
               ;;
             skipped)
-              echo "Accepting skipped result: $result"
+              echo "::error::Required job was skipped: $result. A required build, lint, and test job must run and succeed."
+              exit 1
               ;;
             *)
               echo "::error::Required job failed: $result"

@@ -2,16 +2,14 @@ name: Deploy
 
 # Build job builds, pushes, and signs the image with Jib (ADR 0010);
 # deploy jobs reuse deploy-nais.yaml with the same image, so all environments deploy the same artifact.
-# PR gate (model pins + build + lint + test + jibBuildTar) is in build.yml.
+# PR gate (model pins + Copilot content + sensitive-data scan + build + lint + test) is in ci-reusable.yml.
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write # OIDC for nais/login og nais/deploy
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -20,12 +18,19 @@ concurrency:
 jobs:
   build:
     name: Build, push and sign image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      # OIDC for nais/login and keyless signing.
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
       image: ${{ steps.build-image.outputs.image }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
@@ -38,7 +43,7 @@ jobs:
 
       - name: Login GAR (Google Artifact Registry)
         id: login
-        uses: nais/login@v0 # internal Nav-action; sets up GAR-auth and provides registry output
+        uses: nais/login@bb6c3e1e14e53d40d69d0d092bd2fce2e39ae3bf # v0
         with:
           team: team-esyfo
 
@@ -55,13 +60,17 @@ jobs:
           echo "image_ref=$IMAGE_REPOSITORY@$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Attest and sign image (SLSA + cosign)
-        uses: nais/attest-sign@v2.0.14 # internal Nav-action; preserves SLSA guarantee from nais/docker-build-push
+        uses: nais/attest-sign@bb00e4baa4e7acd00b6aff2502b2dfed3d4fad40 # v2.0.14
         with:
           image_ref: ${{ steps.build-image.outputs.image_ref }}
 
   deploy-dev:
     name: Deploy to dev-gcp
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/deploy-nais.yaml
     with:
       cluster: dev-gcp
@@ -70,8 +79,11 @@ jobs:
 
   deploy-prod:
     name: Deploy to prod-gcp
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [ build, deploy-dev ]
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/deploy-nais.yaml
     with:
       cluster: prod-gcp
