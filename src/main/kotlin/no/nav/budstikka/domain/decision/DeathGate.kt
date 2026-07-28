@@ -4,10 +4,10 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.foundation.DeathLookup
 
 /**
- * Death gate (B-level: “do not send to a dead person”): drops a user-directed CREATE when the
- * recipient is registered as dead in PDL. The gate self-selects through [gatedPerson]: closure
- * operations (INACTIVATE), Microfrontend, Ledervarsel, and Arbeidsgivervarsel (where the recipient
- * is not the sykmeldte) have no gated person and pass unchanged. Call PDL only when an event can be gated.
+ * DeathGate (B-level: “do not send to a dead person”): drops a Sykmeldt-directed CREATE when the
+ * Recipient is registered as dead in PDL. The gate self-selects through [gatedPerson]: closure
+ * operations (INACTIVATE), Microfrontend, Ledervarsel, and Arbeidsgivervarsel (where the Recipient
+ * is not the Sykmeldt) have no gated person and pass unchanged. Call PDL only when a Dispatch can be gated.
  */
 internal class DeathGate(
     private val deathLookup: DeathLookup,

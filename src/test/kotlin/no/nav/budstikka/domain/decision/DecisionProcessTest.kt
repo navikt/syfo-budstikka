@@ -23,7 +23,7 @@ class DecisionProcessTest :
 
         fun event(content: DispatchContent) = Dispatch(reference = "ref-1", content = content)
 
-        test("user-facing CREATE for dead person -> Dropped(DEAD) end-to-end via death gate") {
+        test("Sykmeldt-directed CREATE for dead Sykmeldt -> Dropped(DEAD) through DeathGate") {
             val decision =
                 processWith(
                     deadLookupFor(TEST_SYKMELDT),
@@ -31,14 +31,14 @@ class DecisionProcessTest :
             decision shouldBe Decision.Dropped(DropReason.DEAD)
         }
 
-        test("alive person -> Processed with one delivery") {
+        test("living Sykmeldt -> Processed with one Delivery") {
             val decision =
                 processWith(FakeDeathLookup())
                     .process(event(BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "text")))
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
         }
 
-        test("microfrontend has no applicable gate -> Processed even when the person is dead") {
+        test("Microfrontend has no applicable gate -> Processed even when the Sykmeldt is dead") {
             val decision = processWith(deadLookupFor(TEST_SYKMELDT)).process(event(MicrofrontendEnable(TEST_SYKMELDT, "mf-1")))
             decision.shouldBeInstanceOf<Decision.Processed>()
         }
@@ -50,7 +50,7 @@ class DecisionProcessTest :
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
         }
 
-        test("leader notification is not gated on the employee's death (recipient is the leader)") {
+        test("Ledervarsel is not gated on the Sykmeldt's death; future Recipient is Nærmeste leder") {
             val decision =
                 processWith(deadLookupFor(TEST_SYKMELDT)).process(
                     event(
@@ -64,7 +64,7 @@ class DecisionProcessTest :
             decision.shouldBeInstanceOf<Decision.Processed>()
         }
 
-        test("death gate short-circuits before reservation: dead + reserved + brevFallback -> Dropped, no BREV") {
+        test("DeathGate precedes ReservationGate: dead Sykmeldt + Reservasjon + BrevFallback -> Dropped") {
             val decision =
                 DecisionProcess(
                     listOf(
@@ -84,7 +84,7 @@ class DecisionProcessTest :
             decision shouldBe Decision.Dropped(DropReason.DEAD)
         }
 
-        test("alive + reserved + brevFallback via both gates -> Processed with in-app + BREV") {
+        test("living Sykmeldt + Reservasjon + BrevFallback -> Processed with in-app + BREV") {
             val decision =
                 DecisionProcess(
                     listOf(

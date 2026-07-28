@@ -40,7 +40,7 @@ fun main() {
         ) {
             // Demonstrates the fake seam: the real PDL adapter is replaced with a configurable in-memory fake.
             provide<DeathLookup> { FakeDeathLookup() }
-            // The KRR reservation lookup is replaced with a fake (no Texas/tokens locally, B51).
+            // The KRR Reservasjon lookup is replaced with a fake (no Texas/tokens locally, B51).
             provide<ReservationLookup> { FakeReservationLookup() }
             // The local BREV flow must not call dokdist/Texas.
             provide<DocumentDistributor> { FakeDocumentDistributor() }

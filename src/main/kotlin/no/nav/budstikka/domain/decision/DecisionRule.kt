@@ -21,7 +21,7 @@ import no.nav.budstikka.domain.dispatch.Dispatch
  * leder) to avoid unnecessary calls through self-selection, not through early return:
  *
  * 1. **Port** (`domain/foundation`): define a `domeneblind`, I/O-free lookup interface; make it
- *    `suspend` so the adapter can call the network, mirroring [DeathLookup]. For example,
+ *    `suspend` so the adapter can call the network, mirroring `DeathLookup`. For example,
  *    `fun interface NearestLeaderLookup { suspend fun forPerson(ident: PersonIdentifier): Leder? }`.
  * 2. **Adapter** (`infrastructure/client`): implement the port against the real service (reuse the
  *    shared `HttpClient` and `TokenProvider`, not a dedicated client), then register it in

@@ -30,7 +30,7 @@ class ReservationGateTest :
         val externalVarsling = ExternalVarsling(smsText = "Du har et nytt varsel")
         val brevFallback = BrevFallback(journalpostId = "jp-1")
 
-        test("reserved + externalVarsling + brevFallback -> in-app (no external) + BREV") {
+        test("Reservasjon + ekstern varsling + BrevFallback -> in-app (no ekstern varsling) + BREV") {
             val decision =
                 decide(
                     reservedLookupFor(TEST_SYKMELDT),
@@ -55,7 +55,7 @@ class ReservationGateTest :
             (brev.content as BrevCreate).personIdentifier shouldBe TEST_SYKMELDT
         }
 
-        test("reserved + externalVarsling, no brevFallback -> in-app only, external suppressed") {
+        test("Reservasjon + ekstern varsling, no BrevFallback -> in-app only") {
             val decision =
                 decide(
                     reservedLookupFor(TEST_SYKMELDT),
@@ -68,7 +68,7 @@ class ReservationGateTest :
             (deliveries.single().content as BrukervarselCreate).externalVarsling shouldBe null
         }
 
-        test("reserved + brevFallback, no externalVarsling -> in-app + BREV") {
+        test("Reservasjon + BrevFallback, no ekstern varsling -> in-app + BREV") {
             val decision =
                 decide(
                     reservedLookupFor(TEST_SYKMELDT),
@@ -80,7 +80,7 @@ class ReservationGateTest :
             deliveries.singleOrNull { it.channel == Channel.BREV }.shouldNotBeNull()
         }
 
-        test("not reserved -> external varsling kept, no BREV") {
+        test("no Reservasjon -> ekstern varsling kept, no BREV") {
             val decision =
                 decide(
                     FakeReservationLookup(),
@@ -99,7 +99,7 @@ class ReservationGateTest :
             (deliveries.single().content as BrukervarselCreate).externalVarsling shouldBe externalVarsling
         }
 
-        test("brukervarsel with neither external nor fallback -> no KRR lookup, unchanged") {
+        test("Brukervarsel with neither ekstern varsling nor BrevFallback -> no KRR lookup") {
             val lookup = FakeReservationLookup().apply { registerReserved(TEST_SYKMELDT) }
             val decision = decide(lookup, BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "text"))
 
@@ -107,7 +107,7 @@ class ReservationGateTest :
             lookup.lookupCount shouldBe 0
         }
 
-        test("non-brukervarsel event -> no KRR lookup, unchanged") {
+        test("non-Brukervarsel Dispatch -> no KRR lookup, unchanged") {
             val lookup = FakeReservationLookup().apply { registerReserved(TEST_SYKMELDT) }
             val decision = decide(lookup, LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, "text"))
 

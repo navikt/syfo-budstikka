@@ -6,20 +6,23 @@ import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 /**
  * Channels that budstikka can route to (B27). One neutral channel abstraction; downstream forms
- * never leak in (B22). Used as `leveranse.kanal` (see `docs/datamodell.md`).
+ * never leak in (B22). Persisted as `delivery.channel`.
  */
 enum class Channel { BRUKERVARSEL, LEDERVARSEL, DITT_SYKEFRAVAER, ARBEIDSGIVERVARSEL, BREV, MICROFRONTEND }
 
-/** CREATE = a new send; INACTIVATE = closing/ferdigstill of a previous CREATE (B21/B38). */
+/**
+ * CREATE starts a new Dispatch. INACTIVATE represents either Ferdigstill of an earlier Dispatch or
+ * the visibility toggle for MicrofrontendDisable (B21/B38/B41).
+ */
 enum class Operation { CREATE, INACTIVATE }
 
 /** Why an event was dropped without a delivery. Currently only the death gate (“do not send to a dead person”). */
 enum class DropReason { DEAD, }
 
 /**
- * Matching/partition anchor (B5) for a delivery = `mottaker_id` in `docs/datamodell.md`. PII is
- * masked in logs through value types (B9). Resolved nærmeste leder (B24) is NOT held here: it is
- * frozen onto the delivery payload later, not used as a matching key.
+ * Matching and partition anchor (B5) for a Delivery, persisted as `delivery.recipient_id`. PII is
+ * masked in logs through value types (B9). For Ledervarsel, this is the Sykmeldt until a future
+ * channel adapter resolves Nærmeste leder (B24); that lookup is not implemented yet.
  */
 sealed interface Recipient {
     data class Person(
@@ -32,9 +35,10 @@ sealed interface Recipient {
 }
 
 /**
- * Frozen draft for one delivery (one channel, one recipient), produced by pure [decide]. Route
- * attributes are frozen here; detailed channel DTO payload freezing (area 3, see
- * `docs/datamodell.md`) is deferred, so source [content] continues unchanged.
+ * Frozen draft for one Delivery (one Channel, one Recipient), produced by [DecisionProcess.process].
+ * Route attributes are frozen here. Registered channel adapters translate [content] at send time.
+ * Drafts for channels without a registered handler remain unclaimed, so the draft deliberately
+ * retains the source content.
  */
 data class DeliveryDraft(
     val reference: String,

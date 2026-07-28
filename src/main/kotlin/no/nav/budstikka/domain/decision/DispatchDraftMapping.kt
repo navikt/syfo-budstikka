@@ -16,17 +16,17 @@ import no.nav.budstikka.domain.dispatch.PersonIdentifier
 
 /*
  * Pure mapping from [DispatchContent] to [DeliveryDraft] route attributes (channel, operation, and
- * recipient), and to the person a person gate (for example [DeathGate]) may apply to. No I/O; total
- * and deterministic, tested with pure data.
+ * recipient), and to the Sykmeldt a person gate (for example [DeathGate]) may apply to. No I/O;
+ * total and deterministic, tested with pure data.
  */
 
 /**
- * Person a person gate applies to, or `null` when the event is not a user-directed CREATE. Gates use
- * this for self-selection: a gate without a gated person leaves the delivery unchanged, and
+ * Sykmeldt a person gate applies to, or `null` when the event is not a Sykmeldt-directed CREATE.
+ * Gates use this for self-selection: a gate without a gated person leaves the Delivery unchanged, and
  * [DeathGate] does not query PDL when the result cannot gate.
  *
  * The `when` is deliberately total (no `else`): a new [DispatchContent] variant must cause a
- * compilation error here, making the gate decision explicit and preventing a new user-directed
+ * compilation error here, making the gate decision explicit and preventing a new Sykmeldt-directed
  * CREATE from silently bypassing person gates.
  */
 internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
@@ -89,8 +89,8 @@ private fun DispatchContent.draft(
 ): DeliveryDraft = DeliveryDraft(reference, operation, channel, recipient, this)
 
 /**
- * The BREV delivery created by a reserved user's [BrukervarselCreate.brevFallback] (B8/ADR 0009),
- * or `null` when the event has no fallback.
+ * BREV Delivery derived from [BrukervarselCreate.brevFallback], or `null` when there is no
+ * BrevFallback. [ReservationGate] calls this only for a Sykmeldt with Reservasjon (B8/ADR 0009).
  */
 internal fun BrukervarselCreate.brevFallbackDraft(reference: String): DeliveryDraft? =
     brevFallback?.let { fallback ->

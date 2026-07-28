@@ -44,8 +44,8 @@ fun ApplicationConfig.toDocumentDistributorConfig() =
     }
 
 /**
- * KRR configuration (digdir-krr-proxy) for the reservation gate (ADR 0009). [url] is the endpoint
- * for reservation-status lookup; [scope] is the Entra ID target for which
+ * KRR configuration (digdir-krr-proxy) for ReservationGate (ADR 0009). [url] is the endpoint for
+ * the Reservasjon lookup; [scope] is the Entra ID target for which
  * [no.nav.budstikka.infrastructure.auth.TokenProvider] exchanges an M2M token. The platform injects
  * both (no hard-coded secrets).
  */

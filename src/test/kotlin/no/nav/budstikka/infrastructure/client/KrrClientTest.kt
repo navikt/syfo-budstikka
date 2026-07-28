@@ -36,11 +36,11 @@ class KrrClientTest :
 
         fun krrBody(kanVarsles: Boolean): String = """{"personident":"11111111111","kanVarsles":$kanVarsles,"reservert":${!kanVarsles}}"""
 
-        test("kanVarsles=false is interpreted as reserved") {
+        test("kanVarsles=false is interpreted as Reservasjon") {
             KrrClient.parseIsReserved(HttpStatusCode.OK, krrBody(kanVarsles = false)) shouldBe true
         }
 
-        test("kanVarsles=true is interpreted as not reserved") {
+        test("kanVarsles=true is interpreted as no Reservasjon") {
             KrrClient.parseIsReserved(HttpStatusCode.OK, krrBody(kanVarsles = true)) shouldBe false
         }
 

@@ -14,10 +14,10 @@ data class Dispatch(
 )
 
 /**
- * Sealed root for all content (B22). Operation (CREATE/FERDIGSTILL/activate) is encoded in the
- * type, so the compiler enforces B21. [partitionKey] is the Kafka record key (B5) = recipient ID,
- * keeping events for one recipient ordered on the same partition. The getter has no backing field
- * and is therefore not serialised.
+ * Sealed root for all content (B22). Create, Inactivate, and Microfrontend enable/disable are
+ * encoded in the type, so the compiler enforces B21. [partitionKey] is the Kafka record key (B5) =
+ * Recipient ID, keeping Dispatches for one Recipient ordered on the same partition. The getter has
+ * no backing field and is therefore not serialised.
  */
 @Serializable
 sealed interface DispatchContent {

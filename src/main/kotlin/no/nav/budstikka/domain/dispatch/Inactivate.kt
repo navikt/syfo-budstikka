@@ -16,7 +16,7 @@ data class BrukervarselInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Close Ledervarsel; matching key = sykmeldt, NOT NL fnr (B24: unknown to the consumer). */
+/** Close Ledervarsel; Match key = Sykmeldt, NOT NL fnr (B24: unknown to the Produsent). */
 @Serializable
 @SerialName("LedervarselInactivate")
 data class LedervarselInactivate(
@@ -27,7 +27,7 @@ data class LedervarselInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Close Ditt sykefravær message; matching key = sykmeldt. */
+/** Close Ditt Sykefravær message; Match key = Sykmeldt. */
 @Serializable
 @SerialName("DittSykefravaerInactivate")
 data class DittSykefravaerInactivate(
@@ -51,9 +51,9 @@ data class ArbeidsgivervarselInactivate(
 
 /**
  * Microfrontend (B41): visibility on Min side, kept OUTSIDE the Inactivate mechanism. It is a
- * separate activate/deactivate pair, an on/off switch for `(person, microfrontendId)`, not a
- * delivery-with-recipient matched by `referanse`. A separate sealed subtype lets the producer side
- * accept exactly this pair; the compiler enforces exhaustive `when` without `else`.
+ * separate activate/deactivate pair, an on/off switch for `(Sykmeldt, microfrontendId)`, not a
+ * Delivery matched by `reference` and Recipient. A separate sealed subtype constrains the contract
+ * to exactly this pair; the compiler enforces exhaustive `when` without `else`.
  */
 @Serializable
 sealed interface Microfrontend : DispatchContent {

@@ -18,9 +18,10 @@ import no.nav.budstikka.infrastructure.client.config.KrrConfig
 import sharedJson
 
 /**
- * B22 anti-corruption adapter for the reservation gate (ADR 0009): looks up recipient contact and
- * reservation status in digdir-krr-proxy and translates it to [ReservationLookup]. “Reserved” means
- * KRR `kanVarsles == false`: no digital notification, either reserved or lacking a verified contact channel.
+ * B22 anti-corruption adapter for ReservationGate (ADR 0009): looks up Recipient contact and
+ * Reservasjon status in digdir-krr-proxy and translates it to [ReservationLookup]. KRR
+ * `kanVarsles == false` means no `ekstern varsling`, either because of Reservasjon or because there
+ * is no verified contact information.
  */
 class KrrClient(
     private val httpClient: HttpClient,

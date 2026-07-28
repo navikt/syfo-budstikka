@@ -34,8 +34,9 @@ interface InboxMessageRepository {
     /**
      * Terminal transitions for the decision worker. They do NOT open their own transaction: they run
      * inside [TransactionRunner.transaction] with delivery writes, so one message is effectuated all
-     * or nothing (#56). The transition applies only from CLAIMED (idempotent compare-and-set: an
-     * already terminal or reclaimed message returns `false`, so a loser in a lease race writes no deliveries).
+     * or nothing (#56). The transition applies only while the row is CLAIMED and is idempotent for
+     * terminal rows: an already terminal row returns `false`. Claims have no owner or fencing token,
+     * so this compare-and-set does not distinguish a stale worker from a later reclaimer.
      */
     fun markProcessedInTransaction(eventId: UUID): Boolean
 

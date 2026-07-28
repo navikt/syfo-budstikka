@@ -9,12 +9,13 @@ sealed interface Brukervarsel {
     val partitionKey: String
 }
 
-/** External notification channel (SMS/email) in addition to the surface. */
+/** Channel for `ekstern varsling` (SMS/email) in addition to the surface. */
 enum class ExternalChannel { SMS, EMAIL }
 
 /**
- * Our model for external notifications (B23), mapped internally to tms. `null` text means the
- * downstream NAV standard text. The consumer supplies plain text; budstikka sanitises it (B29).
+ * Model for `ekstern varsling` (B23), currently mapped to TMS for Brukervarsel. A `null` text omits
+ * that override. The Produsent supplies plain text; values are currently forwarded unchanged, and
+ * the sanitisation required by B29 is not implemented yet.
  */
 @Serializable
 data class ExternalVarsling(
@@ -24,12 +25,12 @@ data class ExternalVarsling(
     val emailText: String? = null,
 )
 
-/** Distribution type for downstream letter sending. */
+/** Distribution type for downstream Brev sending. */
 enum class DistributionType { IMPORTANT, OTHER }
 
 /**
- * B8: presence means send a letter when the recipient is reserved against digital contact.
- * `journalpostId` has already been created by the consumer.
+ * B8: presence permits a Brev when the Sykmeldt has Reservasjon. Without BrevFallback, Reservasjon
+ * only suppresses `ekstern varsling`. The Produsent has already created `journalpostId`.
  */
 @Serializable
 data class BrevFallback(
@@ -38,25 +39,28 @@ data class BrevFallback(
 )
 
 /**
- * Sending window (B25): neutral term, operationalised by the outbox. Budstikka sets the default
- * (`NKS_AAPNINGSTID` for external-notification-bearing messages, `ONGOING` otherwise). Extensible.
+ * Sending-window contract value from B25. Relevant CREATE variants currently carry it unchanged;
+ * outbox enforcement and default selection are not implemented yet.
  */
 enum class SendingWindow { ONGOING, NKS_OPENING_HOURS }
 
 /**
- * Tag (B30): typed CLOSED enum (category, not behaviour). Budstikka never branches on it; it is
- * carried only to the producer API. The closed form keeps team registration and budstikka onboarding
- * in sync. Extend it during onboarding.
+ * Tag (B30): typed CLOSED enum (category, not behaviour). The current slice preserves it in
+ * Arbeidsgivervarsel content but does not map that Channel downstream yet. Extend the enum during
+ * onboarding.
  */
 enum class Tag { DIALOGMOETE, OPPFOELGING }
 
-/** B32: Altinn resource → producer API resource ID (registry-enforced). */
+/**
+ * B32: Altinn resource identifier in the Arbeidsgivervarsel contract; downstream mapping is not
+ * implemented yet.
+ */
 enum class AltinnResourceId { DIALOGMOETE, }
 
-/** B33: neutral employer message type, separate from Brukervarsel [Varseltype]. */
+/** B33: neutral Arbeidsgivervarsel message type, separate from Brukervarsel [Varseltype]. */
 enum class ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }
 
-/** B31: the consumer owns the case; `sakId` → downstream grouping ID. */
+/** B31: Produsent-owned case association; `sakId` is intended as the downstream grouping ID. */
 @Serializable
 data class Sakstilknytning(
     val sakId: String,
