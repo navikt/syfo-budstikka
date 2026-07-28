@@ -3,9 +3,9 @@ package no.nav.budstikka.application
 import no.nav.budstikka.application.port.ClaimedDelivery
 
 /**
- * Kanalspesifikk utsending bak et smalt grensesnitt. [DeliveryWorker] avhenger av et
- * `Map<Channel, ChannelHandler>` — ikke av konkrete publishers — så en ny kanal er én handler +
- * registrering, uten å røre workeren.
+ * Channel-specific sending behind a narrow interface. [DeliveryWorker] depends on a
+ * `Map<Channel, ChannelHandler>`, not concrete publishers, so a new channel is one handler plus
+ * registration, without changing the worker.
  */
 fun interface ChannelHandler {
     suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome

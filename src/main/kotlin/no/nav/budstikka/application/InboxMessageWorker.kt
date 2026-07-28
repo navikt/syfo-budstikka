@@ -15,18 +15,19 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Beslutnings-workeren (#56): claimer mottatte inbox-meldinger (FOR UPDATE SKIP LOCKED + lease, ADR
- * 0004 — flere replicaer kan kjøre samtidig) og effektuerer utfallet per melding via
- * [EffectuateDecision] (delivery + inbox-status i én DB-tx).
+ * Decision worker (#56): claims received inbox messages (FOR UPDATE SKIP LOCKED + lease, ADR 0004:
+ * several replicas can run concurrently) and effectuates each result through [EffectuateDecision]
+ * (delivery plus inbox status in one database transaction).
  *
- * Meldingen er hydrert ved ingest (ADR 0008): `content` er garantert parsebar, så workeren dekoder
- * ikke payload. Den rekonstruerer [Dispatch] fra raden og delegerer beslutningen til [DecisionProcess].
+ * The message is hydrated at ingest (ADR 0008): `content` is guaranteed parseable, so the worker
+ * does not decode the payload. It reconstructs [Dispatch] from the row and delegates the decision to
+ * [DecisionProcess].
  *
- * Workeren eier én runde ([runOnce]); selve løkke-livssyklusen (intervall, heartbeat, shutdown)
- * komponeres rundt den i bootstrap via `BackgroundLoop`. Lease-budsjett-draineringen deles med
- * outbox-workeren via [LeaseBudgetDrainer]: workeren slutter å starte nye meldinger når
- * budsjettandelen av leasen er brukt, så en treg batch ikke krysser leasen (og en peer re-enricher
- * samme melding). Uberørte claimede meldinger blir stående til leasen utløper.
+ * The worker owns one round ([runOnce]); bootstrap composes loop lifecycle (interval, heartbeat,
+ * shutdown) around it through `BackgroundLoop`. It shares lease-budget draining with the outbox
+ * worker through [LeaseBudgetDrainer]: it stops starting messages once the lease budget is spent, so
+ * a slow batch does not cross the lease (and a peer re-enriches the same message). Untouched claimed
+ * messages remain until their lease expires.
  */
 class InboxMessageWorker(
     private val repository: InboxMessageRepository,

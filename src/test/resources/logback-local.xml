@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Menneskelig lesbar logg for det lokale løpet (runLocal / LocalApp). Velges via system-property
-    logback.configurationFile satt av runLocal-oppgaven, så prod-loggingen (JSON via logback.xml)
-    er urørt. Ligger i src/test/resources og havner aldri i prod-jaren.
+    Human-readable logging for the local run (runLocal / LocalApp). Selected through the
+    logback.configurationFile system property set by the runLocal task, leaving production logging
+    (JSON through logback.xml) untouched. It lives in src/test/resources and never enters the production JAR.
 -->
 <configuration>
     <appender name="stdout_human" class="ch.qos.logback.core.ConsoleAppender">

@@ -29,8 +29,8 @@ import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
-    // (B55): DeathGate FØR ReservationGate,
-    // så en død mottaker short-circuiter til Dropped før reservasjons-/brevtransformasjonen (ADR 0009).
+    // B55: DeathGate BEFORE ReservationGate, so a dead Recipient short-circuits to Dropped before
+    // the Reservasjon/BrevFallback transformation (ADR 0009).
     provide<List<DecisionRule>> {
         listOf(
             DeathGate(resolve<DeathLookup>()),

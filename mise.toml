@@ -13,8 +13,9 @@ KAFKA_BUDSTIKKA_ENABLED = "true"
 description = "Run app using gradle"
 run = './gradlew run'
 
-# Kjører hele appen lokalt mot Testcontainers (Postgres + Kafka + Kafka UI) med fakes wiret inn —
-# trenger IKKE docker-compose-infraen (`infra`). Ctrl+C river ned containerne. Se docs/TESTSTRATEGI.md.
+# Runs the full application locally against Testcontainers (Postgres + Kafka + Kafka UI) with wired fakes.
+# Does not require the docker-compose infrastructure (`infra`). Ctrl+C tears down the containers.
+# See docs/teststrategi.md.
 [tasks."dev:tc"]
 description = "Run app locally against Testcontainers (Postgres + Kafka + Kafka UI), no compose needed"
 run = './gradlew runLocal'
@@ -28,8 +29,8 @@ run = './gradlew build'
 description = "Run tests with gradle"
 run = './gradlew test'
 
-# Opt-in e2e: KUN de @Tags("E2E")-taggede full-boot-specene mot Testcontainers. Ikke koblet til
-# `test`/`build`, så deploy-løpet slipper å vente på trege e2e-tester. Se docs/TESTSTRATEGI.md.
+# Opt-in e2e: ONLY the full-boot specs tagged `@Tags("E2E")`, against Testcontainers. Not connected to
+# `test`/`build`, so deployments do not wait for slow e2e tests. See docs/teststrategi.md.
 [tasks."test:e2e"]
 description = "Run opt-in e2e tests (full-boot against Testcontainers)"
 run = './gradlew e2eTest'

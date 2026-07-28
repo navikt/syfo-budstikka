@@ -5,26 +5,26 @@ import no.nav.budstikka.domain.foundation.ReservationLookup
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * In-memory, styrbar fake (B52) av [ReservationLookup] – «mock-klienten» beslutnings-workeren kan
- * wire i test/e2e i stedet for den ekte KRR-adapteren. Ingen nett, ingen tokens, full kontroll.
+ * Configurable in-memory fake (B52) for [ReservationLookup] — the fake the decision worker can
+ * wire into tests/e2e instead of the real KRR adapter. No network, no tokens, full control.
  *
- * Default: ingen er reservert. Marker en ident som reservert (kan ikke varsles digitalt) med
- * [registerReserved]; [reset] tømmer tilstanden mellom scenarier. [lookupCount] teller kall, så
- * tester kan verifisere self-selection (at gaten IKKE slår opp KRR når det ikke er noe å gate).
+ * By default, no ident has Reservasjon. Mark one with [registerReserved]; [reset] clears state
+ * between scenarios. [lookupCount] counts calls, so tests can verify self-selection (the gate does
+ * not query KRR when there is nothing to gate).
  */
 class FakeReservationLookup : ReservationLookup {
     private val reserved = mutableSetOf<PersonIdentifier>()
     private val calls = AtomicInteger(0)
 
-    /** Antall [isReserved]-kall siden opprettelse/[reset]. */
+    /** Number of [isReserved] calls since construction or [reset]. */
     val lookupCount: Int get() = calls.get()
 
-    /** «Gjør denne personen reservert» (kan ikke varsles digitalt) i dette fake-oppslaget. */
+    /** Gives this ident Reservasjon (`kanVarsles=false`) in the fake lookup. */
     fun registerReserved(ident: PersonIdentifier) {
         reserved += ident
     }
 
-    /** Nullstill alle markeringer og kall-telleren (tilbake til «ingen reservert»). */
+    /** Clears all Reservasjon markings and the call counter. */
     fun reset() {
         reserved.clear()
         calls.set(0)

@@ -17,13 +17,13 @@ import no.nav.budstikka.infrastructure.client.config.PdlConfig
 import sharedJson
 
 /**
- * Ekte PDL-adapter (B22 anti-corruption) for død-gaten: stiller GraphQL-spørringen `hentPerson`
- * og avgjør død ut fra `doedsfall`-lista. Domeneblind – oversetter kun PDL-svaret til
- * [DeathLookup]-porten.
+ * Real PDL adapter (B22 anti-corruption) for the death gate: issues GraphQL query `hentPerson` and
+ * determines death from the `doedsfall` list. Domeneblind: translates only the PDL response to
+ * [DeathLookup].
  *
- * Auth: henter et maskin-til-maskin bearer-token fra [tokenProvider] (Texas, #48) for PDL-scopet
- * ([PdlConfig.scope]) og gjenbruker den delte utgående [httpClient]. Token er en hemmelighet og
- * logges aldri.
+ * Auth: obtains a machine-to-machine bearer token from [tokenProvider] (Texas, #48) for the PDL
+ * scope ([PdlConfig.scope]) and reuses the shared outgoing [httpClient]. The token is a secret and
+ * is never logged.
  */
 class PdlClient(
     private val httpClient: HttpClient,
@@ -52,14 +52,14 @@ class PdlClient(
             GraphqlRequest(query = HENT_PERSON_QUERY, variables = GraphqlVariables(ident = ident))
 
         /**
-         * Ren tolkning av PDL-svaret (testbar uten HTTP): død = minst én `doedsfall`-oppføring.
-         * Kaster på GraphQL-`errors` slik at det håndteres som en (transient/permanent) feil av
-         * skallet, aldri stille tolkes som «ikke død».
+         * Pure interpretation of the PDL response (testable without HTTP): dead = at least one
+         * `doedsfall` entry. Throws on GraphQL `errors`, so the shell handles it as a transient or
+         * permanent failure rather than silently interpreting it as “not dead”.
          */
         internal fun parseIsDead(responseBody: String): Boolean {
             val response = sharedJson.decodeFromString<GraphqlResponse>(responseBody)
             if (!response.errors.isNullOrEmpty()) {
-                error("PDL svarte med feil: ${response.errors.joinToString { it.message }}")
+                error("PDL responded with errors: ${response.errors.joinToString { it.message }}")
             }
             val deaths =
                 response.data

@@ -42,9 +42,9 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
- * Meldingene er hydrert ved ingest (ADR 0008), så workeren dekoder ikke lenger payload og kan aldri
- * feile på `SerializationException`. Parse-taksonomien (korrupt payload → dead-letter) testes derfor i
- * `InboxHandlerTest`, ikke her. Workeren beslutter (via [DecisionProcess]) og effektuerer.
+ * Messages are hydrated during ingest (ADR 0008), so the worker no longer decodes the payload and can never
+ * fail with `SerializationException`. `InboxHandlerTest`, not this test, covers the parsing taxonomy
+ * (corrupt payload → dead letter). The worker decides (through [DecisionProcess]) and executes.
  */
 class InboxMessageWorkerTest :
     FunSpec({
@@ -63,7 +63,7 @@ class InboxMessageWorkerTest :
             repository.failedMessages.shouldBeEmpty()
         }
 
-        test("valid dispatch carries reference on MDC for cross-event (OPPRETT->FERDIGSTILL) correlation") {
+        test("valid dispatch carries reference on MDC for cross-event (CREATE->INACTIVATE) correlation") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             val repository =
                 PollingInboxMessageRepository(

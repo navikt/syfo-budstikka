@@ -10,7 +10,7 @@ import kotlin.time.Instant
 
 class DispatchSerializationTest :
     FunSpec({
-        context("de/serialisering rundtur bevarer alle variants") {
+        context("serialization roundtrip preserves all variants") {
             val variants: List<Pair<String, DispatchContent>> =
                 listOf(
                     "BrukervarselCreate" to
@@ -80,7 +80,7 @@ class DispatchSerializationTest :
 
             variants.forEach { (name, content) ->
                 test("roundtrip preserves $name") {
-                    rundtur(content) shouldBe envelope(content)
+                    roundtrip(content) shouldBe envelope(content)
                 }
             }
         }
@@ -93,7 +93,7 @@ class DispatchSerializationTest :
             dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldNotContain "partitionKey"
         }
 
-        context("PII-maskering i toString (B9)") {
+        context("PII masking in toString (B9)") {
             test("PersonIdentifier is masked") {
                 TEST_SYKMELDT_2.toString() shouldBe "***"
             }

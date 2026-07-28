@@ -139,7 +139,7 @@ class ConsumerRunner<K, V>(
                 throw error
             } catch (error: Throwable) {
                 if (isFatal(error)) {
-                    // `consumer` bæres på MDC (launch-MDCContext) → ikke dupliser coroutineName som kv.
+                    // `consumer` is carried in MDC (launch-MDCContext); do not duplicate coroutineName as kv.
                     logger.error("Consumer hit a fatal error and will not restart", error)
                     running.set(false)
                     onFatalError(error)

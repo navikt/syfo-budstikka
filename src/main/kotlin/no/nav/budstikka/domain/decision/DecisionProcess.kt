@@ -6,22 +6,21 @@ import kotlinx.coroutines.coroutineScope
 import no.nav.budstikka.domain.dispatch.Dispatch
 
 /**
- * Imperativt skall (B28) rundt de rene beslutningsgatene: seeder leveranse-utkastet fra hendelsen,
- * henter grunnlaget for alle [DecisionRule]-gater KONKURRENT ([DecisionRule.resolve] i `async`), og
- * folder deretter de rene [ResolvedRule]-avgjørelsene SEKVENSIELT over leveransene. Første ikke-
- * [Decision.Processed]-utfall (Dropped/Failed) short-circuiter resten (komponerbare gater, B55).
+ * Imperative shell (B28) around pure decision gates: seeds the delivery draft from the event, fetches
+ * inputs for every [DecisionRule] CONCURRENTLY ([DecisionRule.resolve] in `async`), then folds pure
+ * [ResolvedRule] decisions SEQUENTIALLY over deliveries. The first non-[Decision.Processed] outcome
+ * (Dropped/Failed) short-circuits the rest (composable gates, B55).
  *
- * Rekkefølgen i [rules] er anvendelses-rekkefølgen til den rene folden, og påvirker IKKE fetch/latens:
- * all grunnlagsinnhenting kjøres parallelt og short-circuites aldri av et tidlig dropp (et samtidig
- * oppslag kan altså være forgjeves – bevisst avveining). Rekkefølgen betyr kun at en gate som
- * transformerer leveransene må stå før gater som leser transformasjonen, og at den første gaten som
- * avbryter er den som bestemmer utfallet ([Decision.Dropped]/[Decision.Failed]).
+ * Order in [rules] is the application order for the pure fold and does NOT affect fetch latency:
+ * all input fetching runs in parallel and is never short-circuited by an early drop (a concurrent
+ * lookup can therefore be unnecessary: a deliberate trade-off). Order only means a gate that
+ * transforms deliveries must precede gates reading that transformation, and the first stopping gate
+ * determines the outcome ([Decision.Dropped]/[Decision.Failed]).
  *
- * Bevisst UTENFOR denne slicen (utsatt til #19-fundamentet finnes):
- * - poll-løkka mot `inbox_hendelse` (`FOR UPDATE SKIP LOCKED`),
- * - effektuering: skriving av leveranse-rad(er) + `inbox_hendelse.status` i én DB-tx,
- * - retry/backoff ved transient grunnlags-I/O-feil.
- * Decisionsutfallet ([Decision]) er nettopp dataen den effektueringen skal skrive.
+ * This class owns only input resolution and the pure fold. `InboxMessageWorker` owns polling and
+ * lease handling; `EffectuateDecision` writes delivery rows and `inbox_message.state` atomically.
+ * Transient input-fetch failures propagate to the worker so the claimed row can be retried after
+ * its lease expires.
  */
 class DecisionProcess internal constructor(
     private val rules: List<DecisionRule>,

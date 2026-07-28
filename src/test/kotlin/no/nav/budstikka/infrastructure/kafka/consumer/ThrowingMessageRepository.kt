@@ -6,7 +6,7 @@ import java.util.UUID
 import kotlin.time.Duration
 
 class ThrowingMessageRepository : InboxMessageRepository {
-    override suspend fun saveBatch(messages: List<InboxMessage>) = error("DB nede — transient feil")
+    override suspend fun saveBatch(messages: List<InboxMessage>) = error("Database unavailable — transient failure")
 
     override suspend fun claim(
         limit: Int,

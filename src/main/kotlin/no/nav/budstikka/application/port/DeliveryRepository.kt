@@ -15,11 +15,10 @@ data class ClaimedDelivery(
 )
 
 /**
- * Skriver frosne [DeliveryDraft] som `delivery`-rader. Én inbox-hendelse gir 0..N leveranser.
- * Åpner IKKE egen transaksjon: kjøres inne i
- * [TransactionRunner.transaction] sammen med inbox-
- * status-overgangen, slik at beslutnings-workeren (#56) effektuerer én melding alt-eller-ingenting.
- * `id`/`state`/`attempt` fylles av DB-defaults (uuidv7 / 'READY' / 0).
+ * Writes frozen [DeliveryDraft] values as `delivery` rows. One inbox event yields 0..N deliveries.
+ * Does NOT open its own transaction: it runs inside [TransactionRunner.transaction] together with
+ * the inbox state transition, so the decision worker (#56) effectuates one message all or nothing.
+ * Database defaults populate `id`/`state`/`attempt` (uuidv7 / 'READY' / 0).
  */
 interface DeliveryRepository {
     fun saveInTransaction(

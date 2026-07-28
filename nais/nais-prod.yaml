@@ -21,32 +21,32 @@ spec:
     initialDelay: 10
     periodSeconds: 5
     timeout: 5
-  # Ressurser: minne request = limit for forutsigbar planlegging og for å unngå OOM ved node-press
-  # (JVM MaxRAMPercentage=75 → ~768Mi heap ved 1024Mi). Ingen CPU-limit (unngår throttling); CPU
-  # request løftet litt over dev for jevnere scheduling under konsument-last.
+  # Resources: a 512Mi memory request reserves baseline capacity, while the 1024Mi limit leaves
+  # headroom (JVM MaxRAMPercentage=75 → up to ~768Mi heap). No CPU limit avoids throttling; the CPU
+  # request is slightly above dev for steadier scheduling under consumer load.
   resources:
     limits:
       memory: 1024Mi
     requests:
       cpu: 200m
       memory: 512Mi
-  # Antall pods: min 2 gir HA — appen overlever rullende deploy og node-tap uten stopp. Max 4 gir
-  # rom til å drenere delivery-/inbox-backlog (workerne er ikke partisjonsbundet — de poller DB med
-  # SKIP LOCKED, B27, så N like instanser er trygt). Ingen leaderElection: periodiske sveip
-  # koordineres med Postgres advisory lock (B12/B42).
+  # Pod count: minimum 2 provides HA, so the application survives rolling deployments and node loss.
+  # Maximum 4 leaves capacity to drain delivery/inbox backlog (workers are not partition-bound: they
+  # poll the database with SKIP LOCKED, B27, so N equal instances are safe). No leaderElection:
+  # periodic sweeps coordinate through a Postgres advisory lock (B12/B42).
   replicas:
     min: 2
     max: 4
   prometheus:
     enabled: true
-    path: /internal/metrics # POD_METRICS_PATH; avstemmer B57/B48 (metrics, ikke prometheus)
+    path: /internal/metrics # POD_METRICS_PATH; aligns with B57/B48 (metrics, not prometheus)
   observability:
     logging:
       destinations:
         - id: loki
     autoInstrumentation:
       enabled: true
-      runtime: java # OTel-agent setter W3C traceparent → Tempo (B45/B48)
+      runtime: java # OTel agent sets W3C traceparent → Tempo (B45/B48)
   kafka:
     pool: nav-prod # topic: nais/topics/kafka-prod.yaml (team-esyfo.budstikka.v1)
   azure:
@@ -68,15 +68,15 @@ spec:
         tier: db-custom-1-5120
         diskAutoresize: true
         diskAutoresizeLimit: 20
-        # Ikke pointInTimeRecovery: hele basen er avledet av Kafka (inbox/delivery/dead_letter), og
-        # kan gjenoppbygges via 90 dagers replay (B26) + idempotent konsum. Daglige automatiske
-        # backups dekker "hele basen tapt". Skru på hvis RPO-kravet skjerpes.
-        # Ikke highAvailability (regional): dobler kostnad, og en kort DB-failover er ikke kritisk
-        # her — Kafka beholder meldinger i 90 dager (B26) og konsumet er idempotent (retry/replay).
-        # Skru på hvis RPO/RTO-kravene skjerpes.
+        # No pointInTimeRecovery: the complete database derives from Kafka (inbox/delivery/dead_letter)
+        # and can be rebuilt with 90-day replay (B26) and idempotent consumption. Daily automatic
+        # backups cover total database loss. Enable it if the RPO requirement tightens.
+        # No regional highAvailability: it doubles cost, while a short database failover is not critical
+        # here: Kafka retains messages for 90 days (B26) and consumption is idempotent (retry/replay).
+        # Enable it if RPO/RTO requirements tighten.
         databases:
           - name: budstikka-db
-            # application.conf leser BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
+            # application.conf reads BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
             envVarPrefix: BUDSTIKKA_DB
   env:
     - name: PDL_URL
@@ -91,4 +91,3 @@ spec:
       value: https://digdir-krr-proxy.intern.nav.no/rest/v1/person
     - name: KRR_SCOPE
       value: api://prod-gcp.team-rocket.digdir-krr-proxy/.default
-

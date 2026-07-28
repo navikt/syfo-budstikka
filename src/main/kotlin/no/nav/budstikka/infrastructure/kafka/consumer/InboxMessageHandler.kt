@@ -16,15 +16,16 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Parser hele [Dispatch] ved inntak og persisterer en hydrert, deduplisert inbox-rad (ADR 0008).
- * Dedup skjer på event_id (PK, ON CONFLICT DO NOTHING) fra Kafka-headeren — bevisst etter parse, ikke
- * før (avvik fra ADR 0008 pkt. 3, se ADR-notat).
+ * Parses the full [Dispatch] at ingest and persists a hydrated, deduplicated inbox row (ADR 0008).
+ * Deduplicates on `event_id` (PK, ON CONFLICT DO NOTHING) from the Kafka header, deliberately after
+ * parsing rather than before (deviation from ADR 0008 point 3; see ADR note).
  *
- * Feiltaksonomi: syntaktisk ugyldig (manglende/ugyldig header, tom eller uparsebar payload)
- * dead-letteres og offset committes; transient feil (DB nede) kastes videre uten commit for re-poll.
+ * Failure taxonomy: syntactically invalid input (missing/invalid header, empty or unparseable payload)
+ * is dead-lettered and its offset committed; transient failure (database unavailable) is rethrown
+ * without commit for re-poll.
  *
- * PII: en parse-feil kan bære fnr i exception-meldingen (kotlinx echo-er rå JSON), så vi logger
- * aldri meldingen/throwable-en — kun feilkoden.
+ * PII: a parse failure can include fnr in its exception message (kotlinx echoes raw JSON), so never
+ * log the message or throwable: log only the failure code.
  */
 class InboxMessageHandler(
     private val inboxMessageRepository: InboxMessageRepository,
@@ -54,7 +55,7 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
-        // DL kan mangle eventId → korrelér på Kafka-koordinater, ikke MDC. Aldri payload i logg (B58).
+        // DL can lack eventId: correlate by Kafka coordinates, not MDC. Never log payload (B58).
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
@@ -71,7 +72,7 @@ class InboxMessageHandler(
             return
         }
         inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
-        // eventId på MDC så Loki-linja for konsum-steget korrelerer med resten av løpet (B45).
+        // eventId in MDC so the Loki line for consumption correlates with the rest of the flow (B45).
         validEvents.forEach { record ->
             MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(

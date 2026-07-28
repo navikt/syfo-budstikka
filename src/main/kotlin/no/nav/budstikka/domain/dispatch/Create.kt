@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-/** 1. Brukervarsel – sykmeldt, Min side. */
+/** 1. Brukervarsel: Sykmeldt, Min side. */
 @Serializable
 @SerialName("BrukervarselCreate")
 data class BrukervarselCreate(
@@ -22,8 +22,9 @@ data class BrukervarselCreate(
 }
 
 /**
- * 2. Ledervarsel – nærmeste leder, Dine Sykmeldte. Bærer `(sykmeldt, orgnummer)` – IKKE
- * NL-fnr; budstikka resolver nærmeste leder selv (B24). Partisjonsanker = sykmeldt.
+ * 2. Ledervarsel: nærmeste leder, Dine Sykmeldte. Carries `(sykmeldt, orgnummer)`, NOT an NL fnr;
+ * a future channel adapter must resolve Nærmeste leder (B24). That lookup and handler are not
+ * implemented yet. Partition anchor = Sykmeldt.
  */
 @Serializable
 @SerialName("LedervarselCreate")
@@ -39,7 +40,7 @@ data class LedervarselCreate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** 3. Ditt sykefravær-melding – sykmeldt. Ingen `variant`-felt (B40): nedstrøms har kun INFO. */
+/** 3. Ditt Sykefravær message: Sykmeldt. No `variant` field (B40): downstream has only INFO. */
 @Serializable
 @SerialName("DittSykefravaerCreate")
 data class DittSykefravaerCreate(
@@ -51,7 +52,7 @@ data class DittSykefravaerCreate(
     override val partitionKey: String get() = personIdentifier.value
 }
 
-/** 4. Arbeidsgivervarsel – Min side arbeidsgiver / Altinn. */
+/** 4. Arbeidsgivervarsel: Min side Arbeidsgiver / Altinn. */
 @Serializable
 @SerialName("ArbeidsgivervarselCreate")
 data class ArbeidsgivervarselCreate(
@@ -71,26 +72,26 @@ data class ArbeidsgivervarselCreate(
 }
 
 /**
- * B32: de to mottaker-stiene kombineres ALDRI → sealed valg, ikke separate hendelsesvarianter.
+ * B32: the two recipient paths are NEVER combined → sealed choice, not separate event variants.
  */
 @Serializable
 sealed interface ArbeidsgiverRecipient
 
-/** Personlig mottaker; budstikka resolver NL (B24) fra `(sykmeldt, orgnummer)`. */
+/** Personal Arbeidsgivervarsel path; a future adapter must resolve Nærmeste leder (B24). */
 @Serializable
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
 ) : ArbeidsgiverRecipient
 
-/** Alle med Altinn-rollen ved virksomheten; `ressurs` typet (B30). */
+/** Everyone with the Altinn role at the organisation; typed `ressurs` (B30). */
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
 ) : ArbeidsgiverRecipient
 
-/** 5. Brev – sykmeldt, fysisk. INGEN ferdigstill (B3/B21). */
+/** 5. Brev: physical, for a Sykmeldt. No Ferdigstill (B3/B21). */
 @Serializable
 @SerialName("BrevCreate")
 data class BrevCreate(

@@ -4,15 +4,15 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 
 /**
- * Måleport (issue #28) for beslutnings- og leveranse-workerne. Application-laget emitterer
- * domenehendelser gjennom denne porten; en Micrometer-adapter i infrastructure teller dem opp på det
- * delte Prometheus-registeret. Slik holder workerne seg fri for Micrometer-import (samme
- * port/adapter-søm som [TransactionRunner] og repositoriene, ADR 0007).
+ * Metrics port (issue #28) for decision and delivery workers. The application layer emits domain
+ * events through this port; a Micrometer adapter in infrastructure counts them in the shared
+ * Prometheus registry. This keeps workers free from Micrometer imports (the same port/adapter seam
+ * as [TransactionRunner] and repositories, ADR 0007).
  *
- * Kontrakt: implementasjonene teller kun; de kaster aldri og gjør ingen I/O, slik at en målefeil
- * aldri kan velte en effektuering. Labels holdes lav-kardinale og PII-frie ([Channel]-navn og
- * faste utfall) — aldri fnr, event-id eller andre personopplysninger. [inboxDropped] tar en [DropReason]
- * (ikke fri streng) nettopp for å håndheve lav kardinalitet i selve port-kontrakten.
+ * Contract: implementations only count; they never throw or perform I/O, so a metrics failure
+ * cannot disrupt effectuation. Labels stay low-cardinality and PII-free ([Channel] names and fixed
+ * results), never fnr, event ID, or other personal data. [inboxDropped] accepts [DropReason], not a
+ * free string, specifically to enforce low cardinality in the port contract.
  */
 interface DispatchMetrics {
     fun inboxClaimed(count: Int)
@@ -34,7 +34,7 @@ interface DispatchMetrics {
     fun deliveryFailed(channel: Channel)
 }
 
-/** Ingen-op måleport for tester og løp uten registrering. */
+/** No-op metrics port for tests and runs without a registry. */
 object NoDispatchMetrics : DispatchMetrics {
     override fun inboxClaimed(count: Int) = Unit
 

@@ -18,9 +18,9 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Tynt ende-til-ende-bevis for harnessen (B53): booter HELE appen mot Testcontainers, produserer
- * en `Dispatch` til budstikka-topicet, og asserter at den ekte konsumenten persisterte en rad i
- * `inbox_message`. Tagget `E2E` → ekskludert fra `./gradlew test`, kjøres via `./gradlew e2eTest`.
+ * Thin end-to-end proof for the harness (B53): boots the entire app against Testcontainers, produces a
+ * `Dispatch` to the Budstikka topic, and asserts that the real consumer persisted a row in
+ * `inbox_message`. Tagged `E2E` → excluded from `./gradlew test`, run through `./gradlew e2eTest`.
  */
 @Tags("E2E")
 class DispatchToInboxE2ESpec :

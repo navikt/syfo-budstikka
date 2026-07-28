@@ -89,12 +89,12 @@ class InboxMessageRepositoryImpl(
     }
 
     /**
-     * Terminal-gate mot poison rows (#71): utløpte CLAIMED-rader som er claimet [maxAttempts] ganger
-     * uten å nå terminal status markeres FAILED. Kjøres i samme transaksjon som claim, så en
-     * deterministisk feilrad slutter å reclaimes og blokkerer ikke hodet av køen (`receivedAt ASC`).
+     * Terminal gate for poison rows (#71): expired CLAIMED rows claimed [maxAttempts] times without
+     * reaching terminal status become FAILED. Runs in the same transaction as claim, so a
+     * deterministic failing row stops being reclaimed and cannot block the queue head (`receivedAt ASC`).
      *
-     * Poison-radene låses med `FOR UPDATE SKIP LOCKED` (som selve claim), slik at samtidige
-     * replicaer terminerer disjunkte rader uten å blokkere hverandre (ADR 0004, ingen leder).
+     * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
+     * disjoint rows without blocking each other (ADR 0004, no leader).
      */
     private fun failPoisonRows(
         now: Instant,

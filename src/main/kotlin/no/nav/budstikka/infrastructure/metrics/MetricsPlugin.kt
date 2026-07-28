@@ -12,13 +12,12 @@ import io.micrometer.core.instrument.binder.system.ProcessorMetrics
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 
 /**
- * Installerer [MicrometerMetrics]-pluginen på det delte [PrometheusMeterRegistry] (issue #28). Gir
- * automatisk `ktor_http_server_requests_seconds_*` (med route/method/status som labels) og binder
- * JVM-/prosess-metrikker (`jvm_*`, `process_*`) på samme register som `/internal/metrics` scraper.
+ * Installs [MicrometerMetrics] on the shared [PrometheusMeterRegistry] (issue #28). Automatically
+ * provides `ktor_http_server_requests_seconds_*` (route/method/status labels) and binds JVM/process
+ * metrics (`jvm_*`, `process_*`) to the same registry scraped at `/internal/metrics`.
  *
- * Kalles etter DI-registreringen slik at registeret finnes; domenemetrikkene (via
- * [no.nav.budstikka.application.port.DispatchMetrics]) og Kafka-klientmetrikkene teller på det
- * samme registeret.
+ * Call after DI registration so the registry exists; domain metrics through
+ * [no.nav.budstikka.application.port.DispatchMetrics] and Kafka client metrics count in the same registry.
  */
 fun Application.installMetrics() {
     val registry: PrometheusMeterRegistry by dependencies

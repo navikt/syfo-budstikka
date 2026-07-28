@@ -1,13 +1,13 @@
 package no.nav.budstikka.application.port
 
 /**
- * Unit-of-work: kjører [block] i ÉN databasetransaksjon. Grensen eies av kalleren (typisk en
- * use-case i `application`), ikke av det enkelte repository — slik at flere skrivinger (f.eks.
- * delivery-insert + inbox-status) commits alt-eller-ingenting per melding.
+ * Unit of work: runs `block` in ONE database transaction. The caller (usually an `application` use
+ * case) owns the boundary, not an individual repository, so several writes (for example a delivery
+ * insert plus inbox status) commit all or nothing per message.
  *
- * Operasjoner som kjøres inne i [transaction] må IKKE åpne sin egen transaksjon; de bruker den
- * ambiente transaksjonen Exposed setter på tråden. Eksterne oppslag (PDL/KRR) skjer UTENFOR
- * blokken — en pooled DB-connection holdes aldri åpen over nettverks-I/O.
+ * Operations inside [transaction] must NOT open a transaction of their own; they use the ambient
+ * transaction Exposed sets on the thread. External lookups (PDL/KRR) run OUTSIDE the block: never
+ * hold a pooled database connection open over network I/O.
  */
 interface TransactionRunner {
     suspend fun <T> transaction(block: () -> T): T

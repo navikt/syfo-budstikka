@@ -7,18 +7,17 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 
 /**
- * Micrometer-adapteren for [DispatchMetrics] (ADR 0007). Teller domenehendelser på det delte
- * registeret; navnene følger Prometheus-konvensjon (Micrometer punkt-navn → `snake_case`, tellere
- * får `_total`):
+ * Micrometer adapter for [DispatchMetrics] (ADR 0007). Counts domain events in the shared registry;
+ * names follow the Prometheus convention (Micrometer dot names → `snake_case`, counters gain `_total`):
  *
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
  *   `inbox_message_failed_total`
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
  *
- * Labels er lav-kardinale og PII-frie: [Channel]-navn (lowercase) og faste utfall. Tellingen skjer
- * på replicaens beslutning/leveranse — i et lease-kappløp (ADR 0004) kan en taper telle et utfall
- * uten å skrive rad; det er akseptert støy for observerbarhet, ikke en regnskapskilde.
+ * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. Counting
+ * happens at the replica's decision/delivery; in a lease race (ADR 0004), a loser may count an
+ * outcome without writing a row. That is accepted observability noise, not an accounting source.
  */
 class MicrometerDispatchMetrics(
     private val registry: MeterRegistry,
@@ -66,9 +65,9 @@ class MicrometerDispatchMetrics(
     private fun counter(name: String): Counter = Counter.builder(name).register(registry)
 
     /**
-     * Meter-navn (Micrometer punkt-form) og label-nøkler som én sanngjeningskilde, slik at både
-     * adapteren og testene refererer samme streng. Prometheus-registeret oversetter punkt → `_` og
-     * legger på `_total` i selve scrapet; oppslag via [MeterRegistry.get] bruker punkt-formen her.
+     * Meter names (Micrometer dot form) and label keys in one source of truth, so the adapter and
+     * tests reference the same string. The Prometheus registry converts dots to `_` and adds `_total`
+     * during scraping; [MeterRegistry.get] lookup uses the dot form here.
      */
     companion object {
         const val INBOX_MESSAGE_CLAIMED = "inbox.message.claimed"

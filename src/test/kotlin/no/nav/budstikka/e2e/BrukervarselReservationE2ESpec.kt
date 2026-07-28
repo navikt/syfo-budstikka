@@ -33,15 +33,15 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Full KRR-brevFallback-spor for #22 (ADR 0009): en reservert bruker (KRR `kanVarsles=false`) med
- * `brevFallback` gir BÅDE et in-app brukervarsel UTEN ekstern varsling OG en BREV-leveranse via
- * dokdist. KRR/dokdist/PDL og brukervarsel-publisher byttes mot fakes; resten er ekte (DB, Kafka,
- * konsument, workers).
+ * Full KRR/BrevFallback path for #22 (ADR 0009): a Sykmeldt with Reservasjon (`kanVarsles=false`)
+ * and BrevFallback yields both an in-app Brukervarsel without `ekstern varsling` and a BREV Delivery
+ * through dokdist. KRR/dokdist/PDL and the Brukervarsel publisher are replaced with fakes; the rest
+ * is real (database, Kafka, consumer, and workers).
  */
 @Tags("E2E")
 class BrukervarselReservationE2ESpec :
     FunSpec({
-        test("reserved user with brevFallback -> in-app brukervarsel without external + BREV via dokdist") {
+        test("Sykmeldt with Reservasjon and BrevFallback -> in-app Brukervarsel without ekstern varsling + BREV") {
             val documentDistributor = FakeDocumentDistributor()
             val brukervarselPublisher = RecordingMinSideBrukervarselPublisher()
 

@@ -1,13 +1,13 @@
 package no.nav.budstikka.infrastructure.auth
 
 /**
- * Gjenbrukbar utgående token-søm (#48): kanal-klienter (PdlClient m.fl.) henter et
- * maskin-til-maskin bearer-token herfra i stedet for å håndtere token-veksling selv.
+ * Reusable outgoing-token seam (#48): channel clients (PdlClient and others) get a
+ * machine-to-machine bearer token here instead of managing token exchange themselves.
  *
- * [target] er den tiltenkte mottakeren (audience) for det nedstrøms API-et, på Entra ID
- * scope-form `api://<cluster>.<namespace>.<app>/.default`.
+ * `target` is the intended audience for the downstream API, in Entra ID scope form
+ * `api://<cluster>.<namespace>.<app>/.default`.
  */
 interface TokenProvider {
-    /** Returnerer et gyldig (ikke-utløpt) bearer-token for [target]. */
+    /** Returns a valid, non-expired bearer token for `target`. */
     suspend fun token(target: String): String
 }

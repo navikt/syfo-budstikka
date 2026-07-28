@@ -8,11 +8,11 @@ class FakeReservationLookupTest :
         val notReserved = TEST_SYKMELDT
         val reserved = TEST_SYKMELDT_2
 
-        test("default: no one is reserved") {
+        test("default: no ident has Reservasjon") {
             FakeReservationLookup().isReserved(notReserved) shouldBe false
         }
 
-        test("registerReserved() marks an ident as reserved") {
+        test("registerReserved() gives an ident Reservasjon") {
             val fake = FakeReservationLookup()
             fake.registerReserved(reserved)
             fake.isReserved(reserved) shouldBe true

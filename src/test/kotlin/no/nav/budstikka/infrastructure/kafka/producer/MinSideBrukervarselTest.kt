@@ -10,7 +10,7 @@ import no.nav.budstikka.domain.dispatch.Varseltype
 
 class MinSideBrukervarselTest :
     FunSpec({
-        test("publishes BrukervarselCreate as TMS opprett action") {
+        test("publishes BrukervarselCreate as TMS \"opprett\" action") {
             with(PublisherFixture()) {
                 val reference = "00000000-0000-0000-0000-000000000501"
                 minSideBrukervarselPublisher(
@@ -55,7 +55,7 @@ class MinSideBrukervarselTest :
             }
         }
 
-        test("publishes BrukervarselInactivate as TMS inaktiver action") {
+        test("publishes BrukervarselInactivate as TMS \"inaktiver\" action") {
             with(PublisherFixture()) {
                 val publisher =
                     minSideBrukervarselPublisher(

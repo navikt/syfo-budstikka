@@ -39,7 +39,7 @@ spec:
         - id: loki
     autoInstrumentation:
       enabled: true
-      runtime: java # OTel-agent setter W3C traceparent → Tempo (B45/B48)
+      runtime: java # OTel agent sets W3C traceparent → Tempo (B45/B48)
   kafka:
     pool: nav-dev
   azure:
@@ -76,5 +76,5 @@ spec:
       value: https://digdir-krr-proxy.intern.dev.nav.no/rest/v1/person
     - name: KRR_SCOPE
       value: api://dev-gcp.team-rocket.digdir-krr-proxy/.default
-  # UTSATT (område 5 — resten av Auth & ACL, ugrillet i CONTEXT.md): tokenx-inbound + outbound mot
-  # narmesteleder/notifikasjon-produsent-api. Legges til når de kanalene wires.
+  # DEFERRED (area 5: remaining Auth & ACL, not yet grilled in docs/context.md): tokenx inbound and outbound
+  # to narmesteleder/notifikasjon-produsent-api. Add when those channels are wired.

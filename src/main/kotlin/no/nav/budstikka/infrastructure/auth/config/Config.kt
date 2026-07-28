@@ -5,8 +5,8 @@ import no.nav.budstikka.infrastructure.config.configFor
 import no.nav.budstikka.infrastructure.config.validate
 
 /**
- * Texas-oppsett lest fra plattform-injiserte miljøvariabler (ingen hardkodede URL-er/secrets).
- * [tokenEndpoint] kommer fra `NAIS_TOKEN_ENDPOINT` når `azure`/`tokenx` er aktivert i NAIS-manifestet.
+ * Texas configuration read from platform-injected environment variables (no hard-coded URLs or secrets).
+ * [tokenEndpoint] comes from `NAIS_TOKEN_ENDPOINT` when `azure`/`tokenx` is enabled in the NAIS manifest.
  */
 data class TexasConfig(
     val tokenEndpoint: String,

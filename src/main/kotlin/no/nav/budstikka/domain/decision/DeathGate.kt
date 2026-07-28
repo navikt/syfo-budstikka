@@ -4,10 +4,10 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.foundation.DeathLookup
 
 /**
- * Død-gaten (B-nivå: «ikke send til død person»): dropper en brukerrettet CREATE når mottakeren er
- * registrert som død i PDL. Gaten self-selekterer via [gatedPerson] – lukkeoperasjoner
- * (INACTIVATE), microfrontend og leder-/arbeidsgivervarsel (der mottakeren ikke er den sykmeldte)
- * har ingen gated person og slippes uendret gjennom. PDL kalles kun når hendelsen faktisk kan gates.
+ * DeathGate (B-level: “do not send to a dead person”): drops a Sykmeldt-directed CREATE when the
+ * Recipient is registered as dead in PDL. The gate self-selects through [gatedPerson]: closure
+ * operations (INACTIVATE), Microfrontend, Ledervarsel, and Arbeidsgivervarsel (where the Recipient
+ * is not the Sykmeldt) have no gated person and pass unchanged. Call PDL only when a Dispatch can be gated.
  */
 internal class DeathGate(
     private val deathLookup: DeathLookup,
