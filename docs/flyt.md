@@ -1,7 +1,15 @@
 # Overordnet flyt — syfo-budstikka
 
+## Flytoversikt
+
 Budstikka er en tredelt pipeline: **Kafka-consumer → Inbox → Decision → Delivery**.
-Konsument eier *hva/når*, budstikka eier *hvordan*.
+
+1. **InboxMessageHandler** (infrastructure/kafka/consumer/) — konsumerer, parser og lagrer meldingen i innboksen, eller legger den i dead letter ved feil.
+2. **InboxMessageWorker** (application/) — ta eierskap til meldinger og kjører beslutningen
+3. **DecisionProcess** (domain/decision/) — evaluerer reglene og produserer en Decision
+4. **EffectuateDecision** (application/) — iverksetter beslutningen ved å opprette leveranser og markere innboksmeldingen som ferdig
+5. **DeliveryWorker** (application/) — henter og sender videre til handler
+6. **ChannelHandler** (application/) — sender til kanalendepunktet
 
 ```mermaid
 flowchart TB
