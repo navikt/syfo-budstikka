@@ -82,10 +82,10 @@ class LeaseBudgetDrainer(
                     val failures = consecutiveItemFailures + 1
                     val fields =
                         buildList {
-                            add(kv("consecutiveItemFailures", failures))
-                            add(kv("maxItemFailures", maxConsecutiveItemFailures))
-                            add(kv("errorType", error.javaClass.simpleName))
-                            error.cause?.let { add(kv("causeType", it.javaClass.simpleName)) }
+                            add(kv(MdcKeys.CONSECUTIVE_ITEM_FAILURE_COUNT, failures))
+                            add(kv(MdcKeys.MAX_ITEM_FAILURE_COUNT, maxConsecutiveItemFailures))
+                            add(kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName))
+                            error.cause?.let { add(kv(MdcKeys.CAUSE_TYPE, it.javaClass.simpleName)) }
                             addAll(failureFields(item))
                         }
                     logger.warn(
@@ -114,9 +114,9 @@ class LeaseBudgetDrainer(
     ) {
         logger.warn(
             "Stopping batch drain because the lease budget is spent; unprocessed rows keep their lease so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow {} {} {}",
-            kv("leaseBudgetPercent", (leaseBudgetFraction * 100).toInt()),
-            kv("unprocessedRows", unprocessed),
-            kv("claimedRows", total),
+            kv(MdcKeys.LEASE_BUDGET_FRACTION, (leaseBudgetFraction * 100).toInt()),
+            kv(MdcKeys.UNPROCESSED_ROWS_COUNT, unprocessed),
+            kv(MdcKeys.CLAIMED_ROWS_COUNT, total),
         )
     }
 }

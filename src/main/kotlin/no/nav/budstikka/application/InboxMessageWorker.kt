@@ -85,22 +85,22 @@ class InboxMessageWorker(
         when (this) {
             is Decision.Processed -> {
                 listOf(
-                    kv("result", "PROCESSED"),
-                    kv("deliveryCount", deliveries.size),
+                    kv(MdcKeys.RESULT, "PROCESSED"),
+                    kv(MdcKeys.DELIVERY_COUNT, deliveries.size),
                 )
             }
 
             is Decision.Dropped -> {
                 listOf(
-                    kv("result", "DROPPED"),
-                    kv("dropReason", reason.name),
+                    kv(MdcKeys.RESULT, "DROPPED"),
+                    kv(MdcKeys.REASON, reason.name),
                 )
             }
 
             is Decision.Failed -> {
                 listOf(
-                    kv("result", "FAILED"),
-                    kv("failureReason", errorMessage),
+                    kv(MdcKeys.RESULT, "FAILED"),
+                    kv(MdcKeys.REASON, errorMessage),
                 )
             }
         }

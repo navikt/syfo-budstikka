@@ -94,7 +94,7 @@ class ConsumerRunner<K, V>(
             if (!stopped) {
                 logger.warn(
                     "Consumer did not stop within timeout {}",
-                    kv("timeoutSeconds", CLOSE_TIMEOUT_SECONDS),
+                    kv(MdcKeys.TIMEOUT_SECONDS, CLOSE_TIMEOUT_SECONDS),
                 )
             }
             logger.info("Shutdown complete")
@@ -149,13 +149,13 @@ class ConsumerRunner<K, V>(
                         backoffMillis = initialBackoff.inWholeMilliseconds
                         logger.info(
                             "Consumer was healthy, resetting backoff {} {}",
-                            kv("healthyForMs", lifecycleNanos / 1_000_000),
-                            kv("backoffMs", backoffMillis),
+                            kv(MdcKeys.HEALTHY_MILLIS, lifecycleNanos / 1_000_000),
+                            kv(MdcKeys.BACKOFF_MILLIS, backoffMillis),
                         )
                     }
                     logger.warn(
                         "Consumer failed, restarting after backoff {}",
-                        kv("backoffMs", backoffMillis),
+                        kv(MdcKeys.BACKOFF_MILLIS, backoffMillis),
                         error,
                     )
                 }

@@ -85,7 +85,7 @@ class BackgroundLoop(
             if (!stopped) {
                 logger.warn(
                     "Worker did not stop within timeout {}",
-                    kv("timeoutSeconds", CLOSE_TIMEOUT_SECONDS),
+                    kv(MdcKeys.TIMEOUT_SECONDS, CLOSE_TIMEOUT_SECONDS),
                 )
             }
             logger.info("Shutdown complete")
@@ -112,7 +112,7 @@ class BackgroundLoop(
         } catch (error: Throwable) {
             failuresCounter?.increment()
             if (error !is AlreadyLoggedWorkerFailure) {
-                logger.error("Worker failed in iteration {}", kv("errorType", error.javaClass.simpleName))
+                logger.error("Worker failed in iteration {}", kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName))
             }
         } finally {
             durationTimer?.record(start.elapsedNow().toJavaDuration())
