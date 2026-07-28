@@ -1,79 +1,87 @@
-# Database-diagnose — Cloud SQL, HikariCP-pool og Flyway
+# Database diagnosis — Cloud SQL, HikariCP pool, and Flyway
 
-Diagnostiske trær for database-problemer i dette Ktor-backendet (`no.nav.syfo`) med NAIS-provisjonert PostgreSQL (Cloud SQL). Connection-pool er HikariCP; migreringer kjøres med Flyway ved oppstart.
+Diagnosis trees for database failures in this Ktor backend (`no.nav.budstikka`)
+with NAIS-provisioned PostgreSQL (Cloud SQL). HikariCP owns the connection pool;
+Flyway runs migrations at startup.
 
-## Sjekk tilkobling
+## Check connectivity
 
 ```bash
-# Database-env-vars fra NAIS
+# Database environment variables from NAIS
 kubectl get pod {pod} -n {namespace} \
   -o jsonpath='{range .spec.containers[0].env[*]}{.name}={.value}{"\n"}{end}' \
   | grep DB_
 ```
 
-Typiske env-vars fra `gcp.sqlInstances`: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` (prefix kan være annet hvis `envVarPrefix` er satt — Ktor-config må lese samme prefix).
+Typical variables from `gcp.sqlInstances` are `DB_HOST`, `DB_PORT`,
+`DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. The prefix can differ when
+`envVarPrefix` is set; Ktor configuration must read that same prefix.
 
 ```bash
-# Pool-status i logs (HikariCP)
+# Pool status in HikariCP logs
 kubectl logs -n {namespace} -l app={app-name} --tail=200 \
   | grep -i "hikari\|connection pool\|datasource"
 
-# Flyway-status (ved startup)
+# Flyway status at startup
 kubectl logs -n {namespace} -l app={app-name} --tail=500 \
   | grep -i "flyway\|migration"
 ```
 
-## Diagnostisk tre
+## Diagnosis tree
 
-```
-Database-tilkoblingsfeil
-├── Er Cloud SQL-instans oppe?
-│   ├── Nei → sjekk GCP Console / Nais Console (Database-fane)
-│   └── Ja → gå videre
-├── Er env-vars satt i podden?
-│   ├── DB_HOST / DB_PORT / DB_DATABASE mangler → sjekk `gcp.sqlInstances` i manifest (se /nais-manifest)
-│   ├── Riktig `envVarPrefix`? → default er `DB`; hvis annet satt, må Ktor-config lese samme
-│   └── Satt → gå videre
-├── Feilet Flyway-migrasjon?
-│   ├── "relation does not exist" → Flyway ikke kjørt; sjekk at migrering kjøres i startup
-│   ├── "Migration failed" → SQL-feil i én migrasjonsfil. Se log for filnavn.
-│   │   → Fiks SQL, ev. `flyway repair` (kun utvikler-assistert). Se /flyway-migration.
-│   └── Nei → gå videre
+```text
+Database connection failure
+├── Is the Cloud SQL instance up?
+│   ├── No → check GCP Console / NAIS Console (Database tab)
+│   └── Yes → continue
+├── Are environment variables set in the pod?
+│   ├── DB_HOST / DB_PORT / DB_DATABASE missing → check manifest `gcp.sqlInstances` (see /nais-manifest)
+│   ├── Correct `envVarPrefix`? → default is `DB`; if changed, Ktor config must read it
+│   └── Set → continue
+├── Did Flyway migration fail?
+│   ├── "relation does not exist" → Flyway did not run; check startup migration
+│   ├── "Migration failed" → SQL error in one migration file; inspect the filename in logs
+│   │   → Fix SQL, possibly `flyway repair` with developer assistance only; see /flyway-migration
+│   └── No → continue
 ├── Pool exhaustion?
 │   ├── "Connection is not available, request timed out"
-│   │   → Reduser `maximumPoolSize`, sjekk connection leaks (manglende close / leak i `use { }`)
-│   ├── Mange "active" i HikariCP-metrikker
-│   │   → Trege queries. Kjør EXPLAIN ANALYZE (se /postgresql-review)
-│   └── Nei → gå videre
-├── Cloud SQL max_connections nådd?
-│   │   `replicas × maximumPoolSize` må være ≤ `max_connections` på instansen
-│   ├── Ja → reduser pool per replica, eller øk instans-størrelse
-│   └── Nei → gå videre
-└── Nettverks-tilgang?
-    ├── NAIS kjører Cloud SQL proxy som sidecar — sjekk at sidecar-container er Ready
-    ├── "Connection refused: localhost:5432" → proxy ikke oppe → se pod-diagnose.md (sidecar)
-    └── "Connection refused: 10.x.x.x" → app prøver direkte IP; bruk `DB_HOST` fra NAIS
+│   │   → Reduce `maximumPoolSize`; check leaks, missing close, or missing `use { }`
+│   ├── Many "active" in HikariCP metrics
+│   │   → Slow queries. Run EXPLAIN ANALYZE; see /postgresql-review
+│   └── No → continue
+├── Has Cloud SQL max_connections been reached?
+│   │   `replicas × maximumPoolSize` must be ≤ instance `max_connections`
+│   ├── Yes → reduce pool per replica or increase instance size
+│   └── No → continue
+└── Network access?
+    ├── NAIS runs Cloud SQL proxy as sidecar; check that sidecar container is Ready
+    ├── "Connection refused: localhost:5432" → proxy not up; see pod-diagnose.md
+    └── "Connection refused: 10.x.x.x" → app uses direct IP; use NAIS `DB_HOST`
 ```
 
-## Vanlige NAV-spesifikke feilmønstre
+## Common Nav-specific failure patterns
 
-| Feilmelding | Årsak | Løsning |
-|------------|-------|---------|
-| `Connection is not available, request timed out` | HikariCP pool exhaustion | Reduser `maximumPoolSize`; se connection leaks |
-| `FATAL: too many connections for role` | `replicas × pool` > `max_connections` | Reduser pool per replica eller oppgrader instans |
-| `FATAL: password authentication failed` | Feil credentials | NAIS genererer nye secrets ved rotasjon — redeploy appen |
-| `Flyway migration ... failed` | SQL-feil i migrasjon | Fiks SQL i `V{nr}__{navn}.sql`; se /flyway-migration |
-| `relation "tabell" does not exist` | Flyway ikke kjørt eller feil schema | Sjekk at Flyway kjører i startup og at schema stemmer |
-| `Connection refused: localhost:5432` | Cloud SQL proxy-sidecar ikke oppe | `kubectl describe pod` — se at `cloudsql-proxy`-container er Ready |
+| Error | Cause | Resolution |
+|---|---|---|
+| `Connection is not available, request timed out` | HikariCP pool exhaustion | Reduce `maximumPoolSize`; inspect connection leaks |
+| `FATAL: too many connections for role` | `replicas × pool` > `max_connections` | Reduce pool per replica or upgrade instance |
+| `FATAL: password authentication failed` | Wrong credentials | NAIS generates new secrets on rotation; redeploy application |
+| `Flyway migration ... failed` | SQL error in migration | Fix SQL in `V{number}__{name}.sql`; see /flyway-migration |
+| `relation "table" does not exist` | Flyway did not run or wrong schema | Verify startup Flyway and schema |
+| `Connection refused: localhost:5432` | Cloud SQL proxy sidecar not running | `kubectl describe pod`; verify `cloudsql-proxy` is Ready |
 
-## Pool-tommelfingerregler
+## Pool rules of thumb
 
-- HikariCP `maximumPoolSize` × `replicas.max` **må være ≤** Cloud SQL `max_connections` (minus reservert for admin/Nais).
-- Default HikariCP pool = 10 er ofte for høyt når `replicas.max: 4` på en `db-f1-micro`-instans.
-- En treg query som holder en pool-slot = effektivt pool-lekkasje. Sjekk EXPLAIN ANALYZE (se /postgresql-review).
+- HikariCP `maximumPoolSize` × `replicas.max` **must be ≤** Cloud SQL
+  `max_connections`, minus capacity reserved for administration/NAIS.
+- The default HikariCP pool of 10 is often too high with `replicas.max: 4` on a
+  `db-f1-micro` instance.
+- A slow query holding a pool slot is effectively a pool leak. Use EXPLAIN ANALYZE;
+  see `/postgresql-review`.
 
-## Når dette peker på annet
+## When this points elsewhere
 
-- Pod krasjer pga. DB-problem ved oppstart → [pod-diagnose.md](./pod-diagnose.md)
-- Trege queries, schema-valg, index-strategi → `/postgresql-review` / `/flyway-migration` (design-tid, ikke kjøre-tid)
-- Fikse-disiplin (in-memory Postgres via Testcontainers) → `/diagnosing-bugs`
+- Pod crash caused by database failure at startup: [pod-diagnose.md](./pod-diagnose.md)
+- Slow queries, schema choice, or index strategy: `/postgresql-review` /
+  `/flyway-migration` (design time, not runtime)
+- Fix discipline with in-memory Postgres through Testcontainers: `/diagnosing-bugs`

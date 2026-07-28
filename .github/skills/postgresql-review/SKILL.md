@@ -1,158 +1,105 @@
 ---
 name: postgresql-review
-description: "Brukes når du setter opp eller endrer DataSource/connection-pool i no.nav.syfo-backend, ser connection-feil i loggen, velger databaseteknologi, eller reviewer en schema-/migrasjonsendring i Postgres. Dekker HikariCP-pool og dimensjonering mot Cloud SQL/replicas, samspill med Flyway og koordinering av delte schemas."
+description: "Review PostgreSQL and DataSource behavior. Use when work touches HikariCP or Cloud SQL capacity, connection failures, schemas, or interactions with Flyway migrations."
 ---
 
-# PostgreSQL-gjennomgang
+# PostgreSQL review
 
-Gjennomgang av PostgreSQL-bruk i dette repoet. Dekker NAV-spesifikk tilkoblingspool-dimensjonering (NAIS-replicas + Cloud SQL), indekser, anti-mønstre, migrasjoner og koordinering av delte schemas.
+Review PostgreSQL usage in this repository. Cover Nav-specific connection-pool
+sizing (NAIS replicas plus Cloud SQL), indexes, migrations, and coordination of
+shared schemas.
 
-Se [references/sql-patterns.md](references/sql-patterns.md) for NAV-spesifikt HikariCP- og `gcp.sqlInstances`-oppsett, og [references/migration-flyway.md](references/migration-flyway.md) for migrasjonsmønstre. Generisk SQL-tuning (indeksvalg, JSONB, window functions, upsert, partisjonering, N+1) er utenfor scope — det kan modellen selv, eller slå opp i PostgreSQL-dokumentasjonen.
+Read [references/sql-patterns.md](references/sql-patterns.md) for Nav-specific
+HikariCP and `gcp.sqlInstances` configuration, and
+[references/migration-flyway.md](references/migration-flyway.md) for migration
+patterns. Generic SQL tuning (index selection, JSONB, window functions, upsert,
+partitioning, and N+1) is out of scope; use PostgreSQL documentation when needed.
 
-## Database-valgtre i NAV-kontekst
+## Workflow
 
-NAV-default er PostgreSQL via `gcp.sqlInstances` i NAIS-manifestet. Velg teknologi før du skriver kode:
+1. Select technology from the actual need, and ask before introducing a new
+   database type. Read [references/review-catalog.md](references/review-catalog.md).
+2. Size HikariCP so `replicas.max × maximumPoolSize ≤ max_connections`; verify
+   `SHOW max_connections;` for the environment's actual Cloud SQL tier. Start
+   with pool size 3–5, `maxLifetime = 30 min`, and explicit `READ_COMMITTED`.
+3. Read the HikariCP/NAIS wiring in
+   [references/sql-patterns.md](references/sql-patterns.md) before configuration.
+4. For Flyway or a shared schema, follow
+   [references/migration-flyway.md](references/migration-flyway.md) and the
+   catalog review checklist.
 
-| Behov | Valg | Begrunnelse |
-|-------|------|-------------|
-| Transaksjonell tilstand, CRUD, saksbehandling | **PostgreSQL** (`gcp.sqlInstances`) | NAV-default. ACID, Flyway-migrasjoner, godt støttet i plattformen. |
-| Kun cache eller efemer tilstand | **Ingen DB** (Valkey eller in-memory) | Unngå Cloud SQL-kostnad og drift hvis data kan gjenskapes. |
-| Analyse, rapportering, store aggregeringer | **BigQuery** (dataplattform) | For dataplattform/analytics — ikke for operasjonell drift. |
-| Hendelsesflyt mellom tjenester | **Kafka**, ikke DB | Rapids & Rivers / domene-events. DB er ikke integrasjonsmekanisme. |
+## Shared database — coordinate migrations
 
-> **⚠️ Spør først** før du introduserer ny database-type i en tjeneste som ikke har det fra før — det påvirker drift, backup og tilgangsstyring.
+Several Nav teams may read from the same Cloud SQL instance. Schema changes are
+then not local.
 
-## HikariCP for NAIS-containere
+**Conditional guidance:** If another team reads your database, coordinate schema
+changes with its consumer team before merge.
 
-Pool-størrelsen må tilpasses NAIS-replicas og Cloud SQL-grensene, ikke JVM-defaults. Sett opp `DataSource` eksplisitt — ikke len deg på Hikari sine defaults (`maximumPoolSize = 10`), som er farlig for en tjeneste som kan skaleres ut.
+Check before destructive migrations:
 
-```kotlin
-// Konfigurer fra env-variabler injisert av gcp.sqlInstances (DB_JDBC_URL, DB_USERNAME, DB_PASSWORD)
-fun dataSource(env: ApplicationEnvironment): HikariDataSource =
-    HikariDataSource(HikariConfig().apply {
-        jdbcUrl = env.config.property("db.jdbcUrl").getString()
-        username = env.config.property("db.username").getString()
-        password = env.config.property("db.password").getString()
-        maximumPoolSize = 3                          // Start smått — 3–5 for typiske NAV-tjenester
-        minimumIdle = 1
-        connectionTimeout = 10_000                   // 10s — feil raskt hvis Cloud SQL Proxy er nede
-        idleTimeout = 300_000                        // 5 min — slipp idle connections raskt
-        maxLifetime = 1_800_000                      // 30 min — under Cloud SQL sin restart-terskel
-        transactionIsolation = "TRANSACTION_READ_COMMITTED"
-    })
-```
+- [ ] Are other applications or teams allowed to access this `gcp.sqlInstances`
+  instance?
+- [ ] Have `DROP COLUMN`, `ALTER COLUMN TYPE`, and `RENAME` been checked against
+  consumer queries?
+- [ ] Have consumers deployed code that tolerates the new schema before merge?
 
-**Dimensjoneringsformel:**
+Use a **three-step field migration** (expand–migrate–contract) for shared schemas:
 
-```
-replicas.max × maximumPoolSize ≤ max_connections
-```
+1. **Expand:** Add a new column or table. No consumer is affected.
+2. **Migrate:** Dual-write from the producer; migrate consumer reads one at a time.
+3. **Contract:** Remove the old column in a separate PR only after every consumer
+   is confirmed migrated (check production traffic for at least two weeks).
 
-Cloud SQL setter `max_connections` etter instansens tier/minne — mindre tiers (shared-core som `db-f1-micro`) ligger vesentlig under 100, så verifiser med `SHOW max_connections;` før du regner (dev og prod kjører ofte ulik tier). Med `replicas.max = 4` og `maximumPoolSize = 3` bruker du maks 12 — trygt selv på en liten tier. Med `replicas.max = 10` og `maximumPoolSize = 20` bruker du 200 — tjenesten faller over så snart det overstiger `max_connections`.
+> **🚫 Never** run `DROP COLUMN` or `ALTER COLUMN TYPE` on a shared schema
+> without notice and confirmation from consumer teams. One deployment can take
+> down another service.
 
-**Begrunnelse for `maxLifetime = 30 min`:** Cloud SQL Proxy kan restarte (vedlikehold, node-bytter). Med lavere lifetime byttes connections ut før proxyen tvinger brudd, så du unngår "connection reset"-feil i applikasjonsloggen.
+The migration files themselves follow this repository's `flyway-migration`
+skill. Also read [references/migration-flyway.md](references/migration-flyway.md).
 
-**Begrunnelse for `transactionIsolation`:** Eksplisitt `READ_COMMITTED` matcher PostgreSQL-default og unngår overraskelser når driver-defaults endres mellom versjoner.
+## Boundaries
 
-> **⚠️ Spør først** før du øker `maximumPoolSize` over 5 — det er nesten alltid symptom på langsomme spørringer eller manglende indekser, ikke pool-mangel.
+### ✅ Always
 
-Se [references/sql-patterns.md](references/sql-patterns.md) for fullstendig HikariCP- og `gcp.sqlInstances`-oppsett.
+- Use HikariCP `maximumPoolSize` 3–5 and `maxLifetime = 30 min` for Cloud SQL.
+- Verify `replicas × pool ≤ max_connections` before production deployment.
+- Index foreign-key columns and frequently filtered columns.
+- Use `TIMESTAMPTZ` for every timestamp column.
+- Use LIMIT for queries that may return many rows.
+- Notify consumer teams about shared-database schema changes.
 
-## Delt database — koordinering av migrasjoner
+### ⚠️ Ask first
 
-Flere NAV-team leser ofte fra samme Cloud SQL-instans (felles domene-data). Schema-endringer er da ikke lokale.
+- `maximumPoolSize > 5` (almost always a symptom, not the solution).
+- A new database type (BigQuery or Valkey) in a service that does not use it.
+- New indexes on large production tables; use `CONCURRENTLY` when appropriate.
+- Partitioning or advisory locks in an existing solution.
+- Destructive shared-schema migrations (`DROP COLUMN`, `ALTER TYPE`, `RENAME`).
 
-**Betinget råd:** Hvis andre team leser fra din database, koordiner schema-endringer med konsument-team FØR merge.
+### 🚫 Never
 
-Sjekk før destruktive migrasjoner:
+- Use `SELECT *` in production code.
+- Create N+1 queries.
+- Run `DROP TABLE` in production without a backup plan.
+- Use `TIMESTAMP` without a timezone; use `TIMESTAMPTZ`.
+- Drop a shared-schema column before confirmed consumer migration.
+- Use a database as an integration mechanism between teams; use Kafka or an API.
 
-- [ ] Er det andre apper/team med tilgang til denne `gcp.sqlInstances`-instansen?
-- [ ] Sjekket du `DROP COLUMN`, `ALTER COLUMN TYPE`, `RENAME` mot konsumentenes spørringer?
-- [ ] Har konsumentene deployet kode som tåler det nye skjemaet før du merger?
+## Connection to the delivery loop
 
-Bruk **trestegs feltmigrasjon** (expand-migrate-contract) for delte schemas:
+When a database decision belongs to a planned change, lock the pool, schema, and
+migration steps in the task-scoped brief. Record difficult, durable architecture
+choices as ADRs under `docs/adr/`, for example PostgreSQL versus Kafka or
+expand–migrate–contract for a shared schema. Verify pool sizing and migrations
+with Testcontainers, and include command, result, and exit code in
+`KOKK_RESULT`/the PR. Shared-schema, migration, or pool-configuration changes
+are R3/R4 and require `grill-inspektor` review after Kokk before acceptance.
 
-1. **Expand:** Legg til ny kolonne/tabell. Ingen konsumenter påvirkes.
-2. **Migrate:** Dual-write fra produsent, konsumenter migrerer lesing til ny kolonne én om gangen.
-3. **Contract:** Fjern gammel kolonne i separat PR når alle konsumenter er bekreftet migrert (sjekk produksjonstrafikk i 2+ uker).
+## Reference files
 
-> **🚫 Aldri** kjør `DROP COLUMN` eller `ALTER COLUMN TYPE` på delt schema uten forhåndsvarsel og bekreftelse fra konsument-team. Én deploy kan ta ned andres tjenester.
-
-Selve migreringsfilene følger `flyway-migration`-skillen i dette repoet. Se også [references/migration-flyway.md](references/migration-flyway.md).
-
-## Generisk SQL-tuning
-
-Indeksstrategier, JSONB-mønstre, upsert/ON CONFLICT, CHECK/UNIQUE-constraints, advisory locks, partisjonering og anti-mønstre (N+1, SELECT *, manglende LIMIT) er generisk PostgreSQL-kunnskap. Bruk de standard NAV-prinsippene:
-
-- Indekser på FK-kolonner og hyppige WHERE-kolonner
-- `@>` + GIN-indeks for JSONB-containment, `->>` for nøkkeloppslag
-- `ON CONFLICT` kun mot faktisk `UNIQUE`-constraint
-- Batch-henting (`findByIdIn`) i stedet for N+1
-- LIMIT på spørringer som kan returnere mange rader
-- `CREATE INDEX CONCURRENTLY` i egen migrering utenfor transaksjon — se `flyway-migration`-skillen
-
-Partisjonering og advisory locks: **⚠️ Spør først** før du introduserer dem i en eksisterende løsning.
-
-## Migrasjoner
-
-For Flyway-migrasjoner og SQL-konvensjoner, følg `flyway-migration`-skillen i dette repoet. Nøkkelpunkter:
-
-- Bruk `TIMESTAMPTZ` (ikke `TIMESTAMP`) for alle tidsstempel-kolonner
-- Indekser på alle FK-kolonner
-- UUID-primærnøkler med `gen_random_uuid()`
-- Egne migreringer for `CREATE INDEX CONCURRENTLY` (kan ikke kjøre i transaksjon)
-- Repeterbare migreringer (`R__*.sql`) for views, funksjoner og triggers
-- Koordiner destruktive endringer med konsument-team for delte schemas
-
-Se [references/migration-flyway.md](references/migration-flyway.md) for konkrete eksempler.
-
-## Sjekkliste
-
-- [ ] HikariCP: `maximumPoolSize` 3–5, `maxLifetime = 30 min`, `transactionIsolation` satt eksplisitt
-- [ ] Dimensjonering: `replicas.max × maximumPoolSize ≤ max_connections`
-- [ ] Database-valg bekreftet (PostgreSQL for operasjonell, BigQuery for analyse, Kafka for integrasjon)
-- [ ] Delt schema? Konsument-team varslet før destruktive endringer
-- [ ] Indekser på alle FK-kolonner og hyppig brukte WHERE-kolonner
-- [ ] `CREATE INDEX CONCURRENTLY` vurdert for nye prod-indekser på store tabeller
-- [ ] CHECK/UNIQUE constraints brukt der domeneregler kan håndheves i databasen
-- [ ] Ingen N+1-spørringer
-- [ ] SELECT bare kolonner som trengs
-- [ ] LIMIT på spørringer som kan returnere mange rader
-- [ ] Revert-vei vurdert (forward-only: ny `V{n+1}`-migrering, ikke undo — se `/flyway-migration`)
-- [ ] Ingen `SELECT *` i produksjonskode
-
-## Grenser
-
-### ✅ Alltid
-- HikariCP `maximumPoolSize` 3–5, `maxLifetime = 30 min` for Cloud SQL
-- Verifiser `replicas × pool ≤ max_connections` før prod-deploy
-- Indekser på FK-kolonner og hyppige WHERE-kolonner
-- `TIMESTAMPTZ` for alle tidsstempel-kolonner
-- LIMIT på spørringer som kan returnere mange rader
-- Varsle konsument-team ved schema-endringer på delt database
-
-### ⚠️ Spør først
-- `maximumPoolSize > 5` (nesten alltid symptom, ikke løsning)
-- Ny database-type (BigQuery, Valkey) i tjeneste som ikke har det
-- Nye indekser på store tabeller i produksjon — bruk `CONCURRENTLY` ved behov
-- Partisjonering eller advisory locks i eksisterende løsninger
-- Destruktive migrasjoner (`DROP COLUMN`, `ALTER TYPE`, `RENAME`) på delte schemas
-
-### 🚫 Aldri
-- `SELECT *` i produksjonskode
-- N+1-spørringer
-- `DROP TABLE` i produksjon uten backup-plan
-- `TIMESTAMP` uten tidssone (bruk `TIMESTAMPTZ`)
-- `DROP COLUMN` på delt schema uten bekreftet konsument-migrasjon
-- Bruk database som integrasjonsmekanisme mellom team (bruk Kafka/API)
-
-## Kobling til faseløkken
-
-Når en database-beslutning inngår i en planlagt endring, noter valgene i `docs/context.md` (databaseteknologi, pool-dimensjonering, delt vs. eget schema, konsumenter) og fang varige arkitekturvalg som ADR under `docs/adr/` — f.eks. PostgreSQL vs. Kafka for et integrasjonsbehov, eller expand-migrate-contract-strategi for et delt schema. Speil pool- og migrasjonssteg i `.grill/PLAN.md`. Verifiser pool-dimensjonering og at migrasjoner kjører grønt (Testcontainers) og legg evidensen i `.grill/VERIFICATION.md` før PR. For endringer som rører delte schemas eller pool-konfig er det verdt en ekstra review (`grill-inspektor`) før merge.
-
-## Referansefiler
-
-| Fil | Innhold |
+| File | Contents |
 |-----|---------|
-| [references/sql-patterns.md](references/sql-patterns.md) | NAV-spesifikk HikariCP-tuning og `gcp.sqlInstances`-oppsett |
-| [references/migration-flyway.md](references/migration-flyway.md) | Migrasjonsmønstre: TIMESTAMPTZ, FK-indekser, UUID, CONCURRENTLY, repeterbare migreringer, trestegs feltmigrasjon |
+| [references/sql-patterns.md](references/sql-patterns.md) | Nav-specific HikariCP tuning and `gcp.sqlInstances` configuration |
+| [references/migration-flyway.md](references/migration-flyway.md) | Migration patterns: TIMESTAMPTZ, FK indexes, UUID, CONCURRENTLY, repeatable migrations, and three-step field migration |
+| [references/review-catalog.md](references/review-catalog.md) | Database selection, a HikariCP example, SQL/Flyway catalog, and the full review checklist |

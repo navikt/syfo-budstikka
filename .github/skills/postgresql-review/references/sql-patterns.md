@@ -1,15 +1,20 @@
-# SQL-mønstre — NAV-spesifikk tuning
+# SQL patterns — Nav-specific tuning
 
-Denne referansen dekker kun NAV-spesifikke innstillinger. Se [SKILL.md](../SKILL.md) for prinsipper og sjekkliste.
+This reference covers only Nav-specific settings. Read the
+[review catalog](review-catalog.md) for example values and the checklist.
 
-Generisk SQL-optimalisering (EXPLAIN ANALYZE, indeksvalg, N+1, SELECT *, JSONB-operatorer, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) er utenfor scope for denne skillen — modellen kan dette selv. Se PostgreSQL-dokumentasjonen, eller teamets egen best-practice hvis det finnes.
+Generic SQL optimisation (`EXPLAIN ANALYZE`, index selection, N+1, `SELECT *`,
+JSONB operators, window functions, upsert/`ON CONFLICT`, advisory locks, and
+range partitioning) is outside this skill's scope. Use PostgreSQL documentation
+or team-specific guidance when available.
 
-## Tilkoblingspool — HikariCP i NAIS-containere
+## Connection pool — HikariCP in NAIS containers
 
-NAV-default er Cloud SQL via `gcp.sqlInstances` i NAIS-manifestet. Pool-størrelsen må dimensjoneres etter `replicas.max` og Cloud SQL sin `max_connections`, ikke JVM-defaults.
+The Nav default is Cloud SQL through `gcp.sqlInstances` in the NAIS manifest.
+Size the pool from `replicas.max` and Cloud SQL `max_connections`, not JVM defaults.
 
 ```yaml
-# NAIS — Cloud SQL-instans (injiserer DB_JDBC_URL, DB_USERNAME, DB_PASSWORD som env)
+# NAIS — Cloud SQL instance (injects DB_JDBC_URL, DB_USERNAME, DB_PASSWORD as env)
 spec:
   replicas:
     min: 2
@@ -23,18 +28,24 @@ spec:
 ```
 
 ```kotlin
-// Pool-verdiene er dokumentert i SKILL.md; det referansen viser er ENV-WIRINGEN:
+// Pool values are documented in the review catalog; this shows ENV WIRING:
 HikariConfig().apply {
-    jdbcUrl  = System.getenv("DB_JDBC_URL")   // injisert av gcp.sqlInstances envVarPrefix: DB
+    jdbcUrl  = System.getenv("DB_JDBC_URL")   // injected by gcp.sqlInstances envVarPrefix: DB
     username = System.getenv("DB_USERNAME")
     password = System.getenv("DB_PASSWORD")
     // maximumPoolSize / minimumIdle / connectionTimeout / idleTimeout / maxLifetime
-    // / transactionIsolation — se SKILL.md for verdier og begrunnelser
+    // / transactionIsolation — see the review catalog for values and rationale
 }
 ```
 
-**Dimensjonering:** `replicas.max × maximumPoolSize ≤ max_connections` (full forklaring i SKILL.md). `max_connections` settes etter Cloud SQL-tier — shared-core ligger under 100, så kjør `SHOW max_connections;` før du regner, og husk at migrerings-/admin-connections og andre apper på samme instans teller med.
+**Sizing:** `replicas.max × maximumPoolSize ≤ max_connections` (full explanation
+in the [review catalog](review-catalog.md)). `max_connections` is set by Cloud
+SQL tier; shared-core is below 100, so run `SHOW max_connections;` before the
+calculation, and include migration/admin connections and other applications on
+the same instance.
 
-**Eksplisitt `READ_COMMITTED`:** Matcher PostgreSQL-default og unngår overraskelser ved driver-oppgraderinger.
+**Explicit `READ_COMMITTED`:** Matches the PostgreSQL default and avoids
+surprises during driver upgrades.
 
-> **⚠️ Spør først** før `maximumPoolSize > 5` — det er nesten alltid symptom på langsomme spørringer eller manglende indekser, ikke pool-mangel.
+> **⚠️ Ask first** before `maximumPoolSize > 5` — it is almost always a symptom
+> of slow queries or missing indexes, not a lack of pool capacity.

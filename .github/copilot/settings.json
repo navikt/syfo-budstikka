@@ -1,0 +1,10 @@
+{
+  "model": "gpt-5.6-terra",
+  "contextTier": "default",
+  "includeCoAuthoredBy": true,
+  "disabledSkills": [
+    "grill-me",
+    "to-issues",
+    "to-prd"
+  ]
+}

@@ -1,36 +1,25 @@
 ---
 name: grill-with-docs
-description: "Bruk når et design, en ny tjeneste eller en ikke-triviell endring skal stresstestes før koding, og du vil ha ADR + glossar som faller ut underveis. @grillmester fase 1–2, eller når noen sier 'design dette', 'er dette gjennomtenkt', 'grill dette designet'. For en rask plan-stresstest UTEN dokumentasjon: /grill-me."
+description: "Stress-test a design while recording agreed durable terms and decisions."
+disable-model-invocation: true
 ---
 
-# grill-with-docs
+# Grill with docs
 
-Et nådeløst design-intervju som skjerper planen OG produserer dokumentasjon (ADR + glossar) underveis. Dette er inngangen til Grillmester sin faseløkke — målet er delt forståelse FØR kode skrives.
+Run this manual workflow only inside an active Grillmester session. If another
+outer role is active, stop and ask the user to switch with
+`copilot --agent grillmester --model claude-opus-5 --context default`; do not
+perform the workflow in that role.
 
-**Rolle:** dette _avhører_ planen og fester docs løpende. Beslektede skills med egne roller: `/improve-codebase-architecture` finner kandidater, `/codebase-design` designer grensesnittet, `/nav-architecture-review` formaliserer tunge valg som ADR.
+Run `/grilling` with `/domain-modeling` loaded. Follow the repository's
+configured domain-documentation and language guidance.
 
-## Kontrakt for økta
-Grunnkontrakten for selve grillingen eies av `/grill-me` — ett spørsmål av gangen, hvert med din anbefalte svar, gå ned hvert gren av beslutningstreet, og utforsk kodebasen i stedet for å spørre når svaret finnes der. Det som er **i tillegg** her:
+- Add or sharpen a canonical term only after the user agrees on its meaning.
+- Record a hard-to-reverse, surprising trade-off through the repository's ADR
+  process only after the choice is explicit.
+- Update the context index only when its current model or navigation changes.
+- Keep active implementation detail in the task-scoped brief.
 
-- Skriv artefakter **løpende** (ikke til slutt): hver avklart beslutning → ADR-linje; hvert avklart begrep → glossar-linje. Bruk `/domain-modeling` for å holde språket skarpt.
-
-## NAV-seeding (still disse før de generiske)
-Velg arketype først, og still domene-spørsmålene som hører til. Den korte versjonen:
-- **Arketype:** Backend-API / Hendelseskonsument (Kafka) / Naisjob / Fullstack. (Sjekk repoets arketype i `copilot-instructions.md`; vekt seedingen deretter.)
-- **Dataklassifisering:** Hvilke data berøres? (åpne / personopplysninger / særlige kategorier / fnr) — styrer auth, logging, lagring og om DPIA trengs.
-- **Blind-spots å grave i:** auth (TokenX / Azure AD / ID-porten / Maskinporten), `accessPolicy` mot andre team, idempotens/replay (Kafka), oppførsel når avhengigheter er nede, PII i logger, sletting/oppbevaring, observability fra dag én, feilkontrakt (StatusPages/ApiError).
-- **Arkitekturbeslutning?** → utløs ADR via `/nav-architecture-review`.
-
-For **ny tjeneste, ny arketype eller modernisering** — kjør den fulle kravavdekkingen (dybden ligger i references, lastes ved behov):
-- [references/nav-arketyper.md](references/nav-arketyper.md) — arketype-valg, domene-spørsmål per personvern/plattform/observerbarhet/team, brownfield endringskonsekvens, modernisering, og hva som oppsummeres i `docs/context.md`.
-- [references/blind-spots.md](references/blind-spots.md) — full sjekkliste (auth, DB, Kafka, observerbarhet, sikkerhet) med konsekvens + spørsmål å stille.
-- [references/data-classification.md](references/data-classification.md) — NAVs klassifiseringsnivåer, PII-kategorier og arkitekturkonsekvenser.
-
-## ADR-kontrakt
-For hver beslutning som er vanskelig å reversere, overraskende uten kontekst, og resultatet av en reell avveining, skriv `docs/adr/NNNN-<kort-tittel>.md` med det kanoniske ADR-formatet — se `/domain-modeling` (ADR-FORMAT.md). Én beslutning per ADR.
-
-## Glossar-kontrakt
-Hvert domenebegrep som dukker opp avklares i `docs/glossary.md` (én linje: `term → presis definisjon i NAV-kontekst`). Konsistent språk er en del av designet, ikke pynt.
-
-## Utfall
-Når treet er gjennomgått og bruker har bekreftet: oppsummer beslutningene, pek på ADR-ene og glossaret, og skriv den valgte tilnærmingen til `docs/context.md`. Det er input til plan- og implementeringsfasen.
+Finish by summarizing the decisions, documentation changed, and remaining
+uncertainty. Documentation and tracker writes always require explicit user
+confirmation.

@@ -1,91 +1,120 @@
 ---
 name: nav-architecture-review
-description: "Bruk når en tyngre arkitekturbeslutning bør festes som ADR: ny tjeneste/integrasjon mot annet team, nytt lagringslag eller event-kontrakt, ny auth-mekanisme, accessPolicy mot andre team, nye personopplysninger (DPIA), eller avvik fra NAV-standard. Triggere: 'skriv en ADR', 'arkitektur-review', 'bør vi X eller Y'."
+description: "Review a consequential Nav architecture choice across architecture, security, and platform perspectives, then prepare its ADR."
+disable-model-invocation: true
 ---
 
-# NAV Architecture Review — ADR + 3-perspektiv
+# Nav architecture review — ADR and three perspectives
 
-Skriv Architecture Decision Records (ADR) og gjør tyngre arkitektur-review for dette repoet. Skillen dekker det som er NAV- og backend-spesifikt: NAIS/GCP-plattformen, TokenX/Azure AD/Maskinporten, `accessPolicy`, Datatilsynet/DPIA og NAVs arkitekturprinsipper (Team First, Architecture Advice Process, foretrekk plattform-kapabiliteter framfor egenbygd).
+Run this manual workflow only inside an active Grillmester session. If another
+outer role is active, stop and ask the user to switch with
+`copilot --agent grillmester --model claude-opus-5 --context default`; do not
+perform the workflow in that role.
 
-**Rolle:** dette _formaliserer_ tunge valg som ADR med NAV 3-perspektiv. Finne kandidater = `/improve-codebase-architecture`, avhøre valget = `/grill-with-docs`, designe grensesnittet = `/codebase-design`. ADR-grunnformatet eies av `/domain-modeling`; her legges de NAV-spesifikke vurderingene på som underseksjoner.
+Write Architecture Decision Records (ADRs) and perform substantial architecture
+reviews for this repository. This skill covers Nav- and backend-specific concerns:
+the NAIS/GCP platform, TokenX/Azure AD/Maskinporten, `accessPolicy`, DPIA, and
+Nav architecture principles such as Team First and platform capability reuse.
 
-Generisk «hva er en ADR» eller generiske OWASP-lister er ikke gjengitt her — bruk det fra ditt eget repertoar.
+Run only after the user explicitly selects this manual workflow. Present the
+proposed decision and documentation change first, then obtain explicit
+confirmation before creating or updating an ADR or another durable document.
+Selection starts analysis; it does not pre-authorize the write.
 
-## Når dette utløses
+**Role:** this skill formalises consequential choices as an ADR with Nav’s
+three-perspective review. Find candidates with `/improve-codebase-architecture`,
+interrogate the choice through the user-selected Grill with docs workflow, and
+explore interface alternatives serially. `/domain-modeling` owns the base ADR
+format; this skill adds Nav-specific sections.
 
-Dette er en arkitekturbeslutning i @grillmester sin grill-/design-fase (fase 1–2). Tunge endringer fortjener en ADR; lettere valg gjør ikke det.
+## When it applies
 
-Typiske signaler:
+Use during Grillmester’s grill/design phase. Consequential changes deserve an
+ADR; small choices do not.
 
-- Ny tjeneste, ny integrasjon mot annet team, nytt lagringslag eller ny Kafka-/event-kontrakt.
-- Endring som krever `accessPolicy`-oppdatering hos andre team, eller ny auth-mekanisme (TokenX/Azure AD/Maskinporten).
-- Behandling av nye personopplysninger (mulig DPIA / melding til Datatilsynet).
-- Plattform-migrering eller opprydding i teknisk gjeld som flytter en søm.
-- Avvik fra NAV-standardmønstre eller introduksjon av ny teknologi i stacken.
+- New service, cross-team integration, storage layer, or Kafka/event contract.
+- Change requiring another team’s `accessPolicy` update, or a new auth mechanism.
+- New personal-data processing, potentially requiring DPIA or notice to Datatilsynet.
+- Platform migration or technical-debt work that moves a seam.
+- Deviation from Nav standard patterns or new technology in the stack.
 
-Lettere valg (biblioteksvalg innenfor eksisterende stack, intern refaktor uten ny søm) trenger ikke formell ADR — bare et notat i `docs/context.md`.
+Small choices, such as a library choice within the current stack or internal
+refactoring without a new seam, need no ADR. Keep task-specific detail in the
+brief or relevant technical document; update `docs/context.md` only when its
+mental model or navigation changes.
 
-## Stacken er gitt — forslag skal matche den
+## The stack is given
 
-Dette repoet er Kotlin + Ktor 3.x på Netty, Java 25, Gradle, NAIS, med Postgres/Flyway og Kafka der det trengs. Et ADR-alternativ skal holde seg innenfor dette stacket med mindre selve beslutningen er å bytte stack — ikke dra inn Spring, et nytt språk eller en ny kjøretid uten at det er det eksplisitte valget under vurdering.
+This repository is Kotlin and Ktor 3.x on Netty, Java 25, Gradle, NAIS, with
+Postgres/Flyway and Kafka where needed. An ADR option must stay within that
+stack unless changing the stack itself is the decision. Do not introduce Spring,
+a new language, or a new runtime without that explicit decision.
 
-## 3-perspektiv-review
+## Three-perspective review
 
-Evaluer endringen fra tre perspektiver før ADR-en konkluderer. Skriv én til tre linjer per perspektiv — bekymring, risiko, anbefaling.
+Evaluate the change from all three perspectives before concluding the ADR. Write
+one to three lines per perspective: concern, risk, and recommendation.
 
-1. **Arkitektur** — passer i NAVs overordnede arkitektur, respekterer team-autonomi, gjenbruker plattform-kapabiliteter, unngår accidental complexity. Bruk slettetesten på nye lag (jf. `/improve-codebase-architecture`): konsentrerer modulen kompleksitet, eller flytter den bare?
-2. **Sikkerhet** — dataklassifisering, auth-mekanisme, `accessPolicy` (inngang/utgang), PII-beskyttelse i logg/lagring/transport, behov for DPIA.
-3. **Plattform** — NAIS-manifest-endringer, ressursbehov, observerbarhet (Prometheus/Loki/Tempo), CI/CD, avhengigheter til on-prem eller legacy.
+1. **Architecture:** fit with Nav architecture, team autonomy, platform reuse,
+   and accidental complexity. Use the deletion test for new layers: does a module
+   concentrate complexity, or merely move it?
+2. **Security:** data classification, auth mechanism, inbound/outbound
+   `accessPolicy`, PII protection in logs/storage/transport, and DPIA need.
+3. **Platform:** NAIS manifest changes, resource needs, Prometheus/Loki/Tempo,
+   CI/CD, and on-prem or legacy dependencies.
 
-Full sjekkliste med NAV-spesifikke spørsmål per perspektiv ligger i [references/perspektiv-sjekklister.md](references/perspektiv-sjekklister.md).
+Read [references/perspective-checklists.md](references/perspective-checklists.md)
+for the full Nav-specific checklist. When changing an existing system, also
+cover migration: backward compatibility, rollback, feature toggle, exit criteria,
+and decommissioning.
 
-Ved endring av eksisterende system: ta også med migrasjon (bakoverkompatibilitet, rollback-plan, feature toggle, exit criteria, dekommisjonering).
+## Alternatives and Architecture Advice Process
 
-## Alternativer og Architecture Advice Process
+Document at least two alternatives plus “do nothing”. Nav’s Architecture Advice
+Process is advisory, not approval-based: seek advice from affected parties, but
+the team owns its decision. Identify consuming and producing teams early and
+share a draft ADR before deciding.
 
-Dokumenter minst to alternativer pluss «gjøre ingenting». NAVs Architecture Advice Process er rådgivende, ikke godkjenningsbasert: teamet søker råd fra berørte parter, men eier beslutningen selv. Identifiser berørte team (konsumenter/produsenter av data eller events) tidlig og del utkast-ADR med dem før beslutningen fattes.
+## ADR format and storage
 
-## ADR-format og lagring
+Use the canonical ADR base format from `/domain-modeling`
+(`../domain-modeling/references/adr-format.md`: Status / Context / Decision /
+Consequences / Alternatives considered). Store it as
+`docs/adr/NNNN-<short-title>.md`, scanning `docs/adr/` for the highest number
+and adding one. Add Nav-specific review as subsections in that ADR; see
+[references/adr-template.md](references/adr-template.md). Keep it short: one
+decision per ADR. Update status when decided; use “Superseded by NNNN-…” when
+revising a decision.
 
-Bruk det kanoniske ADR-grunnformatet fra `/domain-modeling` (ADR-FORMAT.md: Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert), og lagre som `docs/adr/NNNN-<kort-tittel>.md` med samme `NNNN-`-nummerering (skann høyeste nummer i `docs/adr/` og legg +1). Da finner og respekterer `/grill-with-docs`, `/domain-modeling` og `/improve-codebase-architecture` den. De NAV-spesifikke vurderingene (3-perspektiv, auth, dataklassifisering, `accessPolicy`) legges som underseksjoner i samme ADR — se [references/adr-template.md](references/adr-template.md) for en utvidet NAV-ADR.
+## Workflow connection
 
-Korte ADR-er er best — én beslutning per ADR. Oppdater status når beslutningen er tatt; bruk «Erstattet av NNNN-…» når en beslutning revideres.
+- **Input:** grill/design findings and `/improve-codebase-architecture`. Read
+  `docs/context.md` and `docs/glossary.md` so the ADR uses the domain’s own terms.
+- **Output:** write the decision to `docs/adr/`; update `docs/context.md` only
+  when the mental model or pointer map changes. Break concrete work into a
+  task-scoped brief. If tracker-backed slices add value, recommend explicit
+  issue-management after the user confirms the issue structure. Capture proof
+  in the brief's `verification`.
 
-## Kobling til faseløkka
+## Boundaries
 
-- **Input:** funn fra grill-/design-fasen og fra `/improve-codebase-architecture` mater hit. Les `docs/context.md` og `docs/glossary.md` så ADR-en bruker domenets egne ord, ikke ad-hoc-navn.
-- **Output:** skriv den valgte tilnærmingen til `docs/context.md` og selve beslutningen til `docs/adr/`. Konkrete aksjonspunkter brytes ned i `.grill/PLAN.md` (evt. via `/to-issues`), og hva som beviser at valget holder, fanges i `.grill/VERIFICATION.md`.
+### Always
 
-## Relaterte skills
+- Include at least two alternatives plus “do nothing”.
+- Evaluate architecture, security, and platform.
+- Document Nav-specific auth, data classification, `accessPolicy`, and NAIS considerations.
+- End with concrete action items, owner, and deadline.
 
-- `/nais-manifest` — manifest-struktur, `resources`, `accessPolicy`, Cloud SQL, Kafka pool.
-- `/auth-overview` — Azure AD, TokenX, Maskinporten, Texas/Oasis.
-- `/kotlin-ktor` — konkret Ktor-implementasjon av beslutningen (routes, plugins, auth, DI).
-- `/postgresql-review` og `/flyway-migration` — lagrings- og skjemavalg.
-- `/kafka-topic` — event-kontrakter og topic-oppsett.
-- `/improve-codebase-architecture` — oppdager fordypningsmuligheter som ofte utløser en ADR.
-- `/grill-with-docs` — grilling som skjerper alternativene før ADR-en konkluderer.
-- `/diagnosing-bugs` — drift-/feildiagnose, ikke designbeslutning.
+### Ask first
 
-## Grenser
+- ADRs affecting other teams’ services or contracts.
+- Deviations from Nav standards such as NAIS, Kafkarator, or Cloud SQL.
+- New technology, language, or platform component.
+- New categories of personal data; assess DPIA and consult the privacy officer.
 
-### Alltid
+### Never
 
-- Inkluder minst to alternativer (pluss «gjøre ingenting»).
-- Vurder alle tre perspektiver — arkitektur, sikkerhet, plattform.
-- Dokumenter NAV-spesifikke vurderinger: auth, dataklassifisering, `accessPolicy`, NAIS-endringer.
-- Avslutt med konkrete aksjonspunkter (eier + frist).
-
-### Spør først
-
-- ADR som påvirker andre teams tjenester eller kontrakter.
-- Beslutninger som avviker fra NAV-standardmønstre (NAIS-plattform, Kafkarator, Cloud SQL).
-- Introduksjon av ny teknologi, nytt språk eller ny plattform-komponent.
-- Behandling av nye kategorier personopplysninger — vurder DPIA og kontakt personvernombud.
-
-### Aldri
-
-- Fatt arkitekturbeslutning uten å vurdere sikkerhet og personvern.
-- Ignorer plattform-konsekvenser (ressurser, observerbarhet, `accessPolicy`).
-- Hopp over alternativer — det finnes alltid minst to valg.
-- Skriv fødselsnummer, andre PII eller hemmeligheter i selve ADR-en — referer til riktig kilde i stedet.
+- Decide architecture without security and privacy assessment.
+- Ignore platform consequences: resources, observability, or `accessPolicy`.
+- Omit alternatives; there are always at least two.
+- Put national IDs, other PII, or secrets in an ADR; refer to the correct source instead.

@@ -1,14 +1,9 @@
 # Native GitHub sub-issues
 
-## MCP (primær)
+Use GitHub REST through `gh api` (owner/repo = `navikt/syfo-budstikka`) to
+create, list, remove, and reprioritise sub-issues.
 
-Bruk MCP `sub_issue_write` for å opprette, liste, fjerne og reprioritere sub-issues. `sub_issue_write` er default-enabled i issues-toolset.
-
-## Fallback (gh api)
-
-Når MCP ikke er tilgjengelig, bruk GitHub REST via `gh api` (owner/repo = `navikt/syfo-budstikka`).
-
-### Legg til sub-issue
+### Add a sub-issue
 
 ```bash
 gh api \
@@ -17,7 +12,7 @@ gh api \
   -f sub_issue_id=NUMBER
 ```
 
-> `sub_issue_id` er issue-nummeret (integer), ikke node ID.
+> `sub_issue_id` is the issue number (integer), not a node ID.
 
 ### List sub-issues
 
@@ -25,13 +20,13 @@ gh api \
 gh api repos/navikt/syfo-budstikka/issues/{issue_number}/sub_issues
 ```
 
-### Fjern sub-issue
+### Remove a sub-issue
 
 ```bash
 gh api repos/navikt/syfo-budstikka/issues/{issue_number}/sub_issues/{sub_issue_id} -X DELETE
 ```
 
-### Reprioriter rekkefølge
+### Reprioritise order
 
 ```bash
 gh api \
@@ -41,6 +36,7 @@ gh api \
   -f after_id=M
 ```
 
-### Notat
+### Note
 
-Dette erstatter tekstbasert `Del av epic: #NNN` som datakilde, men behold gjerne teksten i issue body for lesbarhet.
+This replaces text-based `Part of epic: #NNN` as the data source, but keep the
+text in the issue body for readability.

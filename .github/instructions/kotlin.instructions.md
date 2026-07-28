@@ -1,46 +1,59 @@
 ---
-description: "Brukes ved alt Kotlin-arbeid i dette Ktor-backend-repoet (no.nav.syfo): routes/plugins, JWT-claims, DI, logging, feilhåndtering, Gradle Version Catalog, Flyway, Kafka, metrikker og tester."
-applyTo: "**/*.kt"
+description: "Applies to Kotlin source and build-script changes in this Ktor backend: naming, types, coroutines, architecture, security, persistence, messaging, and verification."
+applyTo: "**/*.kt, **/*.kts"
 ---
 
-# Kotlin — Nav Ktor-backend (no.nav.syfo)
+# Kotlin — Nav Ktor backend (`no.nav.budstikka`)
 
-Denne fila er kort og bindende: harde regler som alltid gjelder for `*.kt`.
-Detaljert arbeidsflyt ligger i skills:
+This path-scoped instruction supplies detailed guidance for every `*.kt` and
+`*.kts` change. The critical architecture and Kotlin floor remains always-on in
+`.github/copilot-instructions.md`.
+Use `/kotlin-ktor` for Ktor-specific routes, plugins, authentication,
+`StatusPages`, and wiring; use the test skills for their respective test
+levels.
 
-- `/kotlin` for ny Kotlin-kode **og** refaktorering (idiomatisk Kotlin, typer, coroutines, design).
-- `/kotlin-ktor` for Ktor-spesifikt arbeid (routes/plugins/auth/StatusPages/wiring).
-- `/unit-tests`, `/integration-tests`, `/e2e-tests` for riktig testnivå.
+## Language and design
 
-## Harde regler
+1. Keep canonical domain terms Norwegian and all technical or mechanical names
+   English.
+   - Domain examples: `Brukervarsel`, `Ledervarsel`,
+     `Arbeidsgivervarsel`, `DittSykefravaer`, and `Brev`.
+   - Technical examples: `save`, `fetch`, `isDead`, and `toColumns`.
+   - Renaming a Norwegian term in a published contract is a breaking change.
+2. Preserve the hexagonal dependency direction: `domain` depends on nothing,
+   `application` depends only on `domain` and application ports, infrastructure
+   implements ports, and bootstrap wires the graph.
+3. Prefer composition and deep modules over inheritance or shallow
+   abstractions. Keep code DRY and SOLID without extracting indirection that
+   has no meaningful contract.
 
-1. **Navngiving:** norske ord kun på domeneord. Teknisk mekanikk på engelsk.
-   - Domeneord som forblir norske: `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`.
-   - Vanlige tekniske navn skal være engelske: `save`, `fetch`, `isDead`, `toColumns`.
-   - Norske ord i publiserte kontrakter er breaking å endre.
+## Kotlin idioms
 
-2. **Arkitektur:** følg hexagonal modell.
-   - `domain` er uavhengig.
-   - `application` avhenger av `domain`.
-   - `infrastructure` implementerer porter.
+- Prefer Kotlin APIs and idioms; keep Java APIs at interoperability boundaries.
+- Use structured concurrency and never `GlobalScope`. Parallelize only
+  independent suspend calls.
+- Keep visibility as narrow as possible: `private` → `internal` → `public`.
+- Prefer immutable data and explicit null handling.
+- Use value classes for small domain types when they improve type safety.
+- Model closed domains with `sealed interface`, `data object`, and
+  `data class`; use exhaustive `when` expressions without `else`.
+- Use `fun interface` for ports with one operation.
+- Use extensions and scope functions only when they make intent clearer.
 
-3. **Sikkerhet og persondata:**
-   - Ingen fnr, tokens eller annen PII i logger eller feilmeldinger.
-   - Ingen hardkodede secrets, URL-er eller auth-verdier i kode.
-   - Valider auth-config (`issuer`/`audience`) via konfigurasjon.
+## Repository guardrails
 
-4. **Avhengigheter og konfigurasjon:**
-   - Bruk version catalogs: `ktorLibs.*` for Ktor, `libs.*` for øvrige avhengigheter.
-   - Ikke hardkod versjoner i `build.gradle.kts`.
-   - Bruk Ktor-mønstre i repoet, ikke Spring-mønstre.
+- Never put a national identity number, token, or other PII in logs or error
+  messages. Never hard-code secrets, URLs, or authentication values.
+- Validate authentication configuration, including `issuer` and `audience`,
+  through configuration.
+- Use the repository's `libs.ktor.*` style for Ktor and `libs.*` for other
+  dependencies. `settings.gradle.kts` also exposes the official `ktorLibs`
+  catalog; do not introduce it inconsistently or hard-code versions.
+- Follow existing Ktor patterns, not Spring patterns.
+- Flyway is append-only: add `V<n>__...sql`; never edit a deployed migration.
+- Parameterize SQL. Kafka consumption must be idempotent.
 
-5. **Datatilgang og meldingsflyt:**
-   - Flyway er append-only: nye `V<n>__...sql`, aldri endre deployet migrering.
-   - SQL skal være parameterisert.
-   - Kafka-konsum må være idempotent.
+## Verification
 
-## Validering
-
-- Kjør minste relevante testkommando underveis.
-- Før ferdigmelding: minst `./gradlew test`.
-- Ved bredere eller risikofylt endring: `./gradlew build`.
+Run the narrowest relevant test while working. Before reporting completion, run
+at least `./gradlew test`; use `./gradlew build` for broad or risky changes.

@@ -1,16 +1,9 @@
 # Native GitHub issue types
 
-## MCP (primær)
+Use `gh api` with the `type` field. Discover available types before writing;
+common organisation types in `navikt` are `Bug`, `Epic`, `Feature`, `Story`, and `Task`.
 
-- Bruk MCP `issue_write` med `type`-parameter for å sette/oppdatere issue-type ved oppretting.
-- Bruk MCP `list_issue_types` for å oppdage tilgjengelige typer før du setter verdi.
-- Vanlige org-typer i `navikt`: `Bug`, `Epic`, `Feature`, `Story`, `Task`.
-
-## Fallback (gh api)
-
-Når MCP ikke er tilgjengelig, bruk REST med `type`-felt.
-
-### Opprett issue med type
+### Create an issue with a type
 
 ```bash
 gh api repos/navikt/syfo-budstikka/issues \
@@ -21,7 +14,7 @@ gh api repos/navikt/syfo-budstikka/issues \
   --jq '.number'
 ```
 
-### List tilgjengelige issue types (org-nivå)
+### List available issue types (organisation level)
 
 ```bash
 gh api graphql \

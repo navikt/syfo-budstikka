@@ -1,44 +1,54 @@
-# Helsesjekk for Kafka-consumer
+# Kafka consumer health check
 
-## Kort oppsummering
+## Summary
 
-En Kafka-consumer hører hjemme i **liveness** (`is_alive`), ikke i **readiness** (`is_ready`). Bruk en **selvrapportert hjerteslag-verdi (heartbeat)**, aldri en ping mot brokeren.
+A Kafka consumer belongs in **liveness** (`is_alive`), not **readiness** (`is_ready`).
+Use a **self-reported heartbeat** value, never a broker ping.
 
-## Readiness mot liveness
+## Readiness versus liveness
 
-| Probe | Spørsmål | Kafka-consumer? |
-|-------|----------|-----------------|
-| `is_ready` | Kan poden ta imot trafikk nå? | **Nei.** Consumeren henter fra en topic og betjener ikke HTTP. En død consumer skal ikke ta poden ut av lastbalanseringen. |
-| `is_alive` | Er poden ødelagt uten mulighet for å komme seg — skal den restartes? | **Ja.** En consumer-loop som har låst seg eller dødd, er et gyldig signal om restart. |
+| Probe | Question | Kafka consumer? |
+| --- | --- | --- |
+| `is_ready` | Can the pod receive traffic now? | **No.** The consumer reads a topic and serves no HTTP traffic. A dead consumer must not remove the pod from load balancing. |
+| `is_alive` | Is the pod irrecoverably broken and due for restart? | **Yes.** A stuck or terminated consumer loop is a valid restart signal. |
 
-## Mønsteret: selvrapportert heartbeat
+## Pattern: self-reported heartbeat
 
-1. Consumer-loopen oppdaterer et heartbeat-tidsstempel i hver poll-runde.
-2. Liveness-sjekken rapporterer usunn kun når siste poll er for gammel (eldre enn en terskel).
-3. `is_alive` svarer 503 når verdien er utdatert, og Kubernetes restarter poden.
+1. The consumer loop updates a heartbeat timestamp on every poll round.
+2. The liveness check reports unhealthy only when the latest poll is older than a threshold.
+3. `is_alive` returns 503 when stale; Kubernetes restarts the pod.
 
 ```
-consumer-loop:  poll() → recordPoll() → handle(records)   (hver runde)
-is_alive:       er lastPoll fersk?  → 200 : 503
+consumer-loop:  poll() → recordPoll() → handle(records)   (every round)
+is_alive:       is lastPoll fresh?  → 200 : 503
 ```
 
-## Regler som avgjør om det fungerer
+## Rules that make it work
 
-- **Oppdater også ved tomme poll-runder.** Hjerteslaget betyr «loopen kjører», ikke «det kommer meldinger». En stille topic skal ikke se død ut.
-- **En kræsjet eller avsluttet loop må slutte å oppdatere hjerteslaget.** Fanger du og fortsetter på hver exception, tikker hjerteslaget videre og liveness slår aldri inn. Da mister sjekken hensikten.
-- **Terskel større enn poll-frekvens pluss maks prosesseringstid.** Ellers trigger en treg, men sunn batch en falsk restart. Rundt 5 minutter er en trygg standard for topics med lite volum.
-- **Aldri koble liveness til at brokeren er tilgjengelig.** Et kortvarig Kafka-avbrudd ville da restarte alle poder samtidig og gjøre et blaff om til et utfall.
-- **Aldri koble liveness til consumer-lag.** Lag hører til metrikker og alarmer. Å restarte en pod som ligger etter, gjør laget verre.
+- **Update on empty poll rounds too.** The heartbeat means “the loop is running,” not
+  “messages arrived.” A quiet topic must not look dead.
+- **A crashed or terminated loop must stop updating the heartbeat.** Catching and
+  continuing after every exception keeps it ticking and liveness never fires, which
+  defeats the check.
+- **Set the threshold above poll frequency plus maximum processing time.** Otherwise a
+  slow but healthy batch triggers a false restart. About five minutes is a safe default
+  for low-volume topics.
+- **Never couple liveness to broker availability.** A short Kafka outage would restart
+  every pod simultaneously and turn a blip into an outage.
+- **Never couple liveness to consumer lag.** Lag belongs in metrics and alerts; restarting
+  a lagging pod makes the lag worse.
 
-## Implementasjonsnotater (for når en consumer kommer)
+## Implementation notes (when a consumer arrives)
 
-- Tilstandsholderen bruker `AtomicReference<Instant>`: consumer-coroutinen skriver, HTTP-handleren leser. Ingen lås trengs.
-- Injiser en `Clock` slik at terskelen kan enhetstestes med en fake klokke (Kotest, uten Testcontainers).
-- Hold liveness-tilstanden som en ren enhet uten I/O, og koble den inn i `is_alive`-ruten.
+- Use `AtomicReference<Instant>` as the state holder: the consumer coroutine writes and
+  the HTTP handler reads, with no lock required.
+- Inject a `Clock` so the threshold is unit-tested with a fake clock (Kotest, without
+  Testcontainers).
+- Keep liveness state as a pure no-I/O unit and connect it to the `is_alive` route.
 
-## Antimønstre å unngå
+## Anti-patterns to avoid
 
-- Ping mot brokeren i `is_ready` eller `is_alive`.
-- Consumeren lagt inn i readiness-sjekken.
-- Heartbeat som tikker videre etter at loopen er død.
-- Consumer-lag behandlet som liveness-feil.
+- Pinging the broker in `is_ready` or `is_alive`.
+- Putting the consumer in the readiness check.
+- Letting the heartbeat continue after the loop is dead.
+- Treating consumer lag as a liveness failure.

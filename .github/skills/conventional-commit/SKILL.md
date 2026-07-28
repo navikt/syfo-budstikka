@@ -1,140 +1,76 @@
 ---
 name: conventional-commit
-description: "Brukes når du skal lage en commit eller skrive en commit-melding i dette Ktor-backend-repoet. Trigger-signaler: «commit», «commit-melding», «git commit», «hva skal stå i committen», eller når staged changes er klare og skal beskrives."
+description: "Write a precise Conventional Commit message from staged changes. Use when a commit is explicitly authorized or the user asks for commit wording."
 ---
 
-# Conventional commit
+# Conventional commits
 
-Generer commit-meldinger etter Conventional Commits-spesifikasjonen, tilpasset dette repoet.
+Generate Conventional Commit messages appropriate to this repository.
 
 ## Format
 
+```text
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
 ```
-<type>(<scope>): <beskrivelse>
 
-[valgfri body]
+## Types
 
-[valgfri footer]
-```
-
-## Typer
-
-| Type | Brukes når |
+| Type | Use for |
 |---|---|
-| `feat` | Ny funksjonalitet |
-| `fix` | Bugfiks |
-| `docs` | Kun dokumentasjonsendringer |
-| `style` | Formatering, importer, ktlint (ingen kodeendring) |
-| `refactor` | Kode som verken fikser bug eller legger til feature |
-| `perf` | Ytelsesendringer |
-| `test` | Legge til eller fikse tester |
-| `build` | Endringer i Gradle, avhengigheter eller Dockerfile |
-| `ci` | Endringer i GitHub Actions / workflows |
-| `chore` | Andre endringer som ikke påvirker kjørbar kode |
+| `feat` | New functionality |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `style` | Formatting, imports, ktlint; no code behavior |
+| `refactor` | Code that is neither a fix nor feature |
+| `perf` | Performance change |
+| `test` | Adding or repairing tests |
+| `build` | Gradle, dependencies, or container build |
+| `ci` | GitHub Actions/workflow changes |
+| `chore` | Other non-runtime work |
 
-## Scopes for dette repoet
-
-Velg scope etter hvilket teknisk område i backendet endringen treffer:
-
-```
-feat(routing): legg til endepunkt for henting av budskap
-fix(auth): valider audience-claim for TokenX-token
-feat(kafka): konsumer hendelser fra teamsykefravaer-topic
-fix(db): rett feil i Flyway-migrasjon for budskap-tabellen
-refactor(plugin): flytt statuspages-konfig til egen modul
-test(routing): legg til integrasjonstest med testApplication
-build(deps): oppgrader Ktor til 3.x via versjonskatalog
-ci(deploy): legg til steg for NAIS prod-deploy
-perf(db): legg til indeks på fnr-kolonnen
-chore(nais): juster ressursgrenser i nais.yaml
-docs(readme): dokumenter lokal oppstart med docker-compose
-```
-
-Vanlige scopes: `routing`, `auth`, `kafka`, `db`, `flyway`, `plugin`, `config`, `nais`, `deps`. Bruk pakke- eller domenenavn (f.eks. `budskap`) når det er mer presist.
+Choose a scope for the affected technical area, such as `routing`, `auth`,
+`kafka`, `db`, `flyway`, `plugin`, `config`, `nais`, or `deps`. Use a package or
+domain name such as `budskap` when that is more precise.
 
 ## Breaking changes
 
-Marker med `!` etter scope og forklar konsekvensen for konsumenter i `BREAKING CHANGE:`-footeren:
+Add `!` after scope and explain the consumer impact in a `BREAKING CHANGE:`
+footer.
 
-```
-feat(routing)!: endre responsformat for budskap-endepunktet
+```text
+feat(routing)!: change budskap endpoint response format
 
-BREAKING CHANGE: Feltet `opprettet` er endret fra epoch-millis til ISO-8601.
-Konsumenter må oppdatere sin deserialisering.
-```
-
-## Regler
-
-- Første linje: maks 72 tegn
-- Bruk imperativ: «legg til», ikke «la til» / «legger til»
-- Ikke avslutt emnelinjen med punktum
-- Hold deg konsekvent til norsk i hele meldingen
-- Referer til GitHub-issue i footer: `Closes #123` / `Fixes #456`
-- Ta alltid med `Co-authored-by`-trailer for Copilot
-
-## Arbeidsflyt
-
-### 1. Analyser staged changes
-
-```bash
-git diff --cached --stat        # Oversikt over endrede filer
-git diff --cached               # Detaljert diff
+BREAKING CHANGE: `opprettet` changed from epoch milliseconds to ISO-8601.
+Consumers must update deserialization.
 ```
 
-### 2. Finn type og scope
+## Rules
 
-Basert på diff-en:
-1. Identifiser **type** (feat/fix/refactor osv.)
-2. Identifiser **scope** (hvilket teknisk område, se tabellen over)
-3. Skriv en kort og presis beskrivelse
+- Keep the first line at most 72 characters.
+- Use imperative wording; English is the default for commit messages unless a
+  Norwegian domain term is the precise name.
+- Do not end the subject with a period.
+- Reference the GitHub issue in a footer when applicable: `Closes #123` or
+  `Fixes #456`.
+- Do not add automatic AI/agent attribution or generated trailers.
 
-### 3. Skriv commit-melding
+## Workflow
 
-```bash
-git commit -m "type(scope): kort beskrivelse" \
-  -m "Utdypende forklaring hvis nødvendig." \
-  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-```
+1. Inspect `git diff --cached --stat` and `git diff --cached`.
+2. Identify type, scope, and a concise description.
+3. Commit only when authorized by the repository delivery policy:
 
-### 4. Flere logiske endringer
+   ```bash
+   git commit -m "type(scope): concise description" \
+     -m "Optional explanation when needed."
+   ```
 
-Hvis staged changes inneholder flere urelaterte endringer:
-1. Foreslå å dele dem opp i egne commits
-2. Bruk `git add -p` for å stage deler av endringene
-3. Lag én commit per logisk endring
+4. When staged work contains unrelated logical changes, propose separate commits;
+   use `git add -p` only with permission.
 
-## Sikkerhetsprotokoll
-
-Før du committer, verifiser at staged changes **IKKE** inneholder:
-- Tokens, API-nøkler eller credentials (TokenX/Azure AD client secrets, JWK-er)
-- Passord eller secrets (også i kommentarer og `application.yaml`)
-- PII: fødselsnumre, aktør-id, navn eller e-post i testdata og logback-oppsett
-- `.env`-filer eller NAIS-secrets med reelle verdier
-
-Hvis du oppdager sensitive data: **STOPP** og varsle brukeren.
-
-## Eksempler
-
-```bash
-# Enkel feature
-git commit -m "feat(routing): legg til health-endepunkt for NAIS" \
-  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-
-# Bugfiks med issue-referanse
-git commit -m "fix(auth): håndter utløpt TokenX-token" \
-  -m "Token-validering kastet 500 i stedet for 401 ved utløpt token,
-som ga uklare feilmeldinger til konsumenter." \
-  -m "Fixes #456
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-
-# Oppgradering av avhengighet
-git commit -m "build(deps): oppgrader postgresql-driver til 42.7.4" \
-  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-
-# Breaking change
-git commit -m "feat(routing)!: fjern deprecated /api/v1/budskap" \
-  -m "BREAKING CHANGE: /api/v1/budskap er fjernet. Bruk /api/v2/budskap.
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-```
+Before committing, stop and notify the user if staged work contains tokens, API
+keys, credentials, passwords, PII, real NAIS secrets, or `.env` files.

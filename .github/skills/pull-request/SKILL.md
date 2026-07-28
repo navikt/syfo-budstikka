@@ -1,57 +1,63 @@
 ---
 name: pull-request
-description: Bruk når en endring i navikt/syfo-budstikka skal opprettes eller oppdateres som pull request: «opprett PR», «oppdater PR», eller /pull-request etter grønt vertikalt snitt.
+description: "Create or update a pull request for navikt/syfo-budstikka. Use when the user explicitly asks to create or update a PR after a verified slice."
 ---
 
 # Pull request
 
-Pakk endringen i en PR som kan reviewes uten gjetting: tydelig tittel, riktig issue-kobling, ferskt verifiseringsbevis og eksplisitt risiko.
+Package the change in a PR that can be reviewed without guessing: a clear title,
+correct issue link, fresh verification evidence, and explicit risk.
 
-## Kontrakt for PR-en
+## PR contract
 
-1. **Tittel følger semantisk format:** `type(scope): kort beskrivelse`.
-   - Bruk `/conventional-commit` for type/scope-regler.
-   - **Ferdig når:** tittelen beskriver endringen presist på én linje.
+1. **Use a semantic title:** `type(scope): short description`.
+   - Use `/conventional-commit` for type and scope rules.
+   - **Done when:** the title describes the change precisely in one line.
 
-2. **Body følger repoets mal:** `.github/PULL_REQUEST_TEMPLATE.md`.
-   - Fyll ut: Beskrivelse, Endringer, Issue, Verifikasjon, Sjekkliste.
-   - **Ferdig når:** alle relevante seksjoner er utfylt uten plassholdertekst.
+2. **Follow the repository template:** `.github/PULL_REQUEST_TEMPLATE.md`.
+   - Complete Description, Changes, Issue, Verification, and Checklist.
+   - **Done when:** every relevant section is complete with no placeholder text.
 
-3. **Issue-kobling er eksplisitt.**
-   - Fullført arbeid: `Closes #NNN`
-   - Delvis arbeid: `Relates to #NNN`
-   - Epic-kobling ved behov: `Del av epic: #MMM`
-   - **Ferdig når:** koblingen matcher faktisk scope.
+3. **Link the issue explicitly.**
+   - Completed work: `Closes #NNN`
+   - Partial work: `Relates to #NNN`
+   - Epic link when needed: `Part of epic: #MMM`
+   - **Done when:** the link matches the actual scope.
 
-4. **Verifikasjon er fersk og deterministisk.**
-   - Bruk normalt `./gradlew build`.
-   - Lim inn kommando + exit-kode i Verifikasjon-seksjonen.
-   - **Ferdig når:** reviewer ser grønn gate direkte i PR-body.
+4. **Keep verification fresh and deterministic.**
+   - Normally use `./gradlew build`.
+   - Paste the command and exit code into the Verification section.
+   - **Done when:** the reviewer sees the green gate directly in the PR body.
 
-5. **Risiko og reviewer-fokus er tydelig.**
-   - Kall ut endringer i auth, PII/logg, Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`/secrets/deploy.
-   - Pek på ADR ved styrende beslutninger.
-   - **Ferdig når:** reviewer vet hva som må kontrolleres nøye.
+5. **Make risk and reviewer focus clear.**
+   - Call out changes to auth, PII/logging, Flyway, Kafka, API contracts, and
+     NAIS `accessPolicy`, secrets, or deployment.
+   - Link governing ADRs.
+   - **Done when:** the reviewer knows what needs closer inspection.
 
-6. **Ingen sensitive data eksponeres.**
-   - Ingen fnr, tokens, credentials eller annen PII i diff eller loggeksempler.
-   - **Ferdig når:** PR-tekst og diff er fri for sensitive data.
+6. **Expose no sensitive data.**
+   - Include no fnr, tokens, credentials, or other PII in the diff or log examples.
+   - **Done when:** both PR text and diff are free of sensitive data.
 
-## Opprett eller oppdater med gh CLI
+## After an explicit request to create or update this specific PR
+
+Otherwise, draft the title and body, then ask for confirmation before running
+either command.
 
 ```bash
 gh pr create \
   --repo navikt/syfo-budstikka \
-  --title "type(scope): beskrivelse" \
-  --body-file <fil-med-body>
+  --title "type(scope): description" \
+  --body-file <file-with-body>
 ```
 
 ```bash
-gh pr edit <nummer> --repo navikt/syfo-budstikka --title "..." --body-file <fil>
+gh pr edit <number> --repo navikt/syfo-budstikka --title "..." --body-file <file>
 ```
 
-## Etter opprettelse
+## After creation
 
-- Hold PR-body oppdatert hvis scope eller verifikasjon endres.
-- Adresser review i nye commits på samme branch.
-- Squash-merge når checks og godkjenninger er grønne.
+- Keep the PR body current when scope or verification changes.
+- Address review in new commits on the same branch.
+- Never merge from this skill. A merge requires a separate explicit user
+  request; if granted, use squash only after checks and approvals are green.

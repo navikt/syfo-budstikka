@@ -1,10 +1,31 @@
 ---
-description: "Slå opp ved skriving av PromQL- og LogQL-queries for syfo-budstikka: throughput, error rate, latency-percentiler, pod restarts, Kafka, og trace-korrelasjon i Loki."
+description: "Provides PromQL and LogQL patterns for throughput, error rate, latency percentiles, pod restarts, Kafka, and trace correlation in Loki. Read when writing a dashboard or operational query for syfo-budstikka."
 ---
 
-# PromQL, LogQL og dashboards
+# PromQL, LogQL, and dashboards
 
-Vanlige queries for Grafana, Prometheus og Loki i syfo-budstikka. Tilpass metric-navn, labels og tidsvinduer til det du faktisk eksponerer.
+Common queries for Grafana, Prometheus, and Loki in syfo-budstikka. Adapt metric names, labels, and time windows to what you actually expose.
+
+## Dashboard baseline for syfo-budstikka
+
+### Golden signals
+- **Request rate** — `sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))` (per `route`/`method`)
+- **Error rate** — 5xx share of total traffic, both percentage and absolute rate
+- **Latency p95/p99** — `histogram_quantile(0.95, sum(rate(ktor_http_server_requests_seconds_bucket[5m])) by (le, route))`
+
+### Resources
+- **Connection pool** — `hikaricp_connections_active / hikaricp_connections_max` for Postgres (requires the HikariCP binder)
+- **JVM heap and GC** — `jvm_memory_used_bytes`, `rate(jvm_gc_pause_seconds_sum[5m])`
+- **Pod restarts** — `increase(kube_pod_container_status_restarts_total{app="syfo-budstikka"}[1h])`
+
+### Kafka (if applicable)
+- **Consumer lag** — `kafka_consumer_lag` / `kafka_consumergroup_lag` per `topic` og `consumer_group`
+- **Consumer/producer rate** and errors per topic
+
+### Domain
+- Processed events per minute, by `event_type`
+- Error rate by flow (`result="failure"`)
+- Processing time for critical operations
 
 ## PromQL
 
@@ -14,7 +35,7 @@ Vanlige queries for Grafana, Prometheus og Loki i syfo-budstikka. Tilpass metric
 sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))
 ```
 
-For hendelsesdrevne flyter:
+For event-driven flows:
 
 ```promql
 sum(rate(oppgaver_behandlet_total{app="syfo-budstikka"}[5m])) by (event_type)
@@ -28,7 +49,7 @@ sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka",status=~"5
 sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))
 ```
 
-Med egne domene-countere:
+With custom domain counters:
 
 ```promql
 sum(rate(oppgaver_behandlet_total{app="syfo-budstikka",result="failure"}[5m]))
@@ -36,7 +57,7 @@ sum(rate(oppgaver_behandlet_total{app="syfo-budstikka",result="failure"}[5m]))
 sum(rate(oppgaver_behandlet_total{app="syfo-budstikka"}[5m]))
 ```
 
-### Latency-percentiler
+### Latency percentiles
 
 ```promql
 histogram_quantile(
@@ -45,7 +66,7 @@ histogram_quantile(
 )
 ```
 
-For en egendefinert timer:
+For a custom timer:
 
 ```promql
 histogram_quantile(
@@ -54,7 +75,7 @@ histogram_quantile(
 )
 ```
 
-### Pod restarts og køstørrelse
+### Pod restarts and queue size
 
 ```promql
 sum(increase(kube_pod_container_status_restarts_total{app="syfo-budstikka"}[15m]))
@@ -66,7 +87,7 @@ max_over_time(oppgave_ko_storrelse{app="syfo-budstikka"}[10m])
 
 ## LogQL
 
-### Filtrering
+### Filtering
 
 ```logql
 {app="syfo-budstikka", namespace="team-esyfo"} |= "ERROR"
@@ -76,15 +97,15 @@ max_over_time(oppgave_ko_storrelse{app="syfo-budstikka"}[10m])
 {app="syfo-budstikka", namespace="team-esyfo"} | json | level="error"
 ```
 
-### Aggregering
+### Aggregation
 
-Feil per container per minutt:
+Errors per container per minute:
 
 ```logql
 sum(rate({app="syfo-budstikka", namespace="team-esyfo"} |= "ERROR" [1m])) by (container)
 ```
 
-Strukturerte logger gruppert på event-type:
+Structured logs grouped by event type:
 
 ```logql
 sum by (event_type) (
@@ -92,9 +113,9 @@ sum by (event_type) (
 )
 ```
 
-### Korrelasjon med traces
+### Correlation with traces
 
-Hent alle logger for et trace (klikkbar fra Tempo i Grafana):
+Retrieve all logs for a trace (clickable from Tempo in Grafana):
 
 ```logql
 {app="syfo-budstikka", namespace="team-esyfo"}
@@ -102,7 +123,7 @@ Hent alle logger for et trace (klikkbar fra Tempo i Grafana):
 | trace_id="2f2f2264a8b6df9f8b3d614f4c9ce111"
 ```
 
-Kombiner med feilnivå:
+Combine with error level:
 
 ```logql
 {app="syfo-budstikka"}
@@ -124,9 +145,9 @@ Kombiner med feilnivå:
 {app="syfo-budstikka"} |= "consumer lag"
 ```
 
-## Praktiske tips
+## Practical tips
 
-- Bruk samme label-sett i dashboard og varsler der det gir mening
-- Normaliser `route` før du bygger paneler — ekspanderte path-parametre gir støyete grafer og høy kardinalitet
-- Se alltid på både metrics og logs når du feilsøker latency eller feilrater
-- Bruk traces når du må finne flaskehalser på tvers av HTTP, Kafka og Postgres
+- Use the same label set in dashboards and alerts where that makes sense
+- Normalize `route` before building panels — expanded path parameters produce noisy graphs and high cardinality
+- Always inspect both metrics and logs when troubleshooting latency or error rates
+- Use traces when you need to find bottlenecks across HTTP, Kafka, and Postgres

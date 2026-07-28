@@ -1,13 +1,16 @@
-# Utgående HttpClient — kall mot nedstrøms-tjeneste
+# Outbound HttpClient — calls to a downstream service
 
-Konkret oppsett for når dette Ktor-backendet (`no.nav.syfo`) selv kaller en annen tjeneste. Token-utveksling (TokenX OBO / Azure AD M2M) eies av `/auth-overview` — her dekker vi klient-oppsett, timeout/retry, sporing og feilkontrakt.
+Concrete pattern for when this Ktor backend (`no.nav.budstikka`) calls a new
+downstream service. Read existing clients first. Token exchange belongs to
+`/auth-overview`; this reference covers timeout/retry, tracing, and error
+translation when the new contract needs them.
 
-## Klient med timeout, retry og logging
+## Client with timeout, retry, and logging
 
 ```kotlin
-// Avhengigheter via ktorLibs.client.* (motor + ContentNegotiation) — ikke håndskrevne versjoner
+// Follow the repository's libs.ktor.client.* style; add ContentNegotiation only when needed.
 val httpClient = HttpClient(CIO) {
-    expectSuccess = false                        // vi mapper status selv (se under)
+    expectSuccess = false                        // map status ourselves (see below)
     install(ContentNegotiation) { json() }
     install(HttpTimeout) {
         connectTimeoutMillis = 3_000
@@ -18,39 +21,44 @@ val httpClient = HttpClient(CIO) {
         retryOnExceptionOrServerErrors(maxRetries = 3)   // 5xx + IOException
         exponentialDelay()
     }
-    install(Logging) { level = LogLevel.INFO }   // aldri logg body med PII
+    install(Logging) { level = LogLevel.INFO }   // never log a body containing PII
 }
 ```
 
-## Propagér `Nav-Call-Id` på utgående kall
+## Propagate `Nav-Call-Id` on outbound calls
 
 ```kotlin
 suspend fun hentNoe(callId: String): Noe {
     val response = httpClient.get("$baseUrl/api/noe") {
-        header("Nav-Call-Id", callId)            // samme callId som CallId-pluginen satte
-        header(HttpHeaders.Authorization, "Bearer ${token()}")  // token: se /auth-overview
+        header("Nav-Call-Id", callId)            // same callId set by the CallId plugin
+        header(HttpHeaders.Authorization, "Bearer ${token()}")  // see /auth-overview for token handling
     }
     return response.toDomainOrThrow()
 }
 ```
 
-## Oversett nedstrøms-feil til feilkontrakten FØR StatusPages
+## Translate downstream failures to the error contract before StatusPages
 
-Et non-2xx-svar fra nedstrøms skal ikke lekke rått til vår klient. Map det til repoets `ApiErrorException` (se `/kotlin-ktor` → references/error-handling.md), så `StatusPages` gir en enhetlig `ApiError`:
+A non-2xx downstream response must not leak raw to our client. Map it to the
+repository’s `ApiErrorException` (see `/kotlin-ktor` →
+references/error-handling.md), so `StatusPages` produces a consistent `ApiError`:
 
 ```kotlin
 suspend fun HttpResponse.toDomainOrThrow(): Noe = when (status.value) {
     in 200..299 -> body()
-    401, 403    -> throw ApiErrorException.InternalServerErrorException("Nedstrøms avviste vårt token")
-    404         -> throw ApiErrorException.NotFoundException("Fant ikke ressurs nedstrøms")
-    in 500..599 -> throw ApiErrorException.InternalServerErrorException("Nedstrøms-tjeneste utilgjengelig")
-    else        -> throw ApiErrorException.InternalServerErrorException("Uventet svar nedstrøms: ${status.value}")
+    401, 403    -> throw ApiErrorException.InternalServerErrorException("Downstream rejected our token")
+    404         -> throw ApiErrorException.NotFoundException("Resource not found downstream")
+    in 500..599 -> throw ApiErrorException.InternalServerErrorException("Downstream service unavailable")
+    else        -> throw ApiErrorException.InternalServerErrorException("Unexpected downstream response: ${status.value}")
 }
 ```
 
-## Grenser
+## Boundaries
 
-- **Circuit breaker** finnes ikke native i Ktor-klienten — bruk Resilience4j hvis en ustabil nedstrøms-avhengighet krever det.
-- **Retry kun det som er trygt å gjenta**: idempotente GET/PUT/DELETE, eller POST med idempotensnøkkel. Aldri blind retry på en skrivende POST uten idempotens.
-- **Aldri logg responsbody med PII** — logg status + callId.
-- **Token hentes per `/auth-overview`** (TokenX-exchange ved brukerkontekst, Azure AD M2M ellers) — ikke hardkod eller del token på tvers av brukere.
+- **Circuit breaker** is not native to the Ktor client. Use Resilience4j when an
+  unstable downstream dependency requires it.
+- **Retry only operations safe to repeat**: idempotent GET/PUT/DELETE, or POST
+  with an idempotency key. Never blindly retry a writing POST without idempotency.
+- **Never log response bodies with PII**; log status and callId.
+- **Retrieve tokens through `/auth-overview`**: TokenX exchange for user context,
+  Azure AD M2M otherwise. Never hard-code or share a token across users.

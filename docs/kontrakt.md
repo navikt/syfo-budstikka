@@ -1,20 +1,20 @@
-# Kontrakt / kanal-DTO-er — syfo-budstikka
+# Contract / channel DTOs — syfo-budstikka
 
-Denne siden beskriver **faktisk implementert kontrakt i kode nå**.
+This page describes the contract **actually implemented in code today**.
 
-Kilde i kode:
+Code sources:
+
 - `src/main/kotlin/no/nav/budstikka/domain/dispatch/Dispatch.kt`
 - `src/main/kotlin/no/nav/budstikka/domain/dispatch/Create.kt`
 - `src/main/kotlin/no/nav/budstikka/domain/dispatch/Inactivate.kt`
 - `src/main/kotlin/no/nav/budstikka/domain/dispatch/CommonTypes.kt`
 - `src/main/kotlin/no/nav/budstikka/domain/decision/DispatchDraftMapping.kt`
 
-## Konvolutt
+## Envelope
 
 ```kotlin
 @Serializable
 data class Dispatch(
-    val eventId: UUID,
     val reference: String,
     val content: DispatchContent,
 )
@@ -25,40 +25,40 @@ sealed interface DispatchContent {
 }
 ```
 
-- `eventId`: idempotens/korrelasjon.
-- `reference`: kobling på tvers av hendelser (create/ferdigstill).
-- `partitionKey`: Kafka-record key (beregnes per variant).
+- `reference`: links events across create/FERDIGSTILL.
+- `partitionKey`: Kafka record key, calculated per variant.
 
-> **Planlagt endring (ADR 0008 / B61, #125):** `eventId` FJERNES fra `Dispatch` og
-> leveres KUN som Kafka-header (`DispatchHeader.EVENT_ID`) — konvolutten blir
-> `{ reference, content }`. eventId er en teknisk id (dedup og korrelasjon), ikke domenedata. Blokka over
-> speiler dagens kode; oppdateres når parse-ved-ingest implementeres.
+`eventId` is not payload data. It is supplied only as the mandatory Kafka
+header `DispatchHeader.EVENT_ID`; see
+[ADR 0008](adr/0008-hydrert-inbox-parse-ved-ingest.md).
 
-## Viktige kontraktprinsipper (B22/B23)
+## Important contract principles (B22/B23)
 
-- Kontrakten er **sealed og typet**: operation ligger i typen (`*Create`, `*Inactivate`, `MicrofrontendEnable/Disable`), ikke i et løst enum-felt.
-- Budstikka bruker en **nøytral kontraktmodell** (`Dispatch`/`DispatchContent`) og speiler ikke nedstrøms API-er direkte.
-- Ulovlige kombinasjoner skal være urepresenterbare i typen, ikke håndteres sent i runtime.
+- The contract is **sealed and typed**: operation is carried by the type
+  (`*Create`, `*Inactivate`, `MicrofrontendEnable/Disable`), not a loose enum field.
+- Budstikka uses a **neutral contract model** (`Dispatch`/`DispatchContent`) and
+  does not mirror downstream APIs directly.
+- Illegal combinations must be unrepresentable in the type, not handled late at runtime.
 
-## Hvorfor `eventId` ikke er Kafka key
+## Why `eventId` is not the Kafka key
 
-- `eventId` er unik per hendelse og brukes til dedup/korrelasjon.
-- Kafka key (`partitionKey`) brukes for partisjonering/ordering per recipient.
-- Derfor brukes recipient-basert key i variantene, ikke `eventId`.
+- `eventId` is unique per event and is used for deduplication and correlation.
+- Kafka key (`partitionKey`) is used for partitioning and ordering per recipient.
+- Variants therefore use a recipient-based key, not `eventId`.
 
-## Header-kontrakt
+## Header contract
 
-`DispatchHeader.EVENT_ID = "eventId"` er del av kontrakten.
+`DispatchHeader.EVENT_ID = "eventId"` is part of the contract.
 
-- Headeren bærer `eventId` (unik per hendelse, dedup/korrelasjon).
-- Konsumenten bruker headeren for dedup uten å avhenge av payload-skjemaet.
-- **ADR 0008 / B61:** headeren er den ENESTE og AUTORITATIVE kilden for eventId — den er
-  obligatorisk (manglende/ugyldig → dead-letter), og eventId finnes ikke i payloaden.
-  (Tidligere B54: headeren speilet `Dispatch.eventId` og payloaden var autoritativ — reversert.)
+- The header carries `eventId` (unique per event, for deduplication and correlation).
+- The consumer uses the header for deduplication without depending on payload schema.
+- **ADR 0008 / B61:** The header is the ONLY and AUTHORITATIVE source of
+  `eventId`; it is mandatory (missing or invalid → dead letter), and `eventId`
+  does not occur in the payload.
 
-## Serialisering
+## Serialization
 
-`dispatchJson` er satt opp slik:
+`dispatchJson` is configured as follows:
 
 ```kotlin
 Json {
@@ -68,16 +68,17 @@ Json {
 }
 ```
 
-Det betyr:
-- polymorfi via feltet `type` (`@SerialName` per variant)
-- additive felter er bakoverkompatible.
+This provides:
 
-## Identifikatorer
+- polymorphism through the `type` field (`@SerialName` per variant);
+- backward-compatible additive fields.
 
-- `PersonIdentifier(value: String)` (11 siffer), `toString()` maskeres som `***`.
-- `Orgnummer(value: String)` (9 siffer), `toString()` maskeres som `***`.
+## Identifiers
 
-## Felles typer i kontrakten
+- `PersonIdentifier(value: String)` (11 digits); `toString()` masks it as `***`.
+- `Orgnummer(value: String)` (9 digits); `toString()` masks it as `***`.
+
+## Shared contract types
 
 - `Varseltype`: `BESKJED`, `OPPGAVE`
 - `ExternalChannel`: `SMS`, `EMAIL`
@@ -90,86 +91,107 @@ Det betyr:
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
 - `Sakstilknytning(sakId)`
 
-Viktige valg:
-- `DittSykefravaerCreate` har ikke eget `variant`-felt i kontrakten nå.
-- `ArbeidsgiverRecipient` er sealed valg (`NarmesteLeder` eller `AltinnResource`) og kombineres ikke i samme event.
+Important choices:
 
-## Dispatch-varianter
+- `DittSykefravaerCreate` currently has no separate `variant` field in the contract.
+- `ArbeidsgiverRecipient` is a sealed choice (`NarmesteLeder` or
+  `AltinnResource`) and the two are not combined in the same event.
 
-| Variant (`type`)               | Klasse | `partitionKey` |
-|--------------------------------|---|---|
-| `BrukervarselCreate`           | `BrukervarselCreate` | `personIdentifier.value` |
-| `LedervarselCreate`            | `LedervarselCreate` | `sykmeldt.value` |
-| `DittSykefravaerCreate`        | `DittSykefravaerCreate` | `personIdentifier.value` |
-| `ArbeidsgivervarselCreate`     | `ArbeidsgivervarselCreate` | `orgnummer.value` |
-| `BrevCreate`                   | `BrevCreate` | `personIdentifier.value` |
-| `BrukervarselInactivate`       | `BrukervarselInactivate` | `sykmeldt.value` |
-| `LedervarselInactivate`        | `LedervarselInactivate` | `sykmeldt.value` |
-| `DittSykefravaerInactivate`    | `DittSykefravaerInactivate` | `sykmeldt.value` |
+## Dispatch variants
+
+| Variant (`type`) | Class | `partitionKey` |
+|---|---|---|
+| `BrukervarselCreate` | `BrukervarselCreate` | `personIdentifier.value` |
+| `LedervarselCreate` | `LedervarselCreate` | `sykmeldt.value` |
+| `DittSykefravaerCreate` | `DittSykefravaerCreate` | `personIdentifier.value` |
+| `ArbeidsgivervarselCreate` | `ArbeidsgivervarselCreate` | `orgnummer.value` |
+| `BrevCreate` | `BrevCreate` | `personIdentifier.value` |
+| `BrukervarselInactivate` | `BrukervarselInactivate` | `sykmeldt.value` |
+| `LedervarselInactivate` | `LedervarselInactivate` | `sykmeldt.value` |
+| `DittSykefravaerInactivate` | `DittSykefravaerInactivate` | `sykmeldt.value` |
 | `ArbeidsgivervarselInactivate` | `ArbeidsgivervarselInactivate` | `orgnummer.value` |
-| `MicrofrontendEnable`          | `MicrofrontendEnable` | `personIdentifier.value` |
-| `MicrofrontendDisable`         | `MicrofrontendDisable` | `personIdentifier.value` |
+| `MicrofrontendEnable` | `MicrofrontendEnable` | `personIdentifier.value` |
+| `MicrofrontendDisable` | `MicrofrontendDisable` | `personIdentifier.value` |
 
-Merk:
-- `MicrofrontendDisable` har `@SerialName("MicrofrontendDisable")` (med k i type-navnet).
-- Inactivate-typene bruker `@SerialName("referanse")` på feltet `reference` for wire-kompatibilitet.
+Notes:
 
-## Ledervarsel-resolusjon (B24)
+- `MicrofrontendDisable` has `@SerialName("MicrofrontendDisable")`, including
+  the `k` in the type name.
+- The Inactivate types use `@SerialName("referanse")` on `reference` for wire compatibility.
 
-**B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
-— IKKE NL-fnr. Budstikka slår opp aktiv leder i narmesteleder-registeret i beslutnings-
-fasen (som KRR/PDL). Partisjonsnøkkel = `sykmeldt` (stabilt anker; NL er ukjent ved
-publisering og kan byttes). Eliminerer dagens dobbeltoppslag i esyfovarsel.
+## Ledervarsel resolution (B24)
 
-Status nå:
-- Kontraktformen følger B24 (`LedervarselCreate` har `sykmeldt` + `orgnummer`, ikke NL-fnr).
-- Selve NL-oppslaget er ikke koblet inn i runtime ennå.
+**B24: Budstikka resolves the nearest leader itself.** The contract carries
+`(sykmeldt, orgnummer)` — **not** an NL fnr. During the decision phase,
+Budstikka looks up the active leader in the narmesteleder register (like KRR/PDL).
+Partition key = `sykmeldt` (a stable anchor; NL is unknown at publishing time
+and may change). This removes today's double lookup in esyfovarsel.
 
-## Mapping til delivery-draft (faktisk kode)
+Current status:
 
-`DispatchContent.toDeliveryDraft(reference)` mapper til:
+- The contract form follows B24 (`LedervarselCreate` has `sykmeldt` plus
+  `orgnummer`, not NL fnr).
+- The NL lookup itself is not wired into runtime yet.
 
-- `operation`: `CREATE` eller `INACTIVATE`
-- `channel`: `BRUKERVARSEL`, `LEDERVARSEL`, `DITT_SYKEFRAVAER`, `ARBEIDSGIVERVARSEL`, `BREV`, `MICROFRONTEND`
+## Mapping to delivery draft (actual code)
+
+`DispatchContent.toDeliveryDraft(reference)` maps to:
+
+- `operation`: `CREATE` or `INACTIVATE`
+- `channel`: `BRUKERVARSEL`, `LEDERVARSEL`, `DITT_SYKEFRAVAER`,
+  `ARBEIDSGIVERVARSEL`, `BREV`, `MICROFRONTEND`
 - `recipient`:
-  - `Recipient.Person(...)` for personbaserte kanaler
-  - `Recipient.Virksomhet(...)` for arbeidsgiverkanal
+  - `Recipient.Person(...)` for person-based channels;
+  - `Recipient.Virksomhet(...)` for the employer channel.
 
-Dette skjer i `domain/decision/DispatchDraftMapping.kt`.
+This happens in `domain/decision/DispatchDraftMapping.kt`.
 
-## FERDIGSTILL / Inactivate (viktig beslutning)
+## FERDIGSTILL / Inactivate (important decision)
 
-For lukkbare kanaler er inactivate-hendelsene bevisst **thin**:
-- `reference` + typet recipient-felt (`sykmeldt` eller `orgnummer`)
-- kanal er implisitt i typen (`BrukervarselInactivate`, `LedervarselInactivate`, `DittSykefravaerInactivate`, `ArbeidsgivervarselInactivate`)
+For closeable channels, Inactivate events are deliberately **thin**:
 
-**Recipient match-id (`recipient_id`)**:
-- `recipient_id` i `delivery` er OPPRETTs partisjonsanker (id-en konsumenten kjenner ved create)
-- ikke den resolverte mottakeren i nedstrøms-systemer
-- forventet match mot lagret create-rad er: `(reference, recipient_id, channel)`
+- `reference` plus a typed recipient field (`sykmeldt` or `orgnummer`);
+- the channel is implicit in the type (`BrukervarselInactivate`,
+  `LedervarselInactivate`, `DittSykefravaerInactivate`,
+  `ArbeidsgivervarselInactivate`).
 
-Avgrensninger:
-- BREV er urepresenterbart for lukking (ingen `BrevInactivate`-variant).
-- Microfrontend bruker eget enable/disable-par (`MicrofrontendEnable` / `MicrofrontendDisable`) utenfor reference-basert inactivate-matching.
+**Recipient match ID (`recipient_id`):**
 
-**Lukkeoperasjon fra lagret create-rad (B39):**
-- Inactivate-eventet er tynt og bærer ikke alle tekniske lukkedetaljer.
-- Riktig lukkeoperasjon må avledes fra tidligere create-rad.
-- Dette er designretningen; selve oppslaget er fortsatt ikke implementert i runtime.
+- `recipient_id` in `delivery` is the CREATE partition anchor, the ID the
+  consumer knows at create time;
+- it is not the resolved recipient in downstream systems;
+- expected match against the stored create row is `(reference, recipient_id, channel)`.
 
-## DeathGate-selection i dag
+Boundaries:
 
-`DispatchContent.gatedPerson()` returnerer person kun for:
+- BREV cannot be represented for closure; no `BrevInactivate` variant exists.
+- Microfrontend uses its own enable/disable pair
+  (`MicrofrontendEnable` / `MicrofrontendDisable`) outside reference-based
+  Inactivate matching.
+
+**Close operation from the stored create row (B39):**
+
+- The Inactivate event is thin and carries none of the technical closing details.
+- The correct close operation must be derived from the previous create row.
+- This is the design direction; the lookup is not implemented in runtime yet.
+
+## Current DeathGate selection
+
+`DispatchContent.gatedPerson()` returns a person only for:
+
 - `BrukervarselCreate`
 - `DittSykefravaerCreate`
 - `BrevCreate`
 
-Alle andre varianter returnerer `null` (gates ikke av `DeathGate` i dag).
+All other variants return `null`; they are not currently gated by `DeathGate`.
 
-## Viktig avgrensning i nåværende implementasjon
+## Important limitation in the current implementation
 
-- `*Inactivate` mappes til nye `DeliveryDraft`-rader direkte.
-- Oppslag på tidligere create-rad via `(reference, recipient, channel)` er **ikke implementert ennå**.
-- Selve delivery-eksekvering støtter foreløpig kun `MICROFRONTEND`-handler i `DeliveryWorker`.
+- `*Inactivate` maps directly to new `DeliveryDraft` rows.
+- Lookup of a prior create row through `(reference, recipient, channel)` is
+  **not implemented yet**.
+- Delivery execution currently has handlers for `BRUKERVARSEL`, `BREV`, and
+  `MICROFRONTEND` in `DeliveryWorker`. `LEDERVARSEL`, `DITT_SYKEFRAVAER`, and
+  `ARBEIDSGIVERVARSEL` do not have delivery handlers yet.
 
-Dette dokumentet beskriver kontrakten og mappingen slik den faktisk er i koden nå.
+This document describes the contract and mapping as they actually exist in code today.

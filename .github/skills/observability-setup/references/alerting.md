@@ -1,14 +1,14 @@
 ---
-description: "Slå opp ved skriving av Prometheus-alerts og NAIS Alert-ressurser for syfo-budstikka: feilrate, latency, pod restarts, Kafka lag og Slack-ruting."
+description: "Provides Prometheus alert and NAIS Alert patterns for error rate, latency, pod restarts, Kafka lag, and Slack routing. Read when adding or changing alerts for syfo-budstikka."
 ---
 
-# Alerting og varsling i NAIS
+# Alerting and notification in NAIS
 
-Praktiske mønstre for Prometheus-regler og varsling til Slack via NAIS. Prioriter varsler som peker på reelle bruker- eller driftsproblemer teamet faktisk må reagere på.
+Practical patterns for Prometheus rules and Slack notifications through NAIS. Prioritize alerts that point to genuine user or operational problems the team must actually respond to.
 
-## Vanlige varslingsmønstre
+## Common alerting patterns
 
-### Høy feilrate
+### High error rate
 
 ```yaml
 groups:
@@ -25,12 +25,12 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Høy feilrate for syfo-budstikka"
-          description: "Mer enn 5% av forespørslene feiler med 5xx over 10 minutter"
+          summary: "High error rate for syfo-budstikka"
+          description: "More than 5% of requests fail with 5xx over 10 minutes"
           runbook_url: "https://teamdocs/runbooks/syfo-budstikka-errors"
 ```
 
-### Latency-spike
+### Latency spike
 
 ```yaml
 - alert: HighLatencyP95
@@ -43,11 +43,11 @@ groups:
   labels:
     severity: warning
   annotations:
-    summary: "Høy latency for syfo-budstikka"
-    description: "p95-latency er over 1 sekund"
+    summary: "High latency for syfo-budstikka"
+    description: "p95 latency is above 1 second"
 ```
 
-### Pod restart / utilgjengelighet
+### Pod restart / unavailability
 
 ```yaml
 - alert: PodRestarts
@@ -56,8 +56,8 @@ groups:
   labels:
     severity: warning
   annotations:
-    summary: "Pods restarter hyppig"
-    description: "syfo-budstikka har restartet mer enn 3 ganger på 15 minutter"
+    summary: "Pods restart frequently"
+    description: "syfo-budstikka has restarted more than 3 times in 15 minutes"
 
 - alert: ApplicationDown
   expr: sum(up{app="syfo-budstikka"}) == 0
@@ -65,11 +65,11 @@ groups:
   labels:
     severity: critical
   annotations:
-    summary: "Applikasjonen er nede"
-    description: "Ingen friske targets scrapes for syfo-budstikka"
+    summary: "Application is down"
+    description: "No healthy targets are scraped for syfo-budstikka"
 ```
 
-### Kafka / køproblemer
+### Kafka / queue problems
 
 ```yaml
 - alert: KafkaConsumerLagHigh
@@ -78,21 +78,21 @@ groups:
   labels:
     severity: warning
   annotations:
-    summary: "Høy Kafka consumer lag"
-    description: "Lag har holdt seg over 10000 i 15 minutter"
+    summary: "High Kafka consumer lag"
+    description: "Lag has remained above 10000 for 15 minutes"
 ```
 
-## NAIS-mønstre for varslingsregler
+## NAIS patterns for alerting rules
 
-- Bruk korte, stabile alert-navn
-- Legg alltid til `summary`, `description` og helst runbook-lenke
-- `warning` for ting som bør undersøkes, `critical` for aktiv hendelse
-- Alert på symptomer før interne indikatorer
-- Test terskler i `dev-gcp` før du strammer dem i prod
-- Unngå mange nesten-like varsler med små variasjoner i terskel
-- Endring av produksjonsterskler er en beslutning som bør grilles og dokumenteres (`docs/adr/`)
+- Use short, stable alert names
+- Always add `summary`, `description`, and preferably a runbook link
+- Use `warning` for conditions that should be investigated and `critical` for an active incident
+- Alert on symptoms before internal indicators
+- Test thresholds in `dev-gcp` before tightening them in prod
+- Avoid many near-identical alerts with small threshold variations
+- Changing production thresholds is a decision that should be grilled and documented (`docs/adr/`)
 
-## Slack-ruting via NAIS Alert
+## Slack routing through NAIS Alert
 
 ```yaml
 apiVersion: nais.io/v1
@@ -111,4 +111,4 @@ spec:
     - alert: ApplicationDown
 ```
 
-Velg kanal og `prependText` med omtanke. Kritiske varsler kan bruke `@here`; støyende varsler bør normalt ikke gjøre det.
+Choose the channel and `prependText` carefully. Critical alerts can use `@here`; noisy alerts normally should not.

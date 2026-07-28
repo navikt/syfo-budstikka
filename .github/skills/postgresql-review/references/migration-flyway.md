@@ -1,10 +1,16 @@
-# Migrasjoner og Flyway-mønstre
+# Migrations and Flyway patterns
 
-Migrasjonsmønstre for PostgreSQL i dette NAV Ktor-backendet. Se [SKILL.md](../SKILL.md) for prinsipper og sjekkliste. Selve filnavngiving, plassering og rekkefølge dekkes av `flyway-migration`-skillen i repoet.
+Migration patterns for this Nav Ktor backend. Read the
+[review catalog](review-catalog.md) for principles and the checklist. The
+`flyway-migration` skill in this repository owns file naming, placement, and
+ordering.
 
-## CONCURRENTLY-indekser i produksjon
+## Production `CONCURRENTLY` indexes
 
-`CREATE INDEX CONCURRENTLY` kan ikke kjøre i en transaksjon, så den må ligge i egen migrering. I dette repoet konfigureres Flyway i kode (`Flyway.configure()...`) — verifiser `executeInTransaction` der i stedet for å gjette på globale properties.
+`CREATE INDEX CONCURRENTLY` cannot run inside a transaction, so put it in its
+own migration. This repository configures Flyway in code
+(`Flyway.configure()...`); verify `executeInTransaction` there instead of
+guessing global properties.
 
 ```sql
 -- V3__create_index_concurrently.sql
@@ -13,18 +19,29 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vedtak_bruker_status
 ON vedtak (bruker_id, status);
 ```
 
-Hvis en slik migrering ble avbrutt, kan en ugyldig indeks med samme navn ligge igjen. Rydd den opp før ny kjøring — `IF NOT EXISTS` kan ellers skjule problemet i stedet for å gjøre re-kjøring trygg.
+If such a migration was interrupted, an invalid index with the same name may
+remain. Remove it before another run — otherwise `IF NOT EXISTS` can hide the
+problem rather than making reruns safe.
 
-## Generiske migreringskonvensjoner → `/flyway-migration`
+## Generic migration conventions → `/flyway-migration`
 
-Filnavngiving (`V<n>__`), `TIMESTAMPTZ` over `TIMESTAMP`, `UUID`/`gen_random_uuid()`, `TEXT` over `VARCHAR`, FK-indekser, repeterbare `R__`-migreringer og forward-only-disiplinen eies av `/flyway-migration` — ikke dupliser dem her. Denne referansen dekker bare det en **review** skal se etter i Postgres-kontekst: avbrutt `CONCURRENTLY` (over) og delt-schema-koordinering (under).
+`/flyway-migration` owns file names (`V<n>__`), `TIMESTAMPTZ` over `TIMESTAMP`,
+`UUID`/`gen_random_uuid()`, `TEXT` over `VARCHAR`, foreign-key indexes,
+repeatable `R__` migrations, and forward-only discipline. This reference covers
+only what a **review** must check in PostgreSQL context: interrupted
+`CONCURRENTLY` indexes and shared-schema coordination.
 
-## Trestegs feltmigrasjon på delt schema
+## Three-step field migration for a shared schema
 
-For delte Cloud SQL-instanser der andre team leser: bruk expand-migrate-contract i separate PR-er.
+For shared Cloud SQL instances read by other teams, use expand–migrate–contract
+in separate PRs.
 
-1. **Expand** — `V{n}__add_ny_kolonne.sql`: legg til ny kolonne (nullable / med default). Ingen konsumenter påvirkes.
-2. **Migrate** — dual-write fra produsent, og konsumenter flytter lesing til ny kolonne én om gangen.
-3. **Contract** — `V{n+k}__drop_gammel_kolonne.sql`: fjern gammel kolonne først når all produksjonstrafikk er bekreftet migrert (sjekk i 2+ uker).
+1. **Expand** — `V{n}__add_ny_kolonne.sql`: add the new column (nullable or with
+   a default). No consumer is affected.
+2. **Migrate** — dual-write from the producer, then migrate consumer reads one at
+   a time.
+3. **Contract** — `V{n+k}__drop_gammel_kolonne.sql`: remove the old column only
+   after all production traffic is confirmed migrated (check for at least two weeks).
 
-> **🚫 Aldri** kjør `DROP COLUMN` / `ALTER COLUMN TYPE` på delt schema uten forhåndsvarsel og bekreftet konsument-migrasjon.
+> **🚫 Never** run `DROP COLUMN` or `ALTER COLUMN TYPE` on a shared schema
+> without notice and confirmed consumer migration.

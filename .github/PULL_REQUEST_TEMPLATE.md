@@ -1,27 +1,28 @@
-## Beskrivelse
+## Description
 
-<!-- Hva gjør denne PR-en og hvorfor? -->
+<!-- What does this pull request change, and why? -->
 
-## Endringer
+## Changes
 
-<!-- - `fil/modul`: Hva som ble endret -->
+<!-- - `file/module`: What changed -->
 
 ## Issue
 
-<!-- Closes #NUMMER / Relates to #NUMMER -->
+<!-- Closes #NUMBER / Relates to #NUMBER -->
 
-## Verifikasjon
+## Verification
 
-<!-- Lim inn ferskt bevis fra de deterministiske gatene (kommando + exit-kode), f.eks. fra .grill/VERIFICATION.md -->
+<!-- Paste fresh evidence from deterministic gates: command, relevant result, and exit code. -->
 
+```text
+./gradlew build   # exit: 0  (compile + ktlint + test)
 ```
-./gradlew build   # exit: 0  (kompilering + ktlint + test)
-```
 
-## Sjekkliste
+## Checklist
 
-- [ ] `./gradlew build` grønt (kompilering + ktlint + test)
-- [ ] Ingen sensitive data eksponert (tokens, credentials, fnr/PII) — heller ikke i logger
-- [ ] Høyrisiko (auth, PII, schema/Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`, deploy)? → kryssmodell-review kjørt, verdikt ikke-😞 (se `.grill/REVIEW.md`)
-- [ ] Endrede API-/event-kontrakter koordinert med berørte team
-- [ ] ADR skrevet for vanskelig-å-reversere beslutninger (`docs/adr/`)
+- [ ] `./gradlew build` passes (compile + ktlint + test)
+- [ ] No sensitive data is exposed, including tokens, credentials, national identity numbers, or other PII in logs
+- [ ] If this used Grillmester/Kokk: fresh Grill-inspektor evidence is summarized for every R3/R4 slice and for an aggregate R3/R4 diff; an opted-in R0–R2 review uses the same complete boundary, with no duplicate final review for one slice
+- [ ] If this was material upper-R2 direct Barista work without red flags: the optional Inspector review was offered; acceptance or deferral is recorded above
+- [ ] Changed API or event contracts are coordinated with affected teams
+- [ ] An ADR documents any hard-to-reverse decision (`docs/adr/`)

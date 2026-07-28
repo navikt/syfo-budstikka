@@ -1,122 +1,113 @@
-# ADR-mal — NAV-utvidet
+# ADR template — Nav extension
 
-Den NAV-utvidede malen for Architecture Decision Records. Grunnfeltene (Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert) eies av `/domain-modeling` (ADR-FORMAT.md); denne malen legger NAV-spesifikke seksjoner (sikkerhet/personvern, plattform, migrasjon) på toppen. Fyll inn avsnittene som er relevante, slett resten. Hold ADR-en kort og fokusert — én beslutning per ADR.
+This is the Nav-extended Architecture Decision Record template. `/domain-modeling`
+owns the base fields (Status / Context / Decision / Consequences / Alternatives
+considered) in `../../domain-modeling/references/adr-format.md`; this template
+adds security/privacy, platform, and migration sections. Fill only relevant
+sections and delete the rest. Keep one short, focused decision per ADR.
 
-## Filnavn
+## Filename
 
-`docs/adr/NNNN-<kort-tittel>.md`  (samme `NNNN-`-nummerering som `/grill-with-docs` og `/domain-modeling`)
+`docs/adr/NNNN-<short-title>.md` (the same `NNNN-` sequence used by
+`/grill-with-docs` and `/domain-modeling`)
 
-## Mal
+## Template
 
 ```markdown
-# NNNN: {Tittel}
+# NNNN: {Title}
 
-**Dato:** YYYY-MM-DD
-**Status:** Foreslått | Godkjent | Forkastet | Erstattet av NNNN
-**Beslutningstakere:** {team eller personer}
+**Date:** YYYY-MM-DD
+**Status:** Proposed | Accepted | Rejected | Superseded by NNNN
+**Decision makers:** {team or people}
 
-## Kontekst
+## Context
 
-- Hva er problemet eller muligheten?
-- Hvorfor må vi ta en beslutning nå?
-- Hvilke begrensninger gjelder (regulatorisk, plattform, team-kapasitet, eksisterende ADR-er i `docs/adr/`)?
+- What is the problem or opportunity?
+- Why must a decision be made now?
+- Which constraints apply: regulation, platform, team capacity, existing ADRs?
 
-## Beslutning
+## Decision
 
-Vi har besluttet å {konkret valg}.
+We decide to {concrete choice}.
 
-## Alternativer vurdert
+## Alternatives considered
 
-### Alternativ A: {navn} (valgt)
-
-**Beskrivelse:** ...
-
-**Fordeler:**
+### Alternative A: {name} (chosen)
+**Description:** ...
+**Advantages:**
+- ...
+**Disadvantages:**
 - ...
 
-**Ulemper:**
+### Alternative B: {name}
+**Description:** ...
+**Advantages:**
+- ...
+**Disadvantages:**
 - ...
 
-### Alternativ B: {navn}
+### Alternative C: Do nothing
+**Description:** Keep the current solution.
+**Advantages:**
+- No change cost.
+**Disadvantages:**
+- {consequence of doing nothing}
 
-**Beskrivelse:** ...
+## Nav-specific considerations
 
-**Fordeler:**
-- ...
+### Security and privacy
+- **Data classification:** Open / Internal / Confidential / Strictly confidential
+- **Auth mechanism:** Azure AD / TokenX / Maskinporten (see `/auth-overview`)
+- **PII handling:** {how fnr and special-category data are protected in logs, storage, and transport; use callId/actor reference in logs, never raw PII}
+- **Access control:** {accessPolicy strategy: NAIS manifest `inbound`/`outbound`}
+- **Privacy:** {DPIA assessed? privacy officer consulted? legal basis?}
 
-**Ulemper:**
-- ...
+### Platform (NAIS/GCP)
+- **Infrastructure:** {Cloud SQL Postgres / Kafka through Kafkarator / Bucket / ...}
+- **Resources:** {CPU/memory requests, replicas; never set `resources.limits.cpu` on NAIS}
+- **Observability:** {Prometheus metrics, structured JSON logging without PII, OpenTelemetry tracing, alerts}
+- **CI/CD:** {GitHub Actions changes, deployment strategy, feature toggles}
 
-### Alternativ C: Gjøre ingenting
+### Team and organisation
+- **Affected teams:** {consumers, producers, platform team}
+- **Architecture Advice:** {who was consulted, when, and feedback}
+- **Migration strategy:** {current state → target state}
+- **Rollback:** {rollback plan without data loss}
+- **Timeframe:** {when it must be in place}
 
-**Beskrivelse:** Beholde nåværende løsning.
+## Migration (when changing an existing system)
+- **Backward compatibility:** {can old code run with the new schema/event contract?}
+- **Rollout strategy:** big bang / gradual / parallel operation
+- **Feature toggle:** {toggle name and strategy}
+- **Rollback trigger:** {what triggers rollback}
+- **Exit criteria:** {when migration is complete}
+- **Decommissioning:** {plan for old solution}
+- **Migration observability:** {old versus new path, discrepancy counter, reconciliation}
 
-**Fordeler:**
-- Ingen endringskostnad.
-
-**Ulemper:**
-- {konsekvens av å ikke gjøre noe}
-
-## NAV-spesifikke vurderinger
-
-### Sikkerhet og personvern
-- **Dataklassifisering:** Åpen / Intern / Fortrolig / Strengt fortrolig
-- **Auth-mekanisme:** Azure AD / TokenX / Maskinporten (se `/auth-overview`)
-- **PII-håndtering:** {hvordan fnr og særlige kategorier beskyttes i logg, lagring, transport — bruk callId/aktørreferanse i logg, ikke rå PII}
-- **Tilgangsstyring:** {accessPolicy-strategi — `inbound`/`outbound` i NAIS-manifestet}
-- **Personvern:** {DPIA-vurdert? kontaktet personvernombud? behandlingsgrunnlag?}
-
-### Plattform (NAIS/GCP)
-- **Infrastrukturkrav:** {Cloud SQL Postgres / Kafka (Aiven via Kafkarator) / Bucket / ...}
-- **Ressursbehov:** {CPU/minne-requests, replicas — husk: ikke sett `resources.limits.cpu` på NAIS}
-- **Observerbarhet:** {Prometheus-metrikker, strukturert JSON-logg uten PII, OpenTelemetry-tracing, alerts}
-- **CI/CD-endringer:** {nye GitHub Actions-workflows, deploy-strategi, feature toggles}
-
-### Team og organisasjon
-- **Berørte team:** {konsumenter, produsenter, plattformteam}
-- **Architecture Advice:** {hvem er rådspurt, når, hva var tilbakemeldingen}
-- **Migrasjonsstrategi:** {nåtilstand → måltilstand}
-- **Tilbakerulling:** {rollback-plan uten datatap}
-- **Tidsramme:** {når skal dette være på plass}
-
-## Migrasjon (ved endring av eksisterende system)
-- **Bakoverkompatibilitet:** {kan gammel kode kjøre med nytt skjema / ny event-kontrakt?}
-- **Utrullingsstrategi:** big bang / gradvis / parallell drift
-- **Feature toggle:** {toggle-navn og strategi}
-- **Rollback-trigger:** {hva utløser rollback}
-- **Exit criteria:** {når er migreringen ferdig}
-- **Dekommisjonering:** {plan for gammel løsning}
-- **Migrasjons-observerbarhet:** {gammel vs ny path, avviksteller, rekonsiliering}
-
-## Konsekvenser
-
+## Consequences
 ### Positive
 - ...
-
 ### Negative
 - ...
+### Risks
+| Risk | Likelihood | Consequence | Mitigation |
+|---|---|---|---|
+| ... | Low/Medium/High | ... | ... |
 
-### Risiko
-
-| Risiko | Sannsynlighet | Konsekvens | Mitigering |
-|--------|--------------|------------|-----------|
-| ... | Lav/Middels/Høy | ... | ... |
-
-## Aksjonspunkter
-
-- [ ] {oppgave} — {eier} — {frist}
-- [ ] Oppdater NAIS-manifest (inkl. `accessPolicy`) — se `/nais-manifest`
-- [ ] Sett opp observerbarhet (metrikker, logg, alerts)
-- [ ] Informer berørte team
-- [ ] Bryt arbeidet ned i `.grill/PLAN.md` (evt. `/to-issues`)
-- [ ] Definer bevis i `.grill/VERIFICATION.md`
+## Action items
+- [ ] {task} — {owner} — {deadline}
+- [ ] Update NAIS manifest, including `accessPolicy`; see `/nais-manifest`
+- [ ] Add observability: metrics, logging, alerts
+- [ ] Inform affected teams
+- [ ] Break work into a task-scoped brief; optionally recommend explicit issue-management
+- [ ] Define proof in the brief’s `verification`
 ```
 
-## Tips
+## Guidance
 
-- Hold ADR-er korte og fokuserte — én beslutning per ADR.
-- «Gjøre ingenting» er alltid et alternativ.
-- Skriv for fremtidige lesere (og @grillmester i en senere tråd) som ikke kjenner konteksten.
-- Bruk domenets ord fra `docs/glossary.md`, ikke ad-hoc-navn.
-- Oppdater status når beslutningen er tatt; «Erstattet av NNNN» når en beslutning revideres.
-- Ikke legg PII eller hemmeligheter i selve ADR-en — referer til riktig kilde i stedet.
+- Keep ADRs short and focused: one decision per ADR.
+- “Do nothing” is always an alternative.
+- Write for future readers and Grillmester in a later task that lacks current context.
+- Use domain terms from `docs/glossary.md`, not ad-hoc names.
+- Update status when decided; use “Superseded by NNNN” when revising a decision.
+- Never put PII or secrets in the ADR; refer to the correct source instead.

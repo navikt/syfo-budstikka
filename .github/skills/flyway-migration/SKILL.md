@@ -1,35 +1,37 @@
 ---
 name: flyway-migration
-description: "Flyway-databasemigreringer i no.nav.syfo-backend — V__ SQL-filer, schema-endringer, backfill, indeksmigrering, rollback-plan og produksjonssikker rekkefølge. Brukes når du oppretter eller endrer en migrering, legger til/endrer tabell, kolonne eller indeks i Postgres."
+description: "Design production-safe Flyway migrations. Use when adding or changing tables, columns, indexes, backfills, migration ordering, or rollback plans."
 ---
 
-# Flyway-migrering
+# Flyway migration
 
-Opprett eller endre en Flyway-migreringsfil etter teamets konvensjoner i dette repoet.
+Create or change a Flyway migration file using this repository's conventions.
 
-## Steg
+## Steps
 
-1. Finn migreringsmappen ved å søke etter eksisterende `V*__*.sql`-filer under `src/main/resources/db/migration/` (Flyway-standard), eller sjekk `flyway.locations` / Flyway-konfig i `src/main/kotlin` der `DataSource` settes opp. List eksisterende migreringer for å finne neste versjonsnummer.
-2. Les den nyeste migreringen for å forstå navngivings- og stilkonvensjonene i akkurat dette repoet.
-3. Opprett den nye migreringsfilen med riktig navn: `V{next}__{beskrivelse}.sql`. Hvis det ikke finnes migreringer fra før, start på `V1__init.sql` og legg dem under `src/main/resources/db/migration/`.
+1. Find existing `V*__*.sql` files under
+   `src/main/resources/database.migration/` and read `DataSource.migrate()` for
+   active location. List migrations to find the next version number.
+2. Read the newest migration to understand repository naming and style.
+3. Create `V{next}__{description}.sql` in
+   `src/main/resources/database.migration/`.
 
-## Konvensjoner
+## Conventions
 
-- Foretrekk fail-fast i versjonerte migreringer — bruk `IF NOT EXISTS` / `IF EXISTS` bare når du bevisst vil gjøre migreringen idempotent
-- Bruk `TIMESTAMPTZ` for tidsstempler (med `DEFAULT NOW()`)
-- Bruk `UUID` med `gen_random_uuid()` for primærnøkler der det passer
-- Bruk `TEXT` i stedet for `VARCHAR`
-- Legg til indekser for kolonner det søkes ofte på
-- Bruk `CREATE INDEX CONCURRENTLY IF NOT EXISTS` for nye indekser på eksisterende tabeller, men behandle avbrudd eksplisitt: en ugyldig indeks med samme navn kan bli liggende igjen
-- Bruk vanlig `CREATE INDEX` bare når indeksen opprettes sammen med en ny tom tabell i samme migrering
-- Én fokusert endring per migrering
-- Ikke rediger en `V__`-migrering som allerede er kjørt i et miljø — Flyway feiler på endret checksum. Lag en ny migrering i stedet.
-- `V__`-migreringer er **forward-only**: Flyway Community har ingen automatisk undo (`U__`-undo er en betalt funksjon). Et tilbakerull er en ny `V{n+1}__`-migrering som reverserer — aldri redigering eller sletting av en kjørt migrering.
+- Prefer fail-fast versioned migrations; use `IF NOT EXISTS` / `IF EXISTS` only
+  when deliberate idempotency is required.
+- Use `TIMESTAMPTZ` with `DEFAULT NOW()`, suitable `UUID`/`gen_random_uuid()`
+  primary keys, and `TEXT` rather than `VARCHAR`.
+- Index frequently searched columns. Use `CREATE INDEX CONCURRENTLY IF NOT EXISTS`
+  for an existing table; handle interrupted invalid indexes explicitly. Use plain
+  `CREATE INDEX` only with a new empty table in the same migration.
+- Keep one focused change per migration. Never edit a deployed `V__` migration:
+  checksums fail. `V__` is forward-only; rollback is a new reversing `V{n+1}__`.
 
 ## Mal
 
 ```sql
--- V{number}__{beskrivelse}.sql
+-- V{number}__{description}.sql
 CREATE TABLE table_name (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -39,59 +41,69 @@ CREATE TABLE table_name (
 CREATE INDEX idx_table_name_field ON table_name(field);
 ```
 
-Bruk eksempelet over bare når tabellen opprettes i samme migrering og fortsatt er tom.
+Use this only when the table is created in the same migration and remains empty.
 
-## Indekser på eksisterende tabeller
+## Indexes on existing tables
 
-Bruk `CREATE INDEX CONCURRENTLY IF NOT EXISTS` for nye indekser på eksisterende tabeller, også når brukeren ikke sier at tabellen er stor. Dette er standardvalget i PostgreSQL-migreringer som treffer tabeller med data.
+Use `CREATE INDEX CONCURRENTLY IF NOT EXISTS` for a new index on an existing table,
+even when table size is unknown. This is the default for PostgreSQL migrations on
+tables with data.
 
 ```sql
 -- V5__add_index_concurrently.sql
--- NB: CREATE INDEX CONCURRENTLY kan ikke kjøre i transaksjon
--- Legg denne i egen migrering og verifiser Flyway-oppsettet først
+-- NOTE: CREATE INDEX CONCURRENTLY cannot run in a transaction
+-- Put this in its own migration and verify Flyway setup first
 -- flyway:executeInTransaction=false
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vedtak_bruker ON vedtak (bruker_id);
 ```
 
-`CREATE INDEX CONCURRENTLY IF NOT EXISTS` må ligge i egen migrering og ikke kjøre i transaksjon. Hvis en slik migrering ble avbrutt, må du sjekke om en ugyldig indeks med samme navn ligger igjen og rydde den opp før ny kjøring; `IF NOT EXISTS` kan ellers skjule problemet i stedet for å gjøre re-kjøring trygg. I dette repoet konfigureres Flyway i kode (`Flyway.configure()...`); verifiser `executeInTransaction`/configuration der i stedet for å gjette på globale properties.
+It must be a separate non-transactional migration. After interruption, inspect and
+remove an invalid index with the same name before retrying: `IF NOT EXISTS` can
+hide the problem. This repository configures Flyway in code
+(`Flyway.configure()...`); verify `executeInTransaction` there rather than
+guessing global properties.
 
-## Langvarige migreringer og NAIS
+## Long-running migrations and NAIS
 
-Hvis migreringen kan ta tid, sjekk appens NAIS-manifest (`.nais/`, `nais/` eller tilsvarende `*.yaml`). Verifiser at appen har `spec.startup` slik at Flyway får tid til å fullføre før liveness overtar og poden restartes midt i migreringen.
+For a long migration, inspect `nais/nais-dev.yaml` and `nais/nais-prod.yaml`.
+Verify startup/probe timing gives Flyway time to finish before liveness restarts
+the pod mid-migration.
 
-Hvis startup-probe mangler, foreslå eller legg den til med samme health-path som appen allerede bruker (typisk `/internal/isalive` eller `/isAlive` i et Ktor-backend):
+If the startup window is too short, update existing probes with the actual
+syfo-budstikka paths:
 
 ```yaml
 spec:
   liveness:
-    path: /internal/isalive
+    path: /internal/health/is_alive
   readiness:
-    path: /internal/isready
+    path: /internal/health/is_ready
   startup:
-    path: /internal/isalive
+    path: /internal/health/is_alive
     initialDelay: 10
     periodSeconds: 5
     failureThreshold: 60
 ```
 
-Informer bruker om hvor lang tid startup-proben gir migreringen (`periodSeconds * failureThreshold`), enten den finnes fra før eller settes av ditt forslag.
+Tell the user how much migration time the startup probe grants
+(`periodSeconds * failureThreshold`). Do not change liveness/readiness without
+need; the goal is to avoid restart before migration completes.
 
-Ikke endre liveness/readiness unødvendig. Målet er å unngå at poden blir restartet før migreringen er ferdig.
+## Repeatable migrations
 
-## Repeterbare migreringer
+`R__*.sql` files rerun whenever their contents change.
 
-`R__*.sql`-filer kjøres på nytt hver gang innholdet endres.
-
-Bruk dem for:
+Use them for:
 
 - views
 - funksjoner
 - triggers
 - seed data
 
-Hold versjonerte `V__`-migreringer uendrede, og bruk repeterbare migreringer for objekter som naturlig regenereres.
+Keep versioned `V__` migrations unchanged and use repeatable migrations for
+objects that naturally regenerate.
 
-Eksempel på `updated_at`-trigger i en repeterbar migrering:
+Example `updated_at` trigger in a repeatable migration:
 
 ```sql
 -- R__update_updated_at.sql
@@ -104,9 +116,10 @@ END;
 $$ language 'plpgsql';
 ```
 
-## Testcontainers-eksempel
+## Testcontainers example
 
-Bruk Testcontainers for å verifisere at migrasjoner faktisk kan kjøres mot en ekte PostgreSQL-instans i tester — ikke bare H2 eller mock.
+Use Testcontainers to prove migrations run against real PostgreSQL, not only H2
+or mocks.
 
 ```kotlin
 @Testcontainers
@@ -118,7 +131,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun `migrasjoner kjorer uten feil`() {
+    fun `migrations run without failures`() {
         Flyway.configure()
             .dataSource(postgres.jdbcUrl, postgres.username, postgres.password)
             .load()
@@ -127,8 +140,12 @@ class DatabaseMigrationTest {
 }
 ```
 
-Dette gir rask tilbakemelding på at migrasjonsrekkefølge, SQL-syntaks og Flyway-konfig faktisk fungerer sammen, før koden treffer dev/prod i GCP.
+This quickly proves migration ordering, SQL syntax, and Flyway configuration work
+together before dev/prod GCP.
 
-## Kobling til faseløkken
+## Delivery flow
 
-Når en migrering inngår i en planlagt endring, noter schema-beslutninger (ny tabell/indeks, backfill-strategi, rollback) i `docs/context.md`, og fang varige valg (f.eks. UUID vs. bigserial, concurrently-indeksering) som en ADR under `docs/adr/`. Verifiser at migreringen kjører grønt via Testcontainers og legg evidensen i `.grill/VERIFICATION.md` før PR. For endringer som rører migreringer er det verdt å kjøre en ekstra review (`grill-inspektor`) før merge.
+For planned work, lock schema, backfill, and rollback in the brief; record
+hard-to-reverse choices such as UUID versus bigserial or concurrent indexing as
+ADRs. Verify with Testcontainers and include command, result, and exit code in
+KOKK_RESULT/PR. Migrations are R3/R4 and require `grill-inspektor` after Kokk.

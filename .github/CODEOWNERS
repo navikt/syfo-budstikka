@@ -1,8 +1,12 @@
 # Standard reviewers for syfo-budstikka.
-# Verifiser at team-håndtaket stemmer (team-esyfo er nevnt i github-actions.instructions.md).
+# Verify that the team handle is correct (team-esyfo is named in github-actions.instructions.md).
 * @navikt/team-esyfo
 
-# Høyrisiko-stier bør alltid ha menneskelig review (kombiner med branch protection):
+# High-risk paths should always receive human review (combine with branch protection):
 /.github/                            @navikt/team-esyfo
+/.githooks/                          @navikt/team-esyfo
 /nais/                               @navikt/team-esyfo
+/scripts/agent-smoke.sh              @navikt/team-esyfo
+/scripts/scan-grill-pii.sh           @navikt/team-esyfo
+/scripts/validate-agent-models.sh    @navikt/team-esyfo
 /src/main/resources/database.migration/  @navikt/team-esyfo

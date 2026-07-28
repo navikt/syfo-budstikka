@@ -1,6 +1,6 @@
 ---
 name: e2e-tests
-description: "Use for full app-boot Kotest E2E tests: HTTP/Kafka/Postgres flows, Testcontainers, @Tags(\"E2E\"), TestContext, ./gradlew e2eTest, or /e2e-tests. Use /integration-tests for real adapters without app boot."
+description: "Create or run full-application Kotest E2E tests. Use when an HTTP, Kafka, or Postgres flow must boot the app with Testcontainers and ./gradlew e2eTest."
 ---
 
 # E2E Tests

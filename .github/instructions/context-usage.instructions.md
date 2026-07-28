@@ -1,33 +1,41 @@
 ---
-description: "Brukes når arbeid i repoet refererer til docs/context.md; definerer når context skal brukes, og når ADR/glossar/kode er riktig kilde i stedet."
-applyTo: "**"
+description: "Applies when documentation or repository agent contracts change; defines when context, ADRs, and the glossary are the correct source."
+applyTo: "docs/**/*.md, AGENTS.md, .github/**/*.md"
 ---
 
-# Bruk av `docs/context.md`
+# Using `docs/context.md`
 
-`docs/context.md` er arbeidskontekst for valgt retning, ikke universell sannhetskilde.
+`docs/context.md` is a short current mental model and index, not a work plan or
+universal source of truth.
 
-## Bruk `docs/context.md` når
+## Use `docs/context.md` when
 
-- du orienterer deg i grill-, design- og planfaser
-- du trenger status på åpne/låste B-beslutninger
-- du trenger pekere til relevante temadokumenter
+- orienting during grilling, design, and planning;
+- locating the correct topic document or ADR; or
+- finding pointers to relevant durable documentation.
 
-## Ikke bruk `docs/context.md` når
+## Do not use `docs/context.md` when
 
-- du skriver kodekommentarer som ikke trenger designhistorikk
-- du skriver API-feilmeldinger eller runtime-logger
-- du trenger bindende beslutning (bruk ADR i stedet)
+- writing code comments that do not need design history;
+- writing API error messages or runtime logs; or
+- resolving a binding decision, which belongs in an ADR.
 
-## Kildeprioritet
+## Source precedence
 
-1. `docs/adr/NNNN-*.md` for bindende, vanskelig-reversible beslutninger
-2. `docs/glossary.md` for domenebegreper
-3. `docs/context.md` for valgt tilnærming og status
-4. `.grill/*` for transient arbeidsminne i pågående arbeid
+1. `docs/adr/NNNN-*.md` for binding, hard-to-reverse decisions
+2. the named entry in `docs/decisions.md` for a concrete `Bnn` reference;
+   supersession must be explicit
+3. `docs/glossary.md` for canonical domain terms
+4. `docs/context.md` for the current mental model and pointers
+5. the current GitHub issue or pull request and explicit task-scoped brief for
+   active work
 
-## Referansestil
+`docs/decisions.md` is active reference material but deliberately non-ambient.
+Do not load the complete register unless the task genuinely spans it.
 
-- Skriv filsti som `docs/context.md` i prosa.
-- Ikke skriv `@docs/context.md` i kodekommentarer.
-- ADR-referanse i kodekommentar er OK når den forklarer en ikke-triviell avveining.
+## Reference style
+
+- Write paths such as `docs/context.md` directly in prose.
+- Do not write `@docs/context.md` in code comments.
+- An ADR reference in a code comment is appropriate when it explains a
+  non-trivial trade-off.

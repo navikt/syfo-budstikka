@@ -1,49 +1,37 @@
 # Issue dependencies
 
-## MCP (primær)
+Use GitHub REST through `gh api` (owner/repo = `navikt/syfo-budstikka`). Get the
+blocker’s database ID with `gh api repos/navikt/syfo-budstikka/issues/<n> --jq .id`;
+the issue number and node ID are not valid dependency IDs.
 
-Bruk MCP for dependencies når det er tilgjengelig i aktivt toolset.
-
-- Sjekk først om MCP-oppsettet eksponerer dependency-operasjoner
-- Foretrekk MCP over direkte API-kall
-
-## Fallback (gh api)
-
-Når MCP ikke er tilgjengelig, bruk GitHub REST via `gh api` (owner/repo = `navikt/syfo-budstikka`).
-
-### Legg til dependency
+### Add a dependency
 
 ```bash
-# Issue N er avhengig av et annet issue
+# Issue N depends on another issue
 gh api \
-  repos/navikt/syfo-budstikka/issues/{issue_number}/sub_issues/dependencies \
+  repos/navikt/syfo-budstikka/issues/{issue_number}/dependencies/blocked_by \
   -X POST \
-  -f dependent_issue_id=N
-
-# Alternativ payload-form
-gh api \
-  repos/navikt/syfo-budstikka/issues/{issue_number}/sub_issues/dependencies \
-  -X POST \
-  -f dependency_issue_id=N
+  -f issue_id=<blocker_database_id>
 ```
 
 ### List dependencies
 
 ```bash
-gh api repos/navikt/syfo-budstikka/issues/{issue_number}/sub_issues/dependencies
+gh api repos/navikt/syfo-budstikka/issues/{issue_number} --jq .issue_dependencies_summary
 ```
 
-### Fjern dependency
+### Remove a dependency
 
 ```bash
 gh api repos/navikt/syfo-budstikka/issues/{issue_number}/sub_issues/dependencies/{dependency_id} -X DELETE
 ```
 
-### Semantikk
+### Semantics
 
-- **blocked-by**: hvilke issues blokkerer dette issuet
-- **blocking**: hvilke issues dette issuet blokkerer
+- **blocked-by**: issues that block this issue
+- **blocking**: issues that this issue blocks
 
-### Notat
+### Note
 
-Dette erstatter tekstbasert `Avhenger av #NNN` som datakilde, men behold gjerne teksten i issue body for lesbarhet.
+This replaces text-based `Depends on #NNN` as the data source, but keep the text
+in the issue body for readability.

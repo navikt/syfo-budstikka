@@ -1,178 +1,139 @@
 ---
 name: readme-update
-description: "Brukes når README eller repo-dokumentasjon i dette Ktor-backend-repoet skal opprettes eller oppdateres — når brukeren ber om å skrive/forbedre README, dokumentere API, Kafka, database, NAIS-oppsett eller auth, eller når README er utdatert mot faktisk kode og .nais-manifest. Trigges typisk av /readme-update."
+description: "Create or update README.md from the repository's actual API, Kafka, database, NAIS, and authentication setup. Use when README content is missing or stale."
 ---
 
-# README-oppdatering
+# README update
 
-Bruk denne skillen når README skal opprettes eller oppdateres. README skal speile det `no.nav.syfo`-backenden faktisk gjør i dag — ikke fylle ut en generisk mal og ikke beskrive ønsket fremtid.
+Use this skill to create or update a README. Make the README describe what the
+`no.nav.budstikka` backend does today — not a generic template or an intended future.
 
-Fokuser på det en backend-leser trenger: hva tjenesten gjør, hvilke API-er den eksponerer, hva den konsumerer/produserer på Kafka, hvilken database den eier, hvordan den autentiserer kallere, og hvordan andre tjenester når den. Dropp frontend-spesifikke grep (miljølenker for deploybar UI, microfront-tabeller, nav-dekoratør, Storybook).
+Focus on what a backend reader needs: service purpose, exposed APIs, Kafka
+consumption or production, owned database, caller authentication, and how other
+services reach it. Omit frontend-specific conventions (deployable-UI environment
+links, microfrontend tables, Nav decorator, and Storybook).
 
-## Steg 1: Les repoet først
+## Language boundary
 
-Les faktiske kilder før du skriver én linje README:
+Write user-facing README and product copy in Norwegian Bokmål. Keep technical
+identifiers, canonical Norwegian domain terms in code, URLs, commands, and
+established Nav names unchanged. This skill's agent guidance, like other
+technical documentation, remains English.
 
-1. **Eksisterende README** — bevar manuelt innhold, Slack-kanaler, wiki-lenker og stabile driftstips som fortsatt stemmer. Det genererte Ktor-scaffoldet (lenker til ktor.io, tom "Features"-tabell, `./gradlew run`-tabell) er ikke manuelt innhold — det skal erstattes.
-2. **Stack og bygg** — `build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`. Hent `group` (`no.nav.syfo`), `mainClass` (typisk `io.ktor.server.netty.EngineMain`), JVM-toolchain, Ktor-versjon fra version catalog, og hvilke moduler som faktisk er på classpath (server-core, netty, auth, content-negotiation, flyway, kafka-klient, exposed/hikari osv.).
-3. **NAIS-manifest** — `.nais/` (eller `nais/`, `.nais.yaml`) for miljøer (`dev-gcp`/`prod-gcp`), `ingresses`, `gcp.sqlInstances` (Postgres), `kafka`, `accessPolicy.inbound`/`outbound`, og `tokenx`/`azure`. Manifestet er fasiten for auth, integrasjoner og miljøer — ikke gjett.
-4. **Kode** — `src/main/kotlin/` for Ktor-oppsett: `embeddedServer`/`Application.module()`, `routing { ... }`-blokker (endepunkter), `install(Authentication)` (TokenX/Azure AD-validering), Kafka consumer/producer, og databaselag. Sjekk `src/main/resources/application.yaml` (eller `.conf`) for porter, miljøvariabler og featuretoggles, og `src/main/resources/db/migration/` for Flyway-migrasjoner.
-5. **CI/CD** — `.github/workflows/` for workflow-navn til CI-badge og deploy-flyt.
-6. **Docs** — `docs/`, ADR-er og arkitektur-notater. Lenk i stedet for å duplisere lange forklaringer.
+## Step 1: Read the repository first
 
-Avklar minst dette før du skriver:
+Read actual sources before writing any README text:
 
-- Hva er backendens hovedansvar, og hvilket domene dekker den?
-- Hvilke miljøer finnes faktisk i `.nais/`?
-- Hvilke REST/GraphQL-endepunkter eksponerer den, og hvilke krever auth?
-- Konsumerer eller produserer den Kafka? Hvilke topics, og hvilken vei?
-- Eier den en Postgres-database med Flyway-migrasjoner?
-- Hvilke klienter kaller den (via TokenX eller Azure AD), og hvilke tjenester kaller den ut til (`accessPolicy.outbound`)?
+1. **Existing README** — retain manual content, Slack channels, wiki links, and
+   durable operational advice that remain correct. Generated Ktor scaffolding
+   (ktor.io links, empty “Features” table, `./gradlew run` table) is not manual
+   content and should be replaced.
+2. **Stack and build** — `build.gradle.kts`, `settings.gradle.kts`,
+   `gradle/libs.versions.toml`, and `gradle.properties`. Read the `group`
+   (`no.nav.syfo`), `mainClass` (usually `io.ktor.server.netty.EngineMain`), JVM
+   toolchain, Ktor version catalog entry, and modules actually on the classpath.
+3. **Nais manifests** — `nais/nais-*.yaml` for environments, ingresses,
+   `gcp.sqlInstances`, Kafka, `accessPolicy`, and `azure`/`tokenx`. The manifest
+   is authoritative for platform configuration, but auth must also exist in code.
+4. **Code** — `src/main/kotlin/no/nav/budstikka/` for `Application.module()`,
+   routes, Ktor plugins, Kafka, clients, and data access. Read
+   `src/main/resources/application.conf` and Flyway files under
+   `src/main/resources/database.migration/`.
+5. **CI/CD** — `.github/workflows/` for workflow names used in a CI badge and
+   the deployment flow.
+6. **Docs** — `docs/`, ADRs, and architecture notes. Link to them instead of
+   duplicating long explanations.
 
-## Steg 2: Velg relevante seksjoner
+Clarify at least:
 
-| Seksjon | Når | Hva du må hente fra repoet |
-|---|---|---|
-| Tittel + badges | Alltid | Repo-navn, workflow-navn, faktisk stack (Kotlin, Ktor, Gradle) samt linter/formatter/testverktøy (ktlint/spotless, JUnit/Kotest) |
-| Formålet med repoet | Alltid | Se Formål-seksjonen |
-| Mermaid-diagram | Hvis integrasjoner, auth eller flyt mellom tjenester | Faktiske flyter: kallende tjeneste → app (TokenX/Azure), Kafka inn/ut, Postgres, utgående API-kall. Se Mermaid-seksjonen |
-| API-oversikt | Hvis repoet eksponerer API | Metode, sti, kort beskrivelse, auth-krav per endepunkt |
-| Kafka | Hvis consumer/producer | Topics, retning (inn/ut), hva som leses/persisteres/publiseres videre |
-| Database | Hvis Postgres/Flyway | Hva databasen eier, kort om sentrale tabeller, at skjema styres av Flyway-migrasjoner i `db/migration/` |
-| Autentisering | Hvis `install(Authentication)` eller `tokenx`/`azure` i manifest | Hvilken mekanisme (TokenX, Azure AD), hvilke endepunkter som er beskyttet, hvem som er gyldige kallere (`accessPolicy.inbound`) |
-| Utvikling | Alltid | Kort seksjon nederst: stabil lokal URL (typisk `http://localhost:8080`) og hvor leseren finner ferske kommandoer. Pek til `./gradlew tasks` i stedet for å liste konkrete `./gradlew test`/`build`/`run` |
-| Les mer | Hvis docs finnes | Lenker til `docs/`, ADR-er og arkitektur |
-| For Nav-ansatte | Alltid | Kontaktlenke til team-Slack som siste seksjon, pluss intern team-info. For team-esyfo er `[#esyfo på Slack](https://nav-it.slack.com/archives/C012X796B4L)` standard når ikke annet er kjent |
+- What is the backend's primary responsibility and domain?
+- Which environments actually exist under `nais/`?
+- Which REST/GraphQL endpoints are exposed, and which require auth?
+- Does it consume or produce Kafka, on which topics, and in which direction?
+- Does it own a PostgreSQL database with Flyway migrations?
+- Which clients does it call (via TokenX or Azure AD), and which services call
+  it through `accessPolicy.outbound`?
 
-## Steg 3: Generer eller oppdater
+## Step 2: Choose relevant sections
 
-### Ved oppdatering
+Choose only sections the repository needs, ordered purpose → integrations →
+development → metadata. Read [references/content-catalog.md](references/content-catalog.md)
+for section selection, anti-patterns, purpose, database, and observability;
+read [references/section-templates.md](references/section-templates.md) only when writing
+badges, Mermaid, or an API table.
 
-- Behold seksjoner som fortsatt er riktige.
-- Oppdater bare foreldet innhold; ikke skriv om alt uten grunn.
-- Bevar manuelle detaljer som Slack-kanaler, wiki-lenker og driftstips hvis de fortsatt stemmer.
-- Hvis eksisterende README har nyttige seksjoner som ikke finnes i denne skillen, behold dem når de gir verdi.
-- Erstatt generert Ktor-scaffold-tekst (ktor.io-lenker, tom Features-tabell, generisk build/run-tabell) med innhold som beskriver det faktiske domenet.
+## Step 3: Create or update
 
-### Tittelvalg
+### Update an existing README
 
-- Foreslå alltid 3 README-titler og spør brukeren før du låser tittelen.
-- Alternativ 1: repo-navnet slik det er i dag (`syfo-budstikka`).
-- Alternativ 2: et domenenært forslag basert på hva backenden faktisk gjør.
-- Alternativ 3: et annet domenenært forslag med en annen vinkling (mer teknisk, eller mer rettet mot hva tjenesten leverer til konsumentene).
-- Alternativ 4: brukeren skriver en egen tittel.
-- Begrunn kort: app-navn i `syfo`-familien er ofte kryptiske, mens en domenenær tittel gjør README forståelig på sekunder for en ny leser.
+- Keep sections that remain correct.
+- Update only stale content; do not rewrite everything without a reason.
+- Preserve correct manual details such as Slack channels, wiki links, and
+  operational advice.
+- Keep useful existing sections that this skill does not name.
+- Replace generated Ktor scaffolding with content that describes the real domain.
 
-### Ved ny README
+### Choose the title
 
-- Inkluder alltid: tittel, badges, formål, diagram (eller en kort liste over integrasjoner hvis det er tydeligere) og utvikling.
-- Ta kun med seksjoner backenden faktisk trenger.
-- Bruk repoets egne navn på endepunkter, topics, databaser og miljøer.
+- Propose three README titles and ask the user before fixing the title.
+- Option 1: the current repository name (`syfo-budstikka`).
+- Option 2: a domain-oriented title based on what the backend actually does.
+- Option 3: a different domain-oriented angle, more technical or focused on
+  what the service delivers to consumers.
+- Option 4: a title supplied by the user.
+- Explain briefly: names in the `syfo` family are often cryptic, while a
+  domain-oriented title helps a new reader understand the README in seconds.
 
-### Kvalitetsregler
+### Create a new README
 
-- Kognitiv trakt: tittel → formål/kontekst → API/Kafka/DB/auth → utvikling → meta. Lesere skanner ovenfra og ned.
-- Ikke finn på endepunkter, topics, databaser, auth eller miljøer. Kryssjekk alltid mot kode og `.nais/`.
-- Ikke påstå auth-oppsett uten å ha sett `install(Authentication)` i kode eller `tokenx`/`azure` i manifest.
-- Hvis info mangler for en "alltid"-seksjon, bevar eksisterende tekst eller spør brukeren.
-- I utviklingsseksjonen: pek til `./gradlew tasks` for tilgjengelige Gradle-oppgaver i stedet for å kopiere konkrete kommandoer. Da ser leseren alltid oppdatert liste.
-- Skriv kort og konkret klarspråk i formål-, utviklings- og kontaktseksjonen. README er inngangsport, ikke komplett internwiki.
+- Always include title, badges, purpose, a diagram (or a short integration list
+  when clearer), and development.
+- Add only sections the backend actually needs.
+- Use the repository's actual endpoint, topic, database, and environment names.
 
-## Anti-mønstre å se etter
+### Quality rules
 
-- Scaffold-rester: ktor.io-lenker, tom "Features"-tabell og generisk build/run-tabell fra Ktor Project Generator som aldri ble erstattet.
-- Template cargo-culting: kopiert mal uten tilpasning til faktisk repo.
-- Zombie sections: utdaterte seksjoner som aldri fjernes.
-- Badge wall: mer enn 5 badges på rad uten tydelig signalverdi.
-- README bloat: over 500 linjer — splitt heller innholdet i `docs/`.
-- Command cargo-culting: kopierte `./gradlew`-kommandoer i stedet for å peke til `./gradlew tasks`.
-- Stale examples: endepunkter, topics eller paths som ikke virker lenger.
-- Aspirational docs: beskriver det som burde finnes, ikke det som finnes.
-- Happy-path only: mangler feilhåndtering eller troubleshooting der det trengs.
+- Follow the cognitive funnel: title → purpose/context → API/Kafka/database/auth
+  → development → metadata. Readers scan top to bottom.
+- Do not invent endpoints, topics, databases, auth, or environments. Check code
+  and `nais/`.
+- Do not claim auth configuration before finding `install(Authentication)` in
+  code or `tokenx`/`azure` in the manifest.
+- When information for an always-needed section is missing, retain existing text
+  or ask the user.
+- In development, point to `./gradlew tasks` instead of copying concrete Gradle
+  commands, so readers always see the current task list.
+- Use short, plain language for purpose, development, and contact. A README is
+  an entry point, not a complete internal wiki.
 
-## Badges
+## Section templates — badges, Mermaid, API table
 
-Bruk badges som speiler faktisk stack og workflows. CI-badge med repoets workflow-navn:
+Read [references/section-templates.md](references/section-templates.md) for templates and
+rules for the three heaviest sections: CI and technology badges, a Mermaid diagram,
+and the API table.
 
-```md
-[![CI](https://github.com/navikt/<repo>/actions/workflows/<workflow>.yaml/badge.svg)](https://github.com/navikt/<repo>/actions/workflows/<workflow>.yaml)
-```
+## Boundaries
 
-Legg til teknologi-badges for det stacken faktisk bruker (shields.io med logo). For dette repoet er det typisk Kotlin og Ktor; legg til linter/formatter (ktlint/spotless) og testverktøy (JUnit/Kotest) hvis de er i bruk. Ikke lag en komplett liste — ta bare med det repoet bruker.
+### Always
 
-## Mermaid-diagram
+- Read real repository content (`build.gradle.kts`, `nais/`,
+  `src/main/kotlin/no/nav/budstikka/`, `application.conf`, and workflows) before
+  writing the README.
+- Cross-check README text against code, manifests, and workflows.
+- Preserve correct manual content.
+- Describe auth and integrations in Nav context when present: TokenX, Azure AD,
+  `accessPolicy`, Kafka topics, and PostgreSQL.
 
-Tilpass diagrammet til backendens faktiske arkitektur, men velg format etter informasjonsbehov:
+### Ask first
 
-- **Bruk Mermaid** når README må forklare flyt mellom flere tjenester: kallende klient, app, Kafka, Postgres og utgående integrasjoner.
-- **Bruk en kort punktliste i stedet** når avhengighetene er få og en liste er tydeligere.
-- **Ikke ta med begge** uten tydelig grunn.
+- If you would have to guess environment links, Slack channel, or team name.
+- If important product context cannot be inferred from the repository.
+- Before removing large manual sections that may be intentional.
 
-For en backend viser et godt diagram: hvilke klienter som kaller API-et (og om de bruker TokenX eller Azure AD), Kafka-topics inn og ut, PostgreSQL-databasen appen eier, og hvilke tjenester appen selv kaller ut til (`accessPolicy.outbound`).
+### Never
 
-```md
-```mermaid
-flowchart LR
-    klient[Kallende tjeneste] -->|TokenX| app[syfo-budstikka]
-    topicInn[(some.topic)] --> app
-    app --> topicUt[(annen.topic)]
-    app --> db[(PostgreSQL)]
-    app -->|Azure AD| ekstern[Ekstern tjeneste]
-```
-```
-
-Bruk repoets faktiske topic-navn, tjenestenavn og auth-mekanismer — ikke plassholderne over.
-
-## API-oversikt-seksjonen
-
-Når backenden eksponerer et API, list endepunktene fra `routing { ... }` med metode, sti, kort beskrivelse og auth-krav:
-
-```md
-### API
-
-| Metode | Sti | Beskrivelse | Auth |
-|--------|-----|-------------|------|
-| GET | `/api/v1/...` | Kort beskrivelse | TokenX |
-| POST | `/api/v1/...` | Kort beskrivelse | Azure AD |
-```
-
-Ta bare med endepunkter som faktisk er sentrale for konsumentene. `/internal/isalive`, `/internal/isready` og `/metrics` (NAIS-prober) trenger normalt ikke stå i API-tabellen.
-
-## Formål-seksjonen
-
-Formål skal forklare hva backenden gjør og for hvem:
-
-- Hvilket domeneproblem løser tjenesten?
-- Hvilke konsumenter (frontends, andre backender, jobber) er den til for?
-- Hvis flere konsumenter bruker ulike deler av API-et, beskriv kort skillet.
-
-## Database og Flyway
-
-Hvis repoet eier en Postgres-database: beskriv kort hva databasen lagrer og hvilke sentrale tabeller som finnes, og slå fast at skjemaet styres av Flyway-migrasjoner i `src/main/resources/db/migration/`. Ikke dupliser hele skjemaet i README — pek til migrasjonsfilene som kilde.
-
-## Observability
-
-Hvis repoet har Grafana-dashboards, lenk til dem. Nav bruker `https://grafana.nav.cloud.nais.io/` med team-spesifikke dashboards. Sjekk `.nais/`-manifest eller eksisterende README for verifiserte dashboard-URL-er — ikke konstruer URL-er du ikke har sett.
-
-## Grenser
-
-### Alltid
-
-- Les faktisk repo-innhold (`build.gradle.kts`, `.nais/`, `src/main/kotlin/`, `application.yaml`, workflows) før du skriver README.
-- Kryssjekk README-tekst mot kode, manifest og workflows.
-- Bevar manuelt innhold som fortsatt er riktig.
-- Beskriv auth og integrasjoner med Nav-kontekst når de finnes: TokenX, Azure AD, `accessPolicy`, Kafka-topics, Postgres.
-
-### Spør først
-
-- Hvis du må gjette på miljølenker, Slack-kanal eller teamnavn.
-- Hvis README mangler viktig produktkontekst som ikke kan utledes fra repoet.
-- Hvis du vurderer å fjerne store manuelle seksjoner som kan være bevisst skrevet.
-
-### Aldri
-
-- Skriv en generisk README uten å lese repoet.
-- Finn på API-er, topics, dashboards, auth eller miljøer.
-- Overskriv manuelt innhold ukritisk.
-- Dokumenter "ønsket fremtid" som om den allerede er implementert.
-- Lær bort generell Markdown- eller Mermaid-syntaks i README-skillen.
+- Write a generic README without reading the repository.
+- Invent APIs, topics, dashboards, auth, or environments.
+- Overwrite manual content uncritically.
+- Document an intended future as already implemented.
+- Teach general Markdown or Mermaid syntax in this README skill.

@@ -1,65 +1,43 @@
-# ADR 0002 — Inbox-dedup på Kafka-header, rå payload uten deserialisering
+# ADR 0002 — Inbox deduplication on Kafka header, raw payload without deserialization
 
-- Status: erstattet av ADR 0008 (hydrert inbox, parse ved ingest) — 2026-07-21.
-  Opprinnelig: besluttet (implementerer B54, issue #19). Beholdt for historikk.
-- Dato: 2026-07-08
-- Relatert: ADR 0001 (domeneblind varselruter), beslutning B54 og B26 i `docs/context.md`
+- Status: Superseded by ADR 0008 (hydrated inbox, parse at ingest), 2026-07-21.
+  Originally decided for B54, issue #19; retained as history.
+- Date: 2026-07-08
+- Related: ADR 0001, decisions B54 and B26 in `docs/decisions.md`
 
-## Kontekst
+## Context
 
-Budstikka konsumerer `team-esyfo.budstikka.v1` og må dedupe idempotent (B4) fordi
-Kafka-replay (bounded 90d retention, B26) kan dobbeltsende. Spørsmålet var *hvor*
-dedup-nøkkelen og feilhåndteringen forankres:
+Budstikka consumes `team-esyfo.budstikka.v1` and must deduplicate idempotently
+(B4), because replay within the bounded 90-day Kafka retention (B26) can
+otherwise send the same notification twice. `eventId` existed in the
+authoritative payload envelope and mirrored Kafka header
+`DispatchHeader.EVENT_ID`. Parsing at ingest couples deduplication to payload
+schema and lets unrelated schema change or `UGYLDIG_JSON` block it. Consumers
+must distinguish retryable transient failure from permanent poison failure.
 
-- `eventId` ligger både i payload-konvolutten (autoritativ, B4/B43) og speiles som
-  Kafka-header (`DispatchHeader.EVENT_ID`, kontraktkonstant fra #18).
-- Å parse bodyen ved ingest binder dedup til payload-skjemaet: en ikke-relatert
-  schema-endring eller en `UGYLDIG_JSON` ville da kunne blokkere selve dedup-en.
-- En Kafka-consumer må skille feil som skal **retryes** (transient) fra feil som
-  aldri blir bedre (poison) — ellers får du enten stille datatap eller
-  head-of-line blocking på partisjonen.
+## Decision
 
-## Beslutning
+Ingest performs **no body parsing**:
 
-Ingest gjør **ingen body-parsing**. Konkret:
+1. Read `eventId` from the Kafka header for fast-path dedup; later worker
+   validation requires `payload.eventId == header.eventId`.
+2. Store raw byte-exact payload as `text` in `inbox_message` without deserializing.
+3. Defer `reference` until the worker decodes `content`.
+4. Deduplicate through `event_id` primary key (`insertIgnore`/`ON CONFLICT DO NOTHING`).
+5. Missing/invalid `event_id` header or empty payload is poison: dead-letter to
+   `DeadLetterMessageTable` and commit offset. DB outage is transient: throw so
+   `ConsumerRunner` does not commit and retries with backoff.
 
-1. **`eventId` leses fra Kafka-headeren**, ikke fra bodyen, som dedup-nøkkel
-   (fast-path per B54). Payloaden forblir autoritativ og valideres av
-   beslutnings-workeren senere (`payload.eventId == header.eventId`).
-2. **Rå payload lagres byte-eksakt** som `text` i `inbox_message` uten
-   deserialisering. Dedup løsrives fra skjemaet; `UGYLDIG_JSON`-triggeren ved
-   ingest forsvinner.
-3. **`reference` deferres til workeren** (B54 lot dette stå åpent for #19). Ingest
-   trenger den ikke; den leses strukturelt først når `content` dekodes.
-4. **Dedup via `event_id` som PK** (`insertIgnore` / ON CONFLICT DO NOTHING).
-5. **Feiltaksonomi:**
-   - *Poison* (manglende/ugyldig `event_id`-header, tom payload): dead-letteres til
-     egen tabell (`DeadLetterMessageTable`), og offset committes → partisjonen
-     flyter videre.
-   - *Transient* (DB nede): unntak kastes → ConsumerRunner committer ikke og
-     re-poller med backoff.
+## Consequences
 
-## Konsekvenser
+Dedup/ingest survives payload schema change; poison does not block a partition;
+transient fault does not silently lose data; dead-letter is separate from inbox
+persistence. Header/body truth exists twice, so mismatch is poison. A missing
+header yields `MISSING_EVENT_ID` even with valid body. Replay remains safe only
+while `event_id` inbox rows are retained at least 90 days.
 
-- ➕ Dedup og ingest overlever payload-skjemaendringer — bodyen røres ikke før den
-  må dekodes.
-- ➕ Poison-meldinger blokkerer aldri partisjonen; transient-feil taper aldri data
-  stille. Skillet er strukturelt, ikke ad hoc.
-- ➕ Dead-letter er isolert i eget repository/tabell, adskilt fra inbox-persistering.
-- ➖ Sannheten finnes to steder (header + body) → workeren MÅ verifisere
-  `payload.eventId == header.eventId`; avvik er poison. Uten den sjekken kan en
-  produsent-bug (header ≠ body) gi feil dedup-nøkkel.
-- ➖ En produsent som utelater headeren dead-letteres (`MISSING_EVENT_ID`) selv om
-  bodyen er gyldig — «obligatorisk header» er en kontrakt, ikke en broker-garanti.
-- 🔒 Replay er kun trygt så lenge inbox-dedup-radene (`event_id`) beholdes ≥ 90d
-  (B26/B42-gulv) — ellers gir replay dobbeltvarsling.
+## Alternatives considered
 
-## Alternativer vurdert
-
-- **Dedup på payload-`eventId` (parse ved ingest).** Forkastet: binder dedup til
-  skjemaet og gjeninnfører `UGYLDIG_JSON` som ingest-feilflate — nettopp det B54
-  fjerner.
-- **Dead-letter alt (også transient) og alltid committe offset.** Forkastet: transient
-  DB-feil ville gitt stille datatap i stedet for retry.
-- **Kast på poison og la consumer stoppe.** Forkastet: head-of-line blocking — én
-  korrupt melding stopper hele partisjonen.
+Payload parsing at ingest was rejected because it couples dedup to schema.
+Dead-lettering transient failures was rejected because it loses data. Throwing on
+poison was rejected because one corrupt message blocks its partition.

@@ -1,125 +1,161 @@
 ---
 name: tdd
-description: Bruk når test-først er eksplisitt ønsket: «red-green-refactor», «test først», eller reproduksjonstest før bugfiks. For vanlig testskriving, bruk /unit-tests, /integration-tests eller /e2e-tests.
+description: "Drive test-first development through red-green-refactor. Use when the user requests test-first work or a regression test before a bug fix; use focused test skills for ordinary test writing."
 ---
 
-# Testdrevet utvikling (Ktor / no.nav.syfo)
+# Test-driven development (Ktor / no.nav.budstikka)
 
-## Filosofi
+## Philosophy
 
-**Kjerneprinsipp**: Tester verifiserer atferd gjennom offentlige grensesnitt, ikke implementasjonsdetaljer. Koden kan endres totalt — testene skal overleve.
+**Core principle:** Verify behaviour through public interfaces, not implementation
+details. Code may change completely; the tests should survive.
 
-**Gode tester** kjører gjennom ekte kodeveier via offentlige API-er. I et Ktor-backend betyr det som regel: gå inn gjennom HTTP-laget med `testApplication`/`client`, eller kall domenetjenesten via dens offentlige funksjon. En god test leser som en spesifikasjon — `\`bruker uten gyldig token får 401\`` forteller nøyaktig hvilken kapabilitet som finnes. Disse testene overlever refaktorering fordi de ikke bryr seg om intern struktur.
+**Good tests** use real code paths through public APIs. In a Ktor backend, that
+normally means entering through HTTP with `testApplication`/`client`, or calling
+a domain service through its public function. A good test reads like a
+specification — `` `bruker uten gyldig token får 401` `` states exactly which
+capability exists. These tests survive refactoring because they ignore internal structure.
 
-**Dårlige tester** er koblet til implementasjon: de mocker interne samarbeidspartnere, tester private funksjoner, eller verifiserer gjennom siden (f.eks. SELECT rett mot Postgres i stedet for å lese tilbake via tjenesten). Varseltegn: testen feiler når du refaktorerer, men atferden er uendret. Døper du om en intern funksjon og tester ryker — testet de implementasjon, ikke atferd.
+**Bad tests** couple to implementation: they mock internal collaborators, test
+private functions, or verify around the service (for example a direct PostgreSQL
+SELECT instead of reading through the service). A warning sign is a test failing
+after refactoring with unchanged behaviour. If renaming an internal function
+breaks tests, they tested implementation rather than behaviour.
 
-Se [tester.md](tester.md) for eksempler og [mocking.md](mocking.md) for når og hvordan du mocker systemgrenser.
+Read [references/tests.md](references/tests.md) for examples and
+[references/mocking.md](references/mocking.md) for when and how to mock system boundaries.
 
-## Anti-mønster: horisontale skiver
+## Anti-pattern: horizontal slices
 
-**IKKE skriv alle tester først og deretter all implementasjon.** Det er "horisontal skiving" — å behandle RED som "skriv alle tester" og GREEN som "skriv all kode".
+**Do not write every test before all implementation.** That is horizontal slicing:
+treating RED as “write all tests” and GREEN as “write all code”.
 
-Det produserer dårlige tester:
+It produces weak tests:
 
-- Tester skrevet i bulk tester *innbilt* atferd, ikke *faktisk* atferd.
-- Du ender med å teste *formen* på ting (datastrukturer, funksjonssignaturer) i stedet for brukerrettet atferd.
-- Testene blir ufølsomme for ekte endringer — de består når atferd brytes og feiler når alt er fint.
-- Du binder deg til teststruktur før du forstår implementasjonen.
+- Bulk-written tests verify imagined, not actual, behaviour.
+- They test the *shape* of data structures and function signatures instead of
+  user-facing behaviour.
+- They become insensitive to real change: pass when behaviour breaks and fail
+  when everything is correct.
+- They commit to test structure before the implementation is understood.
 
 ```
-FEIL (horisontalt):
+WRONG (horizontal):
   RED:   test1, test2, test3, test4, test5
   GREEN: impl1, impl2, impl3, impl4, impl5
 
-RIKTIG (vertikalt):
+RIGHT (vertical):
   RED→GREEN: test1→impl1
   RED→GREEN: test2→impl2
   RED→GREEN: test3→impl3
 ```
 
-**Riktig tilnærming**: vertikale skiver via tracer bullets. Én test → én implementasjon → gjenta. Hver test svarer på det du nettopp lærte av forrige syklus.
+Use vertical tracer-bullet slices: one test → one implementation → repeat. Each
+test answers what the preceding cycle just taught you.
 
-## Arbeidsflyt
+## Workflow
 
-### 1. Planlegg
+### 1. Plan
 
-Les `docs/context.md` hvis den finnes, så testnavn og grensesnittvokabular matcher domenespråket. Respekter besluttede valg i `docs/adr/` for området du rører. Følger du en plan fra `@grillmester`, hold deg til `.grill/PLAN.md` og kryss av atferdene der.
+Read `docs/context.md` when it exists so test names and interface vocabulary use
+the domain language. Respect decisions in `docs/adr/` for the affected area. If
+following a plan from `@grillmester`, stay within the task-scoped brief and mark
+behaviours there.
 
-Før du skriver kode:
+When the current agent is Kokk, the validated `IMPLEMENTATION_BRIEF v1`
+supplies the confirmed interface, behaviours, and locked choices. Never ask the
+user or reopen them. If the brief lacks a necessary repository fact, return
+`NEEDS_CONTEXT`; if it lacks a product or interface choice, return
+`NEEDS_DECISION` without editing. The interactive clarification steps below
+apply only outside delegated Kokk mode.
 
-- [ ] Avklar med bruker hvilke grensesnittendringer som trengs (ny route, ny tjenestefunksjon, ny kontrakt)
-- [ ] Avklar hvilke atferder som skal testes, og prioriter
-- [ ] Se etter dype moduler — lite grensesnitt, dyp implementasjon — så tjenesten blir lett å teste utenfra
-- [ ] List atferdene som skal testes (ikke implementasjonssteg)
-- [ ] Få brukerens godkjenning
+Before writing code:
 
-Spør: "Hvilket offentlig grensesnitt skal vi eksponere? Hvilke atferder er viktigst å teste?"
+- [ ] Clarify needed interface changes with the user, or verify them in Kokk's brief.
+- [ ] Clarify and prioritise behaviours, or verify the brief already locks them.
+- [ ] Look for deep modules — small interface, deep implementation — so the
+  service stays testable from outside.
+- [ ] List behaviours to test, not implementation steps.
+- [ ] Obtain user confirmation, or treat the validated brief as confirmation.
 
-**Du kan ikke teste alt.** Avklar nøyaktig hvilke atferder som betyr mest. Bruk testkrefter på kritiske veier og kompleks logikk — autorisasjon, valideringsregler, tilstandsoverganger — ikke hver tenkelige edge case.
+Outside delegated Kokk mode, ask: “Which public interface should we expose?
+Which behaviours matter most to test?”
+
+**You cannot test everything.** Clarify the behaviours that matter most. Spend
+test effort on critical paths and complex logic — authorisation, validation
+rules, state transitions — not every conceivable edge case.
 
 ### 2. Tracer bullet
 
-Skriv ÉN test som bekrefter ÉN ting end-to-end gjennom det offentlige grensesnittet:
+Write **one** test proving **one** thing end-to-end through the public interface:
 
 ```
-RED:   Skriv test for første atferd → feiler
-GREEN: Minimal kode for å bestå → bestått
+RED:   Write a test for the first behaviour → it fails
+GREEN: Minimal code to pass → it passes
 ```
 
-For et nytt endepunkt er tracer bullet typisk en `testApplication`-test som treffer ruten og forventer riktig status. Den beviser at hele veien — routing, modul-oppsett, respons — henger sammen.
+For a new endpoint, a tracer bullet is typically a `testApplication` test that
+hits the route and expects the right status. It proves routing, module setup,
+and response work together.
 
-### 3. Inkrementell loop
+### 3. Incremental loop
 
-For hver gjenværende atferd:
+For each remaining behaviour:
 
 ```
-RED:   Neste test → feiler
-GREEN: Minimal kode → bestått
+RED:   Next test → it fails
+GREEN: Minimal code → it passes
 ```
 
-Regler:
+Rules:
 
-- Én test om gangen
-- Bare nok kode til å bestå gjeldende test
-- Ikke forutse fremtidige tester
-- Hold testene på observerbar atferd
+- One test at a time.
+- Write only enough code to pass the current test.
+- Do not predict future tests.
+- Keep tests on observable behaviour.
 
-Kjør raskt og fokusert mens du jobber:
+Run a fast, focused check while working:
 
 ```bash
-./gradlew test --tests "no.nav.syfo.<KlasseNavn>"
+./gradlew test --tests "no.nav.budstikka.<KlasseNavn>"
 echo "exit: $?"
 ```
 
-En GREEN-påstand krever ferskt bevis i samme melding — kommando + output + exit-kode. Uten det: UVERIFISERT.
+A GREEN claim requires fresh evidence in the same response: command, output, and
+exit code. Without it, report `UNVERIFIED`.
 
-### 4. Refaktorer
+### 4. Refactor
 
-Når alle tester består, se etter [refaktoreringskandidater](refaktorering.md):
+Once every test passes, review [refactoring candidates](references/refactoring.md):
 
-- [ ] Ekstraher duplisering
-- [ ] Dypne moduler — flytt kompleksitet bak enkle grensesnitt
-- [ ] Bruk SOLID der det faller naturlig
-- [ ] Vurder hva ny kode avslører om eksisterende kode
-- [ ] Kjør tester etter hvert refaktoreringssteg
+- [ ] Extract duplication.
+- [ ] Deepen modules by moving complexity behind simple interfaces.
+- [ ] Use SOLID where it fits naturally.
+- [ ] Consider what new code reveals about existing code.
+- [ ] Run tests after each refactoring step.
 
-**Aldri refaktorer mens RED.** Kom til GREEN først.
+**Never refactor while RED.** Reach GREEN first.
 
-Når implementasjonen er ferdig og grønn, oppdater `.grill/VERIFICATION.md` med hva som faktisk ble verifisert (kommandoen som ble kjørt og resultatet), slik at `@grillmester`-løkka kan lukke fasen.
+Once implementation is complete and green, return what was actually verified
+(the command, result, and exit code) so the `@grillmester` loop can close the phase.
 
-## Sjekkliste per syklus
+## Checklist per cycle
 
 ```
-[ ] Test beskriver atferd, ikke implementasjon
-[ ] Test bruker kun offentlig grensesnitt
-[ ] Test ville overlevd intern refaktorering
-[ ] Kode er minimal for denne testen
-[ ] Ingen spekulative funksjoner lagt til
-[ ] GREEN bevist med ferskt kommando + output + exit-kode i samme melding (ellers UVERIFISERT)
+[ ] Test describes behaviour, not implementation
+[ ] Test uses only a public interface
+[ ] Test would survive internal refactoring
+[ ] Code is minimal for this test
+[ ] No speculative features were added
+[ ] GREEN is proved by fresh command + output + exit code in the same response (otherwise UNVERIFIED)
 ```
 
-## Bugfiks er TDD
+## Bug fixing is TDD
 
-En feilretting starter med en **reproduksjonstest**: skriv en test som feiler fordi feilen finnes (RED), fiks så til den blir grønn (GREEN). Da har du både bevist feilen og hindret regresjon. Skriv aldri fiksen først.
+Start a bug fix with a **reproduction test**: write a test that fails because the
+bug exists (RED), then fix it until green (GREEN). This proves the defect and
+prevents regression. Never write the fix first.
 
-For en feil som er vanskelig å reprodusere (flaky, timing- eller miljøavhengig): start med `/diagnosing-bugs` for å bygge en stram, rød-kapabel repro-loop først — reproduksjonstesten her er da den minimerte loopen.
+For a hard-to-reproduce bug (flaky, timing-dependent, or environment-dependent),
+start with `/diagnosing-bugs` to establish a tight, red-capable reproduction loop;
+the reproduction test here is then the minimised loop.

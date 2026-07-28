@@ -1,52 +1,72 @@
 ---
 name: resolving-merge-conflicts
-description: "Bruk når en git-merge eller -rebase i dette Ktor-repoet har stoppet med konflikter — 'CONFLICT (content)', '<<<<<<< HEAD'-markører i koden, 'fix conflicts and then commit', eller en merge/rebase som henger fast. Også når oppdatering mot main/master eller en PR-branch ender i konflikt."
+description: "Resolve an in-progress Git merge or rebase conflict by tracing each side to primary sources. Use when an update stops on conflicts or conflict markers."
 ---
 
-# Løse merge-konflikter
+# Resolve merge conflicts
 
-Du løser en pågående merge/rebase-konflikt i dette repoet. Aldri `--abort` — alltid løs konflikten.
+Resolve an active merge or rebase conflict in this repository. Do not use
+`--abort` by default; resolve the conflict.
 
-## Arbeidsflyt
+## Workflow
 
-1. **Kartlegg tilstanden.** Hva slags operasjon kjører, og hvilke filer kolliderer?
+1. **Map the state.** Identify the operation and colliding files.
    ```bash
-   git status              # merge eller rebase? hvilke filer er "both modified"?
+   git status              # merge or rebase? which files are "both modified"?
    git log --oneline --graph -15
-   git diff                # se konfliktmarkørene i kontekst
+   git diff                # inspect conflict markers in context
    ```
-   Rebase snur betydningen av `HEAD` (= det du rebaser PÅ) og `incoming` (= din egen commit). Sjekk hvilken vei det går før du velger side.
+   Rebase reverses the meaning of `HEAD` (= the branch you rebase **onto**) and
+   `incoming` (= your own commit). Check direction before choosing a side.
 
-2. **Finn primærkilden for hver konflikt.** Forstå hvorfor hver side endret koden — ikke bare hva som står der.
+2. **Find the primary source for each conflict.** Understand why each side
+   changed the code, not only what the hunk says.
    ```bash
-   git log --merge -p -- <fil>     # commits på begge sider som rører filen
+   git log --merge -p -- <file>    # commits on both sides touching the file
    git blame <fil>
    ```
-   Les commit-meldinger, PR-er og issues. I dette domenet er intensjonen ofte ikke synlig i diffen: en endring i auth (TokenX/Azure AD), `accessPolicy` i NAIS-yaml, en Flyway-migrasjon eller en Kafka-konsument kan ha en grunn som bare står i PR-en.
+   Read commit messages, PRs, and issues. In this domain, intention is often not
+   visible in the diff: auth (TokenX/Azure AD), NAIS `accessPolicy`, a Flyway
+   migration, or a Kafka consumer can have a reason documented only in the PR.
 
-3. **Løs hver hunk.** Behold begge intensjoner der det går. Der de er uforenlige, velg den som matcher mergens uttalte mål og noter avveiningen. Ikke finn opp ny oppførsel. Vær spesielt varsom med:
-   - **Flyway-migrasjoner** (`src/main/resources/db/migration/`): to brancher som begge la til `V<n>__...sql` med samme nummer må omdøpes til fortløpende, unike versjoner — ikke slå sammen innholdet til én fil. En allerede kjørt migrasjon endres aldri; legg til en ny.
-   - **`gradle/libs.versions.toml` / `build.gradle.kts`**: ta den nyeste forenlige versjonen, ikke begge linjer. Sjekk at Ktor-BOM/`ktorLibs` og Kotlin-versjon henger sammen.
-   - **NAIS-yaml** (`.nais/`): `accessPolicy`, env og scaling slås sammen som mengder — behold oppføringer fra begge sider.
-   - **Kotlin-imports og DI/routing-oppsett** (`Application.kt`, moduler): behold begge nye ruter/plugins; pass på doble `install(...)`.
+3. **Resolve every hunk.** Preserve both intents where possible. When they are
+   incompatible, choose the one matching the merge's stated goal and record the
+   trade-off. Do not invent behaviour. Be especially careful with:
+   - **Flyway migrations** (`src/main/resources/database.migration/`): when two
+     branches add `V<n>__...sql` with the same number, rename them to consecutive,
+     unique versions — do not combine their contents into one file. Never modify
+     an already-run migration; add a new one.
+   - **`gradle/libs.versions.toml` / `build.gradle.kts`**: keep the newest
+     compatible version, not both lines. Check that the Ktor BOM/`ktorLibs` and
+     Kotlin versions remain coherent.
+   - **NAIS YAML** (`nais/`): merge `accessPolicy`, environment variables, and
+     scaling as sets — retain entries from both sides.
+   - **Kotlin imports and DI/routing** (`Application.kt`, modules): retain both
+     new routes/plugins and avoid duplicate `install(...)` calls.
 
-4. **Kjør prosjektets automatiske sjekker** og fiks det mergen brøt:
+4. **Run project checks** and fix what the merge broke.
    ```bash
-   ./gradlew build         # kompilering + test
-   ./gradlew test          # raskere når bare logikk endret seg
+   ./gradlew build         # compilation + test
+   ./gradlew test          # faster when only logic changed
    ```
-   Kjør på nytt til grønt. En merge som kompilerer men feiler tester betyr at to korrekte endringer er logisk uforenlige — løs det semantisk, ikke ved å fjerne testen.
+   Repeat until green. A merge that compiles but fails tests means two correct
+   changes are logically incompatible; resolve that semantically, not by deleting a test.
 
-5. **Fullfør operasjonen.**
+5. **Complete the operation.**
    ```bash
    git add -A
-   git commit              # merge: behold/rediger den genererte meldingen
-   # eller, ved rebase:
-   git rebase --continue   # gjenta steg 1–4 for hver gjenværende commit
+   git commit              # merge: keep or edit the generated message
+   # or, during rebase:
+   git rebase --continue   # repeat steps 1–4 for each remaining commit
    ```
-   Ved rebase løses konflikter per commit — du kan måtte gjennom løkka flere ganger.
+   During a rebase, resolve conflicts per commit; repeat the loop as needed.
 
-## Sikkerhetsnett
-- Før en stor/risikabel merge: `git merge --no-commit --no-ff <branch>` lar deg inspektere før du binder deg.
-- Mister du oversikten under rebase, er ikke `--abort` nederlag — men i denne flyten fullfører vi. `git rebase --abort` kun hvis brukeren ber om det.
-- `git checkout --ours <fil>` / `--theirs <fil>` for filer som helt klart skal komme fra én side (f.eks. genererte filer). Husk at "ours"/"theirs" er snudd under rebase.
+## Safety net
+
+- Before a large or risky merge, `git merge --no-commit --no-ff <branch>` lets
+  you inspect before committing.
+- Losing orientation during a rebase is not failure, but this workflow completes
+  the operation. Run `git rebase --abort` only when the user requests it.
+- Use `git checkout --ours <file>` or `--theirs <file>` only when a file clearly
+  comes entirely from one side (for example generated files). Remember that
+  “ours” and “theirs” are reversed during a rebase.

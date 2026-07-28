@@ -1,14 +1,16 @@
 ---
-description: "Plain Apache Kafka i Ktor — consumer/producer-skjelett, SSL-config fra Nais-env, commit-strategi og Testcontainers. Les når repoet bruker org.apache.kafka:kafka-clients direkte."
+description: "Provides plain Apache Kafka patterns for Ktor: consumer and producer skeletons, NAIS SSL configuration, commit strategy, and Testcontainers. Read when the repository uses org.apache.kafka:kafka-clients directly."
 ---
 
-# Plain Apache Kafka i Ktor-backend
+# Plain Apache Kafka in a Ktor backend
 
-Mønstre for `org.apache.kafka:kafka-clients` i en Ktor-app. Bruk kun hvis det er stacken repoet allerede står på.
+Patterns for `org.apache.kafka:kafka-clients` in a Ktor application. Use only
+when that is the repository’s existing stack.
 
-## Oppstart ved siden av Ktor-serveren
+## Start beside the Ktor server
 
-`poll`-løkka kjører i en egen coroutine/tråd, ikke i en route. Start den fra en Ktor-modul og stopp den på `ApplicationStopPreparing`.
+The `poll` loop runs in a separate coroutine or thread, not in a route. Start it
+from a Ktor module and stop it on `ApplicationStopPreparing`.
 
 ```kotlin
 class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, private val topic: String) {
@@ -22,9 +24,9 @@ class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, priv
                 try {
                     prosesser(record)
                 } catch (e: MidlertidigFeil) {
-                    throw e   // la Kafka re-levere ved neste poll
+                    throw e   // let Kafka redeliver on the next poll
                 } catch (e: PermanentFeil) {
-                    logger.error("Permanent feil, sender til DLQ",
+                        logger.error("Permanent failure, sending to DLQ",
                         kv("topic", record.topic()), kv("offset", record.offset()), e)
                     dlqProducer.send(record.value(), e.message)
                 }
@@ -38,21 +40,37 @@ class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, priv
 }
 ```
 
-Commit-strategi: `commitSync()` etter hver batch er trygt og enkelt. `commitAsync()` gir høyere throughput — bruk kun ved bevisst behov. Hold `enable.auto.commit=false` så du committer etter vellykket prosessering, ikke før.
+Wire it into the Ktor lifecycle from an Application module:
+
+```kotlin
+fun Application.kafkaConsumerModule(consumer: HendelseConsumer) {
+    val job = launch(Dispatchers.IO) { consumer.run() }   // separate coroutine, not a route
+    monitor.subscribe(ApplicationStopPreparing) {
+        consumer.stop()                                    // set running=false and let the loop finish
+        job.cancel()
+    }
+}
+```
+
+Commit strategy: `commitSync()` after every batch is safe and simple.
+`commitAsync()` gives higher throughput; use it only when deliberate. Keep
+`enable.auto.commit=false` so commits happen after successful processing, not before.
 
 ## Producer
 
 ```kotlin
 producer.send(ProducerRecord(topic, key, value)) { _, exception ->
     if (exception != null) {
-        logger.error("Feil ved sending til Kafka", kv("topic", topic), exception)
+        logger.error("Failed to send to Kafka", kv("topic", topic), exception)
     }
 }
 ```
 
-For exactly-once-lignende semantikk: `enable.idempotence=true` og `acks=all`. Transaksjoner (`initTransactions()`) kun når du koordinerer produce + consume-commit i samme app.
+For exactly-once-like semantics, use `enable.idempotence=true` and `acks=all`.
+Use transactions (`initTransactions()`) only when coordinating produce and
+consume-commit in the same application.
 
-## Konfigurasjon fra Nais-injiserte env vars
+## Configuration from NAIS-injected environment variables
 
 ```kotlin
 val props = Properties().apply {
@@ -64,28 +82,33 @@ val props = Properties().apply {
     put("ssl.keystore.type", "PKCS12")
     put("ssl.keystore.location", System.getenv("KAFKA_KEYSTORE_PATH"))
     put("ssl.keystore.password", System.getenv("KAFKA_CREDSTORE_PASSWORD"))
-    // consumer-spesifikt:
+    // consumer-specific:
     put("group.id", System.getenv("KAFKA_CONSUMER_GROUP_ID") ?: "syfo-budstikka-v1")
     put("auto.offset.reset", "earliest")
     put("enable.auto.commit", "false")
 }
 ```
 
-Du kan også lese disse via Ktor `environment.config` hvis de er speilet inn i `application.yaml` — men `System.getenv` direkte er vanlig for Kafka-SSL siden Nais setter dem som rene env vars.
+Read the repository’s Kafka configuration through Ktor `environment.config`
+from `application.conf`. NAIS provides SSL files through environment variables;
+follow existing `infrastructure/kafka/config` rather than introducing a parallel
+`System.getenv` path.
 
 ## Testing
 
-- Bruk Testcontainers `KafkaContainer` for integrasjonstester — ikke embedded Kafka (avviklet).
-- Unit-test prosesseringslogikken separat fra Kafka-klienten: injiser en `ConsumerRecord` (eller bare payloaden) direkte i `prosesser(...)` uten å starte en consumer.
-- Kjør `./gradlew test` og loggfør resultatet i `.grill/VERIFICATION.md`.
+- Use Testcontainers `KafkaContainer` for integration tests, not deprecated embedded Kafka.
+- Unit-test processing logic separately from the Kafka client: inject a
+  `ConsumerRecord`, or only its payload, directly into `prosesser(...)` without
+  starting a consumer.
+- Run `./gradlew test` and return result and exit code in KOKK_RESULT/PR.
 
 ```kotlin
 @Test
-fun `prosesserer sykmelding_sendt og dedup-er duplikat`() {
+fun `processes sykmelding_sendt and deduplicates duplicate`() {
     val repo = InMemoryEventStore()
     val record = ConsumerRecord("teamsykefravar.sykmelding.v1", 0, 0L, "fnr", payload)
     prosesser(record, repo)
-    prosesser(record, repo)   // duplikat
+    prosesser(record, repo)   // duplicate
     assertEquals(1, repo.antallProsessert())
 }
 ```

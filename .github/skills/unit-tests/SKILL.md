@@ -1,13 +1,13 @@
 ---
 name: unit-tests
-description: "Use for fast Kotest unit/component tests: domain logic, application services with fakes, builders, focused test data, or /unit-tests. Prefer this over /tdd unless explicit red-green guidance is requested. Use /integration-tests for real adapters and /e2e-tests for app boot."
+description: "Create fast Kotest unit or component tests. Use when domain logic, application services with fakes, builders, or focused test data need coverage; choose integration or E2E tests for real adapters or app boot."
 ---
 
-# Unit Tests
+# Unit tests
 
 ## Rules
 
-- Test behavior through public interfaces, not private functions or implementation details.
+- Test behaviour through public interfaces, not private functions or implementation details.
 - Keep tests fast and local. Avoid application boot, Kafka, and Testcontainers.
 - Use Kotest `FunSpec`.
 - Use fakes, builders, and focused test data at system boundaries.
@@ -16,7 +16,7 @@ description: "Use for fast Kotest unit/component tests: domain logic, applicatio
 
 ## Checklist
 
-1. Choose the behavior to prove.
+1. Choose the behaviour to prove.
 2. Select the test boundary: domain, application service, or adapter with fakes.
 3. Write a focused `FunSpec` test.
 4. Run the targeted test with `./gradlew test --tests`.

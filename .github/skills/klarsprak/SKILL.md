@@ -1,29 +1,37 @@
 ---
 name: klarsprak
-description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes — feilmeldinger og API-respons, loggmeldinger, ADR-er i docs/adr/, README, PR-beskrivelser, commit-meldinger og release-notes — eller når brukeren ber om klarspråk, språkvask, fjerning av AI-markører eller retting av anglisismer. Også /klarsprak.
+description: "Edit Norwegian README and user-facing product or API copy for clarity. Use when writing or language-editing Norwegian text while preserving English technical artifacts."
 ---
-# Klarspråk
+# Plain Norwegian
 
-Bruk denne skillen når norsk tekst skal strammes inn i kode, docs, PR, commit og logger.
-Skriv **Nav** i løpende tekst (unntak: `NAIS`, `NAVident`, `no.nav.syfo`).
+Use this skill when tightening Norwegian text in `README.md` or user-facing
+product and API copy. Technical documentation, ADRs, issues, pull requests,
+commit messages, logs, and operator interfaces remain English. Write **Nav** in
+running Norwegian text, except for `NAIS`, `NAVident`, the Gradle group
+`no.nav.syfo`, and package names under `no.nav.budstikka`.
 
-Grunnreglene bor i `.github/instructions/norwegian-text.instructions.md`. Denne skillen
-er en kort operativ sjekkliste.
+The baseline rules live in `.github/instructions/norwegian-text.instructions.md`.
+This skill is a short operational checklist.
 
-## Regler (kortversjon)
+## Rules (short version)
 
-1. Start med utfallet i første setning.
-2. Hold dokumentasjon så kort som mulig. Kutt detaljer som ikke påvirker beslutningen eller handlingen.
-3. Skriv korte, tydelige og konsise setninger. Hold ett poeng per setning.
-4. Bruk aktiv form.
-5. Unngå duplisering. Si ting én gang, og kutt gjentakelser mellom avsnitt.
-6. Behold tekniske ord på engelsk. Ikke oversett etablerte termer som `happy path`, `use case`, `dependency injection`, `override`, `token`, `consumer`, `endpoint`.
-7. Bruk norsk kun for domeneord.
-8. Bruk bindestrek i sammensatte ord med engelsk fagterm.
-9. Fjern AI-markører (svulstige adjektiv, em-dash-flom, «ikke bare X, men Y»).
-10. Ingen PII i logg/feilmelding; bruk tekniske ID-er.
+1. Start with the outcome in the first sentence.
+2. Keep Norwegian README and product copy as short as possible. Remove details
+   that do not affect a decision or action.
+3. Write short, clear, concise sentences. Keep one point per sentence.
+4. Use active voice.
+5. Avoid duplication. State something once and remove repetition across paragraphs.
+6. Keep technical terms in English. Do not translate established terms such as
+   `happy path`, `use case`, `dependency injection`, `override`, `token`,
+   `consumer`, or `endpoint`.
+7. In code, use Norwegian only for canonical domain terms or quoted
+   user-facing copy.
+8. Use a hyphen in compound words that contain an English technical term.
+9. Remove AI markers: inflated adjectives, excessive em dashes, and “not only X,
+   but Y” constructions.
+10. Never include PII, tokens, or credentials in examples or error messages.
 
-## Korte før/etter-eksempler
+## Short before-and-after examples
 
 ```text
 ❌ Per-melding atomisk er en hard invariant.
@@ -35,18 +43,13 @@ er en kort operativ sjekkliste.
 ✅ Vi vurderer endringen.
 ```
 
-```text
-❌ log.info("Behandlet fnr {}", fnr)
-✅ log.info("Behandlet melding {}", meldingId)
-```
+## Boundaries
 
-## Grenser
+- Ask before restructuring an entire README.
+- Do not change technical decisions while language-editing.
 
-- Be om avklaring før du omstrukturerer hele README/ADR-er.
-- Ikke endre tekniske beslutninger mens du språkvasker.
+## References (as needed)
 
-## Referanser (ved behov)
-
-- `references/fagtermer-og-anglisismer.md` — hva som bør være norsk vs. engelsk.
-- `references/for-og-etter.md` — konkrete omskrivings-eksempler.
-- `references/ai-markorer.md` — typiske AI-markører i norsk tekst.
+- `references/terminology-and-anglicisms.md`: what should stay Norwegian versus English.
+- `references/before-and-after.md`: concrete rewriting examples.
+- `references/ai-markers.md`: typical AI markers in Norwegian text.

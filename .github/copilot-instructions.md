@@ -1,22 +1,56 @@
-# Copilot-instruksjoner — syfo-budstikka
+# Copilot instructions — syfo-budstikka
 
-Ktor-backend (Kotlin, NAV / `no.nav.syfo`). Java 25, Gradle, Netty. Norsk er arbeidsspråk.
+Nav Kotlin/Ktor backend: Java 25, Gradle, Netty, group `no.nav.syfo`, packages
+under `no.nav.budstikka`. Follow `docs/agents/language-policy.md`; answer users
+in their language.
 
-## Agent-oppsett
-- **@grillmester** (Opus 4.8) er orkestrator + inline implementør for ikke-triviell jobb. Den kjører en faseløkke (grill → design → plan → implementer → verifiser → server) og skriver arbeidsminne til `.grill/`.
-- **grill-inspektor** (GPT-5.5, internt) er fersk kryssmodell-reviewer — **opt-in**, anbefalt-på for høyrisiko. Det er her «begge modellfamilier ser på arbeidet» bevares, men kostnadskontrollert.
-- Ingen svake modell-tier i oppsettet. Kvalitet kommer fra sterk modell + deterministiske gater, ikke fra billige mellomledd.
+## Copilot CLI roles
 
-## Faste prinsipper (gjelder all kode-assistanse i repoet)
-- **Navnekonvensjon:** norske ord KUN på domeneord (`Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`) — alt annet (mekanikk, verb, plumbing, teknisk) på engelsk (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full regel med eksempler i `.github/instructions/kotlin.instructions.md`.
-- **Kvalitetsgater er deterministiske og utenfor modellen:** `./gradlew test`, lint og build avgjør pass/fail. Ingen «ser riktig ut»-påstander uten ferskt bevis (kommando + output + exit-kode i samme melding).
-- **Inline skriving:** koding som krever skjønn gjøres i hovedtråden. Subagenter brukes kun til read-only utforsking, kryssmodell-verify og opt-in divergent design-utforsking (design-it-twice).
-- **Skills kalles eksplisitt** med `/skill-navn` når en oppgave berører et domene som har skill (se `.github/skills/`) — de surfaces på beskrivelsen sin, men kall den du trenger eksplisitt så selve skill-body-en faktisk lastes, ikke bare beskrivelsen.
-- **Disk-som-minne:** lengre arbeid sporer beslutninger/plan/verifikasjon i `.grill/` (`STATE.md` leses først, og holdes liten og kuratert). Checkpoint på fase-grenser og proaktivt før konteksten blir trang — ikke gjett på en vindu-prosent du ikke kan måle.
+- **@barista** (Terra) is the user-selected, solo-first front door:
+  `copilot --agent barista --model gpt-5.6-terra --context default`.
+- **@grillmester** (Opus) clarifies and delegates; it never implements.
+- Internal **kokk** (Terra) implements one validated vertical slice.
+- Internal, read-only **grill-inspektor** (Opus) reviews the task contract,
+  exact diff, and fresh evidence.
 
-## Modell-policy
-Roller er pinnet i agentfilene og validert deterministisk av `scripts/validate-agent-models.sh` (hardt fail + skriver `.grill/MODELL-STATUS.md`). En modell påstår aldri selv hvilken modell den er.
+Repository defaults use Terra/default context. Start custom roles with their
+documented model, confirm the effective outer model, and fail closed when an
+internal task's explicit model is unavailable.
+Inspector is mandatory per R3/R4 Grillmester/Kokk slice. Wholly R0–R2 work gets
+one complete-diff review only when material, concerned, or requested, and after
+opt-in. Aggregate R3/R4 requires integrated review; never duplicate one slice.
+Barista follows the same opt-in rule and routes R3/R4 before implementation.
 
-## Hvor ting ligger
-- Agenter: `.github/agents/`  ·  Skills: `.github/skills/`  ·  Instruksjoner per filtype: `.github/instructions/`
-- Designoversikt: `.github/GRILLMESTER.md`
+## Brief, evidence, and authority
+
+`IMPLEMENTATION_BRIEF v1` is the task-scoped Grillmester–Kokk contract; see
+`docs/agents/implementation-brief.md`.
+
+The checked-in repository files are the operative contract;
+`.github/GRILLMESTER.md` records the human overview and provenance. When
+decisions remain, inspect facts and ask
+one user-owned question at a time. `/grill-with-docs` and `/wayfinder` are
+manual; missing Wayfinder label mappings stop writes and never authorize new
+labels.
+
+Load guidance progressively. Briefs and evidence belong to one slice, never
+global mutable task state.
+
+## Invariants
+
+- **Language:** `README.md` is Norwegian. Canonical domain terms may be
+  Norwegian in code; all technical and mechanical identifiers are English.
+  Agent-facing material is English. See `docs/agents/language-policy.md`.
+- **Architecture:** `domain` has no outward dependencies; `application`
+  depends only on `domain` and application ports; infrastructure implements
+  ports; bootstrap wires the graph.
+- **Kotlin floor:** use structured concurrency—never `GlobalScope` or blocking
+  work on an event loop. Use version catalogs, keep Flyway append-only, and
+  make Kafka consumption idempotent.
+- **Fresh evidence:** use commands, relevant output, and exit codes for the
+  current brief, not model assertions.
+- **Scoped writes:** Kokk starts from a validated clean boundary and stays in
+  scope. With `atomic-local`, it may commit only its own files; never push, open
+  a pull request, merge, amend, rebase, or reset.
+- **CLI only:** this setup targets Copilot CLI, not IDE- or cloud-agent
+  behavior.

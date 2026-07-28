@@ -1,58 +1,57 @@
 ---
 name: domain-modeling
-description: "Bruk når domenespråket skal skjerpes eller skrives ned — et begrep er uklart eller overlastet, to ord brukes om samme ting, koden og praten er uenige om hva noe betyr, eller en vanskelig-å-reversere beslutning bør festes som ADR. Den aktive disiplinen i @grillmester fase 1, eller når noen sier 'hva mener vi egentlig med X', 'er dette samme som Y', 'skriv ned den beslutningen'."
+description: "Build and sharpen the domain model, canonical terminology, glossary, and durable decisions."
+disable-model-invocation: true
 ---
 
-# domain-modeling
+# Domain modeling
 
-Den **aktive** disiplinen: bygg og skjerp domenemodellen mens du designer — utfordre begreper, finn opp kant-scenarier, og skriv glossar og beslutninger ned i det øyeblikket de krystalliserer seg.
+Run this manual workflow only inside an active Grillmester session. If another
+outer role is active, stop and ask the user to switch with
+`copilot --agent grillmester --model claude-opus-5 --context default`; do not
+perform the workflow in that role.
 
-Å bare *lese* `docs/glossary.md` for å bruke riktig ord er ikke denne skillen — det er en énlinjes vane enhver skill har. Denne skillen er for når du **endrer** modellen, ikke bare konsumerer den. Den lever inne i grillingen (`/grill-with-docs`, fase 1): et avklart begrep blir en glossar-linje, en avklart beslutning blir en ADR-linje, løpende.
+Actively build and sharpen the domain model while designing: challenge terms,
+invent edge scenarios, and record glossary entries and decisions when they
+crystallize. Merely reading `docs/glossary.md` is a normal habit; use this skill
+when changing the model, normally inside `/grill-with-docs`.
 
-## Hvor ting ligger
+## Durable locations
 
-Domenemodellen er **durable dokumentasjon** og bor i `docs/` (committes — `.grill/` er gitignorert transient arbeidsminne, ikke her):
+Domain documentation lives in committed `docs/`; task-scoped briefs are working
+memory:
 
-```
+```text
 docs/
-├── glossary.md           ← ett begrep per linje: term → presis definisjon
-├── context.md            ← valgt tilnærming / designkontekst (ikke glossar)
+├── glossary.md           ← one term per line: term → precise definition
+├── context.md            ← short current mental model and index
 └── adr/
-    ├── 0001-tokenx-mot-ekstern-api.md
-    └── 0002-kafka-idempotens-via-meldingsnokkel.md
 ```
 
-Lag filer **lazy** — kun når du har noe å skrive. Ingen `glossary.md` enda? Opprett den når første begrep avklares. Ingen `adr/`? Opprett den når første ADR trengs.
+Create files lazily. In a large repository with bounded contexts, place a term
+with its owning context and record relationships at the start of `glossary.md`.
+Ask when ownership is unclear.
 
-Er repoet stort nok til flere bounded contexts (f.eks. egne moduler under `src/main/kotlin/no/nav/syfo/<context>/`), seed et begrep til riktig context og noter relasjonen mellom dem i toppen av `glossary.md` (hvem eier `Ident`, hvem konsumerer hvilke Kafka-hendelser). Når det er uklart hvilken context et begrep hører til — spør.
+## During the session
 
-## Under økta
+- Flag collisions with existing glossary language immediately.
+- Replace vague/overloaded wording with one canonical term and put alternatives
+  under `_Avoid_`. `ident`, `fnr`, and `aktørId` are not Nav synonyms.
+- Stress-test relations with concrete edge scenarios, then cross-check claims
+  against actual `no.nav.budstikka` code using `rg` and reading.
+- After the user has selected Grill with docs and separately confirmed the
+  documentation write, record an agreed term in `glossary.md` using
+  [references/glossary-format.md](references/glossary-format.md). Keep it free
+  of implementation details; technical choices belong in ADRs and active status
+  in the task brief. Update `context.md` only when its model/index changes.
 
-### Utfordre mot glossaret
-Når et begrep kolliderer med eksisterende språk i `glossary.md`, si fra med en gang. «Glossaret definerer `sykmeldt` som personen oppfølgingen gjelder, men du bruker det nå om innloggede `veileder` — hvilket er det?»
+Offer an ADR only when all three are true: the choice is hard to reverse, it
+would surprise a future reader without context, and it resulted from a real
+trade-off. Otherwise do not create one. Use
+[references/adr-format.md](references/adr-format.md).
 
-### Skjerp uklart språk
-Når et ord er vagt eller overlastet, foreslå ett kanonisk begrep og legg de andre under `_Unngå_`. «Du sier `bruker` — mener du `sykmeldt` (personen saken gjelder) eller `veileder` (saksbehandleren)? Det er to forskjellige ting.» Tilsvarende for `ident` / `fnr` / `aktørId` — de er ikke synonymer i NAV-kontekst.
-
-### Stresstest med konkrete scenarier
-Når en domenerelasjon diskuteres, finn opp spesifikke scenarier som presser kantene. «En sykmelding avvises av Arena etter at vi har lagret den lokalt og publisert `SykmeldingMottatt` på Kafka — hva er da sannheten, og hvem retter den opp?» Tving frem presise grenser mellom begrepene.
-
-### Kryssjekk mot koden
-Når bruker forteller hvordan noe virker, sjekk om koden er enig. Finner du en motsigelse, løft den frem: «`SykmeldingService` sletter hele saken, men du sa nettopp at en enkelt periode kan annulleres alene — hva er riktig?» Bruk `grep`/lesing av `no.nav.syfo`-pakken som kilde, ikke antakelser.
-
-### Oppdater glossaret inline
-Når et begrep er avklart, skriv det til `glossary.md` der og da — ikke samle opp til slutt. Bruk formatet i [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
-
-`glossary.md` skal være **helt fri for implementasjonsdetaljer**. Det er en ordliste, ikke en spec, ikke en kladdeblokk, ikke et lager for tekniske beslutninger. Tekniske valg hører hjemme i ADR; valgt tilnærming i `context.md`.
-
-### Tilby ADR sparsomt
-Tilby kun ADR når **alle tre** er sanne:
-
-1. **Vanskelig å reversere** — det koster reelt å ombestemme seg senere (DB-schema/Flyway, Kafka-kontrakt, auth-mekanisme, NAIS `accessPolicy`).
-2. **Overraskende uten kontekst** — en fremtidig leser vil lure på «hvorfor i all verden gjorde de det sånn?»
-3. **Resultat av en reell avveining** — det fantes genuine alternativer og dere valgte ett av spesifikke grunner.
-
-Mangler én av de tre — dropp ADR-en. Bruk formatet i [ADR-FORMAT.md](./ADR-FORMAT.md).
-
-## Kobling til faseløkka
-Dette er domenemotoren i `/grill-with-docs` (fase 1). Artefaktene den produserer (`glossary.md`, `adr/`) leses videre i design (fase 2), plan (`PLAN.md`, fase 3) og verifisering (`VERIFICATION.md`, fase 5) — så et skarpt begrep her sparer en runde context-rot senere. Berører en avklaring arkitektur eller tilgang mot andre team, send den videre til `/nav-architecture-review`.
+The resulting glossary/ADRs inform design, briefs, and verification. Never
+write durable documentation without the active Grill with docs workflow and
+its explicit write confirmation. For a clarification that changes architecture
+or access across teams, recommend the manual Nav architecture review workflow
+and wait for the user to select it.

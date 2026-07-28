@@ -1,49 +1,46 @@
-# ADR 0010 — Container-bygg med Jib i stedet for Dockerfile
+# ADR 0010 — Container build with Jib instead of Dockerfile
 
-- Status: besluttet (dev-POC, cutover etter verifisert dev-runde)
-- Dato: 2026-07-22
-- Relatert: `.github/instructions/docker.instructions.md` (Chainguard-krav),
-  `.github/instructions/github-actions.instructions.md` (SHA-pinning, permissions),
-  `.github/workflows/deploy.yaml`, `build.gradle.kts`
+- Status: Decided and in use
+- Date: 2026-07-22
+- Related: Docker/GitHub Actions instructions, deploy workflows, `build.gradle.kts`
 
-## Kontekst
+## Context
 
-Container-bygget skjer i dag via `Dockerfile` (Chainguard `jre:openjdk-25`, fat-jar) og
-`nais/docker-build-push` i deploy-workflowen. Vi vil bygge image fra Gradle uten en egen
-`Dockerfile`. Ktor-pluginens `docker { }`-tasks (`setupJibLocal`) bruker `Task.project` ved kjøretid, som Gradle 10 gjør
-til en hard feil — en oppgraderingsrisiko vi ikke eier selv.
+The service builds a container image from Gradle without a Dockerfile. Previous
+Ktor `docker { }` tasks use `Task.project` at runtime, which Gradle 10 rejects.
+Chainguard remains the only allowed base image, with verifiable post-push signing.
 
-Chainguard er eneste tillatte base image. `nais/docker-build-push` gjør i tillegg SLSA- attestering + cosign-signering
-automatisk (`salsa: true`); en naiv Jib-flyt uten dette ville vært en stille supply-chain-regresjon.
+## Decision
 
-## Beslutning
+Use pure Jib through `JibExtension`, not Ktor `docker { }` tasks or
+`nais/docker-build-push`:
 
-Bygg image med **ren Jib** (Ktor-pluginen aktiverer allerede JibPlugin), ikke Ktor sine
-`docker { }`-tasks:
+1. Gradle `jib.from` uses Chainguard JRE 25; `jib.to` reads repository/tag from
+   Gradle properties/environment; `jib.container` owns runtime settings. Jib
+   cannot yet read Chainguard OCI Image Index v1.1 directly, so
+   `pullChainguardBaseImage` pre-pulls to Docker and `from.image` uses `docker://`.
+   `jib`, `jibBuildTar`, and `jibDockerBuild` depend on it.
+2. Commit-pinned `nais/login` (v0) authenticates GAR and supplies registry
+   output. Deploy runs Gradle build/Jib with repository/tag, reads
+   `build/jib-image.digest`, and sends `repo@digest` to commit-pinned
+   `nais/attest-sign` (v2.0.14) for SLSA attestation and cosign signing. Image
+   path is derived, not hard-coded; tag is
+   `YYYY.MM.DD-HH.mm-<short-sha>`.
+3. PR/merge CI runs compilation, lint, and tests without OIDC or registry
+   credentials. After merge, the trusted `main` deployment builds and pushes
+   the image once; `deploy-nais.yaml` deploys the same `repo:tag` to dev and
+   then production.
 
-1. **`build.gradle.kts`:** konfigurer `jib { from / to / container }` direkte (via `JibExtension`)
-   og fjern `ktor { docker { } }`-blokka. Å sette Chainguard-basen (JRE 25) eksplisitt i
-   `from.image` fjerner Ktor-pluginens JRE-validering og `setupJibLocal`-stien. En `Task.project`- deprecation gjenstår
-   i jib-gradle-pluginens egne tasks (upstream, ikke vår kode; akseptert). Basen kan ikke hentes registry-direkte: Jib
-   feiler på Chainguards OCI Image Index v1.1 (`artifactType`, verifisert), så vi bruker `docker://`-referanse + et
-   `docker pull`-pre-pull-steg.
+There is no Dockerfile rollback/parallel path; reintroducing one needs a new ADR
+because it duplicates image contract and changes supply chain.
 
-2. **deploy-workflow:** `nais/login@v0` → `./gradlew jib` (direkte push til GAR) → les digest fra
-   `build/jib-image.digest` → `nais/attest-sign` på digesten. Image-path bygges fra
-   `nais/login`-outputen `registry` (ikke hardkodet management-project-id). Tag =
-   `YYYY.MM.DD-HH.mm-<kort-sha>` for kronologi + commit-sporbarhet. Tredjeparts-actions SHA-pinnes (unntak `nais/*`).
+## Consequences
 
-3. **PR-gate (`build.yml`):** legg til `./gradlew jibBuildTar` (bygg uten push) for å fange base-image-/Jib-konfigfeil i
-   PR i stedet for på main-deploy.
-
-`Dockerfile` beholdes som rollback i POC-perioden og fjernes først når dev-deploy er stabil, Chainguard-base er
-bekreftet i bygget image, og signert image deployer uten regresjon.
-
-## Konsekvenser
-
-- Ingen `Dockerfile` å vedlikeholde; base/JRE/jvmFlags styres ett sted i Gradle.
-- Direkte Jib-push fjerner docker-daemon-avhengigheten i CI (med mindre OCI 1.1-fallbacken trengs), og gir en stabil
-  digest for signering.
-- SLSA-attestering + signering bevares eksplisitt — ingen supply-chain-regresjon.
-- Ny risiko: Jib-oppgraderinger og Chainguard-manifestformat kan bryte bygget; PR-gatens
-  `jibBuildTar` fanger dette tidlig.
+Base image, Java version, JVM flags, and runtime metadata live in Gradle. Docker
+remains required only for the bounded OCI 1.1 pre-pull workaround. Explicit
+attestation/signing retains supply-chain guarantees. Jib- or Chainguard-specific
+failures may first surface in the trusted `main` deployment; this is accepted
+to keep pull-request workflows free of registry credentials and OIDC.
+The reviewed `nais/deploy` action still inherits a mutable transitive container
+tag; the trusted-policy runbook records that external supply-chain limitation
+and the repository-wide Nais OIDC trust limitation.

@@ -1,19 +1,24 @@
-# Overordnet flyt — syfo-budstikka
+# Overall flow — syfo-budstikka
 
-## Flytoversikt
+## Flow overview
 
-Budstikka er en tredelt pipeline: **Kafka-consumer → Inbox → Decision → Delivery**.
+Budstikka uses a staged pipeline: **Kafka consumer → Inbox → Decision → Delivery**.
+The consumer owns *what and when*; budstikka owns *how*.
 
-1. **InboxMessageHandler** (infrastructure/kafka/consumer/) — konsumerer, parser og lagrer meldingen i innboksen, eller legger den i dead letter ved feil.
-2. **InboxMessageWorker** (application/) — ta eierskap til meldinger og kjører beslutningen
-3. **DecisionProcess** (domain/decision/) — evaluerer reglene og produserer en Decision
-4. **EffectuateDecision** (application/) — iverksetter beslutningen ved å opprette leveranser og markere innboksmeldingen som ferdig
-5. **DeliveryWorker** (application/) — henter og sender videre til handler
-6. **ChannelHandler** (application/) — sender til kanalendepunktet
+1. **InboxMessageHandler** (`infrastructure/kafka/consumer/`) consumes, parses, and
+   stores the message in the inbox, or sends it to the dead-letter store on failure.
+2. **InboxMessageWorker** (`application/`) claims messages and runs the decision.
+3. **DecisionProcess** (`domain/decision/`) evaluates the rules and produces a
+   `Decision`.
+4. **EffectuateDecision** (`application/`) effectuates the decision by creating
+   deliveries and marking the inbox message as processed.
+5. **DeliveryWorker** (`application/`) claims deliveries and forwards them to a
+   handler.
+6. **ChannelHandler** (`application/`) sends the delivery to its channel endpoint.
 
 ```mermaid
 flowchart TB
-    subgraph Producers["Domeneapper"]
+    subgraph Producers["Domain applications"]
         P1["isdialogmote"]
         P2["..."]
     end
@@ -25,8 +30,8 @@ flowchart TB
         CONS["InboxMessageHandler<br/>(batch)"]
         INBOX[("inbox_message")]
         IWORK["InboxMessageWorker<br/>claim + lease"]
-        DEC["DecisionProcess<br/>resolve i parallell<br/>apply sekvensielt"]
-        EFF["EffectuateDecision<br/>1 DB-transaksjon"]
+        DEC["DecisionProcess<br/>resolve in parallel<br/>apply sequentially"]
+        EFF["EffectuateDecision<br/>one DB transaction"]
         OUTBOX[("delivery")]
         DWORK["DeliveryWorker<br/>claim + lease<br/>channels = handlers.keys"]
         MAP["Map<Channel, ChannelHandler><br/>bootstrap"]
@@ -42,7 +47,7 @@ flowchart TB
 
     DWORK -->|"Sent"| SENT["state=SENT"]
     DWORK -->|"Failed(reason)"| FAILED["state=FAILED"]
-    DWORK -->|"exception"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"exception"| RECLAIM["remains CLAIMED until the lease expires"]
 
     subgraph Outbound["Channel endpoints"]
         CH1["Channel endpoint 1"]
@@ -52,51 +57,52 @@ flowchart TB
     DWORK --> CH2
 ```
 
-## Claim og lease
+## Claim and lease
 
-Samme claim-mekanisme brukes i `inbox_message` og `delivery`:
+`inbox_message` and `delivery` use the same claim mechanism:
 
-1. Les kandidater med `FOR UPDATE SKIP LOCKED`.
-2. Velg både nye rader og utløpte claims:
-   - inbox: `state=RECEIVED` eller `state=CLAIMED and next_attempt_time <= now`
-   - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
-3. Sorter deterministisk (`received_at/created_at`, deretter ID) og `LIMIT batchSize`.
-4. Oppdater de valgte radene i samme transaksjon:
+1. Read candidates with `FOR UPDATE SKIP LOCKED`.
+2. Select both new rows and expired claims:
+   - inbox: `state=RECEIVED` or `state=CLAIMED and next_attempt_time <= now`
+   - delivery: `state=READY` or `state=CLAIMED and next_attempt_time <= now`
+3. Sort deterministically (`received_at/created_at`, then ID) and `LIMIT batchSize`.
+4. Update selected rows in the same transaction:
    - `state = CLAIMED`
    - `next_attempt_time = now + lease`
    - `attempt = attempt + 1`
 
-Dette gjør at flere podder kan jobbe parallelt uten dobbelt-claim.
+This lets several pods work in parallel without double claims.
 
-## Batch insert og transaksjonsgrense
+## Batch insert and transaction boundary
 
-- **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
-  `batchInsert(ignore = true)`. Dedup skjer på `event_id` (PK), hentet fra Kafka-headeren
-  `DispatchHeader.EVENT_ID` (ADR 0008 / B61 — eventId ligger ikke i payloaden).
-- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
-  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)` av
-  delivery-rader bare hvis CAS lykkes.
-- **Delivery-skriving:** `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for
-  0..N rader for samme inbox-melding.
+- **Kafka → inbox:** `InboxMessageHandler` writes a batch to `inbox_message` with
+  `batchInsert(ignore = true)`. Deduplication is on `event_id` (PK), read from the
+  Kafka header `DispatchHeader.EVENT_ID` (ADR 0008 / B61: eventId is not in the payload).
+- **Decision → delivery:** `EffectuateDecision` runs in one database transaction:
+  first `markProcessedInTransaction(eventId)` (CAS), then
+  `saveInTransaction(...)` of delivery rows only if CAS succeeds.
+- **Delivery write:** `DeliveryRepository.saveInTransaction` uses `batchInsert(draft)`
+  for 0..N rows for the same inbox message.
 
 ## Decision pattern (fetch, then decide)
 
-`DecisionProcess` er delt i to steg:
+`DecisionProcess` has two steps:
 
-1. **Fetch/resolve i parallell:** alle `DecisionRule.resolve(event)` kjøres med `async/awaitAll`.
-2. **Decide/apply sekvensielt:** de resolverte reglene foldes i rekkefølge over deliveries.
-   Første `Dropped`/`Failed` stopper resten (short-circuit).
+1. **Fetch/resolve in parallel:** run every `DecisionRule.resolve(event)` with
+   `async/awaitAll`.
+2. **Decide/apply sequentially:** fold resolved rules over deliveries in order. The
+   first `Dropped` or `Failed` short-circuits the rest.
 
-Dette gir lavere latens på oppslag, men fortsatt forutsigbar regelrekkefølge i selve beslutningen.
+This lowers lookup latency while retaining predictable rule order for the decision itself.
 
-## Kanal-mapping
+## Channel mapping
 
-Kanal velges og brukes i to ulike maps:
+Channel selection and use happen in two separate maps:
 
-1. **DispatchContent → DeliveryDraft** (`DispatchDraftMapping`): setter `operation`, `channel` og
-   `recipient` for hver meldingstype.
-2. **Channel → ChannelHandler** (`Map<Channel, ChannelHandler>` i `WorkerModule`): bestemmer hvilken
-   handler som faktisk kan levere claimed rader.
+1. **DispatchContent → DeliveryDraft** (`DispatchDraftMapping`): sets `operation`,
+   `channel`, and `recipient` for each message type.
+2. **Channel → ChannelHandler** (`Map<Channel, ChannelHandler>` in `WorkerModule`):
+   decides which handler can deliver claimed rows.
 
-Delivery-claim filtrerer på `handlers.keys`, så workeren henter bare kanaler som er registrert i
-map-et. Nye kanaler legges til ved å registrere en `ChannelHandler` i dette map-et.
+Delivery claim filters on `handlers.keys`, so the worker picks up only registered
+channels. Add a channel by registering its `ChannelHandler` in this map.

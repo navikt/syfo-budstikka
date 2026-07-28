@@ -10,7 +10,15 @@
 
 Budstikka er en Ktor-backend for å håndtere kommunikasjon fra våre apper til flere eksterne og interne kanaler.
 
-## Big picture
+## Språkstandard
+
+README og brukervendt produkttekst skrives på norsk bokmål. I kode beholder vi
+kanoniske norske domenebegreper, mens tekniske og mekaniske navn er engelske.
+Agentoppsett, teknisk dokumentasjon, ADR-er, issues, pull requests og
+commit-meldinger skrives på engelsk. Se
+[`docs/agents/language-policy.md`](docs/agents/language-policy.md).
+
+## Overordnet flyt
 
 ```mermaid
 sequenceDiagram
@@ -26,7 +34,7 @@ sequenceDiagram
     participant channel as Channel<br/>(via ChannelHandler)
     participant target as Channel endpoint
 
-    producer->>kafka: publish Dispatch(eventId, reference, content)
+    producer->>kafka: publish header eventId + Dispatch(reference, content)
     consumer->>kafka: consume records
     consumer->>inbox: saveBatch (batchInsert, dedup på eventId)
     iworker->>inbox: claim(limit, lease)

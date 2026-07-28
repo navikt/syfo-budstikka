@@ -1,31 +1,19 @@
 ---
-description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, docs/ (ADR/glossar/kontekst), .grill/-artefakter (PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
-applyTo: "**/*.md"
+description: "Applies when editing the Norwegian-language README; keeps its prose concise, direct, and consistent with Nav language practice."
+applyTo: "README.md"
 ---
 
-# Norsk tekstkvalitet (lean)
+# Norwegian README quality
 
-Disse reglene gjelder all norsk markdown-tekst i dette Ktor-backend-repoet (no.nav.syfo): README, arkitekturbeslutninger i `docs/adr/`, `.grill/`-artefakter, PR-tekst og commit-meldinger. Hold tekst om kode like presis som koden selv.
+`README.md` is written in Norwegian Bokmål. Keep technical prose as precise as
+the code.
 
-## AI-markører å unngå
+## Lead with the outcome
 
-- Overforbruk av em-dash (`—`) i løpende tekst og kulepunkter
-- Formler som "ikke bare X, men også Y"
-- Klisjeer som "i et stadig skiftende landskap"
-- Overdrevne adjektiver: "banebrytende", "revolusjonerende", "sømløs", "robust"
-- Oppsummeringspåheng som "kort sagt" når setningen ikke tilfører ny info
+Start with the conclusion or decision, then give background and rationale.
+Readers should understand the result early.
 
-Skriv heller konkret hva som skjer, hvem som gjør det, og hva leseren skal gjøre.
-
-## Det viktigste først
-
-Start med konklusjon eller beslutning. Bakgrunn og begrunnelse kommer etterpå.
-Målet er forventningsstyring: leseren skal forstå utfallet tidlig, ikke bygges opp mot det.
-
-I en ADR: skriv beslutningen i første setning, så konteksten og konsekvensene.
-I en PR-beskrivelse: skriv hva endringen gjør for konsumenten (endepunkt, Kafka-topic, migrering) før implementasjonsdetaljer.
-
-## Unngå substantivsyke
+Prefer active verbs over nominalizations:
 
 ```text
 ❌ Vi foretar en vurdering av implementasjonen.
@@ -35,32 +23,25 @@ I en PR-beskrivelse: skriv hva endringen gjør for konsumenten (endepunkt, Kafka
 ✅ Vi oppdaterte Flyway-migreringen.
 ```
 
-Foretrekk verb og aktiv form. Kutt unødvendige hjelpeord.
+## Avoid generated-text mannerisms
 
-## Anglisismer og Nav-språkpraksis
+- repeated em dashes in prose and bullet lists;
+- formulas such as "ikke bare X, men også Y";
+- clichés such as "i et stadig skiftende landskap";
+- inflated adjectives such as "banebrytende", "revolusjonerende", "sømløs",
+  and "robust"; and
+- summary appendages such as "kort sagt" when they add nothing.
 
-Bruk norsk når det finnes naturlige ord, men behold etablerte fagtermer.
-Vanlige feller:
+State what happens, who acts, and what the reader should do.
 
-- "adressere et problem" → "løse" / "ta tak i"
-- "ta eierskap til" → "ha ansvar for"
-- "har du noen input?" → "har du innspill?"
-- "shippe" / "deploye" → "levere" / "rulle ut"
-- "på slutten av dagen" → dropp eller skriv poenget direkte
+## Norwegian terminology
 
-Behold tekniske termer som er etablerte i stacken: Ktor, Netty, NAIS, TokenX, Azure AD, Flyway, Kafka, consumer, producer, endepunkt.
-I sammensatte ord med engelsk fagterm: bruk bindestrek (`CI-pipeline`, `API-kall`, `Kafka-consumer`, `Flyway-migrering`).
+Use a natural Norwegian term when one exists, while preserving established
+stack terms such as Ktor, Netty, Nais, TokenX, Azure AD, Flyway, Kafka,
+consumer, producer, and endepunkt. Use a hyphen in Norwegian compounds with an
+English technical term, for example `CI-pipeline`, `API-kall`,
+`Kafka-consumer`, and `Flyway-migrering`.
 
-## «Nav», ikke «NAV»
-
-Organisasjonen skrives **Nav** (ikke «NAV») i løpende tekst — det er gjeldende navnepraksis. «Nav-team», «en Nav-tjeneste», «Nav-utvikler».
-Unntak som beholder store bokstaver (egennavn / tekniske identifikatorer): `NAIS`, JWT-claimet `NAVident`, pakkenavn (`no.nav.syfo`), URL-er og kode-identifikatorer. Disse endres aldri.
-
-## Tredjeperson i description-felt
-
-Når du skriver `description` i frontmatter for instruksjonsfiler eller skills, bruk tredjeperson og beskriv NÅR filen gjelder. Skriv hva filen gjør, ikke hva "jeg" eller "du" gjør.
-
-```text
-✅ "Gjelder når du endrer Ktor-ruter ..."
-❌ "Jeg hjelper deg med ..."
-```
+Write the organization as **Nav**, not "NAV", in prose. Preserve technical
+identifiers and proper names such as `NAIS`, `NAVident`, `no.nav.syfo`,
+`no.nav.budstikka`, and URLs.

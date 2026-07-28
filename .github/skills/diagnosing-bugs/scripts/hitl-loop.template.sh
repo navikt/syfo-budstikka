@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Human-in-the-loop reproduksjons-loop (siste utvei i fase 1).
-# Kopier denne fila, rediger stegene under, og kjør den.
-# Agenten kjører scriptet; brukeren følger prompts i sin egen terminal.
+# Human-in-the-loop reproduction loop (last resort in phase 1).
+# Copy this file, edit the steps below, and run it.
+# The agent runs the script; the user follows prompts in their terminal.
 #
-# Bruk:
+# Usage:
 #   bash hitl-loop.template.sh
 #
-# To hjelpere:
-#   step "<instruksjon>"        -> vis instruksjon, vent på Enter
-#   capture VAR "<spørsmål>"    -> vis spørsmål, les svar inn i VAR
+# Two helpers:
+#   step "<instruction>"        -> show instruction, wait for Enter
+#   capture VAR "<question>"    -> show question, read answer into VAR
 #
-# Til slutt skrives fangede verdier som KEY=VALUE for agenten å parse.
+# The captured values are printed as KEY=VALUE for the agent to parse.
 
 set -euo pipefail
 
 step() {
   printf '\n>>> %s\n' "$1"
-  read -r -p "    [Enter når ferdig] " _
+  read -r -p "    [Press Enter when done] " _
 }
 
 capture() {
@@ -26,16 +26,16 @@ capture() {
   printf -v "$var" '%s' "$answer"
 }
 
-# --- rediger under ------------------------------------------------------
+# --- edit below ---------------------------------------------------------
 
-step "Start appen lokalt med ./gradlew run (eller port-forward mot dev-gcp)."
+step "Start the app locally with ./gradlew run (or port-forward to dev-gcp)."
 
-capture STATUS "curl -s -o /dev/null -w '%{http_code}' mot den feilende ruten. Hvilken HTTP-status?"
+capture STATUS "Run curl -s -o /dev/null -w '%{http_code}' against the failing route. Which HTTP status?"
 
-capture FEIL "Lim inn feilmeldingen fra appens logg (eller 'ingen'):"
+capture ERROR "Paste the error message from the application log (or 'none'):"
 
-# --- rediger over -------------------------------------------------------
+# --- edit above ---------------------------------------------------------
 
-printf '\n--- Fanget ---\n'
+printf '\n--- Captured ---\n'
 printf 'STATUS=%s\n' "$STATUS"
-printf 'FEIL=%s\n' "$FEIL"
+printf 'ERROR=%s\n' "$ERROR"

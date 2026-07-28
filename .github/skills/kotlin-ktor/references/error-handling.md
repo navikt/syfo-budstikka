@@ -1,6 +1,8 @@
-# Feilhåndtering — Ktor StatusPages (komplett implementasjon)
+# Error handling — Ktor StatusPages pattern
 
-Team-standard for enhetlig feilkontrakt i `no.nav.syfo`-Ktor-tjenester. Klienter får alltid samme JSON-form, og uventede feil lekker ikke stacktrace.
+Design pattern for a future public route in `no.nav.budstikka`. The repository
+does not currently have `StatusPages`, `ContentNegotiation`, or this error
+contract. Introduce the pattern only as part of a verified vertical API slice.
 
 ## ApiError og ErrorType
 
@@ -85,7 +87,8 @@ fun Throwable.rootCause(): Throwable {
 
 ## Logging
 
-Forventede klientfeil (`ApiErrorException`) logges på `warn`, uventede på `error`. Logg callId, aldri rå payload med PII.
+Expected client errors (`ApiErrorException`) log at `warn`; unexpected errors
+log at `error`. Log callId, never raw payload containing PII.
 
 ```kotlin
 private fun logException(call: ApplicationCall, cause: Throwable) {
@@ -99,9 +102,11 @@ private fun logException(call: ApplicationCall, cause: Throwable) {
 }
 ```
 
-## apiModule() — oppsett
+## apiModule() — setup
 
-`installStatusPages()` registreres i en `Application`-modul. Husk å legge modulen i `application.yaml` (`ktor.application.modules`) for at den skal kjøre.
+Call `installStatusPages()` from `installPlugins()` or a new plugin function
+reached by `configureApplication()`. The production module remains
+`no.nav.budstikka.ApplicationKt.module` in `application.conf`.
 
 ```kotlin
 fun Application.apiModule() {
@@ -112,7 +117,7 @@ fun Application.apiModule() {
 }
 ```
 
-## Eksempel feilrespons
+## Example error response
 
 ```json
 {

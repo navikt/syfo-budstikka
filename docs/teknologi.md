@@ -1,80 +1,89 @@
-# Teknologivalg — syfo-budstikka
+# Technology choices — syfo-budstikka
 
-Idiomatisk, moderne Kotlin — **ikke** Spring-aktig. Testbarhet er et førsteklasses krav:
-domenelaget er rammeverksfritt og testes rent og raskt. Alle avhengigheter legges i
-version catalog (`gradle/libs.versions.toml`, refereres som `libs.*` / `ktorLibs.*`),
-aldri hardkodede versjoner.
+Use idiomatic, modern Kotlin: **not** Spring-like. Testability is a first-class
+requirement: the domain layer is framework-free and is tested purely and quickly. Put
+all dependencies in the version catalog (`gradle/libs.versions.toml`, referenced as
+`libs.*` / `ktorLibs.*`), never as hard-coded versions.
 
-## Kjøretid og rammeverk
+## Runtime and framework
 
-- **Kotlin/JVM** på **Ktor + Netty** (`io.ktor.server.netty.EngineMain`) — allerede i skjelettet.
-- **DI: Ktors innebygde dependency injection** (Ktor 3.2+), ikke Koin, ikke Spring.
-  Konstruktør-injeksjon, wiring i `Application.*Module()`. Holder `domain` fri for rammeverk.
+- **Kotlin/JVM** on **Ktor + Netty** (`io.ktor.server.netty.EngineMain`), already in the skeleton.
+- **DI: Ktor built-in dependency injection** (Ktor 3.2+), not Koin or Spring.
+  Use constructor injection and wire in `Application.*Module()`. Keep `domain`
+  framework-free.
 
-## Koding
+## Coding
 
-- `kotlin.time.Duration` som standard for tidsintervaller, ikke `java.time.Duration`. Unntak: `java.time.Duration`kun
-  der Kafka-APIet krever det (`Consumer.poll()`).
+- Use `kotlin.time.Duration` for intervals, not `java.time.Duration`. The only
+  exception is where the Kafka API requires it (`Consumer.poll()`).
 
 ## Data
 
-- **Postgres 18** (esyfovarsel kjørte 17) — Cloud SQL via NAIS.
-- **Exposed DSL** (JetBrains) — typet SQL-DSL, *ikke* DAO/ORM-magi og *ikke* rå JDBC.
-  Parameteriserte spørringer ivaretas av DSL-en. Må uttrykke `FOR UPDATE SKIP LOCKED`
-  for worker-radlåsen (B15/B27). **HikariCP** som connection pool.
-- **Flyway** for skjemaendringer (`src/main/resources/db/migration/V<n>__*.sql`), additivt.
-- **UUID v7** (tidssortert) for interne id-er som `delivery.id` (B16). Gir bedre B-tree-lokalitet
-  enn v4 og hjelper alders-baserte retensjons-`DELETE` (B42). **Postgres 18 har `uuidv7()` innebygd**
-  → id-en genereres av databasen med `DEFAULT uuidv7()` (settes i Flyway-migreringen), ingen app-side
-  generator. **Standard i budstikka: `java.util.UUID` via `javaUUID("id")`** (pakke
-  `org.jetbrains.exposed.v1.core.java`) — ingen experimental opt-in, best interop mot Kafka/JDBC/serialisering
-  på en ren JVM-backend. (`uuid("id")` i Exposed 1.0 er `kotlin.uuid.Uuid` og krever
-  `@OptIn(ExperimentalUuidApi::class)` — velges ikke her.) Marker kolonnen `.databaseGenerated()` så Exposed
-  leser id-en tilbake i stedet for å sende en. **Ikke** `.autoGenerate()` — den lager en klient-side v4.
-  Merk: `eventId` (B4) settes av produsent-appene
-  (innkommende Kafka-kontrakt), ikke av budstikkas DB.
+- **Postgres 18** (esyfovarsel ran 17), Cloud SQL through NAIS.
+- **Exposed DSL** (JetBrains): typed SQL DSL, *not* DAO/ORM magic and *not* raw JDBC.
+  The DSL provides parameterised queries. It must express `FOR UPDATE SKIP LOCKED`
+  for worker row locking (B15/B27). Use **HikariCP** as the connection pool.
+- **Flyway** for schema changes (`src/main/resources/database.migration/V<n>__*.sql`), additively.
+- **UUID v7** (time-sorted) for internal IDs such as `delivery.id` (B16). It provides
+  better B-tree locality than v4 and supports age-based retention `DELETE` (B42).
+  **Postgres 18 includes `uuidv7()`**: generate IDs in the database with
+  `DEFAULT uuidv7()` (set in the Flyway migration), with no application-side generator.
+  **Budstikka standard: `java.util.UUID` through `javaUUID("id")`** (package
+  `org.jetbrains.exposed.v1.core.java`): no experimental opt-in and best interoperability
+  with Kafka/JDBC/serialization on a pure JVM backend. (`uuid("id")` in Exposed 1.0 is
+  `kotlin.uuid.Uuid` and requires `@OptIn(ExperimentalUuidApi::class)`, so do not use it.)
+  Mark the column `.databaseGenerated()` so Exposed reads back the ID instead of sending
+  one. Do **not** use `.autoGenerate()`: it creates a client-side v4. `eventId` (B4) is
+  set by producer apps (the incoming Kafka contract), not by budstikka’s database.
 
 ## Kafka
 
-- **Plain Apache Kafka** (`kafka-clients`), konsument/produsent i egen coroutine ved siden av
-  Ktor-serveren (jf. `/kafka-topic`). Ikke Rapids & Rivers. SSL-config injiseres av NAIS.
+- Use **plain Apache Kafka** (`kafka-clients`), with consumer and producer in their own
+  coroutine alongside the Ktor server (see `/kafka-topic`). Do not use Rapids & Rivers.
+  NAIS injects SSL configuration.
 
-## Prosjektstruktur (DDD / ports & adapters)
+## Project structure (DDD / ports and adapters)
 
-Pakker under `no.nav.budstikka`:
+Packages under `no.nav.budstikka`:
 
-- **`domain`** — ren kjerne: modellen (`Dispatch`, `Decision`, tilstander) og de komponerbare
-  beslutningsgatenes rene `apply` (B28/B55). Ingen I/O, ingen rammeverk. Raske,
-  parallelliserbare enhetstester.
-- **`application`** — use-case-orkestratorer: bakgrunns-workere (`InboxMessageWorker`, `DeliveryWorker`) og andre
-  drivere som koordinerer `domain` og `infrastructure`-porter. Snakker bare domene og porter, ingen
-  transport-typer. Kan avhenge av `domain` og `infrastructure`; ingenting innover peker hit.
-- **`infrastructure`** — imperative shell og adaptere: Kafka, Exposed-repositories, eksterne
-  klienter (KRR, PDL, nærmeste leder, dokdist, notifikasjon-produsent-api), DataSource, config.
-  Worker-*mekanismen* (`BackgroundLoop`, `Heartbeat`) bor her: livssyklus og plumbing uten domenekunnskap.
-- **`api`** — Ktor-routes: interne endepunkter (`/internal/isalive|isready|prometheus`), ev. admin.
+- **`domain`**: pure core, containing the model (`Dispatch`, `Decision`, states) and
+  pure `apply` functions for composable decision gates (B28/B55). No I/O or framework.
+  Fast, parallelisable unit tests.
+- **`application`**: use-case orchestrators, including background workers
+  (`InboxMessageWorker`, `DeliveryWorker`) and other drivers that coordinate `domain`
+  with application ports. It speaks only domain and ports, never transport types. It may
+  depend on `domain` and application ports; nothing inward points to it.
+- **`infrastructure`**: imperative shell and adapters: Kafka, Exposed repositories,
+  external clients (KRR, PDL, nærmeste leder, dokdist, notification producer API),
+  DataSource, and configuration. Worker *mechanics* (`BackgroundLoop`, `Heartbeat`) live
+  here: lifecycle and plumbing without domain knowledge.
+- **`api`**: Ktor routes, including internal endpoints
+  (`/internal/health/is_alive`, `/internal/health/is_ready`, and
+  `/internal/metrics`) and, if needed, admin.
 
-Plasserings-test (adapter vs. use-case): navngir klassen en transport-type (`ConsumerRecord`,
-`ApplicationCall`, HTTP-request) er den en drivende adapter og hører til `infrastructure` (eller
-`api` for HTTP). Snakker den bare domene og porter, er den et use-case og hører til `application`.
-Ren livssyklus og plumbing hører til `infrastructure`. `InboxMessageHandler` tar `ConsumerRecord` og
-leser Kafka-headere, altså adapter i `infrastructure/kafka`; `InboxMessageWorker` tar bare repository
-og config, altså use-case i `application`. En port innføres når det finnes en grunn (to eller flere
-drivere, domenelogikk som skal testes uten transport, eller kompleks orkestrering), ikke på
-spekulasjon. DI-wiring som rører `application` bor i `bootstrap` (composition root), aldri i
-`infrastructure`. Se ADR 0003.
+Placement test (adapter versus use case): a class named after a transport type
+(`ConsumerRecord`, `ApplicationCall`, HTTP request) is a driving adapter and belongs in
+`infrastructure` (or `api` for HTTP). A class speaking only domain and ports is a use case
+and belongs in `application`. Pure lifecycle and plumbing belong in `infrastructure`.
+`InboxMessageHandler` takes `ConsumerRecord` and reads Kafka headers, so it is an adapter
+in `infrastructure/kafka`; `InboxMessageWorker` takes only repository and configuration,
+so it is a use case in `application`. Introduce a port only when there is a reason (two or
+more drivers, domain logic that must be tested without transport, or complex orchestration),
+not speculatively. DI wiring that touches `application` belongs in `bootstrap` (the
+composition root), never `infrastructure`. See ADR 0003.
 
-Mapping til B28: `domain` = functional core · `application` og `infrastructure` = imperative shell ·
-`api` = HTTP-kant.
+Mapping to B28: `domain` = functional core; `application` and `infrastructure` =
+imperative shell; `api` = HTTP edge.
 
 ## Test
 
-- **Kotest** med **FunSpec**-stil som testrammeverk.
+- **Kotest** with the **FunSpec** style as test framework.
 - **MockK** for mocking.
-- **Testcontainers** via Kotest-extension for Postgres/Kafka i integrasjonstester.
-- To nivåer: (1) raske, rene **enhetstester** av `domain` (beslutningsgater, mapping) — ingen
-  containere, kjøres **parallelt**; (2) **integrasjonstester** (repositories, konsument,
-  ende-til-ende) med Testcontainers. Parallellitet konfigureres i Kotest.
-- **ktlint** (allerede i repoet) for kodestil. Kjør `./gradlew test` før ferdigmelding.
-- Lokal test/e2e-strategi (delt substrat i `src/test`, prod-grense via build, port-fakes, utsatt
-  interaktivt løp): se `teststrategi.md` (B50–B53).
+- **Testcontainers** through the Kotest extension for Postgres/Kafka integration tests.
+- Two levels: (1) fast, pure **unit tests** of `domain` (decision gates, mapping), with no
+  containers and run **in parallel**; (2) **integration tests** (repositories, consumer,
+  end-to-end) with Testcontainers. Configure parallelism in Kotest.
+- **ktlint** (already in the repository) enforces code style. Run `./gradlew test` before
+  declaring work complete.
+- For the local test/e2e strategy (shared substrate in `src/test`, production boundary via
+  build, port fakes, deferred interactive run), see `teststrategi.md` (B50–B53).

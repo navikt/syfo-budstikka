@@ -1,9 +1,10 @@
-# Datamodell — syfo-budstikka
+# Data model — syfo-budstikka
 
-Datamodellen følger dagens kode. Kilden er `InboxMessageTable`, `DeliveryTable` og
-`DeadLetterMessageTable` i `src/main/kotlin/no/nav/budstikka/infrastructure/database/`.
+The data model follows the current code. Its sources are `InboxMessageTable`,
+`DeliveryTable`, and `DeadLetterMessageTable` in
+`src/main/kotlin/no/nav/budstikka/infrastructure/database/`.
 
-## Tabeller
+## Tables
 
 ```mermaid
 erDiagram
@@ -24,7 +25,7 @@ erDiagram
 
     delivery {
         uuid        id PK
-        uuid        inbox_event_id "nullable FK-lenke"
+        uuid        inbox_event_id "nullable FK link"
         text        reference
         text        operation
         text        channel
@@ -45,34 +46,37 @@ erDiagram
         int         partition
         bigint      kafka_offset
         text        kafka_key "nullable"
-        uuid        event_id "nullable (fra header, når den finnes)"
+        uuid        event_id "nullable (from header, when available)"
         text        failure_reason
         text        error_message "nullable"
         timestamptz received_at
     }
 ```
 
-## Inbox og dead letter
+## Inbox and dead letter
 
-- Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
-  hydrerer `inbox_message`: dedup på **header-eventId** (`DispatchHeader.EVENT_ID`) som PK,
-  `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
-  FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
-  utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
-  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Ytterligere match-
-  kolonner legges til kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold.
-- `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
-  content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
-  `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
-- Melding som ikke kan behandles ved inntak (manglende/ugyldig header, tom payload, korrupt
-  JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
-  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon (B21)
-  dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
-- **Retensjon (B42 + ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
-  ved alder > ~100 dager (≥ 90d replay-vindu, B26, + buffer); DL bærer rå payload m/fnr og
-  må ha samme slette-disiplin.
+- At ingest, the consumer **parses the full `Dispatch`** (ADR 0008, superseding ADR 0002)
+  and hydrates `inbox_message`: it deduplicates on the **header eventId**
+  (`DispatchHeader.EVENT_ID`) as the PK, stores `content` as `jsonb`, and extracts
+  `reference` to its own column (the selective FERDIGSTILL matching key and the only
+  envelope field outside `content`). Recipient and channel are derived from `content`
+  (`partitionKey`/`type`) at the boundary. This lets FERDIGSTILL match or delimit
+  undecided inbox rows without reparsing (#27). Add further matching columns only if
+  B61's open hold-placement question resolves to inbox hold.
+- `eventId` exists **only** in the Kafka header (removed from the payload;
+  `Dispatch = { reference, content }`). The header is authoritative and mandatory.
+  Store it best-effort in `dead_letter_message.event_id` for correlation when a
+  message is dead-lettered.
+- A message that cannot be handled at ingest (missing or invalid header, empty payload,
+  corrupt JSON, an envelope without `reference`, or parser-unrepresentable content) is
+  written to `dead_letter_message` and its offset is committed. A
+  *representable-but-illegal* combination (B21) is **not** dead-lettered: it reaches
+  the inbox and is handled by the decision worker.
+- **Retention (B42 + ADR 0008):** hard-delete `inbox_message` and
+  `dead_letter_message` after about 100 days (the ≥90-day replay window, B26, plus a
+  buffer). DL contains raw payload with fnr and needs the same deletion discipline.
 
-## Worker-flyt og state-overganger
+## Worker flow and state transitions
 
 ### `inbox_message.state`
 
@@ -81,12 +85,12 @@ RECEIVED -> CLAIMED -> PROCESSED
                    -> DROPPED
                    -> FAILED
 
-CLAIMED -> CLAIMED (lease utløpt, kan re-claimes)
+CLAIMED -> CLAIMED (lease expired; can be reclaimed)
 ```
 
-- Claim bruker `FOR UPDATE SKIP LOCKED` og lease via `next_attempt_time`.
-- `attempt` økes ved claim.
-- Terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) er compare-and-set fra `CLAIMED`.
+- Claims use `FOR UPDATE SKIP LOCKED` and a lease through `next_attempt_time`.
+- `attempt` increases on claim.
+- A terminal transition (`PROCESSED`/`DROPPED`/`FAILED`) is compare-and-set from `CLAIMED`.
 
 ### `delivery.state`
 
@@ -94,26 +98,26 @@ CLAIMED -> CLAIMED (lease utløpt, kan re-claimes)
 READY -> CLAIMED -> SENT
                 -> FAILED
 
-CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
+CLAIMED -> CLAIMED (handler throws; lease expires; can be reclaimed)
 ```
 
-- Delivery-worker claimer bare kanaler den har `ChannelHandler` for.
-- `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
-- `attempt` økes ved claim.
+- The delivery worker claims only channels for which it has a `ChannelHandler`.
+- `markSent` and `markFailed` are compare-and-set from `CLAIMED`.
+- `attempt` increases on claim.
 
-## Indekser
+## Indexes
 
-- `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
-- `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
-- `delivery_inbox_event_id_idx` på `(inbox_event_id)`
-- `dead_letter_message_received_at_idx` på `(received_at)`
+- `inbox_message_state_next_attempt_time_idx` on `(state, next_attempt_time)`
+- `delivery_state_next_attempt_time_idx` on `(state, next_attempt_time)`
+- `delivery_inbox_event_id_idx` on `(inbox_event_id)`
+- `dead_letter_message_received_at_idx` on `(received_at)`
 
-> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox,
-> altså kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold. Kolonnen finnes fra
-> starten (ADR 0008); indeksen kommer med det arbeidet.
+> Add an index on `inbox_message.reference` together with FERDIGSTILL matching against
+> the inbox, only if B61's open hold-placement question resolves to inbox hold. The column
+> exists from the start (ADR 0008); the index arrives with that work.
 
-## Observability-koblinger
+## Observability links
 
-- Primær korrelasjon er `eventId`.
-- For delivery brukes også `delivery.id` for sporing av ett konkret sendeforsøk.
-- Metrikklabels holdes lavkardinale; detaljer går i logger/traces.
+- `eventId` is the primary correlation value.
+- For delivery, use `delivery.id` to trace one concrete send attempt.
+- Keep metric labels low-cardinality; put details in logs and traces.

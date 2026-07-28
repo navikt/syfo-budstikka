@@ -1,159 +1,164 @@
 ---
 name: issue-management
-description: "Bruk når et GitHub-issue på navikt/syfo-budstikka skal opprettes eller håndteres gjennom livsløpet sitt — epic + sub-issues, avhengigheter, prosjektboard-status, ferdigmelding og PR-kobling. Typisk når noen sier 'lag et issue', 'opprett en sak/epic', 'koble disse issuene', 'sett issuet i gang', 'meld ferdig', eller når @grillmester skal spore arbeid mot tracker. For å bryte en hel PLAN ned i mange snitt: bruk /to-issues i stedet."
+description: "Create, update, link, or close GitHub issues. Use when the user explicitly requests tracker work or Wayfinder needs confirmed issue mechanics; require confirmation before every external write."
 ---
 
-# Issue-håndtering
+# Issue management
 
-Opprett og håndter individuelle GitHub Issues på `navikt/syfo-budstikka` — med epics, sub-issues, avhengigheter, prosjektboard og ferdigmelding.
+Use the `gh` CLI and read `docs/agents/issue-tracker.md` and `triage-labels.md`
+first. External writes require explicit user confirmation. If an action requires
+a canonical state without a mapping, return `NEEDS_DECISION` before writing.
 
-Dette er **mekanikk-skillen** for issue-livsløpet. Skal en hel `.grill/PLAN.md` brytes ned i mange vertikale snitt, gjør `/to-issues` det grovarbeidet først; denne skillen håndterer det enkelte issuet derfra (struktur, kobling, status, lukking). I @grillmester sin faseløkke hører den hjemme i plan- og serveringsfasen.
+This is the **mechanics skill** for an issue lifecycle. It manages issue
+structure, links, status, and closure after the caller has clarified the work.
+It never starts implementation.
 
-## Arbeidsflyt
+## Workflow
 
-### 1. Sjekk om issue allerede finnes
+### 1. Check whether the issue already exists
 
-Før du oppretter et nytt issue: sjekk om brukeren allerede har referert til ett (f.eks. `#123` eller en GitHub-URL). Hvis ja, bruk det eksisterende. Sjekk også `.grill/PLAN.md` / `.grill/STATE.md` — snittet kan allerede være sporet der.
+Before creating an issue, check whether the user has already referenced one
+(for example `#123` or a GitHub URL). If so, use it. Also inspect the active
+brief and PR diff: the slice may already be tracked there.
 
-### 2. Velg type
+### 2. Select a type
 
-| Type | Bruk |
+| Type | Use |
 |------|------|
-| **Epic** | Stor oppgave som brytes ned i flere issues |
-| **Feature** | Ny funksjonalitet (nytt endepunkt, ny Kafka-konsument, nytt datalager) |
-| **Story** | Brukerhistorie / brukstilfelle |
-| **Task** | Teknisk oppgave: Flyway-migrasjon, NAIS-config, refaktorering, oppgradering, chore |
-| **Bug** | Feil som må fikses |
+| **Epic** | Large effort split into several issues |
+| **Feature** | New capability, such as an endpoint, Kafka consumer, or datastore |
+| **Story** | User story or use case |
+| **Task** | Technical work: Flyway migration, NAIS configuration, refactoring, upgrade, or chore |
+| **Bug** | Defect to fix |
 
-### 3. Opprett issue med riktig struktur
+### 3. Create the issue with the right structure
 
-Hvis repoet har issue-maler i `.github/ISSUE_TEMPLATE/` for den valgte typen, les feltstrukturen fra malen og lag en markdown-body med tilsvarende seksjoner. Finnes ingen mal, bruk en kort, fast struktur: **Hva**, **Hvorfor**, **Akseptansekriterier**, og for backend-arbeid relevante lag (migrasjon / route / konsument / auth / test / NAIS).
+If the repository has an issue template in `.github/ISSUE_TEMPLATE/` for the
+chosen type, read its fields and create a Markdown body with matching sections.
+Without a template, use a short fixed structure: **What**, **Why**,
+**Acceptance criteria**, and the relevant backend layers (migration, route,
+consumer, auth, test, NAIS).
 
-Bruk domenespråket fra `docs/glossary.md` i titler og beskrivelser når det finnes, og respekter beslutninger i `docs/adr/` for området du rører.
+Use domain language from `docs/glossary.md` in titles and descriptions where it
+exists, and respect decisions in the relevant `docs/adr/` area.
 
-Inkluder alltid når relevant:
-- **Avhengigheter:** `Blokkert av #NNN`
-- **Epic-kobling:** `Del av epic: #EPIC_NUMMER`
+Include where relevant:
 
-### 4. Opprett issue
+- **Dependencies:** `Blocked by #NNN`
+- **Epic link:** `Part of epic: #EPIC_NUMBER`
 
-**MCP (foretrukket):** Bruk issue-/project-verktøy for å opprette issue med riktig type direkte.
+### 4. Create the issue
 
-**Fallback (`gh api`):**
+Use `gh api` to create the issue with the selected type:
 ```bash
 gh api repos/navikt/syfo-budstikka/issues \
   -X POST \
-  -f title="Persistér mottatt budstikke-hendelse" \
+  -f title="Persist received budstikka event" \
   -f body="BODY" \
   -f type="Task" \
   --jq '.html_url'
 ```
 
-Se `references/issue-types.md` for native typer og hvordan du oppdager tilgjengelige typer i `navikt`-orgen.
+See `references/issue-types.md` for native types and how to discover those
+available in the `navikt` organisation.
 
-### 4b. Legg issue inn i prosjektboard (hvis konfigurert)
+### 4b. Add the issue to a project board (when configured)
 
-Programmatisk opprettelse (MCP/REST/`gh api`) auto-knytter ikke issuet til et prosjekt slik web-UI gjør. Kjør derfor prosjekt-steget etterpå:
+Creating an issue with `gh api` does not automatically add it to a project as
+the web UI does. Run the project step afterwards:
 
-- Les issue-malen i repoet og se etter en `projects:`-linje. Mangler malen eller linjen → hopp over hele prosjektflyten uten å feile.
-- Er prosjekt konfigurert: legg issuet inn og oppdag prosjekt, felter og opsjoner dynamisk. Hardkod aldri felt-ID-er, option-ID-er eller statusnavn.
+- Read the repository’s issue template and look for a `projects:` line. If the
+  template or line is missing, skip the project flow without failing.
+- When a project is configured, add the issue and discover project, field, and
+  option values dynamically. Never hard-code field IDs, option IDs, or statuses.
 
-Se `references/projects.md` for sekvens, auth-preflight og feilhåndtering.
+See `references/projects.md` for the sequence, auth preflight, and error handling.
 
-### 5. Epic-håndtering
+### 5. Manage an epic
 
-For store oppgaver som brytes ned:
+For work split into several issues:
 
-1. Opprett epic-issuet først
-2. Opprett underliggende issues (ofte ferdig tegnet av `/to-issues` som vertikale snitt)
-3. Koble sub-issues til epicen via GitHubs sub-issues-API (`references/sub-issues.md`)
-4. Koble avhengigheter via dependencies-API-et (`references/dependencies.md`)
-5. Behold også `Del av epic: #EPIC_NUMMER` og `Blokkert av #NNN` i issue-teksten for lesbarhet
+1. Create the epic issue first.
+2. Create independently actionable child issues from the confirmed plan.
+3. Link sub-issues to the epic through GitHub’s sub-issues API (`references/sub-issues.md`).
+4. Link dependencies through the dependencies API (`references/dependencies.md`).
+5. Keep `Part of epic: #EPIC_NUMBER` and `Blocked by #NNN` in issue text for readability.
 
-#### Sub-issues skal være selvstendige
+#### Sub-issues must stand alone
 
-Hvert sub-issue skal kunne plukkes uten å lese hele epicen:
-- Tydelig beskrivelse av hva som skal gjøres
-- Berørte filer og lag (`src/main/kotlin/no/nav/syfo/...`, Flyway-migrasjon, NAIS-manifest)
-- Avhengigheter til andre issues
-- Akseptansekriterier som er testbare (`./gradlew test`)
+Each sub-issue must be actionable without reading the entire epic:
 
-### 6. Epic-workflow og progresjon
+- Clear description of the work.
+- Affected files and layers (`src/main/kotlin/no/nav/budstikka/...`, Flyway migration, NAIS manifest).
+- Dependencies on other issues.
+- Testable acceptance criteria (`./gradlew test`).
 
-Når en epic skal løses stegvis:
+### 6. Select the next frontier
 
-1. **Les epicen** — hent epic, sub-issues og avhengighetsinformasjon
-2. **Kategoriser åpne sub-issues:**
-   - **Kjørbar nå** — alle avhengigheter er oppfylt
-   - **Blokkert** — minst én avhengighet er fortsatt åpen
-   - **Parallelle kandidater** — flere kjørbare oppgaver uten innbyrdes avhengighet
-3. **Presenter anbefaling:**
-   - Én kandidat → foreslå den
-   - Flere kandidater → foreslå valgbare eller parallelle alternativer
-   - Ingen kandidater → forklar hva som blokkerer
-4. **Løs oppgaven** — følg normal implementeringsflyt (`/tdd` + relevante domeneskills som `/kotlin-ktor`, `/flyway-migration`, `/kafka-topic`, `/nais-manifest`)
-   - Når arbeid starter, sett prosjekt-status til `In Progress`/tilsvarende via mønsteret i `references/projects.md`
-   - Er repo, prosjekt eller statusfelt ikke konfigurert, hopp over uten å feile
-5. **Gjenta** — etter fullføring, vurder neste kjørbare oppgave
+When inspecting an epic:
 
-### 7. Ferdigmelding på issues
+1. **Read the epic**: retrieve the epic, sub-issues, and dependency information.
+2. **Categorise open sub-issues:**
+   - **Runnable now**: every dependency is satisfied.
+   - **Blocked**: at least one dependency remains open.
+   - **Parallel candidates**: several runnable tasks have no mutual dependency.
+3. **Present a recommendation:**
+   - One candidate: recommend it.
+   - Several candidates: offer selectable or parallel options.
+   - No candidates: explain the blocker.
+4. Return the selected issue to the current Barista or Grillmester route. Do
+   not implement it from this skill or change project status merely because it
+   was selected.
 
-Etter at et issue er løst, legg igjen en ferdigmelding. Hent fakta fra `.grill/VERIFICATION.md` der den finnes:
+### 7. Completion note on issues
+
+After resolving an issue, add a completion note. Obtain facts from KOKK_RESULT
+and PR evidence:
 
 ```bash
-gh issue comment ISSUE_NUMMER --repo navikt/syfo-budstikka --body "COMMENT_BODY"
+gh issue comment ISSUE_NUMBER --repo navikt/syfo-budstikka --body "COMMENT_BODY"
 ```
 
-Strukturert og kortfattet:
+Keep it structured and concise:
 
 ~~~markdown
-## ✅ Løst
+## ✅ Resolved
 
-**Oppsummering:** [Kort beskrivelse av hva som ble gjort]
+**Summary:** [Short description of the work]
 
-**Endrede filer:**
-- `src/main/kotlin/no/nav/syfo/...Kt` — [hva som ble endret]
-- `src/main/resources/db/migration/VNN__...sql` — [Flyway-migrasjon]
-- `.nais/nais.yaml` — [topic / accessPolicy ved behov]
+**Changed files:**
+- `src/main/kotlin/no/nav/budstikka/...Kt` — [what changed]
+- `src/main/resources/database.migration/VNN__...sql` — [Flyway migration]
+- `nais/nais-dev.yaml` / `nais/nais-prod.yaml` — [topic / accessPolicy if relevant]
 
-**Verifisering:** `./gradlew test` (+ build/lint) — [pass/fail + exit-kode, eller `Ikke kjørt` + grunn]
+**Verification:** `./gradlew test` (+ build/lint) — [pass/fail + exit code, or `Not run` + reason]
 
-**Inspeksjon:** [Godkjent / Godkjent med merknader / Må følges opp] — [kort oppsummering, evt. fra grill-inspektor]
+**Inspection:** [Approved / Approved with notes / Follow-up required] — [short summary, optionally from grill-inspektor]
 
-**PR:** #PR_NUMMER
+**PR:** #PR_NUMBER
 ~~~
 
-Hold inspeksjonsoppsummeringen kort — ikke en full rapport med mindre brukeren ber om det.
+Keep the inspection summary short; do not include a full report unless the user asks.
 
-### 8. Lukk epic automatisk
+### 8. Propose epic closure
 
-Etter at et sub-issue er lukket, sjekk om alle sub-issues i epicen er fullført. Gjenstår ingen åpne:
-1. Legg igjen en oppsummerende kommentar på epicen
-2. Lukk epicen
+After closing a sub-issue, check whether every sub-issue in the epic is complete.
+When none remain open, present the summary and ask for explicit confirmation
+before commenting on or closing the epic.
 
-### 9. Issue-kobling i PR-er
+### 9. Link issues in PRs
 
-Når arbeidet resulterer i en PR (typisk via `/pull-request` i serveringsfasen):
-
-```
-Closes #ISSUE_NUMMER
-```
-
-Skal issuet holdes åpent:
+When work results in a PR, typically via `/pull-request` during delivery:
 
 ```
-Relates to #ISSUE_NUMMER
+Closes #ISSUE_NUMBER
 ```
 
-`Closes #...` flytter normalt issuet til `Done` i Projects V2 av seg selv — ikke bygg egen Done-logikk med mindre boardet krever det (se `references/projects.md`).
-
-## Beslutningstre
+If the issue must remain open:
 
 ```
-Er oppgaven stor nok for en epic?
-├── Ja → Opprett Epic + underliggende issues
-│         (bruk /to-issues for å tegne vertikale snitt fra .grill/PLAN.md)
-│   └── Hvert sub-issue: selvstendig, med avhengigheter og akseptansekriterier
-└── Nei → Opprett frittstående issue
-    └── Type? → Feature / Story / Task / Bug
+Relates to #ISSUE_NUMBER
 ```
+
+`Closes #...` normally moves the issue to `Done` in Projects V2 automatically.
+Do not add separate Done logic unless the board requires it; see `references/projects.md`.

@@ -1,15 +1,18 @@
 ---
-description: "Hvordan NAIS håndterer pod-shutdown (preStop, SIGTERM, lastbalansering) og hvilke shutdown-mønstre som er riktige i et Ktor-backend. Les ved spørsmål om graceful shutdown, terminationGracePeriodSeconds, avbrutte requests eller readiness under nedstenging."
+description: "Explains how NAIS handles pod shutdown through preStop, SIGTERM, and load balancing, and the correct Ktor shutdown patterns. Read when handling graceful shutdown, terminationGracePeriodSeconds, interrupted requests, or readiness during shutdown."
 ---
 
-# Pod-lifecycle og graceful shutdown i NAIS
+# Pod lifecycle and graceful shutdown in NAIS
 
-- NAIS injiserer en `preStop`-hook med `sleep 5` før `SIGTERM` sendes til applikasjonen.
-- I denne perioden slutter lastbalansereren å rute ny trafikk til poden.
-- Readiness-probes er **ikke** involvert i shutdown-flyten i NAIS.
-- Å sette readiness=false manuelt i app-kode har derfor ingen effekt og er et anti-mønster.
-- Applikasjonen trenger kun å: (a) drenere in-flight requests og (b) avslutte rent.
-- I Ktor: bruk `ApplicationStopping`/`ApplicationStopped`-hendelsene (eller `embeddedServer(...).stop(gracePeriod, timeout)`) til å lukke connection pool (Hikari), Kafka-consumer/-producer og andre ressurser kontrollert. Ikke lag egne readiness-toggles.
-- Ikke senk `terminationGracePeriodSeconds` under default `30` sekunder.
-- Lavere grace-periode reduserer tiden appen har til drenering og kontrollert avslutning.
-- Kort grace-periode øker risiko for avbrutte kall og uferdig opprydding.
+- NAIS injects a `preStop` hook with `sleep 5` before sending `SIGTERM` to the application.
+- During that period, the load balancer stops routing new traffic to the pod.
+- Readiness probes are **not** part of NAIS shutdown flow.
+- Manually setting readiness=false in application code therefore has no effect and is an anti-pattern.
+- The application needs only to drain in-flight requests and close cleanly.
+- In Ktor, use `ApplicationStopping`/`ApplicationStopped` events, or
+  `embeddedServer(...).stop(gracePeriod, timeout)`, to close Hikari, Kafka
+  consumers/producers, and other resources in a controlled way. Do not add
+  independent readiness toggles.
+- Do not lower `terminationGracePeriodSeconds` below the default 30 seconds.
+- A lower grace period reduces time for draining and controlled shutdown.
+- A short grace period raises the risk of interrupted calls and unfinished cleanup.

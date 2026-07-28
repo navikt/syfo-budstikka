@@ -1,34 +1,142 @@
-# Grillmester — Copilot-agentoppsett for syfo-budstikka
+# Grillmester — agent setup for syfo-budstikka
 
-Et høykvalitets GitHub Copilot-oppsett for dette repoet, reframet Copilot-native (`.agent.md` / `.instructions.md` / `SKILL.md`). Denne fila er **menneske-vendt**: rasjonale, status og proveniens. Den autoritative kjøre-konfigurasjonen bor i filene den peker til — Copilot laster `copilot-instructions.md` (always-on), agentene i `.github/agents/` og skillene i `.github/skills/`. Ikke dupliser detaljer hit; pek.
+This is the human-readable operating contract. Executable configuration lives
+in `.github/agents/`, `.github/instructions/`, and `.github/skills/`.
+Hovmester is the upstream source for the team's reusable workflow. The
+checked-in files in this repository are the only operative contract here;
+agents do not need access to Hovmester. This document records provenance and
+narrow local choices for maintainers.
 
-## Hva oppsettet er (pekere)
-- **Agenter** — `.github/agents/`: `@grillmester` (Opus 4.8, orkestrator + inline implementør, faseløkke grill → design → plan → implementer → verifiser → server) og `grill-inspektor` (GPT-5.5, opt-in read-only kryssmodell-reviewer). Detaljene står i agent-filene.
-- **Skills** — `.github/skills/` (~33 stk: design/utforsking, implementering/kvalitet, backend-domene (Ktor/NAV), tverrgående/flyt). De auto-oppdages på `description`-feltet; ingen katalog gjentas her — `ls .github/skills/` er fasiten.
-- **Instruksjoner** — `.github/instructions/`: always-on (`security`, `copilot-review`, `bevisst-ai-bruk`) + path-scopede (`kotlin`, `github-actions`, `docker`, `norwegian-text`).
-- **Modell-gate** — `scripts/validate-agent-models.sh` (CI, `.github/workflows/build.yml`) validerer at hver agents `model:`-pin står på allowlist, feiler hardt og skriver `.grill/MODELL-STATUS.md`. Degradering oppdages her, aldri av modellen selv.
+## Operating topology
 
-## Designprinsipper (hvorfor det er bygd slik)
-1. **Skriveren er inline** på sterk modell — koding parallelliseres ikke (implisitte beslutninger kolliderer).
-2. **Subagenter = kontekst-verktøy**, kun til read-only utforsking, kryssmodell-verify + opt-in divergent design-utforsking (design-it-twice). Aldri parallell skriving av kode.
-3. **Sterke modeller, ingen svak tier.** Kostnadskontroll skjer via opt-in på de dyre stegene (kryssmodell-review), ikke ved å svekke modellen.
-4. **Kvalitetsgater er deterministiske og utenfor modellen** — `./gradlew test`, lint, build + `scripts/validate-agent-models.sh`. Positivt bevis, ikke «ser riktig ut».
-5. **Disk er minne** (`.grill/`), ikke samtalen.
-6. **Kontrakter, ikke forbud** i alle instruksjoner.
+```text
+User → Barista (Terra) ──ordinary, narrow work──→ delivery on explicit request
+          ├── optional, approved review ─────────→ Grill-inspektor (Opus)
+          └──→ Grillmester (Opus) → Kokk (Terra) → Grill-inspektor (Opus)
+                 clarify / decide       one slice       by risk or opt-in
+```
 
-## Durable vs transient: `docs/` og `.grill/`
-- **`docs/`** — committet, discoverable: `docs/adr/NNNN-*.md` (bindende beslutninger), `docs/glossary.md` (domenespråk), `docs/context.md` (valgt tilnærming og status i design/plan).
-- **`.grill/`** — gitignorert, transient arbeidsminne per oppgave (`STATE.md`, `PLAN.md`, `VERIFICATION.md`, `REVIEW.md`, `DECISIONS.md`, `MODELL-STATUS.md`). Durabel verdi graduerer til `docs/`; `.grill/` overlever ikke oppgaven. Mekanikken (når den leses/skrives) eies av agent-fila.
+- **Barista** is the recommended, explicitly selected front door for ordinary
+  narrow work
+  (`copilot --agent barista --model gpt-5.6-terra --context default`). Confirm
+  the effective model after startup. A plain CLI session is generic, even
+  though repository settings use Terra/default context.
+- **Grillmester** owns clarification, design, risk assessment, a complete
+  brief, and delegation. Start it with
+  `copilot --agent grillmester --model claude-opus-5 --context default` and
+  confirm the effective model. It does not implement or deliver through Git.
+- **Kokk** implements exactly one testable vertical slice from a complete
+  `IMPLEMENTATION_BRIEF v1`, returning fresh command evidence and a bounded
+  result.
+- **Grill-inspektor** is the independent read-only implementation reviewer. It
+  compares the governing task contract, actual diff, and fresh verification.
 
-Følg `.github/instructions/context-usage.instructions.md` for når `docs/context.md`
-skal brukes, og når ADR er riktig kilde i kodekommentarer.
+There are exactly four repository roles; personal or organization-level agents
+may remain discoverable but are outside this workflow.
 
-## Status og empirisk verifisering (gjenstår)
-Eksperimentell testbenk, brukt lokalt via **Copilot CLI** — ikke cloud agent på github.com (den ignorerer uansett `model:` og agent-delegering). GitHub-dokumentasjonen bekrefter at CLI støtter det oppsettet hviler på; det som gjenstår er en lokal røyktest:
-- **`model:`-pinning i CLI:** Copilot CLI aksepterer modell-display-navn/vendor-suffiks i agent-frontmatter. Modell-gaten validerer at pinnen står på allowlist, ikke at runtime faktisk bruker den.
-- **Lokal subagent-delegering:** fase 5 kryssmodell-review forutsetter at `@grillmester` kaller `grill-inspektor` (annen modellfamilie). Copilot CLI støtter custom agents + `/agent`-delegering lokalt, med eget kontekstvindu og per-agent `model:`; `tools:`-allowlisten som låser `grill-inspektor` read-only gjelder også der. De deterministiske gatene bærer kvalitet uansett.
+## Normal choices
 
-På plass (committet): `.github/CODEOWNERS`, `.github/dependabot.yml`, `.github/PULL_REQUEST_TEMPLATE.md`. Gjenstår: **fase 6–7 deploy** (krever `.nais/nais.yaml` + deploy-workflow når tjenesten er reell) og branch protection (GitHub-innstilling).
+Grilling is natural and default whenever requirements, trade-offs, or scope are
+not locked: inspect repository facts first, then ask one user-owned question at
+a time with a recommendation and consequence. Use the manual
+`/grill-with-docs` option when confirmed discussion should also create durable
+glossary or ADR documentation.
 
-## Proveniens
-Bygd ved å adaptere hovmesters backend-skills (Ktor-tunet) + etablerte flyt-mønstre for design/implementering/review (oversatt og NAV/Ktor-tilpasset) + research-funn (context-rot, sterk-modell-inline, deterministiske gater, disk-som-minne, kontrakter-ikke-forbud). Eksperimentell testbenk — meningen er å bevise mønstrene her før de evt. graderes inn i hovmester.
+`/wayfinder` is a manual, explicit opt-in—not an automatic escalation. Recommend
+it only for a decision route with dependent work that genuinely spans multiple
+sessions. Before any tracker write, its required label mappings must already be
+present in `docs/agents/triage-labels.md`. Missing mappings are a safe
+prerequisite: return `NEEDS_DECISION` and do not create labels, substitute
+labels, or create a partial map.
+
+## Brief, review, and delivery
+
+The task-scoped `IMPLEMENTATION_BRIEF v1` is the Grillmester–Kokk handoff.
+`docs/agents/implementation-brief.md` defines its fields, preflight, statuses,
+and canonical R0–R4 rubric. Before delegation, Grillmester and Kokk both check
+the complete brief and a clean Git boundary. Preserve existing work by waiting
+or using a separate clean worktree, never by discarding it. The brief, current
+diff, and verification are the evidence record; do not create a shared mutable
+task log.
+
+Within the Grillmester/Kokk route, Grill-inspektor is mandatory for every R3/R4
+slice. Work that remains wholly R0–R2 gets an optional final review only when it
+is material, a result has concerns, or the user asks, and only after the user
+opts in. When delivery combines multiple slices, reassess the aggregate diff:
+aggregate R3/R4 requires one final integrated review binding every brief/result
+pair from the earliest baseline; an optional R0–R2 review uses the same complete
+integrated boundary. Per-slice reviews do not cover cross-slice interactions,
+and one slice never needs a duplicate final call. A direct Barista task has no
+automatic escalation: after material upper-R2 work without red flags, Barista
+may offer one optional Inspector review, but only proceeds after the user
+accepts. Any R3/R4 characteristic stops direct Barista implementation and routes
+to Grillmester first.
+
+Any review approves evidence, not delivery. Pushes, pull requests, merges,
+issue changes, and local commits require the authority stated in the task,
+brief, or an explicit user request. Kokk may make one `atomic-local` commit
+only when its brief permits it.
+
+Inspector is an advisory quality boundary, not an adversarial attestation or a
+security approval. The caller supplies the complete baseline-to-worktree diff,
+task contract, and fresh verification, then checks that the boundary is still
+unchanged after review. Explicit per-task model selection, deterministic CI,
+CODEOWNERS, and human review remain separate controls; Inspector never replaces
+them.
+
+## Context and quality
+
+- `docs/context.md` is a short orientation index; `docs/glossary.md` defines
+  canonical terms; ADRs bind hard-to-reverse decisions. A named `Bnn` is looked
+  up in `docs/decisions.md`, which is deliberately non-ambient.
+- Load only the context needed for the current question or slice. Keep runtime
+  prompts portable and concise; do not encode historical rollout narratives in
+  them.
+- Repository settings set only supported repository defaults and disable known
+  colliding personal skills. Memory and personal custom-agent availability are
+  user-level Copilot CLI controls and cannot be disabled by this repository.
+  The workflow therefore never depends on memory or on an undeclared personal
+  agent.
+- Use Terra for ordinary dialogue and implementation, and Opus for coherent
+  design and independent inspection. Start with the narrowest relevant check;
+  deterministic verification remains the normal quality barrier.
+- Give Inspector one coherent, complete diff rather than a partial view. Split
+  a change or pull request when its diff and governing context cannot be
+  reviewed coherently in one pass; never hide unrelated work or omit a slice to
+  imply complete coverage.
+
+## Repository boundaries
+
+GitHub Issues and pull requests are the shared work record. Reuse existing
+issues and labels, and never create labels unless the user explicitly asks for
+that shared state change. Repository artifacts follow
+`docs/agents/language-policy.md`: agent-facing and technical material is
+English, while README/product language and canonical Norwegian domain terms
+remain Norwegian where appropriate.
+
+Port concrete upstream changes deliberately through Hovmester. Keep reusable
+contracts portable enough to contribute back; repository-specific details
+belong in the small files under `docs/agents/`.
+
+## Upstream provenance
+
+The pilot was compared with fixed upstream revisions. These pointers are
+maintainer provenance, not runtime dependencies or a second source of truth:
+
+| Source | Reviewed revision | Reviewed |
+|---|---|---|
+| [`navikt/hovmester`](https://github.com/navikt/hovmester) | `78d38108f7b6ca44b6eb0056801c1a79d3c60912` | 2026-07-28 |
+| [`mattpocock/skills`](https://github.com/mattpocock/skills) | `ed37663bd925f85d9a2eed453d0a8929b8d67f67` (`v1.1.0`) | 2026-07-21 |
+| [`navikt/copilot`](https://github.com/navikt/copilot) | `fd01c00fb41bbdb6c562f6c48028319547ac250b` | 2026-07-26 |
+
+Review concrete upstream diffs before porting them. Hovmester remains the team
+source; Matt Pocock's skills and `navikt/copilot` are inputs.
+
+## Runtime qualification
+
+The pilot was qualified against GitHub Copilot CLI `1.0.75` on 2026-07-28.
+Repository-versus-user settings, manual-skill discovery and callback behavior,
+task-call `model`/`context_tier`, and model fallback or multiplier handling are
+runtime behavior, not portable repository guarantees. After a CLI upgrade,
+rerun the model gate and the explicitly approved paid live smoke before relying
+on those behaviors.

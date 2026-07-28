@@ -11,14 +11,16 @@ build/
 # Local mise config with developer-specific environment values
 mise.local.toml
 
-# Lokal agent-/verktøy-state (ikke del av repoet)
+# Local agent and tool state (not part of the repository)
 .claude/
-
-# Transient agent-arbeidsminne — durable docs (ADR/glossar/kontekst) ligger i docs/, ikke her
-.grill/
+.github/copilot/settings.local.json
 
 # OS
 .DS_Store
+
+# Local Python artifacts
+__pycache__/
+*.py[cod]
 
 # Package Files #
 *.jar
