@@ -79,6 +79,7 @@ class InboxMessageWorker(
             is Decision.Processed -> inboxProcessed()
             is Decision.Dropped -> inboxDropped(decision.reason)
             is Decision.Failed -> inboxFailed()
+            is Decision.NotInSendingWindow -> {} // ingen metrics
         }
     }
 
@@ -104,5 +105,7 @@ class InboxMessageWorker(
                     kv(MdcKeys.REASON, errorMessage),
                 )
             }
+
+            is Decision.NotInSendingWindow -> emptyList()
         }
 }

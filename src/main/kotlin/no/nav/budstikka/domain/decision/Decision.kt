@@ -1,5 +1,6 @@
 package no.nav.budstikka.domain.decision
 
+import kotlin.time.Instant
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.Orgnummer
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
@@ -58,6 +59,8 @@ sealed interface Decision {
     data class Processed(
         val deliveries: List<DeliveryDraft>,
     ) : Decision
+
+    data class NotInSendingWindow(val nextRetry: Instant) : Decision
 
     data class Dropped(
         val reason: DropReason,
