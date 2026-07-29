@@ -56,6 +56,11 @@ class InboxMessageWorker(
         val dispatch = Dispatch(reference = message.reference, content = message.content)
         MDC.putCloseable(MdcKeys.REFERENCE, message.reference).use {
             withContext(MDCContext()) {
+                if (!repository.beginAttempt(message.eventId, config.maxAttempts)) {
+                    // A peer terminated the row, or its attempts are spent and the poison gate owns it.
+                    logger.warn("Skipping inbox message because the row is no longer claimable or has spent its attempts")
+                    return@withContext
+                }
                 completeDecision(message.eventId, decisionProcess.process(dispatch))
             }
         }

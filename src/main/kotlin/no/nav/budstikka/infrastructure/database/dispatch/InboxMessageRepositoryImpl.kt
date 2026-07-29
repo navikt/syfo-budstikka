@@ -81,7 +81,6 @@ class InboxMessageRepositoryImpl(
                 InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.eventId } }) {
                     it[state] = InboxMessageState.CLAIMED.name
                     it[nextAttemptTime] = now + lease
-                    it[attempt] = attempt + 1
                 }
             }
             claimed
@@ -89,9 +88,33 @@ class InboxMessageRepositoryImpl(
     }
 
     /**
-     * Terminal gate for poison rows (#71): expired CLAIMED rows claimed [maxAttempts] times without
-     * reaching terminal status become FAILED. Runs in the same transaction as claim, so a
-     * deterministic failing row stops being reclaimed and cannot block the queue head (`receivedAt ASC`).
+     * Spends one processing attempt, guarded in the same statement so concurrent replicas cannot
+     * push `attempt` past [maxAttempts]. Claiming deliberately does not touch `attempt`: a row that
+     * is claimed but never processed (batch abort, spent lease budget, crash) must keep its budget.
+     */
+    override suspend fun beginAttempt(
+        eventId: UUID,
+        maxAttempts: Int,
+    ): Boolean {
+        require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
+        return database.transact {
+            InboxMessageTable.update({
+                (InboxMessageTable.eventId eq eventId) and
+                    (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+                    (InboxMessageTable.attempt less maxAttempts)
+            }) {
+                it[attempt] = attempt + 1
+            } > 0
+        }
+    }
+
+    /**
+     * Terminal gate for poison rows (#71): expired CLAIMED rows that already spent [maxAttempts]
+     * processing attempts become FAILED. Runs in the same transaction as claim, so a deterministic
+     * failing row stops being reclaimed and cannot block the queue head (`receivedAt ASC`).
+     *
+     * Because `attempt` is spent by [beginAttempt] and not by claiming, a row that was claimed but
+     * never processed keeps its budget and is not terminated here.
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
      * disjoint rows without blocking each other (ADR 0004, no leader).

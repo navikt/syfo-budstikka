@@ -94,7 +94,8 @@ class InboxDispatchRepositoryIntegrationTest :
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId1 }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                row[InboxMessageTable.attempt] shouldBe 1
+                // Claiming reserves the row but does not spend a processing attempt (#157).
+                row[InboxMessageTable.attempt] shouldBe 0
                 row[InboxMessageTable.nextAttemptTime] shouldNotBe null
             }
         }
@@ -121,8 +122,35 @@ class InboxDispatchRepositoryIntegrationTest :
             reclaimed.single().eventId shouldBe eventId
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
-                row[InboxMessageTable.attempt] shouldBe 2
+                // Reclaiming an expired lease does not spend an attempt either (#157).
+                row[InboxMessageTable.attempt] shouldBe 0
             }
+        }
+
+        test("beginAttempt spends one attempt and refuses once the budget is gone") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000005")
+            repository.saveBatch(listOf(inboxMessage(eventId)))
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+
+            repository.beginAttempt(eventId, maxAttempts = 2) shouldBe true
+            repository.beginAttempt(eventId, maxAttempts = 2) shouldBe true
+            repository.beginAttempt(eventId, maxAttempts = 2) shouldBe false
+
+            fixture.database.transact {
+                InboxMessageTable
+                    .selectAll()
+                    .where { InboxMessageTable.eventId eq eventId }
+                    .single()[InboxMessageTable.attempt] shouldBe 2
+            }
+        }
+
+        test("beginAttempt refuses a row that is no longer CLAIMED") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000006")
+            repository.saveBatch(listOf(inboxMessage(eventId)))
+
+            repository.beginAttempt(eventId, maxAttempts = 10) shouldBe false
         }
 
         test("markProcessedInTransaction transitions a CLAIMED row to PROCESSED") {
@@ -172,10 +200,11 @@ class InboxDispatchRepositoryIntegrationTest :
             repository.saveBatch(listOf(inboxMessage(eventId)))
             val maxAttempts = 3
 
-            // Drive the row through maxAttempts claims without terminating it (simulates a
-            // deterministic processing failure that always leaves the row CLAIMED).
+            // Drive the row through maxAttempts processing attempts without terminating it
+            // (simulates a deterministic processing failure that always leaves the row CLAIMED).
             repeat(maxAttempts) {
                 repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).shouldHaveSize(1)
+                repository.beginAttempt(eventId, maxAttempts) shouldBe true
                 expireLease(eventId)
             }
 

@@ -102,7 +102,6 @@ class DeliveryRepositoryImpl(
                 DeliveryTable.update({ DeliveryTable.id inList claimed.map { it.id } }) {
                     it[state] = DeliveryState.CLAIMED.name
                     it[nextAttemptTime] = now + lease
-                    it[attempt] = attempt + 1
                 }
             }
             claimed
@@ -110,10 +109,34 @@ class DeliveryRepositoryImpl(
     }
 
     /**
-     * Terminal gate for poison rows (#71): expired CLAIMED rows claimed [maxAttempts] times without
-     * reaching terminal status become FAILED. Runs in the same transaction as claim (limited to the
+     * Spends one delivery attempt, guarded in the same statement so concurrent replicas cannot push
+     * `attempt` past [maxAttempts]. Claiming deliberately does not touch `attempt`: a row that is
+     * claimed but never sent (batch abort, spent lease budget, crash) must keep its budget.
+     */
+    override suspend fun beginAttempt(
+        deliveryId: UUID,
+        maxAttempts: Int,
+    ): Boolean {
+        require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
+        return database.transact {
+            DeliveryTable.update({
+                (DeliveryTable.id eq deliveryId) and
+                    (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
+                    (DeliveryTable.attempt less maxAttempts)
+            }) {
+                it[attempt] = attempt + 1
+            } > 0
+        }
+    }
+
+    /**
+     * Terminal gate for poison rows (#71): expired CLAIMED rows that already spent [maxAttempts]
+     * delivery attempts become FAILED. Runs in the same transaction as claim (limited to the
      * [channelNames] handled by this worker), so a deterministic failing row stops being reclaimed
      * and cannot block the queue head (`createdAt ASC`).
+     *
+     * Because `attempt` is spent by [beginAttempt] and not by claiming, a row that was claimed but
+     * never handed to a handler keeps its budget and is not terminated here.
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
      * disjoint rows without blocking each other (ADR 0004, no leader).

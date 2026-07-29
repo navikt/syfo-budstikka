@@ -7,6 +7,7 @@ import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.containers.wait.strategy.Wait
 import java.sql.DriverManager
 import java.util.UUID
 
@@ -93,6 +94,10 @@ class PostgresTestFixture : AutoCloseable {
                 .withDatabaseName("budstikka")
                 .withUsername("budstikka")
                 .withPassword("budstikka")
+                // The default strategy waits for a log line, which fires before the Docker host has
+                // published the mapped port on runtimes that forward ports lazily (Rancher Desktop,
+                // Colima). Waiting for the port keeps the first connection from being refused.
+                .waitingFor(Wait.forListeningPort())
                 .apply { start() }
         }
     }

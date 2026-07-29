@@ -345,6 +345,16 @@ private class PollingDeliveryRepository(
         return deliveries
     }
 
+    val attemptedDeliveryIds = mutableListOf<UUID>()
+
+    override suspend fun beginAttempt(
+        deliveryId: UUID,
+        maxAttempts: Int,
+    ): Boolean {
+        attemptedDeliveryIds += deliveryId
+        return true
+    }
+
     override suspend fun markSent(deliveryId: UUID): Boolean {
         sentDeliveryIds += deliveryId
         return true

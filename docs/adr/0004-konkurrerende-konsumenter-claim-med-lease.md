@@ -39,9 +39,10 @@ raden fortsatt er i forventet state.
 1. **Claim (én transaksjon).** Workeren plukker en bunke:
    `SELECT … WHERE state='RECEIVED' OR (state='CLAIMED' AND next_attempt_time <= now())
    ORDER BY received_at, event_id LIMIT :batch FOR UPDATE SKIP LOCKED`,
-   og setter i samme transaksjon radene til `state='CLAIMED'`, `attempt = attempt + 1`,
+   og setter i samme transaksjon radene til `state='CLAIMED'` og
    `next_attempt_time = now() + lease`. `SKIP LOCKED` gir hver replica en **disjunkt** bunke uten å
    blokkere. Etter commit er radene usynlige for andre pollere (`state ≠ RECEIVED`).
+   Claim bruker bevisst IKKE opp et forsøk — se punkt 6.
 2. **Enrich (ingen transaksjon).** Grunnlagsinnhenting per melding skjer utenfor DB-transaksjonen.
 3. **Effectuate (én transaksjon per melding).** `delivery`-rad(er) + terminal inbox-status commits
    alt-eller-ingenting (jf. per-melding-atomisk-invarianten). Den atomiske **CAS-en kjøres først**:
@@ -53,7 +54,17 @@ raden fortsatt er i forventet state.
 5. **At-least-once enrichment, exactly-once delivery.** På happy path slås hver melding opp én gang.
    Dublett-oppslag skjer bare etter krasj/lease-utløp (sjelden, avgrenset), og terminal-CAS-en hindrer
    dobbel levering selv om to workere kappløper om en utløpt lease.
-6. **Lease-varighet er konfigurerbar** (`workers.inboxMessage.leaseSeconds`), default **5 minutter**;
+6. **`attempt` teller behandlingsstarter, ikke claims (#157).** Rett før første feilbare,
+   radspesifikke arbeid spanderer workeren et forsøk med et atomisk, gatet `UPDATE`
+   (`SET attempt = attempt + 1 WHERE … AND state='CLAIMED' AND attempt < :maxAttempts`). Går den
+   ikke gjennom, hopper workeren over raden. Semantikken er «antall durable autorisasjoner til å
+   starte behandling» — ikke beviste eksterne kall, som ikke kan telles atomisk uten å holde
+   transaksjonen over nettverks-I/O.
+
+   Claim spanderer ikke et forsøk, fordi claim skjer i bunke: draineren kan la halen ligge urørt
+   (oppbrukt lease-budsjett eller bunke-abort etter N sammenhengende feil). Talte claim et forsøk,
+   ville poison-gaten terminere rader som aldri var forsøkt levert — stille tap av varsler.
+7. **Lease-varighet er konfigurerbar** (`workers.inboxMessage.leaseSeconds`), default **5 minutter**;
    `batchSize` senkes fra 100 til **25**. For kort lease er den farlige retningen (en frisk worker
    mister claimet midt i arbeidet → dublett-oppslag); for lang lease forsinker bare gjenoppretting.
    Leasen stemples på hele bunka ved claim, så den må dekke `batchSize × per-melding` (batch-drain) —

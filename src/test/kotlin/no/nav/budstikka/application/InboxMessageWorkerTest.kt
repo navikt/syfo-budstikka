@@ -238,6 +238,16 @@ private class PollingInboxMessageRepository(
         return messages
     }
 
+    val attemptedEventIds = mutableListOf<UUID>()
+
+    override suspend fun beginAttempt(
+        eventId: UUID,
+        maxAttempts: Int,
+    ): Boolean {
+        attemptedEventIds += eventId
+        return true
+    }
+
     override fun markProcessedInTransaction(eventId: UUID): Boolean {
         processedEventIds += eventId
         return true
@@ -273,6 +283,11 @@ private class RecordingDeliveryRepository : DeliveryRepository {
         maxAttempts: Int,
         channels: Set<Channel>,
     ): List<ClaimedDelivery> = emptyList()
+
+    override suspend fun beginAttempt(
+        deliveryId: UUID,
+        maxAttempts: Int,
+    ): Boolean = true
 
     override suspend fun markSent(deliveryId: UUID): Boolean = true
 

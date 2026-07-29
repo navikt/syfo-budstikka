@@ -21,15 +21,33 @@ interface InboxMessageRepository {
      * their lease expires (crash recovery). Rows remain invisible to other pollers until lease expiry
      * or effectuation.
      *
-     * Poison gate (#71): a row claimed [maxAttempts] times without a terminal state becomes FAILED
-     * instead of being reclaimed again, so a deterministic failing row cannot block the queue head
-     * (`receivedAt ASC`) forever.
+     * Claiming does NOT spend an attempt: a claimed row that is never processed (batch abort, spent
+     * lease budget, crash) must not approach the poison gate. [beginAttempt] spends the attempt.
+     *
+     * Poison gate (#71): a row that started processing [maxAttempts] times without reaching a
+     * terminal state becomes FAILED instead of being reclaimed again, so a deterministic failing row
+     * cannot block the queue head (`receivedAt ASC`) forever.
      */
     suspend fun claim(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
     ): List<InboxMessage>
+
+    /**
+     * Authorises one processing attempt for a claimed row and spends it, atomically. Returns `false`
+     * when the row is no longer CLAIMED (a peer terminated it) or has already spent [maxAttempts];
+     * the caller must then skip the message and leave it to the poison gate.
+     *
+     * `attempt` counts durable authorisations to START processing, not proven external effects.
+     * Callers therefore invoke this BEFORE the first fallible, message-specific work, so a crash,
+     * timeout or exception mid-processing still spends an attempt. The guard lives in the same
+     * `UPDATE` as the increment, so a read-then-update race cannot exceed [maxAttempts].
+     */
+    suspend fun beginAttempt(
+        eventId: UUID,
+        maxAttempts: Int,
+    ): Boolean
 
     /**
      * Terminal transitions for the decision worker. They do NOT open their own transaction: they run
