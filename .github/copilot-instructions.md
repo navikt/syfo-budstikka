@@ -55,13 +55,6 @@ These apply to all code assistance in this repository.
 - **Quality gates are deterministic and outside the model:** `./gradlew test`,
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.
-- **Inline writing:** work that requires judgement happens in the main thread.
-  Subagents are used only for read-only exploration, cross-model verification,
-  and opt-in divergent design exploration (design-it-twice).
-- **Disk as memory:** longer work tracks decisions, plan, and verification in
-  `.grill/`. `STATE.md` is read first and kept small and curated. Checkpoint at
-  phase boundaries and proactively before context gets tight; do not guess at a
-  context-window percentage you cannot measure.
 
 ## Model policy
 
