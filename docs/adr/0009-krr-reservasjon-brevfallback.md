@@ -80,25 +80,29 @@ persisteres ikke som egen kolonne.
   kontrakt. Endepunkt-stien ligger i `KRR_URL` (config), og hele KRR-kontrakten er isolert bak
   `ReservationLookup` — en wire-justering rører ikke domenet.
 
-## Åpent: aktiv-sykmelding-sjekken
+## Åpent: møtebehov-sjekken mot syfosmregister
 
-esyfovarsel velger kanal via `AccessControlService`, som gater på **KRR og syfosmregister** (aktiv
-sykmelding). Gaten i denne ADR-en dekker død (PDL, `DeathGate`) og KRR-reservasjon, men **ikke**
-aktiv sykmelding. Budstikka slutter altså å sjekke om personen har en aktiv sykmelding før varselet
-sendes.
+Gaten i denne ADR-en dekker død (PDL, `DeathGate`) og KRR-reservasjon. esyfovarsel har i tillegg én
+sykmeldings-sjekk som ikke har noen motpart i budstikka.
 
-Det er tilsynelatende i tråd med domeneblindhet (B1, ADR 0001): «har denne personen en aktiv
-sykmelding» er domenekunnskap, og under B1 er det produsent-appen som avgjør om et varsel skal
-sendes i det hele tatt. Budstikka skal bare velge kanal.
+Verifisert mot esyfovarsel-kilden: `AccessControlService` gater på **KRR alene** (`kanVarsles` fra
+`DkifConsumer`) — den rører ikke syfosmregister. `SykmeldingService` er en separat komponent som kun
+er wiret inn i `MotebehovVarselService.sendVarselTilNarmesteLeder`, der
+`checkSykmeldingStatusForVirksomhet` gater på om det finnes en sykmelding med status `SENDT` for den
+aktuelle **virksomheten** på varseldatoen. Det er altså en smal, møtebehov- og virksomhets-spesifikk
+sjekk på NL-/AG-løpet, ikke en generell «har personen aktiv sykmelding»-gate.
 
-**Dette er ikke besluttet her.** Ingen kilde i repoet sier eksplisitt at sjekken er bevisst droppet,
-og konsekvensen er reell: hvis en produsent-app sender et varsel for en person uten aktiv
-sykmelding, vil budstikka sende det, der esyfovarsel ville stoppet det. Om det er ønsket atferd
-eller et hull avhenger av om alle produsent-apper faktisk gater selv.
+Under domeneblindhet (B1, ADR 0001) hører en slik sjekk hjemme hos produsent-appen: «skal nærmeste
+leder i denne virksomheten varsles» er domenekunnskap, ikke kanalvalg. Det taler for at budstikka
+IKKE skal arve den.
 
-Avklares som produktvalg før cutover (`docs/migrering.md`), ikke som en teknisk detalj ved
-implementering. Til det er avklart skal dette regnes som en kjent, åpen risiko — ikke som en
-stilltiende beslutning.
+**Dette er ikke besluttet her.** Ingen kilde i repoet sier eksplisitt at sjekken er bevisst droppet.
+Konsekvensen er avgrenset, men reell: sender syfomotebehov et NL-varsel uten selv å sjekke at
+sykmeldingen er sendt til virksomheten, vil budstikka levere det, der esyfovarsel ville stoppet det.
+
+Avklares som produktvalg med eier av møtebehov-løpet før cutover (`docs/migrering.md`), ikke som en
+teknisk detalj ved implementering. Til det er avklart er dette en kjent, åpen risiko avgrenset til
+møtebehov-NL — ikke en stilltiende beslutning.
 
 ## Vraket
 

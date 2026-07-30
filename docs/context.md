@@ -81,11 +81,14 @@ håndterer tilstand rundt utsending, ferdigstilling, retry og fallback til fysis
 ### Nedstrøms-tjenester
 
 pdl-api, digdir-krr-proxy (reservasjon/digital kontakt), syfosmregister (aktiv sm), narmesteleder,
-notifikasjon-produsent-api, dokdistfordeling, istilgangskontroll. Kanalvalg via AccessControlService (KRR +
-sm-register) → digital ellers brev.
+notifikasjon-produsent-api, dokdistfordeling, istilgangskontroll. Kanalvalg via `AccessControlService`, som gater
+på **KRR alene** (`kanVarsles`) → digital ellers brev. `SykmeldingService` (syfosmregister) er en SEPARAT og
+smalere sjekk: den brukes kun av `MotebehovVarselService.sendVarselTilNarmesteLeder` og gater på om det finnes en
+`SENDT` sykmelding for den aktuelle **virksomheten** — ikke en generell aktiv-sykmelding-gate for alle varsler.
 
-> **Åpent produktvalg:** budstikka gater på død (PDL) og KRR-reservasjon, men **ikke** på aktiv sykmelding.
-> Om det er tilsiktet domeneblindhet er behandlet i `docs/adr/0009-krr-reservasjon-brevfallback.md`.
+> **Åpent produktvalg:** budstikka gater på død (PDL) og KRR-reservasjon. esyfovarsels smale
+> møtebehov-sjekk mot syfosmregister (NL-varsel krever `SENDT` sykmelding for virksomheten) har ingen
+> motpart. Se `docs/adr/0009-krr-reservasjon-brevfallback.md`.
 
 ### Konsumenter (produsenter inn)
 

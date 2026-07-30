@@ -180,7 +180,7 @@ directly rather than reading this file end to end.
   (B15) + circuit breaker + backoff; trenger én kanal ekte isolasjon → dedikert poller-coroutine `WHERE kanal='X'` i
   SAMME deployment (config, ikke rearkitektur). `kanal`-kolonnen + `Kanalhandler` ER sømmen som muliggjør senere
   per-kanal-splitt uten å røre handler-kode.
-- B28: Beslutnings-workeren struktureres som FUNCTIONAL CORE / IMPERATIVE SHELL i tre sammenhengende steg i samme
+- B28: (REVIDERT av B55 — les den oppføringen sammen med denne.) Beslutnings-workeren struktureres som FUNCTIONAL CORE / IMPERATIVE SHELL i tre sammenhengende steg i samme
   poller-løp: (1) `Grunnlagsinnhenter` (imperative shell, I/O): henter PDL/KRR/NL → immutabelt `Beslutningsgrunnlag`;
   her bor suspending-kall, timeouts, transient-vs-permanent-klassifisering. (2) `decide(hendelse, grunnlag): Beslutning`
   (PURE core, null I/O): sealed `Beslutning` = `Dropp(DOD)` / `Utsett(backoff)` / `Leveranser(List<LeveranseUtkast>)`;
@@ -351,7 +351,7 @@ directly rather than reading this file end to end.
 
 ## Observability-beslutninger (se docs/datamodell.md, flyt.md; jf. B17)
 
-- B45: KORRELASJONS-ID = `eventId` (REVIDERER B17). Ingen egen `trace_id`-kolonne. `eventId` (B4, produsent-oppgitt PK
+- B45: KORRELASJONS-ID = `eventId` (REVIDERER B17; SELV REVIDERT av B54 — les den oppføringen sammen med denne). Ingen egen `trace_id`-kolonne. `eventId` (B4, produsent-oppgitt PK
   for dedup) ER den persisterte korrelasjons-iden for ett hendelsesløp: trådes til leveranse via `inbox_event_id`-FK,
   re-attacheres på MDC i hvert prosesseringssteg (konsum, `decide()`, poller, send) → Loki-filter `| eventId="X"` viser
   hele per-hendelse-livsløpet på tvers av tid og instanser. GRATIS kryss-system-sporing: siden eventId er
@@ -374,7 +374,7 @@ directly rather than reading this file end to end.
   INGEN CEF-auditlogg (budstikka er domeneblind ruter uten interaktiv menneskelig PII-tilgang). RISIKO: eksterne
   feilresponser (KRR/PDL/dokdist/notifikasjon-api) kan bære fnr i body/stacktrace → logg kun statuskode + teknisk
   kontekst, aldri rå respons-body. Erstatter skjelettets plaintext `logback.xml`.
-- B47: METRIKK-KATALOG. Micrometer → Prometheus; `snake_case`, `_total`/`_seconds`-suffiks, lav-kardinalitets labels
+- B47: METRIKK-KATALOG. (SUPERSEDERT av B57: metrikk-navnene er engelske; denne katalogens norske navn gjelder ikke.) Micrometer → Prometheus; `snake_case`, `_total`/`_seconds`-suffiks, lav-kardinalitets labels
   (B17/B45 — aldri `eventId`/fnr/`leveranse_id`). FUNNEL (counters): `hendelse_mottatt_total{handling}`,
   `hendelse_behandlet_total{handling,resultat}` (resultat=besluttet/droppet/ugyldig),
   `leveranse_sendt_total{kanal,operation}`, `leveranse_feilet_total{kanal,feiltype}` (transient/permanent),
@@ -477,7 +477,7 @@ directly rather than reading this file end to end.
   gjør byttet mulig. WireMock/mockserver reservert for UTVALGTE klient-kontrakttester der vi bevisst vil verifisere en
   ekte HTTP-klients kontrakt/serialisering — IKKE for det brede e2e/lokale løpet. Ktor MockEngine ikke valgt (fake på
   for lavt abstraksjonsnivå for en domeneblind ruter).
-- B53: TEST/LØP-STRATEGI & SCOPE. NÅ: automatiske Kotest e2e-specs som booter hele appen (konsument + workers + Ktor)
+- B53: TEST/LØP-STRATEGI & SCOPE. (REVIDERT av B56 — les den oppføringen sammen med denne.) NÅ: automatiske Kotest e2e-specs som booter hele appen (konsument + workers + Ktor)
   in-process mot Testcontainers (B51) med port-fakes (B52) wiret inn, og asserter at fake-kanalene mottok forventet
   leveranse — dekker inbox→`decide()`→outbox→levering ende-til-ende via delte scenario-byggere (B50). Async workers →
   assert med Kotest `eventually { }` til fake-kanal/DB-rad når forventet tilstand. UTSATT (bygges når behovet melder
