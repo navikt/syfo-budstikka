@@ -14,7 +14,6 @@ Kilde i kode:
 ```kotlin
 @Serializable
 data class Dispatch(
-    val eventId: UUID,
     val reference: String,
     val content: DispatchContent,
 )
@@ -25,14 +24,12 @@ sealed interface DispatchContent {
 }
 ```
 
-- `eventId`: idempotens/korrelasjon.
 - `reference`: kobling på tvers av hendelser (create/ferdigstill).
 - `partitionKey`: Kafka-record key (beregnes per variant).
 
-> **Planlagt endring (ADR 0008 / B61, #125):** `eventId` FJERNES fra `Dispatch` og
-> leveres KUN som Kafka-header (`DispatchHeader.EVENT_ID`) — konvolutten blir
-> `{ reference, content }`. eventId er en teknisk id (dedup og korrelasjon), ikke domenedata. Blokka over
-> speiler dagens kode; oppdateres når parse-ved-ingest implementeres.
+> **`eventId` er IKKE i konvolutten (ADR 0008 / B61, #125).** Den leveres KUN som Kafka-header
+> (`DispatchHeader.EVENT_ID`) og er der eneste og autoritative kilde. eventId er en teknisk id
+> (dedup og korrelasjon), ikke domenedata. Blokka over speiler `Dispatch.kt`.
 
 ## Viktige kontraktprinsipper (B22/B23)
 

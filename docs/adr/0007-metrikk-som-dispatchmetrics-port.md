@@ -2,7 +2,7 @@
 
 - Status: besluttet (issue #28 metrics-only slice, #41 consumer-lag metric)
 - Dato: 2026-07-14
-- Relatert: B45–B49 i `docs/context.md` (observability), B57 (erstatter B47s metrikk-navn),
+- Relatert: B45–B49 i `docs/decisions.md` (observability), B57 (erstatter B47s metrikk-navn),
   ADR 0003 (application-lag/porter), ADR 0004 (konkurrerende konsumenter), issue #28 og #41
 
 ## Kontekst

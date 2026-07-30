@@ -26,7 +26,7 @@ sequenceDiagram
     participant channel as Channel<br/>(via ChannelHandler)
     participant target as Channel endpoint
 
-    producer->>kafka: publish Dispatch(eventId, reference, content)
+    producer->>kafka: publish header:eventId + Dispatch(reference, content)
     consumer->>kafka: consume records
     consumer->>inbox: saveBatch (batchInsert, dedup på eventId)
     iworker->>inbox: claim(limit, lease)

@@ -2,7 +2,7 @@
 
 - Status: besluttet (issue #56, beslutnings-worker)
 - Dato: 2026-07-10
-- Relatert: ADR 0002 (inbox-header-dedup), `docs/teknologi.md` (Prosjektstruktur), beslutning B28 i `docs/context.md`
+- Relatert: ADR 0002 (inbox-header-dedup), `docs/teknologi.md` (Prosjektstruktur), beslutning B28 i `docs/decisions.md`
 
 ## Kontekst
 

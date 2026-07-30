@@ -66,14 +66,17 @@ ikke om varselet vises på flaten.
 
 **(`eventId`)**:
 Produsentens unike id per melding. Brukes til dedup/idempotens og til å korrelere ett
-hendelsesløp i logg. Ligger autoritativt i payloaden og speiles som Kafka-header for å
-dedup-e ved inntak uten å deserialisere. Ulik `reference`: `eventId` er unik per hendelse,
-mens `reference` kobler flere hendelser (create→ferdigstill).
+hendelsesløp i logg. Lever kun som den obligatoriske og autoritative Kafka-headeren
+`DispatchHeader.EVENT_ID` (ADR 0008/B61), aldri i payloaden. Manglende eller ugyldig header
+går til dead letter; en gyldig id brukes som inbox-PK og dedupes med `ON CONFLICT DO NOTHING`.
+Ulik `reference`: `eventId` er unik per hendelse, mens `reference` kobler flere hendelser
+(create→ferdigstill).
 _Unngå_: meldings-id, korrelasjons-id (i kode/logg heter feltet `eventId`)
 
 **Reference (`reference`)**:
-Produsentens id som kobler en opprettet dispatch til senere lukking. Budstikka matcher kun
-på den og kjenner ikke betydningen.
+Produsentens id som kobler en opprettet dispatch til senere lukking. Budstikka bruker den
+som selektiv koblingsnøkkel og avgrenser matchen med mottaker og kanal, men kjenner ikke
+betydningen.
 _Unngå_: referanse (legacy-ord)
 
 **Match key (`match key`)**:

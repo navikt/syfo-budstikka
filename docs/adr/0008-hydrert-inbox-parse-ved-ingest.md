@@ -1,6 +1,7 @@
 # ADR 0008 — Hydrert inbox: full parse ved ingest, eventId kun i header
 
-- Status: besluttet (erstatter ADR 0002; reverserer B54s «payload autoritativ»; nyanserer B4/B21, se `docs/context.md` B61)
+- Status: besluttet (erstatter ADR 0002; reverserer B54s «payload autoritativ»; nyanserer B4/B21,
+  se [`B61`](../decisions.md#b61))
 - Dato: 2026-07-21
 - Relatert: ADR 0002 (erstattet), B4/B10/B18/B21/B22/B43/B54, issue #27 (sendevindu)
 
@@ -47,16 +48,19 @@ beslutnings-workeren (B10/B28 er uendret).
    ikke ved å rangere kildene.
 2. `content` lagres som `jsonb<DispatchContent>` (samme som `delivery`), og rå `payload
    text` fjernes. Primærnøkkelen `event_id` settes fra headeren. `reference` løftes ut i en
-   egen kolonne (indeksen legges til sammen med inbox-hold-matchingen, hvis `DECISIONS.md`
-   #1 lander der): den er den selektive match-nøkkelen ved FERDIGSTILL (B39), og det
+   egen kolonne (indeksen legges bare til hvis den
+   [åpne hold-plasseringen](#åpen-oppfølging-hold-plassering) lander på inbox-hold): den er
+   den selektive match-nøkkelen ved FERDIGSTILL (B39), og det
    eneste konvolutt-feltet som ikke ligger i `content`-jsonb-en. `recipient`, `channel` og
    `operation` løftes ikke ut. De kan utledes fra `content` (`partitionKey`/`type`) og brukes
    bare til å avgrense innenfor et `reference`-treff. `ignoreUnknownKeys = true` beholdes, så
    ukjente felt faller bort med vilje. Flere indekserte match-kolonner på inbox legges bare
-   til hvis `DECISIONS.md` #1 lander på inbox-hold; vi tar ikke den beslutningen her.
-3. Dedup er uavhengig av skjemaet. Header-eventId leses og dedupes før payload parses, så en
-   duplikat forkastes uten parsing, og dedup avhenger aldri av payload-skjemaet (samme
-   robusthet som ADR 0002). For meldinger som havner i dead-letter-tabellen, lagrer vi
+   til hvis den åpne hold-plasseringen lander på inbox-hold; vi tar ikke den beslutningen her.
+3. Header-eventId leses og valideres før payload parses, men implementasjonen parser payloaden
+   før PK-innsettingen utfører dedup med `ON CONFLICT DO NOTHING`. På success-stien er dedup
+   fortsatt header-autoritativ og uavhengig av payload-skjemaet. En korrupt duplikat kan
+   derimot gi en ny dead-letter-rad; se implementeringsnotatet nedenfor. For meldinger som
+   havner i dead-letter-tabellen, lagrer vi
    eventId når vi kan: en melding som feiler på payload-parsing, men har en gyldig header,
    lagres med eventId, slik at vi kan korrelere mot produsenten. Mangler headeren, blir
    `event_id` null. Kolonnen er ny og nullable på `dead_letter_message`.
@@ -83,21 +87,27 @@ beslutnings-workeren (B10/B28 er uendret).
    (90-dagers replay-vindu fra B26 pluss litt margin), med samme periodiske slette-coroutine
    (B42). Vi lagrer minst mulig: rå bytes, tekniske Kafka-koordinater og eventId når vi har
    den. Parse-feil logges aldri rått (B58), bare feiltype og koordinater.
-7. Hold-plassering (inbox-hold eller outbox-hold, `DECISIONS.md` #1) er fortsatt åpen, men
-   ikke lenger blokkert: en hydrert inbox gjør både outbox-hold med `CANCELLED` og ekte
-   inbox-hold (annullering før sending) billigere. Denne ADR-en tar ikke det valget.
+7. Hold-plassering (inbox-hold eller outbox-hold) er fortsatt åpen, men ikke lenger
+   blokkert. Denne ADR-en tar ikke det valget.
+
+### Åpen oppfølging: hold-plassering
+
+En hydrert inbox gjør både outbox-hold med `CANCELLED` og ekte inbox-hold (annullering før
+sending) billigere. Valget må få en eksplisitt eier og en varig GitHub-sak før implementering;
+denne ADR-en dokumenterer bare at det fortsatt er åpent.
 
 ## Konsekvenser
 
-- ➕ `reference` (egen kolonne; indeks betinget av inbox-hold, #1) og `content` (jsonb) på
+- ➕ `reference` (egen kolonne; indeks betinget av den åpne hold-plasseringen) og `content` (jsonb) på
   inbox gjør at FERDIGSTILL kan matche og avgrense ventende rader uten å parse på nytt;
   recipient og channel leses fra jsonb. Ingen kolonner på spekulasjon, bare det
   parse-ved-ingest faktisk trenger.
 - ➕ eventId finnes bare ett sted (headeren), så vi slipper `payload.eventId ==
   header.eventId`-validering og risikoen for at de spriker.
-- ➕ Dedup er uavhengig av skjemaet (headeren leses før parsing), samme robusthet som ADR
-  0002: en duplikat forkastes uten parsing, og en feil i payload-skjemaet påvirker aldri
-  dedup.
+- ➕ På success-stien er dedup uavhengig av skjemaet: header-eventId er PK og
+  `ON CONFLICT DO NOTHING` er autoritativt.
+- ➖ Dedup skjer etter parsing i implementasjonen. En korrupt duplikat kan derfor gi en ny
+  dead-letter-rad før PK-konflikten oppdages; se implementeringsnotatet.
 - ➕ Tilfellet «content lar seg ikke dekode, så beslutnings-workeren setter
   `inbox_message.FAILED`» (ADR 0002) faller bort: content er garantert parsebar på hver
   `RECEIVED`-rad, så `SerializationException` i beslutnings-workeren forsvinner (jf.
@@ -142,9 +152,11 @@ B43 (`.v2` + dual-write).
 
 ## Implementeringsnotat (2026-07-21, issue #125 — nyanserer Beslutning pkt. 3)
 
-Beslutning pkt. 3 sier at header-eventId «leses og dedupes FØR payload parses, så en duplikat
-forkastes uten parsing». Ved implementering ble «forkastes uten parsing»-optimaliseringen bevisst
-IKKE bygget: `InboxMessageHandler` leser header-eventId først, men parser payloaden før
+Beslutning pkt. 3 sa opprinnelig at header-eventId «leses og dedupes FØR payload parses, så en
+duplikat forkastes uten parsing». Punkt 3 ovenfor og B61 er senere oppdatert til faktisk oppførsel;
+dette notatet bevarer hvorfor avviket ble akseptert. Ved implementering ble «forkastes uten
+parsing»-optimaliseringen bevisst IKKE bygget: `InboxMessageHandler` leser header-eventId først,
+men parser payloaden før
 `INSERT ... ON CONFLICT DO NOTHING` (`saveBatch(ignore=true)`) dedup-er på PK. For en gyldig melding
 er dedup dermed fortsatt skjema-uavhengig (ON CONFLICT er autoritativ og upåvirket av payloaden). For
 en melding som IKKE lar seg parse, skjer dead-letteringen før PK-dedupen — så en korrupt duplikat av

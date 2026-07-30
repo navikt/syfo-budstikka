@@ -32,3 +32,7 @@ mise.local.toml
 
 # Lokalt agent oppsett
 .opencode/
+
+# Python
+__pycache__/
+*.pyc

@@ -1,6 +1,7 @@
 # 0009: KRR-reservasjon som beslutningsgate + brevFallback
 
-- Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL», se `docs/context.md` B62)
+- Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL»,
+  se [`B62`](../decisions.md#b62))
 - Dato: 2026-07-22
 - Relatert: B2/B7/B8/B10/B25/B28/B55, ADR 0001 (domeneblind), issue #22 (epic #15), `/auth-overview`
 
@@ -79,6 +80,30 @@ persisteres ikke som egen kolonne.
   namespace (`team-rocket`) og scope-streng må bekreftes mot digdir-krr-proxy sin gjeldende
   kontrakt. Endepunkt-stien ligger i `KRR_URL` (config), og hele KRR-kontrakten er isolert bak
   `ReservationLookup` — en wire-justering rører ikke domenet.
+
+## Åpent: møtebehov-sjekken mot syfosmregister
+
+Gaten i denne ADR-en dekker død (PDL, `DeathGate`) og KRR-reservasjon. esyfovarsel har i tillegg én
+sykmeldings-sjekk som ikke har noen motpart i budstikka.
+
+Verifisert mot esyfovarsel-kilden: `AccessControlService` gater på **KRR alene** (`kanVarsles` fra
+`DkifConsumer`) — den rører ikke syfosmregister. `SykmeldingService` er en separat komponent som kun
+er wiret inn i `MotebehovVarselService.sendVarselTilNarmesteLeder`, der
+`checkSykmeldingStatusForVirksomhet` gater på om det finnes en sykmelding med status `SENDT` for den
+aktuelle **virksomheten** på varseldatoen. Det er altså en smal, møtebehov- og virksomhets-spesifikk
+sjekk på NL-/AG-løpet, ikke en generell «har personen aktiv sykmelding»-gate.
+
+Under domeneblindhet (B1, ADR 0001) hører en slik sjekk hjemme hos produsent-appen: «skal nærmeste
+leder i denne virksomheten varsles» er domenekunnskap, ikke kanalvalg. Det taler for at budstikka
+IKKE skal arve den.
+
+**Dette er ikke besluttet her.** Ingen kilde i repoet sier eksplisitt at sjekken er bevisst droppet.
+Konsekvensen er avgrenset, men reell: sender syfomotebehov et NL-varsel uten selv å sjekke at
+sykmeldingen er sendt til virksomheten, vil budstikka levere det, der esyfovarsel ville stoppet det.
+
+Avklares som produktvalg med eier av møtebehov-løpet og får en egen GitHub-sak før cutover
+(`docs/migrering.md`), ikke som en teknisk detalj ved implementering. Til det er avklart er dette en
+kjent, åpen risiko avgrenset til møtebehov-NL — ikke en stilltiende beslutning.
 
 ## Vraket
 
