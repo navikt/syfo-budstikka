@@ -3,10 +3,41 @@
 Ktor backend (Kotlin, Nav). Java 25, Gradle, Netty. Gradle group `no.nav.syfo`;
 source packages under `no.nav.budstikka`.
 
-`AGENTS.md` holds repository discovery, source precedence, and the delivery
-boundary. This file holds only the Copilot-specific agent setup. Follow
-`docs/agents/language-policy.md` for artifact language, and answer users in
-their own language.
+This repository targets GitHub Copilot CLI. The checked-in repository files are
+the operative contract; no agent needs runtime access to another repository.
+Load detail only when the task needs it, and answer users in their own
+language.
+
+## Repository discovery
+
+- Agents `.github/agents/` · Skills `.github/skills/` · Path-scoped
+  instructions `.github/instructions/`
+- Work tracking and tracker labels:
+  [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)
+- Domain documentation: [`docs/agents/domain.md`](../docs/agents/domain.md)
+- Artifact language:
+  [`docs/agents/language-policy.md`](../docs/agents/language-policy.md)
+- Skill invocation:
+  [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md)
+- Upstream sources and revisions:
+  [`docs/agents/provenance.md`](../docs/agents/provenance.md)
+- Design overview and rationale: [`GRILLMESTER.md`](GRILLMESTER.md)
+
+## Source precedence
+
+`navikt/hovmester` is the team's upstream source for reusable agent contracts.
+`mattpocock/skills` and `navikt/copilot` are reviewed inputs and never override
+a local contract. Port concrete upstream changes deliberately after reviewing
+the diff, and move a recorded revision only in the same change that adopts it.
+
+## Delivery boundary
+
+This boundary overrides any workflow or skill instruction that says to commit
+or deliver automatically.
+
+Do not push, open or modify an issue or pull request, merge, or perform another
+shared GitHub action unless the user explicitly requested it. Local commits
+also require an explicit user request.
 
 ## Agent setup
 
@@ -47,5 +78,3 @@ These apply to all code assistance in this repository.
 Roles are pinned in the agent files and validated deterministically by
 `scripts/validate-agent-models.sh`, which fails hard and writes
 `.grill/MODELL-STATUS.md`. A model never asserts which model it is.
-
-Design overview and rationale: `.github/GRILLMESTER.md`.

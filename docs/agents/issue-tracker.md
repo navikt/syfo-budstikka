@@ -12,3 +12,14 @@ delivery and review records, not the request surface.
   or pull request requires explicit human authorization.
 
 Run `gh` from this clone so it resolves the repository from `origin`.
+
+## Labels
+
+Existing GitHub labels are authoritative. Query the repository before applying
+a label, use its exact name, and apply it only with explicit human
+authorization.
+
+Do not create, guess, approximate, or silently omit a label a workflow asks
+for. If a workflow requires a label that is not present in the repository, stop
+before the tracker write and ask for a decision. A missing label is a safe
+prerequisite, never authority to invent one.
