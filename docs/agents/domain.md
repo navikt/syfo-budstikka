@@ -3,7 +3,7 @@
 This is a single-context Kotlin/Ktor service. The following is a load order,
 not a general authority ranking. Load domain material narrowly:
 
-1. Read `docs/context.md` for orientation and the current decision record.
+1. Go straight to the narrowest source that answers the question.
 2. Read `docs/glossary.md` for canonical domain terms.
 3. Read only the relevant ADRs in `docs/adr/` for binding,
    hard-to-reverse decisions.
@@ -13,6 +13,9 @@ not a general authority ranking. Load domain material narrowly:
    `docs/kontrakt.md`, `docs/flyt.md`, `docs/datamodell.md`,
    `docs/ferdigstill.md`, `docs/migrering.md`, `docs/teknologi.md`,
    `docs/teststrategi.md`, or `docs/helsesjekk.md`.
+6. Read `docs/context.md` in full only when you actually need orientation or
+   overall decision status. It is large; do not load it to answer a question a
+   narrower source already answers.
 
 Each source owns a different question:
 

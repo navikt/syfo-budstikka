@@ -10,11 +10,16 @@ Use language deliberately by artifact type.
   `Brev`. A glossary `_Unngå_` note governs prose vocabulary; it does not
   silently rename an established type or published contract.
 - Technical and mechanical code identifiers are English.
-- Agent-facing material, technical documentation, ADR prose, issues, pull
-  requests, commit messages, scripts, and technical operator interfaces are
+- Agent-facing material, scripts, and technical operator interfaces are
   English.
 - Preserve quoted Norwegian product copy and canonical Norwegian domain terms
   when they are the subject.
+
+Issue, pull-request, commit-message, and ADR prose language is deliberately
+**not** settled by this document. Those artifacts follow the skills that
+produce them, currently `/conventional-commit` and `/klarsprak`, until a later
+change migrates them on purpose. Do not treat this file as authority to switch
+them.
 
 ## Incremental migration
 

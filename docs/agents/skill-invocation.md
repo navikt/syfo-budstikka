@@ -18,3 +18,10 @@ parameters.
 The complete field list and defaults are documented in the
 [GitHub Copilot CLI skills reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#skills-reference).
 Existing skills are reclassified only in a dedicated, reviewable skill change.
+
+## Precedence over existing authoring guidance
+
+`/writing-great-skills` currently states that skill frontmatter must contain
+only `name` and `description`. That predates this document and would reject the
+supported fields above. This document takes precedence on frontmatter. The
+authoring skill is reconciled when the skill core is imported, not here.
