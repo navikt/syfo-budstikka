@@ -1,36 +1,26 @@
 ---
 name: grill-with-docs
-description: "Bruk når et design, en ny tjeneste eller en ikke-triviell endring skal stresstestes før koding, og du vil ha ADR + glossar som faller ut underveis. @grillmester fase 1–2, eller når noen sier 'design dette', 'er dette gjennomtenkt', 'grill dette designet'. For en rask plan-stresstest UTEN dokumentasjon: /grill-me."
+description: A relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go.
+disable-model-invocation: true
 ---
 
-# grill-with-docs
+Run a `/grilling` session, using the `/domain-modeling` skill.
 
-Et nådeløst design-intervju som skjerper planen OG produserer dokumentasjon (ADR + glossar) underveis. Dette er inngangen til Grillmester sin faseløkke — målet er delt forståelse FØR kode skrives.
+Apply the repository's progressive documentation seam in
+`docs/agents/domain.md`: resolved vocabulary belongs in `docs/glossary.md`,
+maintained detail in the relevant topic document, and a qualifying durable
+trade-off in one focused ADR. Update `docs/context.md` only when repository
+orientation or overall status changes. Keep task-scoped choices in the issue
+or plan, and look up a named `Bnn` entry directly instead of preloading or
+extending `docs/decisions.md`.
 
-**Rolle:** dette _avhører_ planen og fester docs løpende. Beslektede skills med egne roller: `/improve-codebase-architecture` finner kandidater, `/codebase-design` designer grensesnittet, `/nav-architecture-review` formaliserer tunge valg som ADR.
+Load a NAV reference only after the active decision branch needs it:
 
-## Kontrakt for økta
-Grunnkontrakten for selve grillingen eies av `/grill-me` — ett spørsmål av gangen, hvert med din anbefalte svar, gå ned hvert gren av beslutningstreet, og utforsk kodebasen i stedet for å spørre når svaret finnes der. Det som er **i tillegg** her:
+- For a new service, a new application shape, or modernization, use
+  [references/nav-arketyper.md](references/nav-arketyper.md).
+- When data categories or privacy constraints are relevant or unclear, use
+  [references/data-classification.md](references/data-classification.md).
+- When a concrete NAV backend design needs a risk prompt, use
+  [references/blind-spots.md](references/blind-spots.md).
 
-- Skriv artefakter **løpende** (ikke til slutt): hver avklart beslutning → ADR-linje; hvert avklart begrep → glossar-linje. Bruk `/domain-modeling` for å holde språket skarpt.
-
-## NAV-seeding (still disse før de generiske)
-Velg arketype først, og still domene-spørsmålene som hører til. Den korte versjonen:
-- **Arketype:** Backend-API / Hendelseskonsument (Kafka) / Naisjob / Fullstack. (Sjekk repoets arketype i `copilot-instructions.md`; vekt seedingen deretter.)
-- **Dataklassifisering:** Hvilke data berøres? (åpne / personopplysninger / særlige kategorier / fnr) — styrer auth, logging, lagring og om DPIA trengs.
-- **Blind-spots å grave i:** auth (TokenX / Azure AD / ID-porten / Maskinporten), `accessPolicy` mot andre team, idempotens/replay (Kafka), oppførsel når avhengigheter er nede, PII i logger, sletting/oppbevaring, observability fra dag én, feilkontrakt (StatusPages/ApiError).
-- **Arkitekturbeslutning?** → utløs ADR via `/nav-architecture-review`.
-
-For **ny tjeneste, ny arketype eller modernisering** — kjør den fulle kravavdekkingen (dybden ligger i references, lastes ved behov):
-- [references/nav-arketyper.md](references/nav-arketyper.md) — arketype-valg, domene-spørsmål per personvern/plattform/observerbarhet/team, brownfield endringskonsekvens, modernisering, og hva som oppsummeres i `docs/context.md`.
-- [references/blind-spots.md](references/blind-spots.md) — full sjekkliste (auth, DB, Kafka, observerbarhet, sikkerhet) med konsekvens + spørsmål å stille.
-- [references/data-classification.md](references/data-classification.md) — NAVs klassifiseringsnivåer, PII-kategorier og arkitekturkonsekvenser.
-
-## ADR-kontrakt
-For hver beslutning som er vanskelig å reversere, overraskende uten kontekst, og resultatet av en reell avveining, skriv `docs/adr/NNNN-<kort-tittel>.md` med det kanoniske ADR-formatet — se `/domain-modeling` (ADR-FORMAT.md). Én beslutning per ADR.
-
-## Glossar-kontrakt
-Hvert domenebegrep som dukker opp avklares i `docs/glossary.md` (én linje: `term → presis definisjon i NAV-kontekst`). Konsistent språk er en del av designet, ikke pynt.
-
-## Utfall
-Når treet er gjennomgått og bruker har bekreftet: oppsummer beslutningene, pek på ADR-ene og glossaret, og skriv den valgte tilnærmingen til `docs/context.md`. Det er input til plan- og implementeringsfasen.
+Load only the matching reference, not the whole set.

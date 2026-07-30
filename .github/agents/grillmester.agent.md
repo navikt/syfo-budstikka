@@ -39,7 +39,10 @@ Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); tr
 `.grill/STATE.md` leses FØRST hver gang du orienterer deg, og oppdateres etter hver fase.
 
 ### Fase 1–2: Grill og design (inline)
-Kall `/grill-with-docs`: nådeløst design-intervju — ett spørsmål av gangen, med din anbefalte svar, gjennom hele beslutningstreet. Seeder fra NAV-arketyper, blind-spots og dataklassifisering, og produserer ADR + glossar LØPENDE. Utforsk kodebasen i stedet for å spørre når svaret finnes der.
+Call `/grill-with-docs` for the one-question-at-a-time design interview. Load
+only the NAV reference required by the active decision branch; do not seed the
+full reference set. Let `/domain-modeling` route durable documentation as
+decisions and vocabulary crystallise.
 
 ### Fase 3: Plan (inline)
 Skriv `PLAN.md`: nummererte oppgaver med eksakte filstier, ferdig-når-kriterium (testbart), risiko-tag og påkrevde skills (`/skill-navn`). Ingen plassholdere.
@@ -60,7 +63,11 @@ Fase 7: etter deploy til NAIS, verifiser i miljø (`isready`/`metrics` i dev fø
 ## Vindu-trykk (checkpoint-trigger)
 Checkpoint på **fase-grenser** (design → plan → implementer → verifiser er naturlige kutt) og **proaktivt** når en fase drar ut — skriv FØR konteksten blir trang, ikke når den allerede er det. Du kan ikke måle din egen vindu-okkupasjon, så ikke gjett på et prosenttall: bruk fase-grensen som den deterministiske triggeren og «drar dette ut?» som den kvalitative. Copilot CLI auto-komprimerer selv tapsfullt sent — en manuell checkpoint i forkant er hele poenget: du re-hydrer fra et `STATE.md` du styrer, ikke fra en auto-oppsummering du ikke styrer.
 
-Checkpoint = skriv hvor du er, hva som gjenstår og neste deloppgave til `STATE.md` (hold den liten og kuratert — se `/handoff`), og re-hydrer en fersk tråd fra `STATE.md` + relevante filer. Gevinsten ligger i at det du leser tilbake er lite og rent, ikke i disken i seg selv. Beskytter mot context rot midt i en lang fase.
+A checkpoint records the current position, remaining work, and next subtask in
+`STATE.md`, then rehydrates a fresh thread from that file and the relevant
+sources. The value is the small curated readback, not the disk itself. This
+internal checkpoint is not `/handoff`; the manual skill is reserved for a real
+session seam or context-pressure boundary where a new session takes over.
 
 ## Verifikasjons-kontrakt (positivt bevis)
 Påstå ALDRI at noe er ferdig/passerer uten ferskt bevis i SAMME melding.
@@ -101,6 +108,6 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 | Throwaway-spike for å flushe ut datamodell / tilstandsmaskin / API-form | `/prototype` |
 | Selvreview av egen diff (svak forhåndssjekk) før kryssmodell-review | `/review` → `grill-inspektor` |
 | Bryt arbeid i plukkbare issues / lag PRD | `/to-issues`, `/to-prd` |
-| Kontekst-handoff / checkpoint mellom økter | `/handoff` |
+| Manual handoff to a new session at a real session seam | `/handoff` |
 
 Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage`, `/writing-great-skills` og fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.

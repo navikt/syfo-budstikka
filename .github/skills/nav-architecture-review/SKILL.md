@@ -47,7 +47,12 @@ Dokumenter minst to alternativer pluss «gjøre ingenting». NAVs Architecture A
 
 ## ADR-format og lagring
 
-Bruk det kanoniske ADR-grunnformatet fra `/domain-modeling` (ADR-FORMAT.md: Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert), og lagre som `docs/adr/NNNN-<kort-tittel>.md` med samme `NNNN-`-nummerering (skann høyeste nummer i `docs/adr/` og legg +1). Da finner og respekterer `/grill-with-docs`, `/domain-modeling` og `/improve-codebase-architecture` den. De NAV-spesifikke vurderingene (3-perspektiv, auth, dataklassifisering, `accessPolicy`) legges som underseksjoner i samme ADR — se [references/adr-template.md](references/adr-template.md) for en utvidet NAV-ADR.
+Use the minimal ADR base from `/domain-modeling` and save it as
+`docs/adr/NNNN-<short-title>.md`, incrementing the highest existing number.
+Because this specialised NAV review is active, use
+[references/adr-template.md](references/adr-template.md) to add the structured
+three-perspective, security, platform, migration, and alternatives analysis
+that this branch requires.
 
 Korte ADR-er er best — én beslutning per ADR. Oppdater status når beslutningen er tatt; bruk «Erstattet av NNNN-…» når en beslutning revideres.
 

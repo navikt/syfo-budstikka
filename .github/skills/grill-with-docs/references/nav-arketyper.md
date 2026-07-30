@@ -1,6 +1,10 @@
 # NAV-arketyper og domene-spørsmål
 
-Strukturert kravavdekking for NAV-prosjekter. Velg arketype, still domene-spesifikke spørsmål, oppsummer funn i `docs/context.md`. Dette repoet er et **Ktor-backend** — vekt på de backend-rettede arketypene, men menyen er full fordi en tjeneste kan ha BFF/fullstack-flater.
+Structured discovery prompts for NAV projects. Choose an application shape,
+ask the domain-specific questions, and route findings through
+`docs/agents/domain.md`. This repository is a **Ktor backend**, so favour the
+backend-oriented branches while retaining the full menu for BFF/full-stack
+surfaces.
 
 ## Steg 1: Arketype
 
@@ -27,7 +31,9 @@ Still fra **alle fire domener**. Tilpass rekkefølge etter arketype.
 | D5 | Deles data med andre tjenester? Hvilke? | Påvirker API-design og accessPolicy |
 | D6 | Trengs audit-logging av hvem som så/endret data? | Påkrevd for sensitive personopplysninger |
 
-Se [data-classification.md](./data-classification.md) for NAVs klassifiseringsnivåer.
+If the classification or affected data categories are unclear or changing,
+use [data-classification.md](./data-classification.md) for NAV-specific prompts
+and consequences.
 
 ### Plattform og autentisering
 
@@ -82,9 +88,13 @@ Se [data-classification.md](./data-classification.md) for NAVs klassifiseringsni
 | K8 | Endres API-kontrakter (eksplisitte eller implisitte)? | Kontraktsbrudd |
 | K9 | Testtilstand for koden som endres? | Endringssikkerhet |
 
-## Steg 4: Oppsummer i `docs/context.md`
+## Step 4: Route documentation through the repository seam
 
-Skriv valgt arketype, scope (inkl. ikke-mål), dataklassifisering, de sentrale arkitekturbeslutningene (auth, sync/async, database, observerbarhet), migrasjonsstrategi (ved modernisering), identifiserte risikoer og endringskonsekvenser. Vanskelig-å-reversere beslutninger festes som `docs/adr/NNNN-*.md`.
+Follow `docs/agents/domain.md`: resolved vocabulary goes to
+`docs/glossary.md`, maintained detail to the relevant topic document, and task
+scope to the issue or plan. A hard-to-reverse, surprising, real trade-off gets
+one focused `docs/adr/NNNN-*.md`. Update `docs/context.md` only when repository
+orientation or overall status actually changes.
 
 ## Prinsipper
 - Still personvernspørsmål først — de glemmes oftest.

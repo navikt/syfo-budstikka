@@ -5,26 +5,44 @@ description: "Bruk når du skal skrive en ny Copilot-skill, endre eller forbedre
 
 # Skrive gode skills (syfo-budstikka)
 
-En skill finnes for å presse **forutsigbarhet** ut av et stokastisk system: at Copilot tar samme _prosess_ hver gang, ikke at den produserer samme tekst. Det er rotdyden — alt under tjener den. Skills i dette repoet ligger i `.github/skills/<navn>/SKILL.md`, er på **norsk**, og er rettet mot repoets stack (se `copilot-instructions.md`).
+A skill exists to make a stochastic system follow a predictable *process*,
+not to force identical output. Repository skills live in
+`.github/skills/<name>/SKILL.md`, follow
+`docs/agents/language-policy.md`, and target this repository's stack (see
+`copilot-instructions.md`).
 
 Vokabular i **fet skrift** er definert i [references/vokabular-og-feilmodi.md](references/vokabular-og-feilmodi.md) — slå opp der når du trenger full betydning eller skal diagnostisere en skill som ikke oppfører seg.
 
-## Frontmatter — kun `name` + `description`
+## Frontmatter — supported fields
 
-Husstandarden her er to felter, ikke flere. Ikke innfør egne YAML-felter.
+`name` and `description` are required. Use only frontmatter fields supported by
+GitHub Copilot CLI; do not invent YAML fields.
 
-- **`name`** — mappenavnet, kebab-case. Dette blir også `/slash`-navnet.
-- **`description`** — sier **NÅR** skillen brukes, aldri hva arbeidsflyten gjør. Dette er det eneste Copilot ser før den fyrer skillen, så den må være en ren samling av **trigger-signaler**: oppgavetyper, fraser brukeren sier, filer/områder som røres, og `/navn`-anropet. En description som oppsummerer stegene er bortkastet kontekst og svekker treffsikkerheten.
+- **`name`** — the kebab-case directory name and `/slash` name.
+- **`description`** — briefly says when the skill is useful, not what its full
+  workflow does. For a model-reachable skill, this is Copilot's discovery
+  signal and carries **trigger signals**. For a manual-only skill, it is a
+  concise human-facing summary in the skill list; do not pack it with automatic
+  triggers the model cannot use.
+
+Set manual, model, or shared invocation with the supported fields in
+`docs/agents/skill-invocation.md`. Use other supported interface fields, such
+as `argument-hint`, only when they express a real user interface; consult the
+official reference linked from that document.
 
 ```
-# RIKTIG (NÅR):  Bruk når en Flyway-migrering skal skrives/endres ... eller /flyway-migration.
-# FEIL (HVA):     Denne skillen lager en V<n>__navn.sql-fil, kjører gradle flywayMigrate, og ...
+# RIGHT (WHEN): Use when writing or changing a Flyway migration ... or /flyway-migration.
+# WRONG (WHAT): This skill creates V<n>__name.sql and runs gradle flywayMigrate ...
 ```
 
-Regler for description:
-- **Front-load det ledende ordet** — det første ordet gjør invokasjonsjobben.
-- **Én trigger per gren.** Synonymer som omdøper samme situasjon er **duplisering** — kollaps dem, behold bare reelt ulike triggere.
-- **Kutt identitet som allerede står i kroppen.** Behold triggere, pluss en eventuell "når en annen skill trenger…"-klausul.
+Rules for a model-reachable description:
+
+- **Front-load the leading word** — the first word does the invocation work.
+- **One trigger per branch.** Synonyms that merely rename the same situation
+  are **duplication**; collapse them and keep only genuinely different
+  triggers.
+- **Remove identity already carried by the body.** Keep triggers and, when
+  needed, a clause for another skill depending on this one.
 
 ## Progressive disclosure — kort topp, tung referanse i egne filer
 
@@ -38,9 +56,14 @@ Et SKILL.md skal være legibelt på ett skjermbilde av blikk. Materiale rangeres
 
 Pekerens _ordlyd_, ikke målet, avgjør hvor pålitelig Copilot når materialet. Skriv pekere som "Se `references/x.md` for full implementasjon (A, B, C)", ikke bare en naken lenke.
 
-## Kontrakter framfor forbud
+## Contracts over prohibitions
 
-Hus-mønsteret her er **kontrakt**, ikke forbudsliste. En kontrakt sier hva som må holde (positivt, sjekkbart); en forbudsliste rams opp hva man ikke skal gjøre (åpen, lett å omgå). Se `grill-with-docs` ("Kontrakt for økta", "ADR-kontrakt") og `tdd` ("Sjekkliste per syklus"). Skriv kontrakter, ikke "ikke gjør X" der det lar seg gjøre. Et forbud beholdes bare når det fanger et konkret anti-mønster Copilot ellers faller i (f.eks. "endre aldri en allerede deployet Flyway-migrering").
+The repository pattern is a **contract**, not a prohibition list. A contract
+states what must hold in positive, checkable terms; a prohibition list remains
+open-ended and easy to route around. The one-question and confirmation gates
+in `grilling` and the per-cycle checklist in `tdd` are examples. Keep a
+prohibition only when it captures a concrete anti-pattern Copilot otherwise
+falls into, such as changing an already deployed Flyway migration.
 
 ## Ledende ord
 
@@ -57,15 +80,27 @@ Et **ledende ord** er et kompakt begrep som allerede bor i modellens forhåndstr
 ### 1. Avklar formålet og det ledende ordet
 Hva er den ene jobben skillen gjør, og hvilket **ledende ord** bærer den? Kan du ikke navngi jobben i én setning, er skillen for bred — splitt. Bruk `/grill-with-docs` hvis formålet selv trenger stresstesting, og `/domain-modeling` for å låse domeneord skillen skal bruke.
 
-### 2. Skriv description (NÅR) først
-Før kroppen: list **trigger-signalene**. Én per reell gren, ledende ord først, `/navn`-anropet til slutt. Hold deg til `name` + `description`.
+### 2. Write discovery and invocation first
 
-### 3. Plasser innholdet på stigen
-Skriv stegene/kontraktene som hver gren trenger inline. Skyv tung referanse (full kode, lange tabeller, edge-case-kataloger) til `references/<navn>.md` med en presis kontekst-peker. Bind skillen til `.grill/`-artefakter der den henger sammen med faseløkka:
-- `docs/context.md` — valgt tilnærming, så skillen bruker samme vokabular.
-- `docs/adr/` — beslutninger skillen må respektere (ikke reåpne avgjorte valg).
-- `docs/glossary.md` — domenespråk skillen skal skrive i.
-- `.grill/PLAN.md` / `.grill/VERIFICATION.md` / `.grill/STATE.md` — input/utfall for skills som lever i @grillmester sin faseløkke (jf. `to-issues`, `tdd`).
+Before the body, choose the invocation boundary using
+`docs/agents/skill-invocation.md`. For a model-reachable skill, put one genuine
+**trigger signal** per branch in `description`, leading-word first. For a
+manual-only skill, write only a precise human-facing summary.
+
+### 3. Place content on the disclosure ladder
+
+Keep the steps and contracts every branch needs in `SKILL.md`. Move heavy
+material such as full examples, long tables, and edge-case catalogues to
+`references/<name>.md` behind a precise contextual pointer. Route repository
+documentation through `docs/agents/domain.md`:
+
+- `docs/glossary.md` owns canonical domain language.
+- Explicitly relevant files in `docs/adr/` own binding, hard-to-reverse
+  decisions.
+- `docs/context.md` is read or updated only for repository orientation or
+  overall status.
+- A skill uses transient workflow artifacts only when their owning agent
+  contract explicitly requires them; do not invent a global artifact suite.
 
 ### 4. Sett sjekkbare fullføringskriterier
 Hvert steg ender på en betingelse Copilot kan verifisere. For dette repoet er den deterministiske gaten oftest `./gradlew test` / `./gradlew build` med ferskt output — ingen "ser riktig ut".
@@ -73,8 +108,12 @@ Hvert steg ender på en betingelse Copilot kan verifisere. For dette repoet er d
 ### 5. Prun
 Gå gjennom hver setning: er den **relevant**? Er den en **no-op**? Er meningen duplisert et annet sted? Slett aggressivt. Mål SKILL.md mot søsken-skillene — er den vesentlig lengre uten å gjøre mer, skyv ned eller splitt.
 
-### 6. Verifiser triggeren
-Les description som om du var Copilot midt i en oppgave: ville den fyrt på de reelle situasjonene, og _ikke_ fyrt på naboene? Overlapper triggeren med en eksisterende skill, skjerp begge så grensen er skarp.
+### 6. Verify discovery
+
+For a model-reachable skill, read `description` as Copilot in the middle of a
+task: would it select the skill for the real situations and not its neighbours?
+For a manual-only skill, verify that the picker summary distinguishes it from
+nearby commands without pretending it can auto-trigger.
 
 ## Når du skal splitte
 

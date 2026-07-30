@@ -1,6 +1,10 @@
 # ADR-mal — NAV-utvidet
 
-Den NAV-utvidede malen for Architecture Decision Records. Grunnfeltene (Status / Kontekst / Beslutning / Konsekvenser / Alternativer vurdert) eies av `/domain-modeling` (ADR-FORMAT.md); denne malen legger NAV-spesifikke seksjoner (sikkerhet/personvern, plattform, migrasjon) på toppen. Fyll inn avsnittene som er relevante, slett resten. Hold ADR-en kort og fokusert — én beslutning per ADR.
+This is the extended NAV template for Architecture Decision Records. It builds
+on `/domain-modeling`'s minimal ADR format and deliberately adds structured
+context, decision, consequences, alternatives, security/privacy, platform,
+and migration sections for this specialised review. Fill in the relevant
+sections, delete the rest, and keep one focused decision per ADR.
 
 ## Filnavn
 

@@ -1,43 +1,75 @@
-# Format for ADR
+# ADR Format
 
-ADR-er bor i `docs/adr/` med fortløpende nummerering: `0001-<slug>.md`, `0002-<slug>.md`. Opprett mappa lazy — først når første ADR trengs.
+ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`,
+`0002-slug.md`, etc.
 
-## Mal
+Create the `docs/adr/` directory lazily — only when the first ADR is needed.
 
-Dette er det kanoniske ADR-formatet for oppsettet — `/grill-with-docs` og `/nav-architecture-review` peker hit, så artefaktene er enhetlige gjennom hele faseløkka:
+## Template
 
 ```md
-# NNNN: <kort tittel på beslutningen>
+# {Short title of the decision}
 
-- Status: foreslått | besluttet | utdatert | erstattet av ADR-NNNN
-- Kontekst: <hva tvang frem valget>
-- Beslutning: <hva vi valgte>
-- Konsekvenser: <hva det betyr, inkl. ulemper>
-- Alternativer vurdert: <kort — hva ble vraket og hvorfor>
+{1-3 sentences: what's the context, what did we decide, and why.}
 ```
 
-En ADR kan være korte avsnitt. Verdien ligger i å feste *at* en beslutning ble tatt og *hvorfor* — ikke i å fylle ut felter for syns skyld. Dropp `Alternativer vurdert` hvis det ikke var noe reelt alternativ; men da bør beslutningen sannsynligvis ikke vært en ADR i det hele tatt.
+That's it. An ADR can be a single paragraph. The value is in recording *that*
+a decision was made and *why* — not in filling out sections.
 
-## Nummerering
+## Optional sections
 
-Skann `docs/adr/` for høyeste eksisterende nummer og øk med én.
+Only include these when they add genuine value. Most ADRs won't need them.
 
-## Når tilby en ADR
+- **Status** frontmatter
+  (`proposed | accepted | deprecated | superseded by ADR-NNNN`) — useful when
+  decisions are revisited.
+- **Considered Options** — only when the rejected alternatives are worth
+  remembering.
+- **Consequences** — only when non-obvious downstream effects need to be
+  called out.
 
-Alle tre må være sanne:
+When `/nav-architecture-review` is explicitly active, follow its
+[extended NAV template](../nav-architecture-review/references/adr-template.md).
+That specialised branch deliberately adds structured security, platform,
+migration, and alternative analysis.
 
-1. **Vanskelig å reversere** — det koster reelt å ombestemme seg senere.
-2. **Overraskende uten kontekst** — en fremtidig leser ser på koden og lurer på «hvorfor i all verden gjorde de det sånn?»
-3. **Resultat av en reell avveining** — det fantes genuine alternativer og ett ble valgt av spesifikke grunner.
+## Numbering
 
-Er beslutningen lett å reversere, dropp den — du reverserer den bare. Er den ikke overraskende, lurer ingen på hvorfor. Fantes det ikke noe reelt alternativ, er det ingenting å feste utover «vi gjorde det åpenbare».
+Scan `docs/adr/` for the highest existing number and increment by one.
 
-## Hva kvalifiserer (NAV / Ktor-backend)
+## When to offer an ADR
 
-- **Arkitektonisk form.** «Skrivemodellen er hendelsesdrevet, lesemodellen projiseres til Postgres.» «Vi bruker Rapids & Rivers i stedet for direkte Kafka-consumere.»
-- **Integrasjonsmønster mellom contexts.** «Sykmelding og Oppfølging snakker via domenehendelser på Kafka, ikke synkron HTTP.»
-- **Teknologivalg med innlåsing.** Database, meldingsbuss, auth-leverandør (TokenX vs Azure AD vs Maskinporten), deploy-mål. Ikke ethvert bibliotek — bare de som ville tatt et kvartal å bytte ut.
-- **Grense- og scope-beslutninger.** «`Ident` eies av Sykmelding-contexten; andre contexts refererer kun via verdien.» De eksplisitte nei-ene er like verdifulle som ja-ene.
-- **Bevisste avvik fra den åpenbare veien.** «Vi bruker manuell SQL framfor ORM fordi X.» Alt der en fornuftig leser ville antatt det motsatte — det stopper neste utvikler fra å «fikse» noe som var med vilje.
-- **Begrensninger som ikke er synlige i koden.** «Svartid må under 200 ms pga. partner-API-kontrakt.» «NAIS `accessPolicy` mot team X er avtalt og må ikke utvides uten ny avtale.» Compliance-/personvernkrav (DPIA, oppbevaring, sletting av personopplysninger).
-- **Vrakede alternativer der vrakingen ikke er åpenbar.** Vurderte dere GraphQL og valgte REST av subtile grunner, fest det — ellers foreslår noen GraphQL igjen om et halvår.
+All three of these must be true:
+
+1. **Hard to reverse** — the cost of changing your mind later is meaningful.
+2. **Surprising without context** — a future reader will look at the code and
+   wonder "why on earth did they do it this way?"
+3. **The result of a real trade-off** — there were genuine alternatives and
+   you picked one for specific reasons.
+
+If a decision is easy to reverse, skip it — you'll just reverse it. If it's
+not surprising, nobody will wonder why. If there was no real alternative,
+there's nothing to record beyond "we did the obvious thing."
+
+### What qualifies
+
+- **Architectural shape.** "We're using a monorepo." "The write model is
+  event-sourced, the read model is projected into Postgres."
+- **Integration patterns between contexts.** "Ordering and Billing communicate
+  via domain events, not synchronous HTTP."
+- **Technology choices that carry lock-in.** Database, message bus, auth
+  provider, deployment target. Not every library — just the ones that would
+  take a quarter to swap out.
+- **Boundary and scope decisions.** "Customer data is owned by the Customer
+  context; other contexts reference it by ID only." The explicit no-s are as
+  valuable as the yes-s.
+- **Deliberate deviations from the obvious path.** "We're using manual SQL
+  instead of an ORM because X." Anything where a reasonable reader would
+  assume the opposite. These stop the next engineer from "fixing" something
+  that was deliberate.
+- **Constraints not visible in the code.** "We can't use AWS because of
+  compliance requirements." "Response times must be under 200ms because of the
+  partner API contract."
+- **Rejected alternatives when the rejection is non-obvious.** If you
+  considered GraphQL and picked REST for subtle reasons, record it — otherwise
+  someone will suggest GraphQL again in six months.

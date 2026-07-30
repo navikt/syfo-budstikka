@@ -10,18 +10,18 @@ frontmatter:
 - Both: omit both fields, or leave `user-invocable: true` without disabling
   model invocation.
 
-The skill `description` supplies discovery and automatic-selection signals;
-frontmatter constrains which invocation routes are available. Do not emulate
-invocation policy with comments in the skill body or invent runtime
-parameters.
+For a model-reachable skill, `description` supplies discovery and
+automatic-selection signals. For a manual-only skill, it is a concise
+human-facing summary. Frontmatter constrains which invocation routes are
+available. Do not emulate invocation policy with comments in the skill body or
+invent runtime parameters.
 
 The complete field list and defaults are documented in the
 [GitHub Copilot CLI skills reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#skills-reference).
 Existing skills are reclassified only in a dedicated, reviewable skill change.
 
-## Precedence over existing authoring guidance
+## Authoring guidance
 
-`/writing-great-skills` currently states that skill frontmatter must contain
-only `name` and `description`. That predates this document and would reject the
-supported fields above. This document takes precedence on frontmatter. The
-authoring skill is reconciled when the skill core is imported, not here.
+`/writing-great-skills` follows this invocation contract. Other frontmatter
+fields are used only when the GitHub Copilot CLI skills reference supports
+them and the skill's interface needs them.
