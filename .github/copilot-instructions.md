@@ -19,16 +19,9 @@ Loaded on demand:
   [`docs/agents/language-policy.md`](../docs/agents/language-policy.md)
 - Skill invocation:
   [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md)
-- Upstream sources and revisions:
+- Upstream sources, precedence, and revisions:
   [`docs/agents/provenance.md`](../docs/agents/provenance.md)
 - Design overview and rationale: [`GRILLMESTER.md`](GRILLMESTER.md)
-
-## Source precedence
-
-`navikt/hovmester` is the team's upstream source for reusable agent contracts.
-`mattpocock/skills` and `navikt/copilot` are reviewed inputs and never override
-a local contract. Port concrete upstream changes deliberately after reviewing
-the diff, and move a recorded revision only in the same change that adopts it.
 
 ## Delivery boundary
 

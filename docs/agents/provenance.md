@@ -30,6 +30,7 @@ instead.
 
 When repository content is copied or substantially adapted, record the
 concrete source paths and full source revision, and preserve every applicable
-copyright and license notice. This foundation slice imports no third-party
-skill or instruction text; license notices belong to the slice that imports
-that material.
+copyright and license notice. Move a recorded revision only in the same change
+that adopts it; a pin is never advanced without the diff having been assessed.
+This foundation slice imports no third-party skill or instruction text; license
+notices belong to the slice that imports that material.
