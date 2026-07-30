@@ -1,29 +1,50 @@
 ---
 name: nav-architecture-review
-description: "Bruk når en tyngre arkitekturbeslutning bør festes som ADR: ny tjeneste/integrasjon mot annet team, nytt lagringslag eller event-kontrakt, ny auth-mekanisme, accessPolicy mot andre team, nye personopplysninger (DPIA), eller avvik fra NAV-standard. Triggere: 'skriv en ADR', 'arkitektur-review', 'bør vi X eller Y'."
+description: "Use for NAV-specific architecture review of a new service, cross-team integration, storage or event seam, authentication, accessPolicy, personal data, platform migration, or deviation from NAV standards. Create an ADR only when the decision passes the shared three-part ADR gate."
 ---
 
 # NAV Architecture Review — ADR + 3-perspektiv
 
 Skriv Architecture Decision Records (ADR) og gjør tyngre arkitektur-review for dette repoet. Skillen dekker det som er NAV- og backend-spesifikt: NAIS/GCP-plattformen, TokenX/Azure AD/Maskinporten, `accessPolicy`, Datatilsynet/DPIA og NAVs arkitekturprinsipper (Team First, Architecture Advice Process, foretrekk plattform-kapabiliteter framfor egenbygd).
 
-**Rolle:** dette _formaliserer_ tunge valg som ADR med NAV 3-perspektiv. Finne kandidater = `/improve-codebase-architecture`, avhøre valget = `/grill-with-docs`, designe grensesnittet = `/codebase-design`. ADR-grunnformatet eies av `/domain-modeling`; her legges de NAV-spesifikke vurderingene på som underseksjoner.
+**Role:** review NAV- and backend-specific implications. Formalise a decision as
+an extended NAV ADR only when it passes `/domain-modeling`'s ADR gate. Find
+candidates with `/improve-codebase-architecture`, interrogate the choice with
+`/grill-with-docs`, and design the interface with `/codebase-design`.
+`/domain-modeling` owns the minimal ADR format; this skill adds NAV-specific
+analysis when that specialised review is needed.
 
 Generisk «hva er en ADR» eller generiske OWASP-lister er ikke gjengitt her — bruk det fra ditt eget repertoar.
 
-## Når dette utløses
+## When to run the review
 
-Dette er en arkitekturbeslutning i @grillmester sin grill-/design-fase (fase 1–2). Tunge endringer fortjener en ADR; lettere valg gjør ikke det.
+A NAV architecture review and an ADR are separate outcomes. The signals below
+justify the review; they do not automatically justify an ADR. Create an ADR
+only when all three are true:
 
-Typiske signaler:
+1. **Hard to reverse** — changing the decision later has meaningful cost.
+2. **Surprising without context** — a future reader would reasonably ask why
+   this path was chosen.
+3. **The result of a real trade-off** — genuine alternatives were considered
+   and one was selected for specific reasons.
 
-- Ny tjeneste, ny integrasjon mot annet team, nytt lagringslag eller ny Kafka-/event-kontrakt.
-- Endring som krever `accessPolicy`-oppdatering hos andre team, eller ny auth-mekanisme (TokenX/Azure AD/Maskinporten).
-- Behandling av nye personopplysninger (mulig DPIA / melding til Datatilsynet).
-- Plattform-migrering eller opprydding i teknisk gjeld som flytter en søm.
-- Avvik fra NAV-standardmønstre eller introduksjon av ny teknologi i stacken.
+If any test is missing, complete the relevant NAV review without creating an
+ADR.
 
-Lettere valg (biblioteksvalg innenfor eksisterende stack, intern refaktor uten ny søm) trenger ikke formell ADR — bare et notat i `docs/context.md`.
+Typical review signals:
+
+- A new service, cross-team integration, storage layer, or Kafka/event
+  contract.
+- An `accessPolicy` change owned by another team, or a new authentication
+  mechanism such as TokenX, Azure AD, or Maskinporten.
+- Processing a new category of personal data, potentially requiring a DPIA.
+- A platform migration or technical-debt change that moves a seam.
+- A deviation from NAV standards or introduction of new technology.
+
+For a choice that does not pass the ADR gate, keep task-scoped reasoning in the
+issue or active plan. Put durable maintained detail in the relevant topic
+document, and update `docs/context.md` only when repository orientation or
+overall status changes.
 
 ## Stacken er gitt — forslag skal matche den
 
@@ -47,6 +68,7 @@ Dokumenter minst to alternativer pluss «gjøre ingenting». NAVs Architecture A
 
 ## ADR-format og lagring
 
+Enter this section only after the decision passes all three ADR tests.
 Use the minimal ADR base from `/domain-modeling` and save it as
 `docs/adr/NNNN-<short-title>.md`, incrementing the highest existing number.
 Because this specialised NAV review is active, use
@@ -58,8 +80,18 @@ Korte ADR-er er best — én beslutning per ADR. Oppdater status når beslutning
 
 ## Kobling til faseløkka
 
-- **Input:** funn fra grill-/design-fasen og fra `/improve-codebase-architecture` mater hit. Les `docs/context.md` og `docs/glossary.md` så ADR-en bruker domenets egne ord, ikke ad-hoc-navn.
-- **Output:** skriv den valgte tilnærmingen til `docs/context.md` og selve beslutningen til `docs/adr/`. Konkrete aksjonspunkter brytes ned i `.grill/PLAN.md` (evt. via `/to-issues`), og hva som beviser at valget holder, fanges i `.grill/VERIFICATION.md`.
+- **Input:** findings from the grill/design phase and
+  `/improve-codebase-architecture` feed this review. Follow the narrow load
+  order in `docs/agents/domain.md`: load the glossary only when terminology is
+  in play, the relevant topic document or ADR when needed, and
+  `docs/context.md` only for orientation or overall status.
+- **Output:** when the three-part gate passes, write the focused decision to
+  `docs/adr/`. Put resolved vocabulary in `docs/glossary.md`, durable detail in
+  the relevant topic document, and task-scoped choices in the issue or active
+  plan. Update `docs/context.md` only when orientation or overall status
+  changes. When the Grillmester phase loop is active, action items may live in
+  `.grill/PLAN.md` (or `/to-issues`) and verification evidence in
+  `.grill/VERIFICATION.md`.
 
 ## Relaterte skills
 
