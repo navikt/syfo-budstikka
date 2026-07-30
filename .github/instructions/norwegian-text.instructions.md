@@ -1,11 +1,13 @@
 ---
-description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, docs/ (ADR/glossar/kontekst), .grill/-artefakter (PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
-applyTo: "**/*.md"
+description: "Applies automatically to Norwegian README text; /klarsprak loads these rules explicitly for other confirmed Norwegian text."
+applyTo: "README.md"
 ---
 
 # Norsk tekstkvalitet (lean)
 
-Disse reglene gjelder all norsk markdown-tekst i dette Ktor-backend-repoet (no.nav.syfo): README, arkitekturbeslutninger i `docs/adr/`, `.grill/`-artefakter, PR-tekst og commit-meldinger. Hold tekst om kode like presis som koden selv.
+`docs/agents/language-policy.md` decides which artifacts are Norwegian. This
+file loads automatically for README; `/klarsprak` loads it explicitly for
+other confirmed Norwegian text.
 
 ## AI-markører å unngå
 

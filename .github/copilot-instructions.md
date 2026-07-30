@@ -1,22 +1,51 @@
-# Copilot-instruksjoner — syfo-budstikka
+# Copilot instructions — syfo-budstikka
 
-Ktor-backend (Kotlin, NAV / `no.nav.syfo`). Java 25, Gradle, Netty. Norsk er arbeidsspråk.
+Ktor backend (Kotlin, Nav). Java 25, Gradle, Netty. Gradle group `no.nav.syfo`;
+source packages under `no.nav.budstikka`.
 
-## Agent-oppsett
-- **@grillmester** (Opus 4.8) er orkestrator + inline implementør for ikke-triviell jobb. Den kjører en faseløkke (grill → design → plan → implementer → verifiser → server) og skriver arbeidsminne til `.grill/`.
-- **grill-inspektor** (GPT-5.5, internt) er fersk kryssmodell-reviewer — **opt-in**, anbefalt-på for høyrisiko. Det er her «begge modellfamilier ser på arbeidet» bevares, men kostnadskontrollert.
-- Ingen svake modell-tier i oppsettet. Kvalitet kommer fra sterk modell + deterministiske gater, ikke fra billige mellomledd.
+`AGENTS.md` holds repository discovery, source precedence, and the delivery
+boundary. This file holds only the Copilot-specific agent setup. Follow
+`docs/agents/language-policy.md` for artifact language, and answer users in
+their own language.
 
-## Faste prinsipper (gjelder all kode-assistanse i repoet)
-- **Navnekonvensjon:** norske ord KUN på domeneord (`Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`) — alt annet (mekanikk, verb, plumbing, teknisk) på engelsk (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full regel med eksempler i `.github/instructions/kotlin.instructions.md`.
-- **Kvalitetsgater er deterministiske og utenfor modellen:** `./gradlew test`, lint og build avgjør pass/fail. Ingen «ser riktig ut»-påstander uten ferskt bevis (kommando + output + exit-kode i samme melding).
-- **Inline skriving:** koding som krever skjønn gjøres i hovedtråden. Subagenter brukes kun til read-only utforsking, kryssmodell-verify og opt-in divergent design-utforsking (design-it-twice).
-- **Skills kalles eksplisitt** med `/skill-navn` når en oppgave berører et domene som har skill (se `.github/skills/`) — de surfaces på beskrivelsen sin, men kall den du trenger eksplisitt så selve skill-body-en faktisk lastes, ikke bare beskrivelsen.
-- **Disk-som-minne:** lengre arbeid sporer beslutninger/plan/verifikasjon i `.grill/` (`STATE.md` leses først, og holdes liten og kuratert). Checkpoint på fase-grenser og proaktivt før konteksten blir trang — ikke gjett på en vindu-prosent du ikke kan måle.
+## Agent setup
 
-## Modell-policy
-Roller er pinnet i agentfilene og validert deterministisk av `scripts/validate-agent-models.sh` (hardt fail + skriver `.grill/MODELL-STATUS.md`). En modell påstår aldri selv hvilken modell den er.
+- **@grillmester** (Opus 4.8) is the orchestrator and inline implementer for
+  non-trivial work. It runs a phase loop — grill, design, plan, implement,
+  verify, deliver — and writes working memory to `.grill/`.
+- **grill-inspektor** (GPT-5.5, internal) is a fresh cross-model reviewer:
+  **opt-in**, recommended-on for high-risk work. This is where "both model
+  families look at the work" is preserved while staying cost-controlled.
+- There is no weak model tier. Quality comes from a strong model plus
+  deterministic gates, not from cheap intermediaries.
 
-## Hvor ting ligger
-- Agenter: `.github/agents/`  ·  Skills: `.github/skills/`  ·  Instruksjoner per filtype: `.github/instructions/`
-- Designoversikt: `.github/GRILLMESTER.md`
+## Standing principles
+
+These apply to all code assistance in this repository.
+
+- **Naming:** Norwegian words only for domain terms (`Brukervarsel`,
+  `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`). Everything
+  else — mechanics, verbs, plumbing, technical identifiers — is English
+  (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full rule with
+  examples in `.github/instructions/kotlin.instructions.md`.
+- **Quality gates are deterministic and outside the model:** `./gradlew test`,
+  lint, and build decide pass or fail. Never claim something "looks right"
+  without fresh evidence — command, output, and exit code in the same message.
+- **Inline writing:** work that requires judgement happens in the main thread.
+  Subagents are used only for read-only exploration, cross-model verification,
+  and opt-in divergent design exploration (design-it-twice).
+- **Skill invocation:** a skill `description` supplies discovery and
+  automatic-selection signals; frontmatter constrains which invocation routes
+  are available. Manual-only skills require `/skill-name`.
+- **Disk as memory:** longer work tracks decisions, plan, and verification in
+  `.grill/`. `STATE.md` is read first and kept small and curated. Checkpoint at
+  phase boundaries and proactively before context gets tight; do not guess at a
+  context-window percentage you cannot measure.
+
+## Model policy
+
+Roles are pinned in the agent files and validated deterministically by
+`scripts/validate-agent-models.sh`, which fails hard and writes
+`.grill/MODELL-STATUS.md`. A model never asserts which model it is.
+
+Design overview and rationale: `.github/GRILLMESTER.md`.
