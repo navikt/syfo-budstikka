@@ -10,8 +10,8 @@ language.
 
 ## Repository discovery
 
-- Agents `.github/agents/` · Skills `.github/skills/` · Path-scoped
-  instructions `.github/instructions/`
+Loaded on demand:
+
 - Work tracking and tracker labels:
   [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)
 - Domain documentation: [`docs/agents/domain.md`](../docs/agents/domain.md)
@@ -65,9 +65,9 @@ These apply to all code assistance in this repository.
 - **Inline writing:** work that requires judgement happens in the main thread.
   Subagents are used only for read-only exploration, cross-model verification,
   and opt-in divergent design exploration (design-it-twice).
-- **Skill invocation:** a skill `description` supplies discovery and
-  automatic-selection signals; frontmatter constrains which invocation routes
-  are available. Manual-only skills require `/skill-name`.
+- **Skill invocation:** call `/skill-name` explicitly when a task enters a
+  domain that has a skill. Descriptions surface automatically, but only an
+  explicit call loads the skill body.
 - **Disk as memory:** longer work tracks decisions, plan, and verification in
   `.grill/`. `STATE.md` is read first and kept small and curated. Checkpoint at
   phase boundaries and proactively before context gets tight; do not guess at a
