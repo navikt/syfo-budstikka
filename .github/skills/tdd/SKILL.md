@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Bruk når test-først er eksplisitt ønsket: «red-green-refactor», «test først», eller reproduksjonstest før bugfiks. For vanlig testskriving, bruk /unit-tests, /integration-tests eller /e2e-tests.
+description: "Bruk når test-først er eksplisitt ønsket: «red-green-refactor», «test først», eller reproduksjonstest før bugfiks. For vanlig testskriving, bruk /unit-tests, /integration-tests eller /e2e-tests."
 ---
 
 # Testdrevet utvikling (Ktor / no.nav.syfo)
