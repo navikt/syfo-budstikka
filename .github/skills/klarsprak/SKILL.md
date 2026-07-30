@@ -7,8 +7,9 @@ description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes 
 Bruk denne skillen når norsk tekst skal strammes inn i kode, docs, PR, commit og logger.
 Skriv **Nav** i løpende tekst (unntak: `NAIS`, `NAVident`, `no.nav.syfo`).
 
-Grunnreglene bor i `.github/instructions/norwegian-text.instructions.md`. Denne skillen
-er en kort operativ sjekkliste.
+Grunnreglene bor i `.github/instructions/norwegian-text.instructions.md`. Den lastes
+ikke lenger automatisk for annet enn `README.md` — **les den med view-verktøyet før du
+vasker norsk tekst utenfor README**. Denne skillen er en kort operativ sjekkliste.
 
 ## Regler (kortversjon)
 
