@@ -58,9 +58,6 @@ These apply to all code assistance in this repository.
 - **Inline writing:** work that requires judgement happens in the main thread.
   Subagents are used only for read-only exploration, cross-model verification,
   and opt-in divergent design exploration (design-it-twice).
-- **Skill invocation:** call `/skill-name` explicitly when a task enters a
-  domain that has a skill. Automatic selection from the description also
-  happens, but an explicit call is the only way to guarantee it.
 - **Disk as memory:** longer work tracks decisions, plan, and verification in
   `.grill/`. `STATE.md` is read first and kept small and curated. Checkpoint at
   phase boundaries and proactively before context gets tight; do not guess at a
