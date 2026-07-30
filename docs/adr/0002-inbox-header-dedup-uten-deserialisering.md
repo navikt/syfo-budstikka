@@ -3,7 +3,7 @@
 - Status: erstattet av ADR 0008 (hydrert inbox, parse ved ingest) — 2026-07-21.
   Opprinnelig: besluttet (implementerer B54, issue #19). Beholdt for historikk.
 - Dato: 2026-07-08
-- Relatert: ADR 0001 (domeneblind varselruter), beslutning B54 og B26 i `docs/context.md`
+- Relatert: ADR 0001 (domeneblind varselruter), beslutning B54 og B26 i `docs/decisions.md`
 
 ## Kontekst
 

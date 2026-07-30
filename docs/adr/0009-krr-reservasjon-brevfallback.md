@@ -1,6 +1,6 @@
 # 0009: KRR-reservasjon som beslutningsgate + brevFallback
 
-- Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL», se `docs/context.md` B62)
+- Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL», se `docs/decisions.md` B62)
 - Dato: 2026-07-22
 - Relatert: B2/B7/B8/B10/B25/B28/B55, ADR 0001 (domeneblind), issue #22 (epic #15), `/auth-overview`
 
@@ -79,6 +79,26 @@ persisteres ikke som egen kolonne.
   namespace (`team-rocket`) og scope-streng må bekreftes mot digdir-krr-proxy sin gjeldende
   kontrakt. Endepunkt-stien ligger i `KRR_URL` (config), og hele KRR-kontrakten er isolert bak
   `ReservationLookup` — en wire-justering rører ikke domenet.
+
+## Åpent: aktiv-sykmelding-sjekken
+
+esyfovarsel velger kanal via `AccessControlService`, som gater på **KRR og syfosmregister** (aktiv
+sykmelding). Gaten i denne ADR-en dekker død (PDL, `DeathGate`) og KRR-reservasjon, men **ikke**
+aktiv sykmelding. Budstikka slutter altså å sjekke om personen har en aktiv sykmelding før varselet
+sendes.
+
+Det er tilsynelatende i tråd med domeneblindhet (B1, ADR 0001): «har denne personen en aktiv
+sykmelding» er domenekunnskap, og under B1 er det produsent-appen som avgjør om et varsel skal
+sendes i det hele tatt. Budstikka skal bare velge kanal.
+
+**Dette er ikke besluttet her.** Ingen kilde i repoet sier eksplisitt at sjekken er bevisst droppet,
+og konsekvensen er reell: hvis en produsent-app sender et varsel for en person uten aktiv
+sykmelding, vil budstikka sende det, der esyfovarsel ville stoppet det. Om det er ønsket atferd
+eller et hull avhenger av om alle produsent-apper faktisk gater selv.
+
+Avklares som produktvalg før cutover (`docs/migrering.md`), ikke som en teknisk detalj ved
+implementering. Til det er avklart skal dette regnes som en kjent, åpen risiko — ikke som en
+stilltiende beslutning.
 
 ## Vraket
 

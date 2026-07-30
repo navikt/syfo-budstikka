@@ -8,7 +8,7 @@ not a general authority ranking. Load domain material narrowly:
 3. Read only the relevant ADRs in `docs/adr/` for binding,
    hard-to-reverse decisions.
 4. When a concrete `Bnn` decision is named, locate that entry directly in
-   `docs/context.md` instead of loading the whole file.
+   `docs/decisions.md` instead of loading the whole file.
 5. Load the relevant topic document only when needed:
    `docs/kontrakt.md`, `docs/flyt.md`, `docs/datamodell.md`,
    `docs/ferdigstill.md`, `docs/migrering.md`, `docs/teknologi.md`,

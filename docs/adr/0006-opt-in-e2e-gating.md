@@ -2,7 +2,7 @@
 
 - Status: besluttet (issue #35, lokalt løp + e2e-harness)
 - Dato: 2026-07-13
-- Relatert: beslutning B50–B53, B56 i `docs/context.md`, `docs/teststrategi.md`, ADR 0004 (workers), teknologivalg B44
+- Relatert: beslutning B50–B53, B56 i `docs/decisions.md`, `docs/teststrategi.md`, ADR 0004 (workers), teknologivalg B44
 - Merk: ADR-nummer 0006 er valgt for å reservere 0005 til den planlagte
   «komponerbare-beslutningsgater»-ADR-en (B55, egen gren) og unngå kollisjon ved merge.
 

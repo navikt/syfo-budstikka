@@ -1,7 +1,7 @@
 # Teststrategi og lokal kjøring — syfo-budstikka
 
 Hvordan vi tester budstikka ende-til-ende og (senere) kjører hele flyten lokalt.
-Beslutninger: B50–B56 i `context.md`. Bygger på ports & adapters (B28) og teknologivalg (B44).
+Beslutninger: B50–B56 i `docs/decisions.md`. Bygger på ports & adapters (B28) og teknologivalg (B44).
 
 ## Grunnidé: ett delt substrat (B50)
 
