@@ -60,7 +60,9 @@ erDiagram
   FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
   utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
   matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Ytterligere match-
-  kolonner legges til kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold.
+  kolonner legges til kun hvis den
+  [åpne hold-plasseringen](adr/0008-hydrert-inbox-parse-ved-ingest.md#åpen-oppfølging-hold-plassering)
+  lander på inbox-hold.
 - `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
   content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
@@ -109,8 +111,10 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `dead_letter_message_received_at_idx` på `(received_at)`
 
 > Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox,
-> altså kun hvis hold-plassering (DECISIONS #1) lander på inbox-hold. Kolonnen finnes fra
-> starten (ADR 0008); indeksen kommer med det arbeidet.
+> altså kun hvis den
+> [åpne hold-plasseringen](adr/0008-hydrert-inbox-parse-ved-ingest.md#åpen-oppfølging-hold-plassering)
+> lander på inbox-hold. Kolonnen finnes fra starten (ADR 0008); indeksen kommer med det
+> arbeidet.
 
 ## Observability-koblinger
 

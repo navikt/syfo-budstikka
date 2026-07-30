@@ -14,15 +14,16 @@ not a general authority ranking. Load domain material narrowly:
    `docs/ferdigstill.md`, `docs/migrering.md`, `docs/teknologi.md`,
    `docs/teststrategi.md`, or `docs/helsesjekk.md`.
 6. Read `docs/context.md` in full only when you actually need orientation or
-   overall decision status. It is large; do not load it to answer a question a
-   narrower source already answers.
+   overall status. Do not load it to answer a question a narrower source
+   already answers.
 
 Each source owns a different question:
 
 - Executable code, tests, and published contracts establish current behavior.
 - Relevant ADRs define binding, hard-to-reverse architectural intent.
 - `docs/glossary.md` defines canonical prose vocabulary.
-- `docs/decisions.md` is the canonical register for named `Bnn` decisions.
+- `docs/decisions.md` is the canonical compatibility register for the existing
+  `Bnn` decisions.
 - `docs/context.md` records current direction, status, and orientation.
 
 Do not use `docs/context.md` as source text for runtime logs, API errors, or

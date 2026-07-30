@@ -13,7 +13,8 @@ to pick the convenient source.
 | What does the system actually do? | Executable code and tests |
 | What is binding and hard to reverse? | `docs/adr/NNNN-*.md` |
 | What does a domain term mean? | `docs/glossary.md` |
-| What was decided, and is it still active? | `docs/decisions.md` — the canonical `Bnn` register |
+| What does an existing `Bnn` decision mean, and is it still active? | `docs/decisions.md` — the canonical compatibility register for B1-B63 |
+| Where does a new decision live? | Relevant ADR for a hard-to-reverse trade-off; issue/plan for a task-scoped choice; topic document for maintained detail |
 | How does one area work in detail? | The topic documents below |
 | Where are we now, and what is next? | This file |
 
@@ -22,7 +23,7 @@ directly instead of reading a whole file.
 
 ## Navigation
 
-- **`docs/decisions.md`** — canonical active register, B1-B63. Code, ADRs, and topic documents
+- **`docs/decisions.md`** — canonical compatibility register for B1-B63. Code, ADRs, and topic documents
   reference these by number.
 - `docs/glossary.md` - domain vocabulary
 - `docs/adr/` - binding architecture decisions
@@ -41,33 +42,25 @@ syfo-budstikka skal overta for `esyfovarsel`: la domeneapper sende varsler til s
 arbeidsgivere **uten** at budstikka bærer domenekunnskap (oppfølgingsplan, dialogmøte, aktivitetskrav osv.). Budstikka
 skal kun sørge for riktig kanal på en god måte. Ønsket arkitektur: Kafka, inbox/delivery, asynkron utsending,
 idempotens, innebygd retry og feilhåndtering, bedre logging med trace-id/tracing, enklere feilsøk, eget Grafana-board.
+
 ## Status
 
-**Design og implementering pågår.** Beslutninger festes som nummererte B-er i `docs/decisions.md` og
-utdypes i temadokumentene.
+**Design og implementering pågår.** Kode og tester viser nåværende oppførsel; de åpne
+[GitHub-sakene](https://github.com/navikt/syfo-budstikka/issues) er den levende arbeidskøen. Ikke bruk denne indeksen
+som oppgaveplan.
 
+`docs/decisions.md` bevarer de eksisterende B1–B63-referansene som et kompatibilitetsregister. Nye, varige valg får
+ikke nye B-numre som standard: vanskelige og overraskende avveininger går i én relevant ADR, mens reversible eller
+oppgavespesifikke valg blir i GitHub-sak/plan. Eksisterende B-er kan presiseres eller erstattes, men statusen må stå på
+selve oppføringen.
 
-**Designområder:** 1 Datamodell ✅ · 2 FERDIGSTILL ✅ · 3 Kanal-DTO-er ✅ (AG B29–B33; Inaktiver-typing B38–B39;
-tekstmodell/enums + microfrontend B40–B41) · 4 Observability ✅ (B17 + B45–B49: korrelasjon=eventId, logging/PII,
-metrikk-katalog, endepunkter, varsling) · 5 Auth & ACL 🔶 (M2M-mønster låst — PDL/dokdist/KRR via Texas; KRR-reservasjon
-B62/ADR 0009; resten av ACL detaljeres per kanal ved implementering) · 6 Migrering ✅ (B34–B37, detaljer ved
-implementering) · 7 Lokal test/e2e ✅ (B50–B53: delt substrat i `src/test`, prod-grense via build, Testcontainers,
-port-fakes).
+Domeneblindhet (B1/ADR 0001) er den røde tråden: budstikka forgrener aldri på domenetype.
 
-**Neste konkrete steg:** kontrakten er ferdig-spekket, GDPR/retensjon avklart (B42), topic-identitet/navn låst (B43:
-`team-esyfo.budstikka.v1`, rot-type `Dispatch`), teknologivalg låst (B44), observability ferdig-grillet (B45–B49) og
-lokal test/e2e-strategi låst (B50–B53). Gjenstår kun å grille område 5 (Auth & ACL — TokenX/Azure AD, accessPolicy;
-ventet rett-fram da esyfovarsel har Texas-mønsteret). Epic + sub-issues for utvikling er opprettet på
-`navikt/syfo-budstikka`
-(kontrakt, datamodell, worker-topologi og retensjon er implementeringsklare).
-
-**Arbeidsmåte:** grill én beslutning av gangen (anbefalt alt først), grunn i research ved usikkerhet, fest durable
-beslutninger i `docs/decisions.md` med nye B-nummer, commit per ferdig delområde. Domeneblindhet (B1) er den røde tråden:
-budstikka forgrener aldri på domenetype.
 ## Hva esyfovarsel er og gjør i dag
 
 Sentral varsel-router for eSyfo. Konsumerer ett topic `team-esyfo.varselbus`, mapper hver hendelse til riktig flate, og
-håndterer tilstand rundt utsending, ferdigstilling, retry og fallback til fysisk brev. 25 `HendelseType` (SM_/NL_/AG_).
+håndterer tilstand rundt utsending, ferdigstilling, retry og fallback til fysisk brev. Kontrakten har
+`HendelseType`-varianter for SM_/NL_/AG_-løp.
 
 ### Kanaler (flater) ut
 
@@ -80,11 +73,14 @@ håndterer tilstand rundt utsending, ferdigstilling, retry og fallback til fysis
 
 ### Nedstrøms-tjenester
 
-pdl-api, digdir-krr-proxy (reservasjon/digital kontakt), syfosmregister (aktiv sm), narmesteleder,
-notifikasjon-produsent-api, dokdistfordeling, istilgangskontroll. Kanalvalg via `AccessControlService`, som gater
-på **KRR alene** (`kanVarsles`) → digital ellers brev. `SykmeldingService` (syfosmregister) er en SEPARAT og
-smalere sjekk: den brukes kun av `MotebehovVarselService.sendVarselTilNarmesteLeder` og gater på om det finnes en
-`SENDT` sykmelding for den aktuelle **virksomheten** — ikke en generell aktiv-sykmelding-gate for alle varsler.
+pdl-api, digdir-krr-proxy (reservasjon/digital kontakt), syfosmregister (møtebehov-NL,
+`SENDT` per virksomhet), narmesteleder, notifikasjon-produsent-api, dokdistfordeling,
+istilgangskontroll. `AccessControlService` bygger på **KRR alene** (`kanVarsles`). Resultatet
+styrer ekstern varsling på brukervarselet og, i enkelte brevdyktige løp, valget mellom
+digitalt varsel og fysisk brev. `SykmeldingService` (syfosmregister) er en SEPARAT og smalere
+sjekk: den brukes kun av `MotebehovVarselService.sendVarselTilNarmesteLeder` og gater på om
+det finnes en `SENDT` sykmelding for den aktuelle **virksomheten** — ikke en generell
+aktiv-sykmelding-gate for alle varsler.
 
 > **Åpent produktvalg:** budstikka gater på død (PDL) og KRR-reservasjon. esyfovarsels smale
 > møtebehov-sjekk mot syfosmregister (NL-varsel krever `SENDT` sykmelding for virksomheten) har ingen
@@ -100,20 +96,21 @@ isfrisktilarbeid, syfo-dokumentporten. Alle via `team-esyfo.varselbus`.
 
 - synligTom-regler per domene (aktivitetskrav +30d, mer veiledning +13u, dialogmøte motetidspunkt)
 - microfrontend-livssyklus per domene (åpne/lukke på spesifikke hendelser)
-- VarselTexts.kt: all kopitekst hardkodet i appen
+- `VarselTexts.kt` samler mye domenespesifikk kopitekst i appen
 - ResendFailedVarslerJob sjekker dinesykmeldte-oppgave ferdigstilt før resend
 - AktivitetspliktForhandsvarsel: kjenner sendForhandsvarsel-flagg, brevtype VIKTIG
 
 ### Arkitektur i dag
 
-Postgres 17, tabeller: utsendt_varsel, utsendt_varsel_feilet, microfrontend_synlighet, arbeidsgivernotifikasjoner,
-fodselsdato, planlagt_varsel (dorment). CronJob (esyfovarsel-job) retter feilede + lukker microfronter. Ingen outbox;
-Kafka+DB ikke transaksjonelt. Leader election. Ktor 3.4, Kotlin 2.3, JVM 21.
+Postgres-tabeller inkluderer `utsendt_varsel`, `utsending_varsel_feilet`, `mikrofrontend_synlighet`,
+`arbeidsgivernotifikasjoner_sak`, `arbeidsgivernotifikasjoner_kalenderavtale`, `fodselsdato` og
+`planlagt_varsel` (dormant). CronJob (`esyfovarsel-job`) retter feilede og lukker microfronter.
+Ingen outbox; Kafka+DB er ikke transaksjonelt. Leader election. Ktor-applikasjon på JVM.
 
 ## syfo-budstikka i dag
 
-Ktor-backend med Kafka-konsum, claim/lease-workers, Exposed/Flyway-datamodell og kanaladaptere i aktiv utvikling. JVM
-25, Ktor 3.5.1, ktlint. Pakke `no.nav.budstikka`.
+Ktor-backend med Kafka-konsum, claim/lease-workers, Exposed/Flyway-datamodell og kanaladaptere i aktiv utvikling.
+Koden ligger i pakken `no.nav.budstikka`. Se `docs/teknologi.md` for teknologivalg.
 
 ## Kjernespenning å designe rundt
 

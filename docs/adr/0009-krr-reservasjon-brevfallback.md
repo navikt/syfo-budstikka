@@ -1,6 +1,7 @@
 # 0009: KRR-reservasjon som beslutningsgate + brevFallback
 
-- Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL», se `docs/decisions.md` B62)
+- Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL»,
+  se [`B62`](../decisions.md#b62))
 - Dato: 2026-07-22
 - Relatert: B2/B7/B8/B10/B25/B28/B55, ADR 0001 (domeneblind), issue #22 (epic #15), `/auth-overview`
 
@@ -100,9 +101,9 @@ IKKE skal arve den.
 Konsekvensen er avgrenset, men reell: sender syfomotebehov et NL-varsel uten selv å sjekke at
 sykmeldingen er sendt til virksomheten, vil budstikka levere det, der esyfovarsel ville stoppet det.
 
-Avklares som produktvalg med eier av møtebehov-løpet før cutover (`docs/migrering.md`), ikke som en
-teknisk detalj ved implementering. Til det er avklart er dette en kjent, åpen risiko avgrenset til
-møtebehov-NL — ikke en stilltiende beslutning.
+Avklares som produktvalg med eier av møtebehov-løpet og får en egen GitHub-sak før cutover
+(`docs/migrering.md`), ikke som en teknisk detalj ved implementering. Til det er avklart er dette en
+kjent, åpen risiko avgrenset til møtebehov-NL — ikke en stilltiende beslutning.
 
 ## Vraket
 
