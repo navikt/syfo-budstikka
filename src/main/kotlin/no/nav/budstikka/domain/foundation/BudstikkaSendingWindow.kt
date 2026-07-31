@@ -12,11 +12,9 @@ object BudstikkaSendingWindow {
         closedOn(DayOfWeek.SUNDAY)
         closedOnRodeDager()
         closedOn(Month.DECEMBER, 24, "Julaften")
-        closedOn(Month.DECEMBER, 31, "Nyttårsaften")
-        open(LocalTime(8, 0), LocalTime(20, 0))
+        open(LocalTime(9, 0), LocalTime(20, 0))
     }
 
     fun isOpen(instant: Instant = Clock.System.now()) = openingHours.isOpen(instant)
-
     fun nextOpen(instant: Instant = Clock.System.now()) = openingHours.opensAt(instant)
 }

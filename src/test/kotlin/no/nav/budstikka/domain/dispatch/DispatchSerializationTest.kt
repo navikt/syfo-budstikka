@@ -22,7 +22,7 @@ class DispatchSerializationTest :
                             visibleUntil = Instant.parse("2026-01-01T00:00:00Z"),
                             externalVarsling = ExternalVarsling(smsText = "Sjekk Min side"),
                             brevFallback = BrevFallback(journalpostId = "jp-1"),
-                            sendingWindow = SendingWindow.NKS_OPENING_HOURS,
+                            sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
                         ),
                     "LedervarselCreate" to
                         LedervarselCreate(
@@ -75,7 +75,10 @@ class DispatchSerializationTest :
                     "DittSykefravaerInactivate" to
                         DittSykefravaerInactivate(reference = "ref-123", sykmeldt = TEST_SYKMELDT_2),
                     "ArbeidsgivervarselInactivate" to
-                        ArbeidsgivervarselInactivate(reference = "ref-123", orgnummer = Orgnummer(TEST_ORGNUMMER.value)),
+                        ArbeidsgivervarselInactivate(
+                            reference = "ref-123",
+                            orgnummer = Orgnummer(TEST_ORGNUMMER.value)
+                        ),
                 )
 
             variants.forEach { (name, content) ->
@@ -86,7 +89,14 @@ class DispatchSerializationTest :
         }
 
         test("polymorphic discriminator uses a stable type name") {
-            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldContain "\"type\":\"BrevCreate\""
+            dispatchJson.encodeToString(
+                envelope(
+                    BrevCreate(
+                        TEST_SYKMELDT_2,
+                        "jp-9"
+                    )
+                )
+            ) shouldContain "\"type\":\"BrevCreate\""
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {
@@ -121,6 +131,13 @@ class DispatchSerializationTest :
         }
 
         test("serialized payload carries the raw value (partitioning needs a real id)") {
-            dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldContain TEST_SYKMELDT_2.value
+            dispatchJson.encodeToString(
+                envelope(
+                    BrevCreate(
+                        TEST_SYKMELDT_2,
+                        "jp-9"
+                    )
+                )
+            ) shouldContain TEST_SYKMELDT_2.value
         }
     })

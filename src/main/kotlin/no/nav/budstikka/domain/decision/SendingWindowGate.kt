@@ -1,6 +1,7 @@
 package no.nav.budstikka.domain.decision
 
 import no.nav.budstikka.domain.dispatch.Dispatch
+import no.nav.budstikka.domain.dispatch.SendingWindow
 import no.nav.budstikka.domain.foundation.BudstikkaSendingWindow
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
@@ -16,15 +17,23 @@ internal class SendingWindowGate(
 ) : DecisionRule {
     override suspend fun resolve(event: Dispatch): ResolvedRule {
         val now = clock.now()
-        return if (BudstikkaSendingWindow.isOpen(now)) {
-            ResolvedRule { deliveries -> Decision.Processed(deliveries) }
-        } else {
-            val nextOpen = BudstikkaSendingWindow.nextOpen(now)
-            if (nextOpen != null) {
-                ResolvedRule { _ -> Decision.NotInSendingWindow(nextOpen) }
+        val gatedSendingWindow =
+            event.content.gatedSendingWindow()
+                ?.takeIf { it == SendingWindow.BUDSTIKKA_OPENING_HOURS }
+                ?.let { !BudstikkaSendingWindow.isOpen(now) }
+                ?: false
+
+        return ResolvedRule { deliveries ->
+            if (gatedSendingWindow) {
+                val nextRetry = BudstikkaSendingWindow.nextOpen(now)
+                Decision.NotInSendingWindow(nextRetry)
             } else {
-                ResolvedRule { _ -> Decision.NotInSendingWindow(now + 1.hours) }
+                Decision.Processed(deliveries)
             }
         }
+    }
+
+    companion object {
+        private val DEFAULT_NEXT_RETRY = 1.hours
     }
 }

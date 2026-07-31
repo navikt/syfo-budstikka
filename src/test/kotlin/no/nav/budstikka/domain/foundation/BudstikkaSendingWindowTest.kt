@@ -2,39 +2,37 @@ package no.nav.budstikka.domain.foundation
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
-import kotlin.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.kotest.matchers.types.shouldNotBeSameInstanceAs
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 
-private val oslo = ZoneId.of("Europe/Oslo")
-
-private fun zdt(year: Int, month: Int, day: Int, hour: Int, minute: Int = 0): Instant =
-    Instant.fromEpochMilliseconds(
-        ZonedDateTime.of(year, month, day, hour, minute, 0, 0, oslo).toInstant().toEpochMilli()
-    )
+private val Oslo = TimeZone.of("Europe/Oslo")
 
 class BudstikkaSendingWindowTest : FunSpec({
 
     test("isOpen: åpent i åpningstid (tirsdag 12:00)") {
-        BudstikkaSendingWindow.isOpen(zdt(2025, 2, 11, 12)) shouldBe true
+        BudstikkaSendingWindow.isOpen(LocalDateTime(2025, 2, 11, 12, 0).toInstant(Oslo)) shouldBe true
     }
 
     test("isOpen: stengt utenfor åpningstid (mandag 06:00)") {
-        BudstikkaSendingWindow.isOpen(zdt(2025, 2, 10, 6)) shouldBe false
+        BudstikkaSendingWindow.isOpen(LocalDateTime(2025, 2, 10, 6, 0).toInstant(Oslo)) shouldBe false
     }
 
     test("isOpen: stengt søndag") {
-        BudstikkaSendingWindow.isOpen(zdt(2025, 2, 9, 12)) shouldBe false
+        BudstikkaSendingWindow.isOpen(LocalDateTime(2025, 2, 9, 12, 0).toInstant(Oslo)) shouldBe false
     }
 
-    test("nextOpen: søndag 10:00 gir mandag 08:00") {
-        val next = BudstikkaSendingWindow.nextOpen(zdt(2025, 2, 9, 10))
-        next shouldNotBe null
-        (next!! - zdt(2025, 2, 9, 10)).inWholeHours shouldBe 22
+    test("nextOpen: søndag 10:00 gir mandag 00:00") {
+        val instant = LocalDateTime(2025, 2, 9, 10, 0).toInstant(Oslo)
+        val next = BudstikkaSendingWindow.nextOpen(instant)
+        next shouldNotBeSameInstanceAs instant
+        (next - instant).inWholeHours shouldBe 23
     }
 
-    test("nextOpen: allerede åpent gir null") {
-        BudstikkaSendingWindow.nextOpen(zdt(2025, 2, 11, 12)) shouldBe null
+    test("nextOpen: allerede åpent returnerer samme instans") {
+        val instant = LocalDateTime(2025, 2, 11, 12, 0).toInstant(Oslo)
+        BudstikkaSendingWindow.nextOpen(instant) shouldBeSameInstanceAs instant
     }
 })

@@ -42,7 +42,7 @@ data class BrevFallback(
  * Sending-window contract value from B25. Relevant CREATE variants currently carry it unchanged;
  * outbox enforcement and default selection are not implemented yet.
  */
-enum class SendingWindow { ONGOING, NKS_OPENING_HOURS }
+enum class SendingWindow { ONGOING, BUDSTIKKA_OPENING_HOURS }
 
 /**
  * Tag (B30): typed CLOSED enum (category, not behaviour). The current slice preserves it in

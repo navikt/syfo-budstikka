@@ -44,14 +44,9 @@ class OpeningHours internal constructor(
 
     fun isOpen(instant: Instant): Boolean = violations(instant).isEmpty()
 
-    fun closesAt(instant: Instant): Instant? =
-        if (!isOpen(instant)) null else scanTo(instant) { !isOpen(it) }
-
-    fun opensAt(instant: Instant): Instant? =
-        if (isOpen(instant)) null else scanTo(instant) { isOpen(it) }
-
-    fun timeUntilClosed(instant: Instant): Duration? = closesAt(instant)?.minus(instant)
-    fun timeUntilOpened(instant: Instant): Duration? = opensAt(instant)?.minus(instant)
+    fun opensAt(instant: Instant): Instant =
+        if (isOpen(instant)) instant else scanTo(instant) { isOpen(it) }
+            ?: error("Ingen åpning funnet innenfor $horizon fra $instant")
 
     private fun scanTo(from: Instant, stopWhen: (Instant) -> Boolean): Instant? {
         val deadline = from + horizon

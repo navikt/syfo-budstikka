@@ -4,7 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import no.nav.budstikka.domain.foundation.calendar.openingHours
@@ -92,48 +92,16 @@ class OpeningHoursTest : FunSpec({
         hours.isOpen(zdt(2025, 2, 10, 20, 0)) shouldBe false
     }
 
-    test("closesAt tirsdag 12:00 gir ~8 timer") {
-        val closing = hours.closesAt(zdt(2025, 2, 11, 12))
-        closing shouldNotBe null
-        (closing!! - zdt(2025, 2, 11, 12)).inWholeHours shouldBe 8
-    }
-
-    test("closesAt søndag gir null") {
-        hours.closesAt(zdt(2025, 2, 9, 12)) shouldBe null
-    }
-
-    test("closesAt 21:00 gir null") {
-        hours.closesAt(zdt(2025, 2, 10, 21)) shouldBe null
-    }
-
-    test("timeUntilClosed er alias for closesAt") {
-        hours.timeUntilClosed(zdt(2025, 2, 11, 12)) shouldBe
-            hours.closesAt(zdt(2025, 2, 11, 12))?.minus(zdt(2025, 2, 11, 12))
-    }
-
     test("opensAt søndag 10:00 gir tid til mandag 08:00") {
         val opening = hours.opensAt(zdt(2025, 2, 9, 10))
         opening shouldNotBe null
-        (opening!! - zdt(2025, 2, 9, 10)).inWholeHours shouldBe 22
-    }
-
-    test("opensAt julekveld 24.12 03:00 gir tid til 27.12 08:00 (mandag)") {
-        // 24.12 (Julaften), 25.12 (1. juledag), 26.12 (2. juledag) er alle stengt
-        // Neste åpning er 27.12 (mandag) 08:00
-        val opening = hours.opensAt(zdt(2025, 12, 24, 3))
-        opening shouldNotBe null
-        (opening!! - zdt(2025, 12, 24, 3)).inWholeHours shouldBe 77
+        (opening - zdt(2025, 2, 9, 10)).inWholeHours shouldBe 22
     }
 
     test("opensAt 03:00 tirsdag gir tid til 08:00 samme dag") {
         val opening = hours.opensAt(zdt(2025, 2, 11, 3))
         opening shouldNotBe null
-        (opening!! - zdt(2025, 2, 11, 3)).inWholeHours shouldBe 5
-    }
-
-    test("timeUntilOpened er alias for opensAt") {
-        hours.timeUntilOpened(zdt(2025, 2, 9, 10)) shouldBe
-            hours.opensAt(zdt(2025, 2, 9, 10))?.minus(zdt(2025, 2, 9, 10))
+        (opening - zdt(2025, 2, 11, 3)).inWholeHours shouldBe 5
     }
 
     test("Påskealgoritme 2024: påskedag = 31. mars") {

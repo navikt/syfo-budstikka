@@ -13,6 +13,7 @@ import no.nav.budstikka.domain.dispatch.LedervarselInactivate
 import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
 import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.domain.dispatch.SendingWindow
 
 /*
  * Pure mapping from [DispatchContent] to [DeliveryDraft] route attributes (channel, operation, and
@@ -23,7 +24,7 @@ import no.nav.budstikka.domain.dispatch.PersonIdentifier
 /**
  * Sykmeldt a person gate applies to, or `null` when the event is not a Sykmeldt-directed CREATE.
  * Gates use this for self-selection: a gate without a gated person leaves the Delivery unchanged, and
- * [DeathGate] does not query PDL when the result cannot gate.
+ * [DeathGate] does not query PDL when the result cannot gate, nor does [SendingWindowGate] enforce any rules.
  *
  * The `when` is deliberately total (no `else`): a new [DispatchContent] variant must cause a
  * compilation error here, making the gate decision explicit and preventing a new Sykmeldt-directed
@@ -42,7 +43,23 @@ internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
         is ArbeidsgivervarselInactivate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
-        -> null
+            -> null
+    }
+
+internal fun DispatchContent.gatedSendingWindow(): SendingWindow? =
+    when (this) {
+        is BrukervarselCreate -> sendingWindow
+        is LedervarselCreate -> sendingWindow
+        is ArbeidsgivervarselCreate -> sendingWindow
+        is DittSykefravaerCreate,
+        is BrukervarselInactivate,
+        is LedervarselInactivate,
+        is DittSykefravaerInactivate,
+        is ArbeidsgivervarselInactivate,
+        is BrevCreate,
+        is MicrofrontendEnable,
+        is MicrofrontendDisable,
+            -> null
     }
 
 internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
