@@ -8,6 +8,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.ktor.server.application.Application
+import io.ktor.server.plugins.di.dependencies
+import io.ktor.server.testing.TestApplication
+import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -16,20 +20,27 @@ import kotlinx.datetime.toInstant
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
+import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.NoDispatchMetrics
+import no.nav.budstikka.bootstrap.gateModule
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
+import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.domain.decision.SendingWindowGate
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.SendingWindow
 import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.domain.foundation.DeathLookup
+import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
 import no.nav.budstikka.fakes.FakeDeathLookup
+import no.nav.budstikka.fakes.FakeDocumentDistributor
+import no.nav.budstikka.fakes.FakeReservationLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
@@ -52,20 +63,56 @@ import kotlin.time.Instant
 
 private val osloTz = TimeZone.of("Europe/Oslo")
 
-/**
- * Messages are hydrated during ingest (ADR 0008), so the worker no longer decodes the payload and can never
- * fail with `SerializationException`. `InboxHandlerTest`, not this test, covers the parsing taxonomy
- * (corrupt payload → dead letter). The worker decides (through [DecisionProcess]) and executes.
- */
+fun Application.configureTestDeps() {
+    dependencies {
+        provide<DeathLookup> {
+            FakeDeathLookup()
+        }
+        provide<DocumentDistributor> {
+            FakeDocumentDistributor()
+        }
+        provide<ReservationLookup> {
+            FakeReservationLookup()
+        }
+
+        gateModule()
+    }
+}
+
 class InboxMessageWorkerTest :
     FunSpec({
+        lateinit var testApplication: TestApplication
+        lateinit var application: Application
+        lateinit var decisionProcess: DecisionProcess
+
+        beforeSpec {
+            testApplication =
+                TestApplication {
+                    application {
+                        configureTestDeps()
+                        application = this
+                    }
+                }
+
+            testApplication.start()
+
+            // resolve the decision rules from the application DI context to mitigate
+            // forgetting any rules in production code. This ensures that the test uses the same rules as the application.
+            val rules = application.dependencies.resolve<List<DecisionRule>>()
+            decisionProcess = DecisionProcess(rules)
+        }
+
+        afterSpec {
+            testApplication.stop()
+        }
+
         test("runOnce marks claimed messages processed") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000001")
             val repository =
                 PollingInboxMessageRepository(
                     messages = listOf(inboxMessage(eventId)),
                 )
-            val worker = workerWith(repository, batchSize = 10)
+            val worker = workerWith(repository, batchSize = 10, decisionProcess = decisionProcess)
 
             worker.runOnce()
 
@@ -85,7 +132,7 @@ class InboxMessageWorkerTest :
             val appender = ListAppender<ILoggingEvent>().apply { start() }
             logbackLogger.addAppender(appender)
             try {
-                workerWith(repository).runOnce()
+                workerWith(repository, decisionProcess = decisionProcess).runOnce()
             } finally {
                 logbackLogger.detachAppender(appender)
                 appender.stop()
@@ -107,7 +154,7 @@ class InboxMessageWorkerTest :
                 )
             val metrics = RecordingDispatchMetrics()
 
-            workerWith(repository, metrics = metrics).runOnce()
+            workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
 
             metrics.inboxClaimed.get() shouldBe 2
             metrics.inboxProcessed.get() shouldBe 2
@@ -138,7 +185,7 @@ class InboxMessageWorkerTest :
             val repository = PollingInboxMessageRepository(messages = emptyList())
             val metrics = RecordingDispatchMetrics()
 
-            workerWith(repository, metrics = metrics).runOnce()
+            workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
 
             metrics.inboxEmptyPolls.get() shouldBe 1
             metrics.inboxClaimed.get() shouldBe 0
@@ -160,6 +207,7 @@ class InboxMessageWorkerTest :
                     leaseDuration = 1.milliseconds,
                     leaseBudgetFraction = 0.1,
                     clock = clock,
+                    decisionProcess = decisionProcess,
                 )
 
             worker.runOnce()
@@ -176,7 +224,12 @@ class InboxMessageWorkerTest :
                 ) {
                     polled.countDown()
                 }
-            val worker = workerWith(repository, batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE)
+            val worker =
+                workerWith(
+                    repository,
+                    batchSize = LeaseDrainConfig.DEFAULT_BATCH_SIZE,
+                    decisionProcess = decisionProcess,
+                )
             val loop = BackgroundLoop("inbox-message-worker", 10.milliseconds, iteration = worker::runOnce)
 
             loop.start()
@@ -306,7 +359,7 @@ private fun workerWith(
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
     metrics: DispatchMetrics = NoDispatchMetrics,
-    decisionProcess: DecisionProcess = DecisionProcess(listOf(DeathGate(FakeDeathLookup()))),
+    decisionProcess: DecisionProcess,
 ): InboxMessageWorker =
     InboxMessageWorker(
         repository = repository,

@@ -19,24 +19,12 @@ import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
-import no.nav.budstikka.domain.decision.ReservationGate
-import no.nav.budstikka.domain.foundation.DeathLookup
-import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
-    // B55: DeathGate BEFORE ReservationGate, so a dead Recipient short-circuits to Dropped before
-    // the Reservasjon/BrevFallback transformation (ADR 0009).
-    provide<List<DecisionRule>> {
-        listOf(
-            DeathGate(resolve<DeathLookup>()),
-            ReservationGate(resolve<ReservationLookup>()),
-        )
-    }
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
     provide<EffectuateDecision> {
         EffectuateDecision(
