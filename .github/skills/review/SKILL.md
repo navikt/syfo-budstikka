@@ -43,10 +43,10 @@ Hva ELLERS treffer den endrede koden? Følg kallere oppover: endret du en delt f
 Tom liste, `null`, manglende felt, samtidighet, retry, timeout. NAV/Ktor-spesifikt — se sjekklisten under.
 
 ### D. Scope (diff-disproporsjon)
-Er det noe i diffen som oppgaven IKKE ba om? Refaktorering snikinnført i en feilretting, urelatert formattering, en «mens jeg var her»-endring. Hver hunk skal kunne spores til et krav i `PLAN.md`/`context.md`. Det motsatte også: ba oppgaven om noe som ikke er i diffen?
+Er det noe i diffen som oppgaven IKKE ba om? Refaktorering snikinnført i en feilretting, urelatert formattering, en «mens jeg var her»-endring. Hver hunk skal kunne spores til oppgaven/issuet eller `PLAN.md`. Det motsatte også: ba oppgaven om noe som ikke er i diffen?
 
 ### E. Krav-dekning (mot spec)
-Sammenlign diffen mot `docs/context.md` (krav) og `.grill/PLAN.md` (ferdig-når-kriterier). For hvert krav: innfridd / delvis / mangler. For hver ADR i `docs/adr/` som rører området: følger koden beslutningen, eller avviker den stille? Et stille ADR-avvik er en blocker, ikke en detalj.
+Sammenlign diffen mot oppgaven/issuet, `.grill/PLAN.md` og eksplisitt relevante topic-dokumenter. For hvert krav: innfridd / delvis / mangler. For hver ADR som rører området: følger koden beslutningen, eller avviker den stille? Et stille ADR-avvik er en blocker, ikke en detalj.
 
 ### F. Standard-dekning (mot repoets konvensjoner)
 Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feilkontrakt via StatusPages, DI-mønster, navngiving, pakkestruktur under `no.nav.syfo`? Hopp over alt verktøy håndhever (formattering, import-orden) — det fanges av gatene, ikke av øynene dine.
@@ -68,13 +68,13 @@ Selvreview produserer en handling, ikke en rapport til arkivet:
 1. **Funn du kan fikse nå → fiks dem inline.** Det er hele poenget med å ta dem selv.
 2. **Kjør de deterministiske gatene på nytt** etter fiks — `./gradlew test` (og `build`/lint der det finnes). Hardt pass/fail, med ferskt bevis i samme melding. Ingen «ser bra ut» uten kommando + output + exit-kode.
 3. **Funn du bevisst lar stå** (utenfor scope, egen oppgave) → noter dem kort i `.grill/STATE.md` så de ikke forsvinner.
-4. **Bindende beslutninger** som dukker opp under reviewen (valgt mekanisme, ny datakategori) → fang som ADR i `docs/adr/`, ikke i en kommentar.
+4. **Beslutningskandidater** som dukker opp under reviewen → bruk `/domain-modeling`; skriv ADR bare når alle tre testene passerer.
 
 Først NÅ er diffen klar for det dyre passet: kall `grill-inspektor` for kryssmodell-review (anbefalt-på ved R3/R4 — auth, PII, schema, API-kontrakt, Kafka, deploy; opt-in ellers). Den er read-only (`tools: [read, search]` — kan ikke skrive filer), verifiserer uavhengig mot KRAV og BESLUTNINGER og **returnerer** verdiktet; `@grillmester` skriver det til `.grill/REVIEW.md` (de deterministiske gatene eier `.grill/VERIFICATION.md`). Selvreview erstatter den aldri — den gjør den verdt pengene.
 
 ## Flytkobling
 
 - **Fase i faseløkka:** verifiser (fase 5), steg før den opt-in kryssmodell-reviewen.
-- **Leser:** `docs/context.md`, `.grill/PLAN.md`, `docs/adr/`, `.grill/STATE.md`.
+- **Leser:** oppgaven/issuet, `.grill/PLAN.md`, eksplisitt relevante topic-dokumenter og ADR-er, samt `.grill/STATE.md`. Les `docs/context.md` bare ved behov for orientering eller overordnet status.
 - **Komplementerer:** `grill-inspektor` (agenten gjør kryssmodell-passet; denne skillen er din egen disiplin før det).
 - **Relaterte skills:** `/security-review` (PII/auth/accessPolicy-dybde ved R3/R4), `/kotlin-ktor` (route-/auth-/feilkontrakt-konvensjoner du måler akse F mot), `/flyway-migration` (bakoverkompatibel migrering), `/postgresql-review` (N+1, pool, indeks), `/kafka-topic` (idempotens, commit-semantikk), `/diagnosing-bugs` (når et funn er en faktisk bug som må root-cause-es).

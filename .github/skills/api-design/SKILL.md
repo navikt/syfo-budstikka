@@ -51,7 +51,7 @@ Logg aldri hele tokenet. Behold `/internal/*` (isalive, isready, metrics) uten `
 
 ## API-versjonering — koordiner med andre team
 
-Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsproblem**, ikke bare et teknisk problem. En slik beslutning hører hjemme som ADR i `docs/adr/` — skriv den der så valg og overgangsvindu er sporbart.
+Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsproblem**, ikke bare et teknisk problem. Bruk `/nav-architecture-review` for team- og plattformkonsekvenser. Registrer beslutningen via `/domain-modeling` bare hvis den er vanskelig å reversere, overraskende uten kontekst og resultat av en reell avveining.
 
 ### Før brudd-endring
 1. **Identifiser konsumenter** via `accessPolicy.inbound` + faktisk trafikk (logger/metrics).
@@ -59,7 +59,7 @@ Breaking changes på API-er som andre Nav-team konsumerer er et **koordineringsp
 3. **Avtal overgangsvindu** — typisk 1–3 måneder der begge versjoner lever parallelt.
 4. **Versjoner URL-en** — nytt route-prefiks (`/api/v1/` → `/api/v2/`) i `Routing.kt`, gammel rute beholdes til vinduet er ute.
 5. **Deprecering først**: merk gammel versjon som deprecated (gjerne `Deprecation`/`Sunset`-header), gi konsumentene tid.
-6. **Logg beslutningen** som ADR i `docs/adr/` og oppdater `docs/context.md` hvis kontrakten er en del av domenespråket.
+6. **Ruter dokumentasjonen riktig** — kontraktsdetaljer til relevant topic-dokument, nye domenebegreper til `docs/glossary.md`, og et kvalifiserende varig valg til ADR via `/domain-modeling`.
 
 ### Ikke-brudd-endringer (trygge)
 - Legge til nye felter i response.
@@ -81,7 +81,7 @@ Dokumenter API-ene i formatet **teamet allerede bruker** (OpenAPI/Swagger, Postm
 
 ## Kobling til faseløkka
 
-- Forming av ny kontrakt → stresstest i design-intervju (`/grill-with-docs`), fang ADR + glossar i `.grill/`.
+- Forming av ny kontrakt → stresstest med `/grilling` + `/domain-modeling`; bruk `.grill/` bare til transient oppgavearbeid.
 - Sikkerhetssensitive valg (wildcard inbound, ekstern eksponering, brudd-endring) → kjør `grill-inspektor` (kryssmodell-review) før implementasjon.
 - Sjekk PLAN.md / VERIFICATION.md i `.grill/` for at kontraktsendringen er dekket av plan og verifikasjon før merge.
 
@@ -95,7 +95,8 @@ Dokumenter API-ene i formatet **teamet allerede bruker** (OpenAPI/Swagger, Postm
 
 ### Spør først
 - Fjerning av konsument fra `accessPolicy.inbound`.
-- Brudd-endring i kontrakt (krever ADR i `docs/adr/`).
+- Brudd-endring i kontrakt; vurder ADR via `/domain-modeling` når alle tre
+  ADR-testene passerer.
 - Eksponering av API utenfor `cluster` (ekstern tilgang).
 
 ### Aldri

@@ -22,6 +22,6 @@ Existing skills are reclassified only in a dedicated, reviewable skill change.
 
 ## Authoring guidance
 
-`/writing-great-skills` follows this invocation contract. Other frontmatter
-fields are used only when the GitHub Copilot CLI skills reference supports
-them and the skill's interface needs them.
+`/create-a-skill` follows this invocation contract and is manual-only. Other
+frontmatter fields are used only when the GitHub Copilot CLI skills reference
+supports them and the skill's interface needs them.

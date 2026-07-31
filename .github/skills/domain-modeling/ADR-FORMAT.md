@@ -1,11 +1,14 @@
 # ADR Format
 
+Follow an established repository ADR format when one is defined. Otherwise use
+this minimal default.
+
 ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`,
 `0002-slug.md`, etc.
 
 Create the `docs/adr/` directory lazily — only when the first ADR is needed.
 
-## Template
+## Default template
 
 ```md
 # {Short title of the decision}
@@ -28,14 +31,10 @@ Only include these when they add genuine value. Most ADRs won't need them.
 - **Consequences** — only when non-obvious downstream effects need to be
   called out.
 
-When `/nav-architecture-review` is explicitly active, follow its
-[extended NAV template](../nav-architecture-review/references/adr-template.md).
-That specialised branch deliberately adds structured security, platform,
-migration, and alternative analysis.
-
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and increment by one.
+Scan `docs/adr/` for the highest existing number and increment by one. Preserve
+intentional gaps; do not reuse a reserved or historical number.
 
 ## When to offer an ADR
 
@@ -47,9 +46,9 @@ All three of these must be true:
 3. **The result of a real trade-off** — there were genuine alternatives and
    you picked one for specific reasons.
 
-If a decision is easy to reverse, skip it — you'll just reverse it. If it's
-not surprising, nobody will wonder why. If there was no real alternative,
-there's nothing to record beyond "we did the obvious thing."
+If a decision is easy to reverse, skip it — you'll just reverse it. If it's not
+surprising, nobody will wonder why. If there was no real alternative, there's
+nothing to record beyond "we did the obvious thing."
 
 ### What qualifies
 

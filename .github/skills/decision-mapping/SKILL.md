@@ -1,22 +1,26 @@
 ---
 name: decision-mapping
-description: "Bruk når en løs idé skummer av seg FLERE sammenkoblede, åpne beslutninger som ikke kan avgjøres i én økt — du må gjøre avhengighetene og avveiningene synlige før du velger. @grillmester fase 1–2, når noen sier 'det henger sammen med...', 'vi må avgjøre X først', 'tegn opp beslutningstreet', 'dette blir for stort for én økt', eller når en /grill-with-docs-økt drukner i åpne valg som peker på hverandre."
+description: "Bruk når en løs idé skummer av seg FLERE sammenkoblede, åpne beslutninger som ikke kan avgjøres i én økt — du må gjøre avhengighetene og avveiningene synlige før du velger. @grillmester fase 1–2, når noen sier 'det henger sammen med...', 'vi må avgjøre X først', 'tegn opp beslutningstreet', 'dette blir for stort for én økt', eller når en grilling-økt drukner i åpne valg som peker på hverandre."
 ---
 
 # decision-mapping
 
 Gjør beslutningstreet eksplisitt: kartlegg de åpne valgene, hvilke som blokkerer hvilke, og hvilken avveining hvert valg står på — **før** du bestemmer deg. Dette er teknikken for når design-rommet er for stort for ett intervju: du sekvenserer beslutninger i stedet for å ta dem i tilfeldig rekkefølge og angre senere.
 
-**Komplementerer `/grill-with-docs`, dupliserer den ikke.** Selve intervju-mekanikken (ett spørsmål av gangen, anbefalt svar + begrunnelse) bor i `/grill-with-docs`. Denne skillen eier **kart-strukturen**: nodene, avhengighetsgrafen og rekkefølgen. Når en node skal løses ved drøfting, kjør `/grill-with-docs` for selve økta — og før resultatet tilbake i kartet.
+**Komplementerer dokumentert grilling, dupliserer den ikke.** Selve intervju-mekanikken (ett spørsmål av gangen, anbefalt svar + begrunnelse) eies av `/grilling`; `/domain-modeling` skjerper språk og ruter varige artefakter. Denne skillen eier **kart-strukturen**: nodene, avhengighetsgrafen og rekkefølgen. Når en node skal løses ved drøfting, kjør `/grilling` med `/domain-modeling` — og før resultatet tilbake i kartet.
 
-Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen. Avklarte beslutninger graduerer ut av kartet og inn i `docs/adr/` og `docs/context.md`, som så mater PLAN-fasen.
+Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen. Avklarte, kvalifiserende beslutninger graduerer ut av kartet og inn i `docs/adr/`; task-scope går til issue/plan og vedlikeholdt detalj til relevant topic-dokument.
 
 ## Beslutningskartet
 
-Ett kompakt Markdown-dokument per planleggings-innsats: `.grill/DECISIONS.md` — transient arbeidsminne (gitignorert; avgjorte beslutninger graduerer til `docs/adr/`). Det er den kanoniske *arbeids*-artefakten, og **hele kartet lastes inn som kontekst i hver økt** — derfor må det holdes stramt.
+Ett kompakt Markdown-dokument per planleggings-innsats:
+`.grill/DECISIONS.md` — transient arbeidsminne (gitignorert; kvalifiserende
+beslutninger graduerer til `docs/adr/` via `/domain-modeling`). Det er den
+kanoniske *arbeids*-artefakten, og **hele kartet lastes inn som kontekst i hver
+økt** — derfor må det holdes stramt.
 
 - Hold det kompakt. Tunge artefakter (utrednings-notater, spike-resultater, prototyper) lenkes fra noden, **aldri** limes inn i kartet.
-- Når en beslutning er tatt og er vanskelig å reversere → skriv den som `docs/adr/NNNN-*.md` (se `/grill-with-docs`) og lenk fra noden. Kartet eier det åpne; ADR-ene eier det avgjorte.
+- Når en beslutning passerer hele ADR-gaten → skriv den som `docs/adr/NNNN-*.md` via `/domain-modeling` og lenk fra noden. Kartet eier det åpne; ADR-ene eier de kvalifiserende, varige valgene.
 - Nytt domenebegrep dukker opp → `docs/glossary.md` (se `/domain-modeling`). Bruk de samme begrepene i nodene.
 
 ## Node-struktur
@@ -34,7 +38,7 @@ Avveining: borgerkontekst on-behalf-of (TokenX) vs. ren server-til-server uten b
 Skal endepunktene kalles på vegne av en innlogget borger/saksbehandler, eller maskin-til-maskin fra et annet team?
 
 ### Beslutning
-<fylles ut når noden løses — pek til ADR hvis den ble vanskelig-å-reversere>
+<fylles ut når noden løses — pek til ADR via /domain-modeling hvis alle tre ADR-testene passerer>
 ```
 
 Hver node skal være dimensjonert til **én fokusert økt**. Blir den for stor, splitt den i flere noder med riktige `Blokkert av`-kanter.
@@ -56,8 +60,8 @@ Tegn aldri en kant du ikke kan begrunne. En falsk avhengighet tvinger frem unød
 
 Hver node løses av riktig verktøy. Velg type etter hva slags spørsmål det er:
 
-- **Drøfting** (standard) — svaret ligger i hodet til teamet/brukeren eller i kodebasen. Kjør `/grill-with-docs` (+ `/domain-modeling` for språket). Kan spørsmålet besvares ved å lese repoet → utforsk i stedet for å spørre.
-- **Utredning** — svaret ligger i dokumentasjon utenfor repoet (bibliotek, tredjeparts-API, NAV-plattform: nais.io, TokenX, Maskinporten). Slå opp i offisiell dokumentasjon for plattformen eller biblioteket. For et reelt arkitekturvalg: `/nav-architecture-review`. Resultat: et kort markdown-notat, lenket fra noden.
+- **Drøfting** (standard) — svaret ligger i hodet til teamet/brukeren eller i kodebasen. Kjør `/grilling` med `/domain-modeling`. Kan spørsmålet besvares ved å lese repoet → utforsk i stedet for å spørre.
+- **Utredning** — svaret ligger i dokumentasjon utenfor repoet (bibliotek, tredjeparts-API, NAV-plattform: nais.io, TokenX, Maskinporten). Slå opp i offisiell dokumentasjon for plattformen eller biblioteket. Bruk `/nav-architecture-review` bare når valget har NAV-plattform-, sikkerhets-, personvern-, operabilitets- eller teamgrensekonsekvenser. Resultat: et kort markdown-notat, lenket fra noden.
 - **Spike** — spørsmålet er «virker dette / hvordan oppfører det seg». Kjør `/prototype` for selve spiken (eier kast-vekk-kode, plassering og regler) — f.eks. idempotens ved Kafka-replay, en tilstandsmaskin, eller en datamodell mot Testcontainers-Postgres. Skal kjernen modnes til ekte kode → `/tdd`. Resultat: kort notat lenket fra noden; aldri lim spike-kode inn i kartet.
 
 ## Tåkefronten
@@ -73,7 +77,7 @@ Til slutt er tåka dyttet langt nok bak til at veien til mål er klar. Da trengs
 ### Bygg kartet (bootstrap)
 Bruker kommer med en løs idé.
 
-1. Kjør en `/grill-with-docs`-økt for å avdekke de åpne beslutningene (NAV-seedingen der — arketype, dataklassifisering, blind-spots — er nettopp det som avslører nodene).
+1. Kjør `/grilling` med `/domain-modeling` for å avdekke de åpne beslutningene. Når en gren berører NAV-plattform, dataklassifisering, auth eller teamgrenser, bruk `/nav-architecture-review` på den grenen.
 2. Skriv `.grill/DECISIONS.md`: mest tåke, frontlinja identifisert, trivielt-avgjørbare valg løst inline med en gang. Tegn `Blokkert av`-kantene.
 3. **Stopp.** Å bygge kartet er én økts arbeid — ikke løs nodene i samme slengen.
 
@@ -82,7 +86,7 @@ Bruker peker på et eksisterende kart + et nodenummer.
 
 1. Last **hele kartet** som kontekst.
 2. Kjør én økt for å løse noden, med riktig verktøy for typen (se over).
-3. Skriv det økta avgjorde inn i nodens `### Beslutning`. Vanskelig-å-reversere → ADR + lenk.
+3. Skriv det økta avgjorde inn i nodens `### Beslutning`. Passerer valget alle tre ADR-testene → registrer via `/domain-modeling` og lenk.
 4. Legg til nylig oppdagede noder med korrekte `Blokkert av`-kanter. Oppdater/slett noder beslutningen invaliderte.
 5. **Stopp.**
 
@@ -98,6 +102,6 @@ Tilby da brukeren å hoppe over kartet, og anbefal i stedet å implementere dire
 
 ## Utfall
 
-Når kartet er ferdig: de avgjorte beslutningene lever i `docs/adr/` og den valgte tilnærmingen i `docs/context.md`. Det er inngangen til plan-fasen — `/to-prd` for kravspec, deretter `/to-issues` for å bryte ned i uavhengig-gripbare saker.
+Når kartet er ferdig: kvalifiserende beslutninger lever i `docs/adr/`, task-scope i issue/plan og vedlikeholdt detalj i relevante topic-dokumenter. Oppdater `docs/context.md` bare ved endret orientering eller overordnet status. Dette er inngangen til plan-fasen — `/to-prd` for kravspec, deretter `/to-issues` for å bryte ned i uavhengig-gripbare saker.
 
 Et utfylt eksempel: se [EKSEMPEL-BESLUTNINGSKART.md](references/EKSEMPEL-BESLUTNINGSKART.md).

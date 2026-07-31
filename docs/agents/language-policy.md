@@ -16,10 +16,11 @@ Use language deliberately by artifact type.
   when they are the subject.
 
 Issue, pull-request, commit-message, and ADR prose language is deliberately
-**not** settled by this document. Those artifacts follow the skills that
-produce them, currently `/conventional-commit` and `/klarsprak`, until a later
-change migrates them on purpose. Do not treat this file as authority to switch
-them.
+**not** settled by this document. `/domain-modeling` owns the ADR gate,
+creation, and repository-defined shape; `/klarsprak` may polish its prose
+without changing that contract. Other artifact language follows the skill that
+produces it, including `/conventional-commit`, until a later change migrates it
+on purpose. Do not treat this file as authority to switch them.
 
 ## Incremental migration
 

@@ -24,4 +24,6 @@
 - [ ] Ingen sensitive data eksponert (tokens, credentials, fnr/PII) — heller ikke i logger
 - [ ] Høyrisiko (auth, PII, schema/Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`, deploy)? → kryssmodell-review kjørt, verdikt ikke-😞 (se `.grill/REVIEW.md`)
 - [ ] Endrede API-/event-kontrakter koordinert med berørte team
-- [ ] ADR skrevet for vanskelig-å-reversere beslutninger (`docs/adr/`)
+- [ ] Beslutningskandidater vurdert med `/domain-modeling`; ADR skrevet bare
+      når valget er vanskelig å reversere, overraskende uten kontekst og
+      resultatet av en reell avveining

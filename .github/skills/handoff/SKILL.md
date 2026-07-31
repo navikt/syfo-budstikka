@@ -15,15 +15,42 @@ temporary directory — not in the current workspace and not directly at a
 predictable shared temporary path. For example, use `mktemp -d` on Unix-like
 systems.
 
-Include a short receiver preflight that records the expected branch, full HEAD
-commit, and complete worktree state. Require the receiving session to verify
-all three before continuing and to stop if they differ. Use fresh output from:
+When the current directory is inside a Git worktree with an existing `HEAD`,
+include a receiver preflight that records the canonical repository path,
+expected branch, full HEAD commit, complete short status including untracked
+paths, and a fingerprint of all tracked and non-ignored untracked changes.
+Require the receiving session to use the same shared worktree, rerun the
+commands, and stop if any value differs. Use fresh output from:
 
-```sh
+```bash
+set -euo pipefail
+git rev-parse --show-toplevel
 git branch --show-current
 git rev-parse HEAD
 git status --short --branch --untracked-files=all
+{
+  git diff --binary HEAD
+  while IFS= read -r -d '' untracked_file; do
+    if [[ -L "$untracked_file" ]]; then
+      untracked_kind=symlink
+    elif [[ -x "$untracked_file" ]]; then
+      untracked_kind=executable
+    else
+      untracked_kind=regular
+    fi
+    printf '\0untracked:%s:%s\0' "$untracked_kind" "$untracked_file"
+    git hash-object --no-filters -- "$untracked_file"
+  done < <(git ls-files --others --exclude-standard -z)
+} | git hash-object --stdin
 ```
+
+For each referenced ignored or out-of-worktree artifact, record its canonical
+path plus a fresh content hash or another exact expected-state check. Do not
+fingerprint all ignored files; build output and caches are unrelated noise.
+
+If `git rev-parse --is-inside-work-tree` or `git rev-parse --verify HEAD` does
+not succeed, omit the commit-based Git preflight. Record the relevant absolute
+working directory and artifact paths with exact expected-state checks instead.
 
 Include a "suggested skills" section in the document, which suggests skills
 that the agent should invoke.

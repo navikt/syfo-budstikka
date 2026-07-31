@@ -11,9 +11,10 @@ review concrete upstream diffs before porting them.
 
 ## Verified sources
 
-Each revision below was resolved against the GitHub API on 2026-07-30 and is
-the referenced repository's `main` head at that time. Record only revisions
-verified this way; an unresolvable revision is not provenance.
+Each revision below was resolved against the GitHub API on 2026-07-30. The
+Matt Pocock and Hovmester pins were rechecked on 2026-07-31 and remained their
+respective `main` heads. Record only revisions verified this way; an
+unresolvable revision is not provenance.
 
 | Source | Revision | Role |
 |---|---|---|
@@ -29,21 +30,24 @@ material from it is imported in this slice. `navikt/hovmester` declares no
 repository license, so this repository asserts none for it and relies on
 internal team ownership instead.
 
-## Imported Matt Pocock skill core
+## Imported and adapted skill core
 
-The following paths were reviewed against
-`mattpocock/skills@2ab958093e83e0ec752e6c1c5932da465bf23e0c` on
-2026-07-30. The repository-local files are the operative versions.
+The following paths were reviewed against the pinned Matt Pocock revision and,
+where shown, the pinned Hovmester revision. They were rechecked on 2026-07-31.
+The repository-local files are the operative versions.
 
 | Local path | Upstream path at the pinned revision | Local handling |
 |---|---|---|
 | `.github/skills/grilling/SKILL.md` | `skills/productivity/grilling/SKILL.md` | Imported without behavioral changes |
 | `.github/skills/grill-me/SKILL.md` | `skills/productivity/grill-me/SKILL.md` | Imported as the manual thin wrapper |
-| `.github/skills/grill-with-docs/SKILL.md` | `skills/engineering/grill-with-docs/SKILL.md` | Adapted with repository documentation routing and conditional NAV references |
-| `.github/skills/domain-modeling/SKILL.md` | `skills/engineering/domain-modeling/SKILL.md` | Adapted so upstream glossary semantics map to `docs/glossary.md` and the repository's narrow documentation seam |
-| `.github/skills/domain-modeling/ADR-FORMAT.md` | `skills/engineering/domain-modeling/ADR-FORMAT.md` | Imported with a conditional pointer to the existing extended NAV review |
-| `.github/skills/domain-modeling/GLOSSARY-FORMAT.md` | `skills/engineering/domain-modeling/CONTEXT-FORMAT.md` | Adapted to `docs/glossary.md`, the existing Norwegian marker, and the repository's single-context contract |
-| `.github/skills/handoff/SKILL.md` | `skills/productivity/handoff/SKILL.md` | Adapted with OS-temporary-storage, absolute-path, and receiver repository-state safeguards |
+| `.github/skills/grill-with-docs/SKILL.md` | `skills/engineering/grill-with-docs/SKILL.md` | Imported without behavioral changes |
+| `.github/skills/domain-modeling/SKILL.md` | `skills/engineering/domain-modeling/SKILL.md` | Imported with a portable repository-policy seam; syfo paths and formats live in `docs/agents/domain.md` |
+| `.github/skills/domain-modeling/ADR-FORMAT.md` | `skills/engineering/domain-modeling/ADR-FORMAT.md` | Retains Matt's minimal fallback, decision gate, and qualification list; repository policy takes precedence |
+| `.github/skills/domain-modeling/CONTEXT-FORMAT.md` | `skills/engineering/domain-modeling/CONTEXT-FORMAT.md` | Imported as the English fallback; the local Norwegian glossary mapping lives in `docs/agents/domain.md` |
+| `.github/skills/handoff/SKILL.md` | `skills/productivity/handoff/SKILL.md` | Adapted with OS-temporary storage, absolute-path output, and conditional receiver repository-state safeguards |
+| `.github/skills/create-a-skill/SKILL.md` | `skills/productivity/writing-great-skills/SKILL.md`; Hovmester `dist/skills/create-a-skill/SKILL.md` | Reworked into one concise, manual, action-oriented workflow under Hovmester's stable public name |
+| `.github/skills/create-a-skill/references/principles.md` | `skills/productivity/writing-great-skills/SKILL.md` | Matt's English principles adapted into progressively disclosed, runtime-neutral reference |
+| `.github/skills/create-a-skill/references/glossary.md` | `skills/productivity/writing-great-skills/GLOSSARY.md` | Complete term set retained in English and condensed for the local actionable skill |
 
 The upstream `agents/openai.yaml` files are OpenAI interface metadata, not
 GitHub Copilot CLI runtime dependencies, and are deliberately not imported.

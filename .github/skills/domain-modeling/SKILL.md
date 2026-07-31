@@ -6,39 +6,66 @@ description: Build and sharpen a project's domain model. Use when the user wants
 # Domain Modeling
 
 Actively build and sharpen the project's domain model as you design. This is
-the *active* discipline — challenging terms, inventing edge-case scenarios,
-and writing the glossary and decisions down the moment they crystallise.
-(Merely *reading* `docs/glossary.md` for vocabulary is not this skill — that's
-a one-line habit any skill can do. This skill is for when you're changing the
-model, not just consuming it.)
+the *active* discipline — challenging terms, inventing edge-case scenarios, and
+writing the glossary and decisions down the moment they crystallise. (Merely
+*reading* `CONTEXT.md` for vocabulary is not this skill — that's a one-line
+habit any skill can do. This skill is for when you're changing the model, not
+just consuming it.)
 
-## Repository documentation
+## Repository conventions
 
-This repository has one context. Upstream `CONTEXT.md` glossary semantics map
-to `docs/glossary.md` here; `docs/context.md` is only the repository's
-orientation and status index.
+Before using the default paths below, follow any domain-documentation policy
+linked by the repository's instructions. That policy owns local paths, artifact
+language, and established formats. If no policy exists, use the defaults here.
 
-Follow the narrow load order in `docs/agents/domain.md`. Load only what the
-current branch needs: the glossary when terminology is in play, one relevant
-topic document when maintained detail is at issue, and only explicitly
-relevant ADRs. When a specific `Bnn` decision is named, locate that entry
-directly in `docs/decisions.md` rather than loading the register. Create
-documentation artifacts lazily, only when there is something durable to
-record.
+## File structure
+
+Most repos have a single context:
+
+```text
+/
+├── CONTEXT.md
+├── docs/
+│   └── adr/
+│       ├── 0001-event-sourced-orders.md
+│       └── 0002-postgres-for-write-model.md
+└── src/
+```
+
+If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The
+map points to where each one lives:
+
+```text
+/
+├── CONTEXT-MAP.md
+├── docs/
+│   └── adr/                          ← system-wide decisions
+├── src/
+│   ├── ordering/
+│   │   ├── CONTEXT.md
+│   │   └── docs/adr/                 ← context-specific decisions
+│   └── billing/
+│       ├── CONTEXT.md
+│       └── docs/adr/
+```
+
+Create files lazily — only when you have something to write. If no
+`CONTEXT.md` exists, create one when the first term is resolved. If no
+`docs/adr/` exists, create it when the first ADR is needed.
 
 ## During the session
 
 ### Challenge against the glossary
 
 When the user uses a term that conflicts with the existing language in
-`docs/glossary.md`, call it out immediately. "Your glossary defines
-'cancellation' as X, but you seem to mean Y — which is it?"
+`CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as
+X, but you seem to mean Y — which is it?"
 
 ### Sharpen fuzzy language
 
-When the user uses vague or overloaded terms, propose a precise canonical
-term. "You're saying 'account' — do you mean the Customer or the User? Those
-are different things."
+When the user uses vague or overloaded terms, propose a precise canonical term.
+"You're saying 'account' — do you mean the Customer or the User? Those are
+different things."
 
 ### Discuss concrete scenarios
 
@@ -48,24 +75,19 @@ precise about the boundaries between concepts.
 
 ### Cross-reference with code
 
-When the user states how something works, check whether the code agrees. If
-you find a contradiction, surface it: "Your code cancels entire Orders, but
-you just said partial cancellation is possible — which is right?"
+When the user states how something works, check whether the code agrees. If you
+find a contradiction, surface it: "Your code cancels entire Orders, but you just
+said partial cancellation is possible — which is right?"
 
 ### Update the glossary inline
 
-When a term is resolved, update `docs/glossary.md` right there. Don't batch
-these up — capture them as they happen. Use the format in
-[GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
+When a term is resolved, update the repository's glossary right there. Don't
+batch these up — capture them as they happen. Use the local format when one is
+defined; otherwise use [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
 
-`docs/glossary.md` should be totally devoid of implementation details. Do not
-treat it as a spec, a scratch pad, or a repository for implementation
-decisions. It is a glossary and nothing else.
-
-Put maintained domain detail in the relevant topic document. Update
-`docs/context.md` only when repository orientation or overall status changes.
-Keep task-scoped choices in the issue or plan, and do not mint a new `Bnn`
-identifier by default.
+The glossary should be totally devoid of implementation details. Do not treat
+it as a spec, a scratch pad, or a repository for implementation decisions. It
+is a glossary and nothing else.
 
 ### Offer ADRs sparingly
 

@@ -88,7 +88,7 @@ Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `k
 
 - Flyway-migreringer i `src/main/resources/db/migration` (`V<n>__<navn>.sql`), kjøres ved oppstart. Migreringer er append-only — endre aldri en allerede deployet migrering.
 - Bruk NAIS-provisjonert Postgres med IAM/Vault-rotert credential; ikke hardkod connection-string.
-- Skjema- og lagringsvalg for personopplysninger er en arkitekturbeslutning → utløs ADR i `docs/adr/` via grill-fasen.
+- Review skjema- og lagringsvalg for personopplysninger med `/nav-architecture-review`; registrer via `/domain-modeling` bare når valget passerer alle tre ADR-testene.
 
 ## Kafka (hendelseskonsument/-produsent)
 

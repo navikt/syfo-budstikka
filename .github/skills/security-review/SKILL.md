@@ -9,11 +9,11 @@ NAV-spesifikk sikkerhetssjekk før commit, push og PR i dette repoet. Generiske 
 
 ## Flytkobling
 
-Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke, og før PR. Når en gjennomgang avdekker en bindende beslutning (ny datakategori, valgt auth-mekanisme, ny ekstern integrasjon), skal den fanges:
+Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke, og før PR. Når gjennomgangen avdekker varig verdi:
 
-- Sikkerhetsrelevante avveininger → `docs/adr/` (én ADR per beslutning, ikke reåpne avgjorte valg).
-- Funn og bevis (trivy/zizmor-output, exit-koder) → `.grill/VERIFICATION.md`.
-- Rammer og klassifisering av data tjenesten behandler → `docs/context.md`.
+- En kandidat som er vanskelig å reversere, overraskende uten kontekst og resultat av en reell avveining → ADR via `/domain-modeling`.
+- Reviewfunn → reviewsvaret eller `.grill/REVIEW.md`; deterministiske verktøybevis (trivy/zizmor-output, exit-koder) → `.grill/VERIFICATION.md`.
+- Vedlikeholdte rammer for datahåndtering → relevant topic-dokument; nye domenebegreper → `docs/glossary.md`. Oppdater `docs/context.md` bare ved endret orientering eller overordnet status.
 
 ## PII-klassifisering i NAV
 
@@ -28,7 +28,10 @@ NAV behandler personopplysninger med fire beskyttelsesnivåer. Feil klassifiseri
 
 `syfo`-domenet håndterer sykefravær og sykmeldinger — faktumet "en bruker er sykmeldt" er **strengt fortrolig** (implisitt helseinformasjon). Behandle fnr, sykmeldinger og diagnoser deretter.
 
-**Placeholder i kode og dokumentasjon**: Bruk aldri ekte fnr. I eksempler og tester: `00000000000` eller Skatteetatens offisielle testserie (markert eksplisitt som syntetisk). Se `references/nav-threat-model.md` for DPIA-prosess og audit-krav.
+**Placeholder i kode og dokumentasjon**: Bruk aldri ekte fnr. Bruk en tydelig
+navngitt syntetisk testident fra test-fixturet eller Skatteetatens offisielle
+testserie, markert eksplisitt som syntetisk. Se
+`references/nav-threat-model.md` for DPIA-prosess og audit-krav.
 
 ### PII i logger
 
@@ -132,7 +135,7 @@ Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk o
 
 ## Sjekkliste (NAV-fokus)
 
-- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og notert i `docs/context.md`
+- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og vedlikeholdt i relevant topic-dokument
 - [ ] Ingen FNR, navn, helse- eller sensitive ytelsesdata i standardlogger
 - [ ] CEF-auditlogg dekker visning av personopplysninger til NAV-ansatte
 - [ ] `accessPolicy.inbound` er eksplisitt og speiler auth-kodens validering

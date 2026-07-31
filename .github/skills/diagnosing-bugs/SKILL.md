@@ -1,13 +1,13 @@
 ---
 name: diagnosing-bugs
-description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (se /grill-with-docs)."
+description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (bruk /grilling med /domain-modeling)."
 ---
 
 # Diagnosing Bugs
 
 En disiplin for vanskelige feil. Hopp over faser kun når du eksplisitt kan begrunne det.
 
-Les `docs/context.md` (hvis den finnes) for en skarp mental modell av de relevante modulene, og sjekk `docs/adr/` for beslutninger i området du rører. For ikke-trivielle fikser sporer du arbeidet i `.grill/` (`STATE.md` leses først) på linje med @grillmester sin faseløkke.
+Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare topic-dokumentene og ADR-ene som berører symptomet, glossaret når domenespråk er relevant, og `docs/context.md` kun ved behov for repository-orientering eller overordnet status. For ikke-trivielle fikser sporer du arbeidet i `.grill/` (`STATE.md` leses først) på linje med @grillmester sin faseløkke.
 
 Er symptomet et **runtime-/plattformproblem** (appen kjører, men feiler i drift) — start i symptom-tabellen nederst og følg det diagnostiske treet i `/nav-troubleshoot` (som eier trærne), deretter tilbake hit for fikse-disiplinen.
 
@@ -146,7 +146,7 @@ Kreves før du erklærer ferdig:
 - [ ] Hypotesen som viste seg riktig er skrevet i commit/PR-melding — så neste debugger lærer
 - [ ] Ferskt grønt bevis for kvalitetsgatene noteres i `.grill/VERIFICATION.md` (kobler til @grillmester sin verifiser-fase)
 
-**Spør så: hva ville forhindret denne feilen?** Involverer svaret arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling), løft funnet til en ADR i `docs/adr/` og ta det videre via `/grill-with-docs` eller `/nav-architecture-review`. Gi anbefalingen **etter** at fiksen er inne, ikke før — du vet mer nå enn da du startet.
+**Spør så: hva ville forhindret denne feilen?** Involverer svaret arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling), ta funnet videre via `/grilling` med `/domain-modeling`; bruk `/nav-architecture-review` for NAV-spesifikke konsekvenser og `/domain-modeling` hvis beslutningen passerer ADR-gaten. Gi anbefalingen **etter** at fiksen er inne, ikke før — du vet mer nå enn da du startet.
 
 ## Symptom-oversikt — runtime/plattform
 
@@ -166,6 +166,6 @@ Diagnose-trærne er NAV-/Ktor-spesifikke. Generisk Kubernetes-/Kafka-/SQL-kunnsk
 
 ## Relaterte skills
 
-- `/grill-with-docs` — stresstest design + ADR/glossar (når feilen avdekker et designhull)
+- `/grilling` + `/domain-modeling` — stresstest design og vedlikehold domenemodellen når feilen avdekker et designhull
 - `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (mekanismene bak auth-diagnose)
-- `/nav-architecture-review` — utløs ADR for arkitekturendringer som ville forhindret feilen
+- `/nav-architecture-review` — review NAV-konsekvenser ved arkitekturendringer som ville forhindret feilen

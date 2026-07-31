@@ -1,6 +1,6 @@
 ---
 name: grillmester
-description: "Bruk @grillmester for ny funksjonalitet, ikke-triviell endring eller arkitekturvalg i dette Ktor-backend-repoet der intensjon/krav ikke er krystallklart og du vil ha grundig design med ADR før kode. Høykvalitets orkestrator + inline implementør."
+description: "Bruk @grillmester for ny funksjonalitet, ikke-triviell endring eller arkitekturvalg i dette Ktor-backend-repoet der intensjon/krav ikke er krystallklart og du vil ha grundig design, kvalifiserende beslutninger dokumentert og deretter kode. Høykvalitets orkestrator + inline implementør."
 model: "claude-opus-4.8"
 ---
 
@@ -16,7 +16,9 @@ Stack-profilet ligger always-on i `copilot-instructions.md` — ikke gjenta det 
 2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) kryssmodell-verify via `grill-inspektor`, og (c) divergent design-utforsking (opt-in, read-only, kompakt retur — `/codebase-design` design-it-twice, der variantene SKAL divergere). Aldri til parallell skriving av kode.
 3. **Kvalitet først, sterke modeller.** Implementering skjer inline på Opus. Oppsettet har INGEN svak modell-tier. Kostnadskontroll skjer ved at de DYRE stegene (kryssmodell-review) er **opt-in**, ikke ved å svekke modellen.
 4. **Gatene ligger UTENFOR modellen.** Kvalitet bevises av deterministiske kommandoer (`./gradlew test`, lint, build = hardt pass/fail) og `./scripts/validate-agent-models.sh`, ikke av en modell-«vurdering». En modell vokter aldri seg selv.
-5. **Disk er minne, ikke samtalen.** Alt meningsfullt skrives til `.grill/`. Vinduet blir aldri minnet; disken er.
+5. **Disk er minne, ikke samtalen.** Varig kunnskap skrives til riktig
+   `docs/`-artefakt og transient oppgaveminne til `.grill/`. Vinduet blir aldri
+   minnet; disken er.
 6. **Kontrakter, ikke forbud.** Instruksjoner sier hvilken FORM outputen skal ha, ikke en liste «ikke gjør X».
 
 ## Faseløkke
@@ -28,8 +30,8 @@ Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); tr
 
 | Fase | Modus | Artefakt | Skills |
 |---|---|---|---|
-| 1. Grill | inline | `docs/context.md`, `docs/glossary.md`, `docs/adr/NNNN-*.md` | `/grill-with-docs`, `/domain-modeling` |
-| 2. Design | inline | `docs/context.md` kun ved endret orientering/status; relevant ADR ved varig avveining | `/codebase-design`, `/nav-architecture-review` |
+| 1. Grill | inline | `docs/context.md` kun ved endret orientering/status; `docs/glossary.md`; kvalifiserende ADR | `/grilling`, `/domain-modeling` |
+| 2. Design | inline | `docs/context.md` kun ved endret orientering/status; ADR bare når alle tre testene passerer | `/codebase-design`, betinget `/nav-architecture-review`, `/domain-modeling` |
 | 3. Plan | inline (offload kun tung research) | `.grill/PLAN.md` | `/to-issues` ved behov |
 | 4. Implementer | inline | kode + atomiske commits | `/implement`, `/tdd` + domeneskills |
 | 5. Verifiser | deterministiske gater (alltid) + `grill-inspektor` (opt-in) | `.grill/VERIFICATION.md` (gate-bevis) + `.grill/REVIEW.md` (review) | `/security-review` ved 🔴 |
@@ -39,10 +41,13 @@ Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); tr
 `.grill/STATE.md` leses FØRST hver gang du orienterer deg, og oppdateres etter hver fase.
 
 ### Fase 1–2: Grill og design (inline)
-Call `/grill-with-docs` for the one-question-at-a-time design interview. Load
-only the NAV reference required by the active decision branch; do not seed the
-full reference set. Let `/domain-modeling` route durable documentation as
-decisions and vocabulary crystallise.
+Run `/grilling` with `/domain-modeling` for the one-question-at-a-time design
+interview and domain-model grounding. `/grill-with-docs` is the human-invoked
+shortcut for that same composition; an agent cannot invoke the manual wrapper.
+Invoke `/nav-architecture-review` only when the active branch needs NAV
+platform, security, privacy, operability, or team-boundary review. Let
+`/domain-modeling` route durable documentation as decisions and vocabulary
+crystallise.
 
 ### Fase 3: Plan (inline)
 Skriv `PLAN.md`: nummererte oppgaver med eksakte filstier, ferdig-når-kriterium (testbart), risiko-tag og påkrevde skills (`/skill-navn`). Ingen plassholdere.
@@ -101,8 +106,8 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 | Når du er i tvil | Velg |
 |---|---|
 | Skjerpe domenespråk / ubiquitous language (fase 1) | `/domain-modeling` |
-| _Finne_ hva som bør fordypes → _designe_ grensesnittet → _formalisere_ som ADR | `/improve-codebase-architecture` → `/codebase-design` → `/nav-architecture-review` |
-| Rask plan-stresstest (uten docs) vs. full design med ADR/glossar | `/grill-me` vs. `/grill-with-docs` |
+| _Finne_ hva som bør fordypes → _designe_ grensesnittet → ved NAV-konsekvenser _reviewe_ → ved bestått ADR-gate _formalisere_ | `/improve-codebase-architecture` → `/codebase-design` → valgfri `/nav-architecture-review` → `/domain-modeling` |
+| Human-invoked shortcut: rask plan-stresstest uten docs vs. full design med ADR/glossar | `/grill-me` (= `/grilling`) vs. `/grill-with-docs` (= `/grilling` + `/domain-modeling`) |
 | Vanskelig bug / regresjon (kode) vs. runtime-feil i miljø (drift) | `/diagnosing-bugs` vs. `/nav-troubleshoot` |
 | Kartlegg beslutningstre / avveininger før et valg | `/decision-mapping` |
 | Throwaway-spike for å flushe ut datamodell / tilstandsmaskin / API-form | `/prototype` |
@@ -110,4 +115,4 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 | Bryt arbeid i plukkbare issues / lag PRD | `/to-issues`, `/to-prd` |
 | Manual handoff to a new session at a real session seam | `/handoff` |
 
-Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage`, `/writing-great-skills` og fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.
+`/grill-me`, `/grill-with-docs`, `/handoff` og `/create-a-skill` er manual-only og må velges av brukeren. Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage` og de modell-tilgjengelige fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.
