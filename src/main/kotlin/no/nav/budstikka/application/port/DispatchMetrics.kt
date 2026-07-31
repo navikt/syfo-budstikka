@@ -32,6 +32,8 @@ interface DispatchMetrics {
     fun deliverySent(channel: Channel)
 
     fun deliveryFailed(channel: Channel)
+
+    fun inboxOutsideSendingWindow(reason: String)
 }
 
 /** No-op metrics port for tests and runs without a registry. */
@@ -53,4 +55,6 @@ object NoDispatchMetrics : DispatchMetrics {
     override fun deliverySent(channel: Channel) = Unit
 
     override fun deliveryFailed(channel: Channel) = Unit
+
+    override fun inboxOutsideSendingWindow(reason: String) = Unit
 }

@@ -26,6 +26,7 @@ class MicrometerDispatchMetrics(
     private val inboxEmptyPolls = counter(INBOX_MESSAGE_EMPTY_POLLS)
     private val inboxProcessed = counter(INBOX_MESSAGE_PROCESSED)
     private val inboxFailed = counter(INBOX_MESSAGE_FAILED)
+    private val inboxOutsideSendingWindow = counter(INBOX_OUTSIDE_SENDING_WINDOW)
     private val deliveryClaimed = counter(DELIVERY_CLAIMED)
     private val deliveryEmptyPolls = counter(DELIVERY_EMPTY_POLLS)
 
@@ -43,6 +44,8 @@ class MicrometerDispatchMetrics(
             .increment()
 
     override fun inboxFailed() = inboxFailed.increment()
+
+    override fun inboxOutsideSendingWindow(reason: String) = inboxOutsideSendingWindow.increment()
 
     override fun deliveryClaimed(count: Int) = deliveryClaimed.increment(count.toDouble())
 
@@ -75,6 +78,8 @@ class MicrometerDispatchMetrics(
         const val INBOX_MESSAGE_PROCESSED = "inbox.message.processed"
         const val INBOX_MESSAGE_DROPPED = "inbox.message.dropped"
         const val INBOX_MESSAGE_FAILED = "inbox.message.failed"
+        const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
+
         const val DELIVERY_CLAIMED = "delivery.claimed"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
         const val DELIVERY = "delivery"
