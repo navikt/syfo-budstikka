@@ -1,4 +1,4 @@
-# Eksempel: `.grill/DECISIONS.md`
+# Eksempel: beslutningskart
 
 Et utfylt beslutningskart, midt i en innsats. Idé: «Ny tjeneste som lytter på sykmeldinger fra et annet team og eksponerer status til saksbehandler-frontend.» Viser tåkefront, løste noder, frontlinje og avhengighetskanter.
 

@@ -19,7 +19,7 @@ rule_regex=(
   '(^|[^0-9])[0-9]{11}([^0-9]|$)'
   'eyJ[A-Za-z0-9_-]{10,}'
   '-{5}BEGIN'
-  '(^|[^[:alnum:]_-])(passord|password|secret|client[_-]?secret|api[_-]?key|token)[[:space:]]*[:=]'
+  '(passord|password|secret|client[_-]?secret|api[_-]?key|token)[[:space:]]*[:=]'
   'Bearer[[:space:]]+[A-Za-z0-9._-]{10,}'
 )
 
@@ -29,7 +29,17 @@ scan_file() {
   for i in "${!rule_names[@]}"; do
     name="${rule_names[$i]}"; pat="${rule_regex[$i]}"
     # -I hopper binærfiler, -n gir linjenr; vi beholder KUN linjenrene (kaster innholdet).
-    lines="$(grep -InE -e "$pat" "$file" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
+    # GitHub Actions-permissionen `id-token` med `write` eller `none` er ikke en hemmelighet.
+    if [ "$name" = "hemmelighet" ]; then
+      lines="$(
+        grep -InE -e "$pat" "$file" 2>/dev/null |
+          grep -Ev '^[0-9]+:[[:space:]]*id-to''ken:[[:space:]]*(write|none)([[:space:]]*#.*)?$' |
+          cut -d: -f1 |
+          paste -sd, -
+      )" || true
+    else
+      lines="$(grep -InE -e "$pat" "$file" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
+    fi
     if [ -n "$lines" ]; then
       echo "PII-mistanke ($name) i $label — linje(r): $lines"
       hits=1
