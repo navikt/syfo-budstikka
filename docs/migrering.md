@@ -126,6 +126,33 @@ sykmeldt/nærmeste leder/arbeidsgiver. Innkommende topic: `team-esyfo.varselbus`
 `journalpost.uuid`/`eksternReferanseId` fra produsent; resten `UUID.randomUUID()` (kun i
 esyfovarsels DB). Ingen aktiv fremtidsdatert scheduler-kø (`PlanlagtVarsel` er legacy).
 
+### Legacy-avhengigheter og domenekunnskap
+
+esyfovarsel bruker `pdl-api`, `digdir-krr-proxy`, `syfosmregister`,
+`narmesteleder`, `notifikasjon-produsent-api`, `dokdistfordeling` og
+`istilgangskontroll`. `AccessControlService` bygger på KRR (`kanVarsles`) og
+styrer ekstern varsling samt enkelte valg mellom digitalt varsel og fysisk
+brev. `SykmeldingService` er en separat, smal møtebehov-sjekk: NL-varsel krever
+en `SENDT` sykmelding for den aktuelle virksomheten. Dette er ikke en generell
+aktiv-sykmelding-gate. Budstikkas håndtering av KRR og brevfallback er
+beskrevet i ADR 0009; møtebehov-sjekken er fortsatt et åpent produktvalg.
+
+Legacy-løsningen bærer dessuten domenekunnskap vi vil flytte til produsentene:
+
+- `synligTom`-regler per domene;
+- microfrontend-livssyklus bundet til bestemte hendelser;
+- domenespesifikk kopitekst i `VarselTexts.kt`;
+- resend-logikk som kjenner til ferdigstilte Dine sykmeldte-oppgaver;
+- aktivitetspliktflagg og brevtypen `VIKTIG`.
+
+Postgres-lagringen omfatter blant annet `utsendt_varsel`,
+`utsending_varsel_feilet`, `mikrofrontend_synlighet`,
+`arbeidsgivernotifikasjoner_sak`,
+`arbeidsgivernotifikasjoner_kalenderavtale`, `fodselsdato` og den dormante
+`planlagt_varsel`. `esyfovarsel-job` retter feilede varsler og lukker
+microfrontends. Kafka og database er ikke transaksjonelt koblet; løsningen
+bruker leader election og kjører som Ktor-applikasjon på JVM.
+
 ## Åpne punkter
 
 - **syfooppfolgingsplanservice er deprecated** og skrus av etter sommeren (2026) → utenfor

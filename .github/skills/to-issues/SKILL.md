@@ -7,7 +7,7 @@ description: "Bruk når en plan, et design, en PRD eller `.grill/PLAN.md` skal b
 
 Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i tjenesten, ikke et horisontalt snitt av ett lag.
 
-Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` (+ `docs/context.md` og `docs/adr/`), output er issues på `navikt/syfo-budstikka` som er klare for plukking.
+Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` + eksplisitt relevante topic-dokumenter og ADR-er, output er issues på `navikt/syfo-budstikka` som er klare for plukking.
 
 ## Arbeidsflyt
 
@@ -16,9 +16,12 @@ Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkk
 Jobb fra det som allerede er i samtalen. Prioritert kilderekkefølge:
 
 - `.grill/PLAN.md` — den vedtatte planen fra plan-fasen
-- `docs/context.md` — valgt tilnærming og rammer fra design-fasen
-- `docs/adr/` — beslutninger som binder issue-innholdet (respekter dem; ikke reåpne avgjorte valg)
+- eksplisitt relevante topic-dokumenter — vedlikeholdt detalj som snittene må bevare
+- relevante ADR-er — tolk status via `docs/agents/domain.md`; respekter
+  bindende valg og bruk foreslåtte valg bare når planen faktisk bygger på dem
 - `docs/glossary.md` — domenespråk som issue-titler og -beskrivelser skal bruke
+
+Les `docs/context.md` bare hvis du trenger repository-orientering eller overordnet status.
 
 Hvis brukeren oppgir en issue-referanse (nummer, URL) som argument, hent issuet fra GitHub og les body + kommentarer. Det blir parent-issue for snittene.
 
@@ -107,4 +110,8 @@ Ikke lukk eller endre parent-issuet.
 
 ## Etter publisering
 
-Issuene er nå input til implementeringsfasen. Når et snitt plukkes, kjører @grillmester normal faseløkke på det (implementer → verifiser → server), og lukker issuet via `Closes #NNN` i PR-en. Bruk `/grill-with-docs` hvis et snitt viser seg å trenge mer design før det kan implementeres.
+Issuene er nå input til implementeringsfasen. Når et snitt plukkes, kjører
+@grillmester normal faseløkke på det (implementer → verifiser → server), og
+lukker issuet via `Closes #NNN` i PR-en. Kjør `/grilling` hvis et snitt viser
+seg å trenge mer design før det kan implementeres; anbefal dokumentert løp og
+vent på brukerens valg dersom varige begreper eller beslutninger bør skrives.

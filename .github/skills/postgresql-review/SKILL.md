@@ -7,7 +7,7 @@ description: "Brukes når du setter opp eller endrer DataSource/connection-pool 
 
 Gjennomgang av PostgreSQL-bruk i dette repoet. Dekker NAV-spesifikk tilkoblingspool-dimensjonering (NAIS-replicas + Cloud SQL), indekser, anti-mønstre, migrasjoner og koordinering av delte schemas.
 
-Se [references/sql-patterns.md](references/sql-patterns.md) for NAV-spesifikt HikariCP- og `gcp.sqlInstances`-oppsett, og [references/migration-flyway.md](references/migration-flyway.md) for migrasjonsmønstre. Generisk SQL-tuning (indeksvalg, JSONB, window functions, upsert, partisjonering, N+1) er utenfor scope — det kan modellen selv, eller slå opp i PostgreSQL-dokumentasjonen.
+Se [references/sql-patterns.md](references/sql-patterns.md) for NAV-spesifikt HikariCP- og `gcp.sqlInstances`-oppsett, og [references/migration-flyway.md](references/migration-flyway.md) for migrasjonsmønstre. Generisk SQL-tuning (indeksvalg, JSONB, window functions, upsert, partisjonering, N+1) er utenfor scope; bruk PostgreSQL-dokumentasjonen eller teamets etablerte praksis.
 
 ## Database-valgtre i NAV-kontekst
 
@@ -32,7 +32,7 @@ fun dataSource(env: ApplicationEnvironment): HikariDataSource =
     HikariDataSource(HikariConfig().apply {
         jdbcUrl = env.config.property("db.jdbcUrl").getString()
         username = env.config.property("db.username").getString()
-        password = env.config.property("db.password").getString()
+        setPassword(env.config.property("db.password").getString())
         maximumPoolSize = 3                          // Start smått — 3–5 for typiske NAV-tjenester
         minimumIdle = 1
         connectionTimeout = 10_000                   // 10s — feil raskt hvis Cloud SQL Proxy er nede
@@ -148,7 +148,16 @@ Se [references/migration-flyway.md](references/migration-flyway.md) for konkrete
 
 ## Kobling til faseløkken
 
-Når en database-beslutning inngår i en planlagt endring, noter valgene i `docs/context.md` (databaseteknologi, pool-dimensjonering, delt vs. eget schema, konsumenter) og fang varige arkitekturvalg som ADR under `docs/adr/` — f.eks. PostgreSQL vs. Kafka for et integrasjonsbehov, eller expand-migrate-contract-strategi for et delt schema. Speil pool- og migrasjonssteg i `.grill/PLAN.md`. Verifiser pool-dimensjonering og at migrasjoner kjører grønt (Testcontainers) og legg evidensen i `.grill/VERIFICATION.md` før PR. For endringer som rører delte schemas eller pool-konfig er det verdt en ekstra review (`grill-inspektor`) før merge.
+Når en databasebeslutning inngår i en planlagt endring, legg task-scope i
+issue/plan og vedlikeholdt database- og skjemadetalj i relevant topic-dokument.
+Når et varig arkitekturvalg passerer ADR-gaten — for eksempel PostgreSQL vs.
+Kafka for et integrasjonsbehov eller expand-migrate-contract for et delt
+schema — anbefal dokumentert løp og vent på brukerens valg før
+`/domain-modeling` registrerer det. Speil pool- og migrasjonssteg i
+`.grill/PLAN.md`. Verifiser pool-dimensjonering og at migrasjoner kjører grønt
+(Testcontainers), og legg evidensen i `.grill/VERIFICATION.md` før PR. For
+endringer som rører delte schemas eller pool-konfig er det verdt en ekstra
+review (`grill-inspektor`) før merge.
 
 ## Referansefiler
 

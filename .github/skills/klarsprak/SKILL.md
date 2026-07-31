@@ -1,11 +1,13 @@
 ---
 name: klarsprak
-description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes — feilmeldinger og API-respons, loggmeldinger, ADR-er i docs/adr/, README, PR-beskrivelser, commit-meldinger og release-notes — eller når brukeren ber om klarspråk, språkvask, fjerning av AI-markører eller retting av anglisismer. Også /klarsprak.
+description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes — feilmeldinger og API-respons, loggmeldinger, README, PR-beskrivelser, commit-meldinger og release-notes — eller når eksisterende ADR-prosa skal språkvaskes uten å endre beslutning eller form. Også når brukeren ber om klarspråk, språkvask, fjerning av AI-markører eller retting av anglisismer.
 ---
 # Klarspråk
 
 Bruk denne skillen når norsk tekst skal strammes inn i kode, docs, PR, commit og logger.
 Skriv **Nav** i løpende tekst (unntak: `NAIS`, `NAVident`, `no.nav.syfo`).
+For ADR-er eier `/domain-modeling` gate, opprettelse og husformat; denne skillen
+språkvasker bare eksisterende prosa.
 
 Grunnreglene bor i `.github/instructions/norwegian-text.instructions.md`. Den lastes
 ikke lenger automatisk for annet enn `README.md` — **les den med view-verktøyet før du

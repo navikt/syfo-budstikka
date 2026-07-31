@@ -16,18 +16,22 @@ Use language deliberately by artifact type.
   when they are the subject.
 
 Issue, pull-request, commit-message, and ADR prose language is deliberately
-**not** settled by this document. Those artifacts follow the skills that
-produce them, currently `/conventional-commit` and `/klarsprak`, until a later
-change migrates them on purpose. Do not treat this file as authority to switch
-them.
+**not** settled by this document. `/domain-modeling` owns the ADR gate,
+creation, and repository-defined shape; `/klarsprak` may polish its prose
+without changing that contract. Other artifact language follows the skill that
+produces it, including `/conventional-commit`, until a later change migrates it
+on purpose. Do not treat this file as authority to switch them.
 
 ## Incremental migration
 
-Existing Norwegian technical material migrates in small thematic changes.
-New or substantively rewritten agent-facing and technical material is English;
-do not expand an unrelated change merely to translate neighbouring files.
-Preserve historical decision wording until it is deliberately migrated or
-superseded.
+New agent-facing and technical artifacts are English. Existing Norwegian
+artifacts migrate in small thematic changes, but each changed artifact stays
+internally coherent: retain its dominant language until a dedicated change can
+migrate the whole file or a cohesive artifact group. Do not insert isolated
+English paragraphs into an otherwise Norwegian contract merely because those
+paragraphs are new, and do not expand an unrelated change to translate
+neighbouring files. Preserve historical decision wording until it is
+deliberately migrated or superseded.
 
 Agents answer users in the user's language unless they are creating or editing
 an artifact governed by this policy. Do not rename a published contract,

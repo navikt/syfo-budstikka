@@ -9,24 +9,31 @@ Implementeringsdisiplinen for `@grillmester` **fase 4**. Du omsetter `.grill/PLA
 
 ## Grunnregler (ufravikelige)
 
-1. **Skriveren er inline.** Du skriver koden selv, i hovedtråden, på sterk modell. Du delegerer ALDRI selve skrivingen til en subagent — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer. Subagent er kun et kontekst-verktøy for read-only utforsking som ellers fyller tråden med støy.
+1. **Skriveren er inline.** Du skriver koden selv i hovedtråden. Du delegerer ALDRI selve skrivingen til en subagent — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer. Subagent er kun et kontekst-verktøy for read-only utforsking som ellers fyller tråden med støy.
 2. **Ett steg av gangen.** Jobb gjennom `.grill/PLAN.md` i rekkefølge, ett nummerert steg per syklus. Ikke hopp fremover, ikke bunt flere steg.
 3. **Positivt bevis per steg.** Påstå aldri at et steg er ferdig uten ferskt bevis i SAMME melding: kommandoen du kjørte + output + exit-kode. Mangler beviset: skriv `UVERIFISERT: <hva som gjenstår>`.
 4. **Atomiske commits.** Én logisk endring per commit, grønn ved hver commit. Ikke samle hele planen i én diff.
 5. **Disk er minne.** Status og fremdrift hører hjemme i `.grill/`, ikke i hodet på samtalen.
-6. **Respekter vedtatte valg.** ADR-ene i `docs/adr/` og rammene i `docs/context.md` er bindende. Avdekker implementeringen at et valg er feil, STOPP og flagg det — ikke reåpne avgjorte valg på egen hånd.
+6. **Respekter vedtatte valg.** `docs/agents/domain.md` eier hvilke
+   ADR-statuser som er bindende. En foreslått ADR er ikke bindende bare fordi
+   den finnes; den kan styre dette arbeidet når den eksplisitt inngår i den
+   brukergodkjente planen. Issue/plan og vedlikeholdte topic-dokumenter
+   avgrenser arbeidet. Avdekker implementeringen at et vedtatt valg er feil,
+   STOPP og flagg det — ikke reåpne avgjorte valg på egen hånd.
 
 ## Før du starter
 
 - [ ] Les `.grill/STATE.md` FØRST for å orientere deg: hvor er vi, hva er gjort, hva er neste steg.
 - [ ] Les `.grill/PLAN.md` — de nummererte oppgavene med filstier, ferdig-når-kriterium, risiko-tag og påkrevde skills.
-- [ ] Les `docs/context.md` og `docs/glossary.md` for overordnede rammer, navngiving og grensesnitt.
-- [ ] Sjekk `docs/adr/` for beslutninger som binder området du rører.
+- [ ] Følg `docs/agents/domain.md`: les glossaret når domenespråk er relevant, og bare topic-dokumentene og ADR-ene som binder området. Les `docs/context.md` kun ved behov for orientering eller overordnet status.
 
 Følg reglene i `.github/instructions/context-usage.instructions.md` for bruk av
 `docs/context.md` og ADR-referanser i kodekommentarer.
 
-Mangler `.grill/PLAN.md`, er du ikke klar for fase 4. Gå tilbake til plan-fasen (`/to-issues` / planlegging) eller `/grill-with-docs` hvis snittet trenger mer design.
+Mangler `.grill/PLAN.md`, er du ikke klar for fase 4. Gå tilbake til
+planfasen (`/to-issues` / planlegging), eller kjør `/grilling` hvis snittet
+trenger mer design. Når nye begreper eller varige valg bør dokumenteres,
+anbefal det dokumenterte løpet, forklar hvorfor og vent på brukerens valg.
 
 ## Steg-løkka
 
@@ -51,8 +58,12 @@ Kall den eksplisitt med slash-form når steget berører domenet — så body-en 
 | NAIS-manifest, accessPolicy, ingress, resources | `/nais-manifest` |
 | Metrikker, logging, tracing, alerts | `/observability-setup` |
 | PII, secrets, auditlogg, sikkerhetsreview | `/security-review` |
-| Domenebegrep / ubiquitous language | `/domain-modeling` |
+| Domenebegrep som planen eksplisitt skal dokumentere | `/domain-modeling` |
 | Vanskelig bug underveis | `/diagnosing-bugs` |
+
+Hvis et nytt domenebegrep oppdages under implementeringen uten å inngå i den
+godkjente planen, anbefal dokumentert løp og vent på brukerens valg før
+`/domain-modeling` skriver.
 
 ### 3. Test-først via /tdd
 
@@ -109,7 +120,10 @@ Kryss av steget i `.grill/PLAN.md`. Når en fase drar ut eller du står ved en f
 
    `build` kjører kompilering, ktlint og hele testsuiten. Hardt pass/fail.
 2. Skriv hva som faktisk ble verifisert (kommando + resultat) til `.grill/VERIFICATION.md` slik at fase-løkka kan lukkes.
-3. For høyrisiko-steg (auth/TokenX, PII/fnr, secrets, DB/Flyway, datamodell, Kafka, API-kontrakt, NAIS `accessPolicy`/ingress, deploy): kall `/security-review`, og vurder kryssmodell-review via `grill-inspektor`.
+3. For høyrisiko-steg (auth/TokenX, PII/fnr, secrets, DB/Flyway, datamodell,
+   Kafka, API-kontrakt, NAIS `accessPolicy`/ingress, deploy): kall
+   `/security-review`, og vurder en fersk read-only review via
+   `grill-inspektor`.
 4. Lever via fase 6: `/pull-request`. Lukk issuet med `Closes #NNN` i PR-en og oppdater `.grill/STATE.md`.
 
 ## Anti-mønstre

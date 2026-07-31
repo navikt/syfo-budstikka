@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Bruk når test-først er eksplisitt ønsket: «red-green-refactor», «test først», eller reproduksjonstest før bugfiks. For vanlig testskriving, bruk /unit-tests, /integration-tests eller /e2e-tests.
+description: "Bruk når test-først er eksplisitt ønsket: «red-green-refactor», «test først», eller reproduksjonstest før bugfiks. For vanlig testskriving, bruk /unit-tests, /integration-tests eller /e2e-tests."
 ---
 
 # Testdrevet utvikling (Ktor / no.nav.syfo)
@@ -43,7 +43,7 @@ RIKTIG (vertikalt):
 
 ### 1. Planlegg
 
-Les `docs/context.md` hvis den finnes, så testnavn og grensesnittvokabular matcher domenespråket. Respekter besluttede valg i `docs/adr/` for området du rører. Følger du en plan fra `@grillmester`, hold deg til `.grill/PLAN.md` og kryss av atferdene der.
+Les `docs/glossary.md` når testnavn og grensesnittvokabular trenger domenespråk, og bare ADR-ene som binder området du rører. Følger du en plan fra `@grillmester`, hold deg til `.grill/PLAN.md` og kryss av atferdene der. Les `docs/context.md` bare ved behov for repository-orientering eller overordnet status.
 
 Før du skriver kode:
 

@@ -1,4 +1,4 @@
-# 0009: KRR-reservasjon som beslutningsgate + brevFallback
+# ADR 0009 — KRR-reservasjon som beslutningsgate + brevFallback
 
 - Status: besluttet (operasjonaliserer B2/B7/B8; første del av det ugrillede området 5 «Auth & ACL»,
   se [`B62`](../decisions.md#b62))

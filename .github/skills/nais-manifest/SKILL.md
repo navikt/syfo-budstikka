@@ -174,7 +174,11 @@ Bruk `Naisjob` når teamet trenger batch-kjøringer (nattlige jobber, engangs-mi
 
 ## Kobling til faseløkken
 
-- Fang varige plattformvalg som ADR i `docs/adr/` — f.eks. valg av ingress-domene, scaling-strategi, Postgres-tier/HA, Kafka-pool og pool-størrelse. Noter manifest-relevante beslutninger i `docs/context.md`.
+- Legg task-scope i issue/plan og vedlikeholdt plattformdetalj i relevant
+  topic-dokument. Når et plattformvalg passerer ADR-gaten — for eksempel et
+  vanskelig reverserbart og ikke-opplagt valg av ingress, scaling-strategi,
+  Postgres-tier/HA eller Kafka-pool — anbefal dokumentert løp og vent på
+  brukerens valg før `/domain-modeling` registrerer det.
 - Endring i `accessPolicy`, auth-flagg eller scopes → kjør `/security-review` (loggføres i `.grill/VERIFICATION.md`).
 - Endring i prod-resources, replicas eller nye GCP-ressurser (kostnad) → kjør `grill-inspektor` før merge og legg evidens i `.grill/VERIFICATION.md`.
 

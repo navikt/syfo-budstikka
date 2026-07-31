@@ -88,7 +88,9 @@ CLAIMED -> CLAIMED (lease utløpt, kan re-claimes)
 
 - Claim bruker `FOR UPDATE SKIP LOCKED` og lease via `next_attempt_time`.
 - `attempt` økes ved claim.
-- Terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) er compare-and-set fra `CLAIMED`.
+- Terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) er compare-and-set fra `CLAIMED`:
+  raden oppdateres atomisk bare mens den fortsatt har forventet state. Dette hindrer
+  dobbeltprosessering når flere workere konkurrerer om samme rad.
 
 ### `delivery.state`
 

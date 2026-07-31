@@ -22,6 +22,7 @@
 
 - [ ] `./gradlew build` grønt (kompilering + ktlint + test)
 - [ ] Ingen sensitive data eksponert (tokens, credentials, fnr/PII) — heller ikke i logger
-- [ ] Høyrisiko (auth, PII, schema/Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`, deploy)? → kryssmodell-review kjørt, verdikt ikke-😞 (se `.grill/REVIEW.md`)
+- [ ] Høyrisiko (auth, PII, schema/Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`, deploy)? → fersk `grill-inspektor`-review kjørt, verdikt ikke-😞 (se `.grill/REVIEW.md`)
 - [ ] Endrede API-/event-kontrakter koordinert med berørte team
-- [ ] ADR skrevet for vanskelig-å-reversere beslutninger (`docs/adr/`)
+- [ ] Dokumentert løp eksplisitt valgt for eventuelle nye glossar-/ADR-endringer;
+      `/domain-modeling` har kvalifisert ADR-kandidater

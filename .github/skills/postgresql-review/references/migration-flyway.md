@@ -1,6 +1,6 @@
 # Migrasjoner og Flyway-mønstre
 
-Migrasjonsmønstre for PostgreSQL i dette NAV Ktor-backendet. Se [SKILL.md](../SKILL.md) for prinsipper og sjekkliste. Selve filnavngiving, plassering og rekkefølge dekkes av `flyway-migration`-skillen i repoet.
+Migrasjonsmønstre for PostgreSQL i dette NAV Ktor-backendet. Selve filnavngiving, plassering og rekkefølge dekkes av `flyway-migration`-skillen i repoet.
 
 ## CONCURRENTLY-indekser i produksjon
 

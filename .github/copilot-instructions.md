@@ -10,18 +10,21 @@ language.
 
 ## Repository discovery
 
-Loaded on demand:
+Read detail only when its condition applies. These ordinary Markdown links are
+context pointers, not eager includes:
 
-- Work tracking and tracker labels:
-  [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)
-- Domain documentation: [`docs/agents/domain.md`](../docs/agents/domain.md)
-- Artifact language:
-  [`docs/agents/language-policy.md`](../docs/agents/language-policy.md)
-- Skill invocation:
-  [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md)
-- Upstream sources, precedence, and revisions:
-  [`docs/agents/provenance.md`](../docs/agents/provenance.md)
-- Design overview and rationale: [`GRILLMESTER.md`](GRILLMESTER.md)
+- When creating, updating, or publishing tracker work, read
+  [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md).
+- When domain terminology, domain documentation, or a durable decision is in
+  scope, read [`docs/agents/domain.md`](../docs/agents/domain.md).
+- Before creating or substantially rewriting an artifact, read
+  [`docs/agents/language-policy.md`](../docs/agents/language-policy.md).
+- When creating, revising, reviewing, or diagnosing a skill, read
+  [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md).
+- When copying, adapting, or updating upstream material, read
+  [`docs/agents/provenance.md`](../docs/agents/provenance.md).
+- When maintaining the Grillmester setup or its rationale, read
+  [`GRILLMESTER.md`](GRILLMESTER.md).
 
 ## Delivery boundary
 
@@ -34,14 +37,11 @@ also require an explicit user request.
 
 ## Agent setup
 
-- **@grillmester** (Opus 4.8) is the orchestrator and inline implementer for
-  non-trivial work. It runs a phase loop — grill, design, plan, implement,
-  verify, deliver — and writes working memory to `.grill/`.
-- **grill-inspektor** (GPT-5.5, internal) is a fresh cross-model reviewer:
-  **opt-in**, recommended-on for high-risk work. This is where "both model
-  families look at the work" is preserved while staying cost-controlled.
-- There is no weak model tier. Quality comes from a strong model plus
-  deterministic gates, not from cheap intermediaries.
+- **@grillmester** is the orchestrator and inline implementer for non-trivial
+  work. It runs a phase loop — grill, design, plan, implement, verify, deliver
+  — and writes working memory to `.grill/`.
+- **grill-inspektor** is an opt-in, fresh, read-only reviewer recommended for
+  high-risk work.
 
 ## Standing principles
 
@@ -52,12 +52,6 @@ These apply to all code assistance in this repository.
   else — mechanics, verbs, plumbing, technical identifiers — is English
   (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full rule with
   examples in `.github/instructions/kotlin.instructions.md`.
-- **Quality gates are deterministic and outside the model:** `./gradlew test`,
+- **Quality gates are deterministic:** `./gradlew test`,
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.
-
-## Model policy
-
-Roles are pinned in the agent files and validated deterministically by
-`scripts/validate-agent-models.sh`, which fails hard and writes
-`.grill/MODELL-STATUS.md`. A model never asserts which model it is.

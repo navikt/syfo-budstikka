@@ -152,7 +152,10 @@ Content-Type: application/json
 ## Tilnærming
 1. Les `src/main/resources/application.yaml` og Nais-manifestet for å se hvilke mekanismer som er konfigurert.
 2. Søk i kodebasen etter eksisterende auth-oppsett (`tokenValidationSupport`, `Authentication`, Texas-kall) og følg samme mønster.
-3. Beslutninger om accessPolicy / valg av auth-mekanisme dokumenteres som ADR i `docs/adr/` (jf. @grillmester fase 1–2, `/grill-with-docs`).
+3. Review NAV-konsekvenser av `accessPolicy` og auth-mekanisme med
+   `/nav-architecture-review`. Når valget passerer ADR-gaten, anbefal
+   dokumentert løp og vent på brukerens valg før `/domain-modeling` registrerer
+   det.
 4. For lokal kjøring og JVM-tester: se [`references/local-auth-mock.md`](references/local-auth-mock.md).
 5. Endringer i auth-validering eller accessPolicy → kjør `/security-review` før levering (@grillmester fase 5, loggføres i `.grill/VERIFICATION.md`).
 
