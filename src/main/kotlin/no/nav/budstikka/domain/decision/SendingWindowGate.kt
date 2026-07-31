@@ -26,8 +26,8 @@ internal class SendingWindowGate(
         return ResolvedRule { deliveries ->
             if (gatedSendingWindow) {
                 val nextRetry = BudstikkaSendingWindowLookup.nextOpen(now)
-                val reason = BudstikkaSendingWindowLookup.reason(now)
-                Decision.NotInSendingWindow(nextRetry, reason.first().reason)
+                val reason = BudstikkaSendingWindowLookup.reason(now).first().reason
+                Decision.NotInSendingWindow(nextRetry, reason)
             } else {
                 Decision.Processed(deliveries)
             }
