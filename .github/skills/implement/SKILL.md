@@ -9,7 +9,7 @@ Implementeringsdisiplinen for `@grillmester` **fase 4**. Du omsetter `.grill/PLA
 
 ## Grunnregler (ufravikelige)
 
-1. **Skriveren er inline.** Du skriver koden selv, i hovedtråden, på sterk modell. Du delegerer ALDRI selve skrivingen til en subagent — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer. Subagent er kun et kontekst-verktøy for read-only utforsking som ellers fyller tråden med støy.
+1. **Skriveren er inline.** Du skriver koden selv i hovedtråden. Du delegerer ALDRI selve skrivingen til en subagent — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer. Subagent er kun et kontekst-verktøy for read-only utforsking som ellers fyller tråden med støy.
 2. **Ett steg av gangen.** Jobb gjennom `.grill/PLAN.md` i rekkefølge, ett nummerert steg per syklus. Ikke hopp fremover, ikke bunt flere steg.
 3. **Positivt bevis per steg.** Påstå aldri at et steg er ferdig uten ferskt bevis i SAMME melding: kommandoen du kjørte + output + exit-kode. Mangler beviset: skriv `UVERIFISERT: <hva som gjenstår>`.
 4. **Atomiske commits.** Én logisk endring per commit, grønn ved hver commit. Ikke samle hele planen i én diff.

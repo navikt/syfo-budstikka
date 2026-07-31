@@ -5,24 +5,14 @@ description: "Brukes når du skal gå gjennom DIN EGEN diff før du ber om en fe
 
 # Selvreview — gå gjennom egen diff før andre øyne
 
-Disiplinen for å granske **din egen** endring før du bruker en dyrere ressurs
-på den. Dette er ikke en agent — det er det du gjør inline, på din egen diff, i
-**verifiser**-fasen til @grillmester, FØR du eventuelt kaller
-`grill-inspektor` for en fersk read-only review eller åpner PR.
+Gransk **din egen** endring inline i verifiseringsfasen før PR og eventuell
+`grill-inspektor`-review. Rydd bort åpenbare funn før du ber om ferske øyne.
 
-Poenget: den ferske inspektørreviewen er opt-in og kostbar. Frontmatter ber om
-`gpt-5.5`, men kryssfamilieverdien kan bare påstås med separat runtimebevis.
-Ikke bruk den på funn du selv kunne tatt. Selvreview er det billige passet som
-rydder bort det åpenbare, så de friske øynene bruker budsjettet sitt på
-blindsonene dine — ikke på slurv.
+## Les diffen, ikke minnet
 
-## Kjerneproblemet: du er partisk på egen kode
-
-Du skrev koden. Du «vet» hva den gjør, så du leser intensjonen din, ikke teksten på skjermen. Selvreview virker bare hvis du bryter den partiskheten bevisst:
-
-- **Les diffen som en motstander**, ikke som forfatter. Anta at hver linje skjuler en feil til den motbeviser seg selv.
-- **Les teksten, ikke minnet.** Hvert kall til ekstern tjeneste, hver null-håndtering, hver tilstandsendring leses som om en fremmed skrev den.
-- **Et grønt testpass beviser ikke korrekthet** — bare at testene du tenkte på, passerer. Selvreview leter etter det testene ikke dekker.
+Spor endret atferd fra teksten og kallflyten, ikke fra det du husker at du ville
+oppnå. Et grønt testpass beviser bare at testene du skrev passerer; selvreview
+leter etter det de ikke dekker.
 
 ## 1. Fest punktet og hent diffen
 
@@ -72,26 +62,19 @@ Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feil
 
 Selvreview produserer en handling, ikke en rapport til arkivet:
 
-1. **Funn du kan fikse nå → fiks dem inline.** Det er hele poenget med å ta dem selv.
+1. **Funn du kan fikse nå → fiks dem inline.**
 2. **Kjør de deterministiske gatene på nytt** etter fiks — `./gradlew test` (og `build`/lint der det finnes). Hardt pass/fail, med ferskt bevis i samme melding. Ingen «ser bra ut» uten kommando + output + exit-kode.
 3. **Funn du bevisst lar stå** (utenfor scope, egen oppgave) → noter dem kort i `.grill/STATE.md` så de ikke forsvinner.
 4. **Beslutningskandidater** som dukker opp under reviewen → rapporter dem.
    Når en kandidat passerer ADR-gaten, anbefal dokumentert løp og vent på
    brukerens valg før `/domain-modeling` skriver.
 
-Først NÅ er diffen klar for det dyre passet: kall `grill-inspektor` for en
-fersk read-only review (anbefalt-på ved R3/R4 — auth, PII, schema,
-API-kontrakt, Kafka, deploy; opt-in ellers). Den har `tools: [read, search]`,
-verifiserer uavhengig mot KRAV og BESLUTNINGER og **returnerer** verdiktet;
-`@grillmester` skriver det til `.grill/REVIEW.md` (de deterministiske gatene
-eier `.grill/VERIFICATION.md`). Selvreview erstatter den aldri — den gjør den
-verdt pengene.
+Når stegene er fullført, rapporter at diffen er klar for eventuell
+`grill-inspektor`-review. `@grillmester` håndterer risikovurderingen,
+brukerens valg og reviewartefakten.
 
 ## Flytkobling
 
-- **Fase i faseløkka:** verifiser (fase 5), steg før den ferske opt-in
-  inspektørreviewen.
+- **Fase i faseløkka:** verifiser (fase 5), før eventuell inspektørreview.
 - **Leser:** oppgaven/issuet, `.grill/PLAN.md`, eksplisitt relevante topic-dokumenter og ADR-er, samt `.grill/STATE.md`. Les `docs/context.md` bare ved behov for orientering eller overordnet status.
-- **Komplementerer:** `grill-inspektor` (agenten gjør det ferske read-only
-  passet; denne skillen er din egen disiplin før det).
-- **Relaterte skills:** `/security-review` (PII/auth/accessPolicy-dybde ved R3/R4), `/kotlin-ktor` (route-/auth-/feilkontrakt-konvensjoner du måler akse F mot), `/flyway-migration` (bakoverkompatibel migrering), `/postgresql-review` (N+1, pool, indeks), `/kafka-topic` (idempotens, commit-semantikk), `/diagnosing-bugs` (når et funn er en faktisk bug som må root-cause-es).
+- **Dybde:** bruk relevant domeneskill når et funn krever spesialisert review.

@@ -37,17 +37,11 @@ also require an explicit user request.
 
 ## Agent setup
 
-- **@grillmester** requests `claude-opus-4.8` in frontmatter and is the
-  orchestrator and inline implementer for non-trivial work. It runs a phase
-  loop — grill, design, plan, implement, verify, deliver — and writes working
-  memory to `.grill/`.
-- **grill-inspektor** requests `gpt-5.5` and is an opt-in, fresh, read-only
-  reviewer recommended for high-risk work. It adds a cross-family perspective
-  only when separate runtime evidence confirms that both requested models were
-  actually selected; its fresh context and read-only boundary do not depend on
-  that claim.
-- No weak model tier is declared. Quality relies on the requested strong-model
-  policy plus deterministic gates, not on an asserted runtime identity.
+- **@grillmester** is the orchestrator and inline implementer for non-trivial
+  work. It runs a phase loop — grill, design, plan, implement, verify, deliver
+  — and writes working memory to `.grill/`.
+- **grill-inspektor** is an opt-in, fresh, read-only reviewer recommended for
+  high-risk work.
 
 ## Standing principles
 
@@ -61,10 +55,3 @@ These apply to all code assistance in this repository.
 - **Quality gates are deterministic and outside the model:** `./gradlew test`,
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.
-
-## Model policy
-
-Roles declare model pins in the agent files. `scripts/validate-agent-models.sh`
-fails when a declaration is missing or outside the repository allowlist and
-writes `.grill/MODELL-STATUS.md`; it does not attest runtime availability,
-selection, or fallback. A model never asserts which model it is.
