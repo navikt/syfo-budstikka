@@ -51,6 +51,10 @@ Runtime claims come from current agent frontmatter, Copilot discovery, the
 repository gates, and an authenticated bounded pilot. Historical setup prose
 does not prove which configuration the runtime applied.
 
+Copilot CLI 1.0.77 honors `includeCoAuthoredBy=false` in interactive sessions,
+but its programmatic `-p` path still injects the default trailer instruction.
+Treat the setting as advisory in that mode and verify every commit message.
+
 Sources, reviewed revisions, and local adaptations are recorded in
 `docs/agents/provenance.md`. The repository files remain the only runtime
 dependency.
