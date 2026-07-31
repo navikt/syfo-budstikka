@@ -7,7 +7,7 @@ import no.nav.budstikka.domain.foundation.calendar.openingHours
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-object BudstikkaSendingWindow {
+object BudstikkaSendingWindowLookup {
     private val openingHours =
         openingHours {
             closedOn(DayOfWeek.SUNDAY)
@@ -17,5 +17,8 @@ object BudstikkaSendingWindow {
         }
 
     fun isClosed(instant: Instant = Clock.System.now()) = !openingHours.isOpen(instant)
+
+    fun reason(instant: Instant = Clock.System.now()) = openingHours.violations(instant)
+
     fun nextOpen(instant: Instant = Clock.System.now()) = openingHours.opensAt(instant)
 }

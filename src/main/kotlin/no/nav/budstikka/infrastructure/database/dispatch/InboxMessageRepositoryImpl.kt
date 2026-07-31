@@ -5,6 +5,7 @@ import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.config.transact
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -60,11 +61,7 @@ class InboxMessageRepositoryImpl(
                     .select(InboxMessageTable.eventId, InboxMessageTable.reference, InboxMessageTable.content)
                     .where {
                         (InboxMessageTable.state eq InboxMessageState.RECEIVED.name) or
-                            (
-                                (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
-                                    (InboxMessageTable.nextAttemptTime lessEq now) and
-                                    (InboxMessageTable.attempt less maxAttempts)
-                            )
+                            claimExpired(now, maxAttempts) or waitExpired(now)
                     }.orderBy(
                         InboxMessageTable.receivedAt to SortOrder.ASC,
                         InboxMessageTable.eventId to SortOrder.ASC,
@@ -87,6 +84,18 @@ class InboxMessageRepositoryImpl(
             claimed
         }
     }
+
+    private fun waitExpired(now: Instant): Op<Boolean> =
+        (InboxMessageTable.state eq InboxMessageState.WAIT.name) and
+            (InboxMessageTable.nextAttemptTime lessEq now)
+
+    private fun claimExpired(
+        now: Instant,
+        maxAttempts: Int,
+    ): Op<Boolean> =
+        (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+            (InboxMessageTable.nextAttemptTime lessEq now) and
+            (InboxMessageTable.attempt less maxAttempts)
 
     /**
      * Terminal gate for poison rows (#71): expired CLAIMED rows claimed [maxAttempts] times without
@@ -137,6 +146,20 @@ class InboxMessageRepositoryImpl(
         eventId: UUID,
         reason: String,
     ): Boolean = terminate(eventId, state = InboxMessageState.FAILED, dropReason = null, errorMessage = reason)
+
+    override fun markOutsideSendingWindowInTransaction(
+        eventId: UUID,
+        reason: String,
+        nextRetry: Instant,
+    ): Boolean =
+        InboxMessageTable.update({
+            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+        }) {
+            it[InboxMessageTable.state] = InboxMessageState.WAIT.name
+            it[InboxMessageTable.dropReason] = reason
+            it[InboxMessageTable.nextAttemptTime] = nextRetry
+            it[InboxMessageTable.processedAt] = Clock.System.now()
+        } > 0
 
     private fun terminate(
         eventId: UUID,

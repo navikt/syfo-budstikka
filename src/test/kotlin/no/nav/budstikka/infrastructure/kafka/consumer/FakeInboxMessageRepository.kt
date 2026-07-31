@@ -4,6 +4,7 @@ import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import java.util.UUID
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 class FakeInboxMessageRepository(
     private val polledMessages: List<InboxMessage> = emptyList(),
@@ -34,5 +35,11 @@ class FakeInboxMessageRepository(
     override fun markFailedInTransaction(
         eventId: UUID,
         reason: String,
+    ): Boolean = true
+
+    override fun markOutsideSendingWindowInTransaction(
+        eventId: UUID,
+        reason: String,
+        nextRetry: Instant,
     ): Boolean = true
 }

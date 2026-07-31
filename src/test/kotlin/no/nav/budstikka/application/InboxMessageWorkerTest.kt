@@ -8,6 +8,11 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.Month
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
@@ -19,8 +24,11 @@ import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.domain.decision.SendingWindowGate
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
+import no.nav.budstikka.domain.dispatch.SendingWindow
 import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
@@ -36,10 +44,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+
+private val osloTz = TimeZone.of("Europe/Oslo")
 
 /**
  * Messages are hydrated during ingest (ADR 0008), so the worker no longer decodes the payload and can never
@@ -176,6 +187,115 @@ class InboxMessageWorkerTest :
             Thread.sleep(100)
             repository.pollCount.get() shouldBe pollCountAfterClose
         }
+
+        test("runOnce marks messages outside sending window as waiting with nextRetry in the future") {
+            val now = NorwegianRodeDager.easterSunday(2025).atTime(3, 0).toInstant(osloTz)
+            val clock = MutableClock(now)
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.randomUUID(),
+                                reference = "ref-1",
+                                content =
+                                    BrukervarselCreate(
+                                        TEST_SYKMELDT,
+                                        Varseltype.OPPGAVE,
+                                        "test",
+                                        sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+                                    ),
+                            ),
+                        ),
+                )
+            val worker =
+                workerWith(
+                    repository,
+                    decisionProcess = DecisionProcess(listOf(SendingWindowGate(clock))),
+                    clock = clock,
+                )
+
+            worker.runOnce()
+
+            repository.waitingMessages.size shouldBe 1
+            val (_, nextRetry) = repository.waitingMessages.values.single()
+
+            (nextRetry > now) shouldBe true
+        }
+
+        test("runOnce persistst reason for waiting messages") {
+            val now = NorwegianRodeDager.easterSunday(2025).atTime(3, 0).toInstant(osloTz)
+            val clock = MutableClock(now)
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.randomUUID(),
+                                reference = "ref-1",
+                                content =
+                                    BrukervarselCreate(
+                                        TEST_SYKMELDT,
+                                        Varseltype.OPPGAVE,
+                                        "test",
+                                        sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+                                    ),
+                            ),
+                        ),
+                )
+            val worker =
+                workerWith(
+                    repository,
+                    decisionProcess = DecisionProcess(listOf(SendingWindowGate(clock))),
+                    clock = clock,
+                )
+
+            worker.runOnce()
+
+            repository.waitingMessages.size shouldBe 1
+            val (reason, _) = repository.waitingMessages.values.single()
+
+            reason shouldContain "Closed Sunday"
+        }
+
+        test("Claim picks up messages in waiting state after nextRetry has passed") {
+            val now = MutableClock(LocalDateTime(2026, Month.AUGUST, 2, 23, 0).toInstant(osloTz))
+            val clock = MutableClock(now.current)
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.randomUUID(),
+                                reference = "ref-1",
+                                content =
+                                    BrukervarselCreate(
+                                        TEST_SYKMELDT,
+                                        Varseltype.OPPGAVE,
+                                        "test",
+                                        sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+                                    ),
+                            ),
+                        ),
+                )
+            val worker =
+                workerWith(
+                    repository,
+                    decisionProcess = DecisionProcess(listOf(SendingWindowGate(clock))),
+                    clock = clock,
+                )
+
+            // first runOnce marks the message as waiting
+            worker.runOnce()
+            repository.waitingMessages.size shouldBe 1
+
+            // advance the clock to after nextRetry
+            clock.current += 10.hours
+
+            // second runOnce should pick up the message again
+            worker.runOnce()
+            repository.processedEventIds.size shouldBe 1
+        }
     })
 
 private fun workerWith(
@@ -224,6 +344,7 @@ private class PollingInboxMessageRepository(
     val pollCount = AtomicInteger(0)
     val processedEventIds = mutableListOf<UUID>()
     val failedMessages = mutableListOf<Pair<UUID, String>>()
+    val waitingMessages = mutableMapOf<UUID, Pair<String, Instant>>()
 
     override suspend fun saveBatch(messages: List<InboxMessage>) = Unit
 
@@ -253,6 +374,15 @@ private class PollingInboxMessageRepository(
         reason: String,
     ): Boolean {
         failedMessages += eventId to reason
+        return true
+    }
+
+    override fun markOutsideSendingWindowInTransaction(
+        eventId: UUID,
+        reason: String,
+        nextRetry: Instant,
+    ): Boolean {
+        waitingMessages += eventId to (reason to nextRetry)
         return true
     }
 }

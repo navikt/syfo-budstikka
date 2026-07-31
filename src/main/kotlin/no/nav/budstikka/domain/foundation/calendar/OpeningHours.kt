@@ -57,7 +57,7 @@ class OpeningHours internal constructor(
             instant
         } else {
             scanTo(instant) { isOpen(it) }
-                ?: error("Ingen åpning funnet innenfor $horizon fra $instant")
+                ?: error("No opening hours found within $horizon from $instant")
         }
 
     private fun scanTo(
@@ -123,7 +123,15 @@ fun interface OpeningRule {
 internal class ClosedOnDays(
     private val days: Set<DayOfWeek>,
 ) : OpeningRule {
-    override fun check(moment: Moment): Closed? = if (moment.dayOfWeek in days) Closed("weekday", "Stengt ${moment.dayOfWeek}") else null
+    override fun check(moment: Moment): Closed? =
+        if (moment.dayOfWeek in days) {
+            Closed(
+                "weekday",
+                "Closed ${moment.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}",
+            )
+        } else {
+            null
+        }
 }
 
 internal class ClosedOnDates(
@@ -138,14 +146,14 @@ internal class OpenBetween(
     private val until: LocalTime,
 ) : OpeningRule {
     init {
-        require(from < until) { "from må være før until" }
+        require(from < until) { "from must come before until" }
     }
 
     override fun check(moment: Moment): Closed? =
         if (moment.time in from..<until) {
             null
         } else {
-            Closed("hours", "Åpent $from–$until")
+            Closed("hours", "Open $from–$until")
         }
 
     override fun nextBoundary(moment: Moment): Instant {

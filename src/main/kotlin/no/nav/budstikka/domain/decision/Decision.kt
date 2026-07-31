@@ -62,6 +62,7 @@ sealed interface Decision {
 
     data class NotInSendingWindow(
         val nextRetry: Instant,
+        val reason: String,
     ) : Decision
 
     data class Dropped(

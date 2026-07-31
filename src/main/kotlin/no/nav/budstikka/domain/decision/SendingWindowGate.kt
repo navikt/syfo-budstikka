@@ -2,7 +2,7 @@ package no.nav.budstikka.domain.decision
 
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.SendingWindow
-import no.nav.budstikka.domain.foundation.BudstikkaSendingWindow
+import no.nav.budstikka.domain.foundation.BudstikkaSendingWindowLookup
 import kotlin.time.Clock
 
 /**
@@ -20,13 +20,14 @@ internal class SendingWindowGate(
             event.content
                 .gatedSendingWindow()
                 ?.takeIf { it == SendingWindow.BUDSTIKKA_OPENING_HOURS }
-                ?.let { BudstikkaSendingWindow.isClosed(now) }
+                ?.let { BudstikkaSendingWindowLookup.isClosed(now) }
                 ?: false
 
         return ResolvedRule { deliveries ->
             if (gatedSendingWindow) {
-                val nextRetry = BudstikkaSendingWindow.nextOpen(now)
-                Decision.NotInSendingWindow(nextRetry)
+                val nextRetry = BudstikkaSendingWindowLookup.nextOpen(now)
+                val reason = BudstikkaSendingWindowLookup.reason(now)
+                Decision.NotInSendingWindow(nextRetry, reason.first().reason)
             } else {
                 Decision.Processed(deliveries)
             }

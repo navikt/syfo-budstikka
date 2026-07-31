@@ -18,4 +18,5 @@ enum class InboxMessageState {
     PROCESSED,
     DROPPED,
     FAILED,
+    WAIT,
 }

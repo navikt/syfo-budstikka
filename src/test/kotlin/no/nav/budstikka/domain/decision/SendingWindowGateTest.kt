@@ -79,6 +79,28 @@ class SendingWindowGateTest :
             (notInWindow.nextRetry > now) shouldBe true
         }
 
+        test("søndag 12:00 (stengt) gir reason med riktig årsak") {
+            val now = LocalDateTime(2025, 2, 9, 12, 0).toInstant(oslo)
+            val clock = MutableClock(now)
+            val gate = SendingWindowGate(clock)
+            val event = Dispatch(reference = "ref-1", content = brukervarselContent())
+            val decision = gate.resolve(event).apply(emptyList())
+
+            val notInWindow = decision.shouldBeInstanceOf<Decision.NotInSendingWindow>()
+            notInWindow.reason shouldBe "closed SUNDAY"
+        }
+
+        test("stengt på julaften 24.12 gir NotInSendingWindow med reason") {
+            val now = LocalDateTime(2025, 12, 24, 12, 0).toInstant(oslo)
+            val clock = MutableClock(now)
+            val gate = SendingWindowGate(clock)
+            val event = Dispatch(reference = "ref-1", content = brukervarselContent())
+            val decision = gate.resolve(event).apply(emptyList())
+
+            val notInWindow = decision.shouldBeInstanceOf<Decision.NotInSendingWindow>()
+            notInWindow.reason shouldBe "Julaften (2025-12-24)"
+        }
+
         test("åpent vindu passerer deliveries uendret") {
             val clock = MutableClock(LocalDateTime(2025, 2, 11, 12, 0).toInstant(oslo))
             val gate = SendingWindowGate(clock)

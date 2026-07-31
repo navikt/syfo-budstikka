@@ -3,6 +3,7 @@ package no.nav.budstikka.application.port
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /** Hydrated inbox row (ADR 0008): [eventId] from the Kafka header; [reference]/[content] parsed at ingest. */
 data class InboxMessage(
@@ -48,5 +49,11 @@ interface InboxMessageRepository {
     fun markFailedInTransaction(
         eventId: UUID,
         reason: String,
+    ): Boolean
+
+    fun markOutsideSendingWindowInTransaction(
+        eventId: UUID,
+        reason: String,
+        nextRetry: Instant,
     ): Boolean
 }

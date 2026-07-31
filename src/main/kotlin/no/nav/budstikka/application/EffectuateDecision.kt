@@ -40,7 +40,12 @@ class EffectuateDecision(
                 is Decision.Failed ->
                     inboxMessageRepository.markFailedInTransaction(inboxEventId, decision.errorMessage)
 
-                is Decision.NotInSendingWindow -> TODO()
+                is Decision.NotInSendingWindow ->
+                    inboxMessageRepository.markOutsideSendingWindowInTransaction(
+                        inboxEventId,
+                        decision.reason,
+                        decision.nextRetry,
+                    )
             }
         }
 }
