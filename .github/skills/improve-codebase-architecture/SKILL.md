@@ -7,12 +7,21 @@ description: "Bruk når brukeren vil forbedre arkitekturen, finne refaktorerings
 
 Avdekk arkitektonisk friksjon i dette repoet og foreslå **fordypningsmuligheter** — refaktoreringer som gjør grunne moduler dype. Målet er testbarhet og at både mennesker og AI lett kan navigere koden.
 
-**Rolle:** dette _finner_ kandidater (oppdagelse). Design grensesnittet på en valgt kandidat inline med to genuint ulike alternativer; avhør valget med `/grilling` og `/domain-modeling`; bruk `/nav-architecture-review` for NAV-review og `/domain-modeling` for å formalisere et kvalifiserende valg som ADR.
+**Rolle:** dette _finner_ kandidater (oppdagelse). Design grensesnittet på en
+valgt kandidat inline med to genuint ulike alternativer og avhør valget med
+`/grilling`. Når varige begreper eller beslutninger bør dokumenteres, anbefal
+det dokumenterte løpet og vent på brukerens valg. Bruk
+`/nav-architecture-review` for NAV-review og `/domain-modeling` etter valgt
+dokumentert løp.
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
 
-- `docs/glossary.md` gir navn til gode sømmer i domenet; relevante topic-dokumenter beskriver vedlikeholdt detalj; ADR-er i `docs/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
-- Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i grilling (`/grilling` med `/domain-modeling`), plan (`.grill/PLAN.md`) og verifisering (`.grill/VERIFICATION.md`).
+- `docs/glossary.md` gir navn til gode sømmer i domenet; relevante
+  topic-dokumenter beskriver vedlikeholdt detalj. Tolk ADR-status via
+  `docs/agents/domain.md`, og ikke re-litiger bindende valg uten grunn.
+- Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i naturlig
+  grilling (`/grilling`), plan (`.grill/PLAN.md`) og verifisering
+  (`.grill/VERIFICATION.md`).
 
 ## Vokabular
 
@@ -53,9 +62,17 @@ Se [HTML-REPORT.md](HTML-REPORT.md) for fullt HTML-stillas, diagrammønstre og s
 
 ### 3. Grilling-løkke
 
-Når brukeren har valgt en kandidat, kjør `/grilling` med `/domain-modeling` for å gå ned beslutningstreet sammen med dem — begrensninger, avhengigheter, formen på den fordypede modulen, hva som ligger bak sømmen, hvilke tester som overlever. Dette er @grillmester fase 1–2.
+Når brukeren har valgt en kandidat, kjør `/grilling` for å gå ned
+beslutningstreet sammen med dem — begrensninger, avhengigheter, formen på den
+fordypede modulen, hva som ligger bak sømmen, hvilke tester som overlever. Dette
+er @grillmester fase 1–2.
 
-Sideeffekter skjer **løpende** mens beslutninger faller på plass:
+Når avklarte begreper eller kvalifiserende, varige beslutninger bør skrives til
+`docs/`, anbefal `/grill-with-docs`, forklar hvorfor og vent på brukerens valg.
+Før dokumentert løp er valgt, behold resultatene i samtalen og `.grill/`.
+
+Etter at dokumentert løp er valgt, skjer dokumentasjon **løpende** mens
+beslutninger faller på plass:
 
 - **Navngir du en fordypet modul etter et konsept som ikke står i `docs/glossary.md`?** Legg termen til der (bruk `/domain-modeling`). Opprett fila lazy hvis den mangler.
 - **Skjerper du en uklar term underveis?** Oppdater `docs/glossary.md` med en gang.
@@ -70,9 +87,9 @@ Sideeffekter skjer **løpende** mens beslutninger faller på plass:
 
 Når den valgte fordypningen er gjennomgrillet:
 
-- Skriv task-scope til issue/plan, vedlikeholdt detalj til relevant
-  topic-dokument og kvalifiserende beslutninger til `docs/adr/` via
-  `/domain-modeling`. Oppdater `docs/context.md` bare når orientering eller
-  overordnet status endres.
+- Skriv task-scope til issue/plan. Etter valgt dokumentert løp skriver
+  `/domain-modeling` nye begreper og kvalifiserende beslutninger; vedlikeholdt
+  detalj går til relevant topic-dokument. Oppdater `docs/context.md` bare når
+  orientering eller overordnet status endres.
 - Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i `.grill/PLAN.md` (plan-fasen; evt. videre til `/to-issues` for plukkbare snitt).
 - Definer hva som beviser at fordypningen lyktes (tester gjennom ett grensesnitt, søm bekreftet av to adaptere) i `.grill/VERIFICATION.md`.

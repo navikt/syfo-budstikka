@@ -36,19 +36,11 @@ Only include these when they add genuine value. Most ADRs won't need them.
 Scan `docs/adr/` for the highest existing number and increment by one. Preserve
 intentional gaps; do not reuse a reserved or historical number.
 
-## When to offer an ADR
+## Eligibility
 
-All three of these must be true:
-
-1. **Hard to reverse** — the cost of changing your mind later is meaningful.
-2. **Surprising without context** — a future reader will look at the code and
-   wonder "why on earth did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and
-   you picked one for specific reasons.
-
-If a decision is easy to reverse, skip it — you'll just reverse it. If it's not
-surprising, nobody will wonder why. If there was no real alternative, there's
-nothing to record beyond "we did the obvious thing."
+`/domain-modeling` owns the ADR eligibility gate. Use this format only after
+that skill has qualified the decision and the user wants it recorded; this
+reference does not redefine the gate.
 
 ### What qualifies
 

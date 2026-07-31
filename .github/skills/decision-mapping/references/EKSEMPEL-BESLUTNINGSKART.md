@@ -31,7 +31,7 @@ Avveining: én deploy som gjør begge (enklere drift) vs. to apper (renere skale
 Én Ktor-app: Kafka-konsument som materialiserer status til Postgres + REST-API
 som leser. Konsumenten og API-et deler datamodell, derfor samme app. Valget er
 vanskelig å reversere, overraskende uten kontekst og bygger på en reell
-avveining. → ADR via `/domain-modeling`
+avveining. Etter valgt dokumentert løp → ADR via `/domain-modeling`
 
 ## #3: Egen topic eller eksisterende rapid?
 
@@ -74,6 +74,6 @@ Legg merke til:
 - **#5 er blokkert av #1, ikke av #4.** Auth-modellen avhenger av dataklassifiseringen, ikke av idempotens-valget. #4 og #5 kan derfor løses parallelt.
 - **Tåka bak frontlinja** (lagring/sletting, observability, feilkontrakt) er bevisst ikke modellert som noder ennå — hvilke beslutninger som trengs der avhenger av utfallet av #4 og #5.
 - **Avgjorte noder forlater kartet.** Task-scope går til issue/plan,
-  vedlikeholdt detalj til relevant topic-dokument, og bare valg som passerer
-  alle tre ADR-testene peker til en ADR via `/domain-modeling`. Tunge
+  vedlikeholdt detalj til relevant topic-dokument, og etter valgt dokumentert
+  løp kan kvalifiserende valg peke til en ADR via `/domain-modeling`. Tunge
   utredninger/spiker lenkes, limes ikke inn.

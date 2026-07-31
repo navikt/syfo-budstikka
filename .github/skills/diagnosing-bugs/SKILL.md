@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (bruk /grilling med /domain-modeling)."
+description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (bruk /grilling og velg dokumentert løp ved behov)."
 ---
 
 # Diagnosing Bugs
@@ -146,7 +146,13 @@ Kreves før du erklærer ferdig:
 - [ ] Hypotesen som viste seg riktig er skrevet i commit/PR-melding — så neste debugger lærer
 - [ ] Ferskt grønt bevis for kvalitetsgatene noteres i `.grill/VERIFICATION.md` (kobler til @grillmester sin verifiser-fase)
 
-**Spør så: hva ville forhindret denne feilen?** Involverer svaret arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling), ta funnet videre via `/grilling` med `/domain-modeling`; bruk `/nav-architecture-review` for NAV-spesifikke konsekvenser og `/domain-modeling` hvis beslutningen passerer ADR-gaten. Gi anbefalingen **etter** at fiksen er inne, ikke før — du vet mer nå enn da du startet.
+**Spør så: hva ville forhindret denne feilen?** Involverer svaret
+arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling),
+ta funnet videre via `/grilling`. Bruk `/nav-architecture-review` for
+NAV-spesifikke konsekvenser. Når varige begreper eller beslutninger bør
+dokumenteres, anbefal dokumentert løp og vent på brukerens valg før
+`/domain-modeling` skriver. Gi anbefalingen **etter** at fiksen er inne, ikke
+før — du vet mer nå enn da du startet.
 
 ## Symptom-oversikt — runtime/plattform
 
@@ -166,6 +172,7 @@ Diagnose-trærne er NAV-/Ktor-spesifikke. Generisk Kubernetes-/Kafka-/SQL-kunnsk
 
 ## Relaterte skills
 
-- `/grilling` + `/domain-modeling` — stresstest design og vedlikehold domenemodellen når feilen avdekker et designhull
+- `/grilling` — stresstest design når feilen avdekker et designhull; anbefal
+  dokumentert løp ved behov
 - `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (mekanismene bak auth-diagnose)
 - `/nav-architecture-review` — review NAV-konsekvenser ved arkitekturendringer som ville forhindret feilen

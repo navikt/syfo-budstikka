@@ -90,6 +90,6 @@ Vanlig NAV-gotcha: Tempo-søk kan gi treff som ikke egentlig tilhører tjenesten
 - Til [auth-diagnose.md](./auth-diagnose.md) når feilraten primært er 401/403
 - Til `/diagnosing-bugs` (perf-grenen) når rotårsaken krever en baseline-måling
   og bisect. Manglende instrumentering, feil labels eller manglende `trace_id`
-  er et vedlikeholdt observability-gap i relevant topic-dokument; bruk
-  `/domain-modeling` bare hvis løsningen innebærer et varig valg som passerer
-  alle tre ADR-testene.
+  er et vedlikeholdt observability-gap i relevant topic-dokument. Hvis løsningen
+  innebærer et varig valg som passerer ADR-gaten, anbefal dokumentert løp og
+  vent på brukerens valg før `/domain-modeling` registrerer det.

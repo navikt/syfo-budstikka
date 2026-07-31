@@ -5,12 +5,18 @@ description: "Bruk når en ferdig-grillet idé eller design skal støpes til et 
 
 # to-prd
 
-Tar samtalekonteksten + det som ligger i `.grill/` og produserer et PRD som publiseres til issue-trackeren. **Ikke intervju brukeren** — syntetisér det dere allerede har kommet frem til. Mangler grunnlaget (uklart problem, ingen avklarte beslutninger), si fra og kjør `/grilling` med `/domain-modeling` først i stedet for å gjette.
+Tar samtalekonteksten + det som ligger i `.grill/` og produserer et PRD som
+publiseres til issue-trackeren. **Ikke intervju brukeren** — syntetisér det dere
+allerede har kommet frem til. Mangler grunnlaget (uklart problem, ingen
+avklarte beslutninger), stopp og anbefal `/grilling` i stedet for å gjette. Hvis
+varige begreper eller beslutninger bør dokumenteres under avklaringen, anbefal
+det dokumenterte løpet og vent på brukerens valg.
 
 ## Forutsetning: les arbeidsminnet først
 Dette er et seint steg i Grillmester sin faseløkke. Før du skriver, les det som allerede er avklart:
 - samtalen, oppgaven/parent-issuet og `.grill/PLAN.md` — valgt scope og ferdig-når-kriterier
-- eksplisitt relevante topic-dokumenter og ADR-er — vedlikeholdt detalj og bindende valg
+- eksplisitt relevante topic-dokumenter og ADR-er — vedlikeholdt detalj; tolk
+  ADR-status via `docs/agents/domain.md`
 - `docs/glossary.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
 - `.grill/VERIFICATION.md` hvis implementeringsbevis faktisk er relevant
 
@@ -73,9 +79,9 @@ Unntak: encoder en kort snutt en beslutning mer presist enn prosa (datamodell/`d
 Hva dette PRD-et bevisst ikke dekker.
 
 ## Videre notater
-Eventuelle åpne spørsmål, beslutningskandidater som bør vurderes med
-`/domain-modeling`, eller avhengigheter mot andre team. En ADR er bare aktuell
-når alle tre ADR-testene passerer.
+Eventuelle åpne spørsmål, beslutningskandidater eller avhengigheter mot andre
+team. Når en kandidat passerer ADR-gaten, anbefal dokumentert løp og vent på
+brukerens valg før `/domain-modeling` skriver.
 
 </prd-mal>
 

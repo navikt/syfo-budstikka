@@ -174,7 +174,11 @@ Bruk `Naisjob` når teamet trenger batch-kjøringer (nattlige jobber, engangs-mi
 
 ## Kobling til faseløkken
 
-- Legg task-scope i issue/plan og vedlikeholdt plattformdetalj i relevant topic-dokument. Bruk `/domain-modeling` bare når et plattformvalg passerer alle tre ADR-testene — f.eks. et vanskelig reverserbart og ikke-opplagt valg av ingress, scaling-strategi, Postgres-tier/HA eller Kafka-pool.
+- Legg task-scope i issue/plan og vedlikeholdt plattformdetalj i relevant
+  topic-dokument. Når et plattformvalg passerer ADR-gaten — for eksempel et
+  vanskelig reverserbart og ikke-opplagt valg av ingress, scaling-strategi,
+  Postgres-tier/HA eller Kafka-pool — anbefal dokumentert løp og vent på
+  brukerens valg før `/domain-modeling` registrerer det.
 - Endring i `accessPolicy`, auth-flagg eller scopes → kjør `/security-review` (loggføres i `.grill/VERIFICATION.md`).
 - Endring i prod-resources, replicas eller nye GCP-ressurser (kostnad) → kjør `grill-inspektor` før merge og legg evidens i `.grill/VERIFICATION.md`.
 

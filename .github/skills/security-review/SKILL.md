@@ -11,9 +11,13 @@ NAV-spesifikk sikkerhetssjekk før commit, push og PR i dette repoet. Generiske 
 
 Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke, og før PR. Når gjennomgangen avdekker varig verdi:
 
-- En kandidat som er vanskelig å reversere, overraskende uten kontekst og resultat av en reell avveining → ADR via `/domain-modeling`.
+- En kandidat som passerer ADR-gaten → anbefal dokumentert løp og vent på
+  brukerens valg før `/domain-modeling` skriver.
 - Reviewfunn → reviewsvaret eller `.grill/REVIEW.md`; deterministiske verktøybevis (trivy/zizmor-output, exit-koder) → `.grill/VERIFICATION.md`.
-- Vedlikeholdte rammer for datahåndtering → relevant topic-dokument; nye domenebegreper → `docs/glossary.md`. Oppdater `docs/context.md` bare ved endret orientering eller overordnet status.
+- Vedlikeholdte rammer for datahåndtering som følger av en godkjent endring →
+  relevant topic-dokument. Nye domenebegreper er kandidater for dokumentert løp;
+  vent på brukerens valg før glossaret oppdateres. Oppdater `docs/context.md`
+  bare ved endret orientering eller overordnet status.
 
 ## PII-klassifisering i NAV
 

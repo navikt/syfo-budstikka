@@ -8,8 +8,9 @@ description: "Brukes når dette Ktor-backendet (no.nav.syfo) skal produsere elle
 Nav-spesifikke konvensjoner for Kafka i dette repoet. Generell Kafka-teori er ikke dekket — fokus er topic-provisjonering, event-kontrakt og hvordan consumer/producer kobles inn i en Ktor-app.
 
 Brukes typisk i @grillmester fase 1–2 når en event-kontrakt formes, og i
-implementasjonsfasen når en consumer eller producer skrives. Bare varige valg
-som passerer alle tre ADR-testene registreres via `/domain-modeling`.
+implementasjonsfasen når en consumer eller producer skrives. Når et varig valg
+passerer ADR-gaten, anbefal dokumentert løp og vent på brukerens valg før
+`/domain-modeling` registrerer det.
 
 ## Detekter eksisterende Kafka-stil først
 
@@ -31,7 +32,11 @@ Følg det dominerende mønsteret. Hvis repoet ikke har Kafka fra før, velg plai
 1. Sjekk Nais-manifestet for `kafka.pool` og om Kafkarator `Topic`-CRD-er finnes (ofte i et eget `<team>-kafka`-repo).
 2. Søk i kodebasen etter eksisterende consumere/producere og følg samme mønster (oppstart, feilhåndtering, logging).
 3. Bekreft stack i `build.gradle.kts` (se tabell over).
-4. Planlegg event-kontrakt (topic-navn, key, felter, `@event_name`). Skriv vedlikeholdt kontraktsdetalj til relevant topic-dokument og nye domenebegreper til `docs/glossary.md`. Bruk `/domain-modeling` hvis et varig kontraktvalg passerer alle tre ADR-testene.
+4. Planlegg event-kontrakt (topic-navn, key, felter, `@event_name`). Skriv
+   vedlikeholdt kontraktsdetalj som følger av den godkjente endringen til
+   relevant topic-dokument. Nye domenebegreper og kvalifiserende varige valg er
+   kandidater for dokumentert løp; vent på brukerens valg før
+   `/domain-modeling` skriver dem.
 5. Implementer etter mønsteret for stacken (se referansefilene under).
 6. Verifiser med tester (se referansefilene) og loggfør i `.grill/VERIFICATION.md` (@grillmester fase 5).
 
@@ -192,7 +197,11 @@ Hvordan endre en eksisterende hendelse?
         ukjente event_names (gjelder spesielt Rapids).
 ```
 
-Breaking event-endringer er et koordineringsproblem med konsumerende team — samme disiplin som API-versjonering (`/api-design`). Review NAV- og teamkonsekvenser med `/nav-architecture-review`; registrer bare kvalifiserende beslutninger som ADR via `/domain-modeling`.
+Breaking event-endringer er et koordineringsproblem med konsumerende team —
+samme disiplin som API-versjonering (`/api-design`). Review NAV- og
+teamkonsekvenser med `/nav-architecture-review`. Når beslutningen kvalifiserer,
+anbefal dokumentert løp og vent på brukerens valg før `/domain-modeling`
+registrerer en ADR.
 
 ## Stack-spesifikke mønstre
 

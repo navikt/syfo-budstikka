@@ -4,8 +4,7 @@ A skill exists to wrangle determinism out of a stochastic system.
 **Predictability** — the agent taking the same *process* every run, not
 producing the same output — is the root virtue; every lever below serves it.
 
-**Bold terms** are defined in [the glossary](glossary.md); look them up there
-for the full meaning.
+**Bold terms** use the definitions in the skill's glossary.
 
 ## Invocation
 
@@ -26,8 +25,8 @@ remember, use a **router skill**. Hide a model-reachable skill from the human
 picker only when direct invocation would add noise or expose an implementation
 detail.
 
-Runtime mechanics differ. Use the target runtime's supported invocation fields
-rather than encoding policy in prose.
+Use GitHub Copilot's supported invocation fields rather than encoding policy
+in prose.
 
 ## Writing the description
 
@@ -101,5 +100,3 @@ word can collapse.
 - **No-op** — an instruction that changes nothing versus model default.
 - **Negation** — steering by naming forbidden behavior instead of positively
   specifying the target.
-
-Use [the glossary](glossary.md) for the complete definitions and distinctions.

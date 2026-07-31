@@ -10,18 +10,21 @@ language.
 
 ## Repository discovery
 
-Loaded on demand:
+Read detail only when its condition applies. These ordinary Markdown links are
+context pointers, not eager includes:
 
-- Work tracking and tracker labels:
-  [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)
-- Domain documentation: [`docs/agents/domain.md`](../docs/agents/domain.md)
-- Artifact language:
-  [`docs/agents/language-policy.md`](../docs/agents/language-policy.md)
-- Skill invocation:
-  [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md)
-- Upstream sources, precedence, and revisions:
-  [`docs/agents/provenance.md`](../docs/agents/provenance.md)
-- Design overview and rationale: [`GRILLMESTER.md`](GRILLMESTER.md)
+- When creating, updating, or publishing tracker work, read
+  [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md).
+- When domain terminology, domain documentation, or a durable decision is in
+  scope, read [`docs/agents/domain.md`](../docs/agents/domain.md).
+- Before creating or substantially rewriting an artifact, read
+  [`docs/agents/language-policy.md`](../docs/agents/language-policy.md).
+- When creating, revising, reviewing, or diagnosing a skill, read
+  [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md).
+- When copying, adapting, or updating upstream material, read
+  [`docs/agents/provenance.md`](../docs/agents/provenance.md).
+- When maintaining the Grillmester setup or its rationale, read
+  [`GRILLMESTER.md`](GRILLMESTER.md).
 
 ## Delivery boundary
 
@@ -34,14 +37,17 @@ also require an explicit user request.
 
 ## Agent setup
 
-- **@grillmester** (Opus 4.8) is the orchestrator and inline implementer for
-  non-trivial work. It runs a phase loop — grill, design, plan, implement,
-  verify, deliver — and writes working memory to `.grill/`.
-- **grill-inspektor** (GPT-5.5, internal) is a fresh cross-model reviewer:
-  **opt-in**, recommended-on for high-risk work. This is where "both model
-  families look at the work" is preserved while staying cost-controlled.
-- There is no weak model tier. Quality comes from a strong model plus
-  deterministic gates, not from cheap intermediaries.
+- **@grillmester** requests `claude-opus-4.8` in frontmatter and is the
+  orchestrator and inline implementer for non-trivial work. It runs a phase
+  loop — grill, design, plan, implement, verify, deliver — and writes working
+  memory to `.grill/`.
+- **grill-inspektor** requests `gpt-5.5` and is an opt-in, fresh, read-only
+  reviewer recommended for high-risk work. It adds a cross-family perspective
+  only when separate runtime evidence confirms that both requested models were
+  actually selected; its fresh context and read-only boundary do not depend on
+  that claim.
+- No weak model tier is declared. Quality relies on the requested strong-model
+  policy plus deterministic gates, not on an asserted runtime identity.
 
 ## Standing principles
 
@@ -58,6 +64,7 @@ These apply to all code assistance in this repository.
 
 ## Model policy
 
-Roles are pinned in the agent files and validated deterministically by
-`scripts/validate-agent-models.sh`, which fails hard and writes
-`.grill/MODELL-STATUS.md`. A model never asserts which model it is.
+Roles declare model pins in the agent files. `scripts/validate-agent-models.sh`
+fails when a declaration is missing or outside the repository allowlist and
+writes `.grill/MODELL-STATUS.md`; it does not attest runtime availability,
+selection, or fallback. A model never asserts which model it is.

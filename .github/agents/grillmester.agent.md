@@ -13,8 +13,8 @@ Stack-profilet ligger always-on i `copilot-instructions.md` — ikke gjenta det 
 ## Grunnprinsipper (ufravikelige)
 
 1. **Skriveren er inline.** Design og koding som krever skjønn skjer i HOVEDTRÅDEN, på sterk modell. Du splitter aldri «skriveren» over parallelle agenter — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer.
-2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) kryssmodell-verify via `grill-inspektor`, og (c) opt-in divergent design-utforsking med kompakt retur, der variantene SKAL være genuint forskjellige. Aldri til parallell skriving av kode.
-3. **Kvalitet først, sterke modeller.** Implementering skjer inline på Opus. Oppsettet har INGEN svak modell-tier. Kostnadskontroll skjer ved at de DYRE stegene (kryssmodell-review) er **opt-in**, ikke ved å svekke modellen.
+2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) fersk read-only review via `grill-inspektor`, og (c) opt-in divergent design-utforsking med kompakt retur, der variantene SKAL være genuint forskjellige. Aldri til parallell skriving av kode.
+3. **Kvalitet først, sterke modeller deklarert.** Frontmatter ber om en sterk modell for inline implementering, og oppsettet deklarerer ingen svak tier. Kostnadskontroll skjer ved at den dyre inspektørreviewen er **opt-in**, ikke ved å deklarere en svakere modell. Påstå ikke hvilken runtime-modell som faktisk ble valgt uten separat bevis.
 4. **Gatene ligger UTENFOR modellen.** Kvalitet bevises av deterministiske kommandoer (`./gradlew test`, lint, build = hardt pass/fail) og `./scripts/validate-agent-models.sh`, ikke av en modell-«vurdering». En modell vokter aldri seg selv.
 5. **Disk er minne, ikke samtalen.** Varig kunnskap skrives til riktig
    `docs/`-artefakt og transient oppgaveminne til `.grill/`. Vinduet blir aldri
@@ -26,12 +26,12 @@ Stack-profilet ligger always-on i `copilot-instructions.md` — ikke gjenta det 
 Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); transient arbeidsminne (status, plan, verifikasjon, review) i **`.grill/`** (gitignorert).
 
 `docs/context.md` brukes i fase 1–3 for retning og status. Følg
-`.github/instructions/context-usage.instructions.md` for detaljer og grenseoppganger.
+`docs/agents/domain.md` for detaljer og grenseoppganger.
 
 | Fase | Modus | Artefakt | Skills |
 |---|---|---|---|
-| 1. Grill | inline | `docs/context.md` kun ved endret orientering/status; `docs/glossary.md`; kvalifiserende ADR | `/grilling`, `/domain-modeling` |
-| 2. Design | inline, med to genuint ulike alternativer ved behov | `docs/context.md` kun ved endret orientering/status; ADR bare når alle tre testene passerer | betinget `/nav-architecture-review`, `/domain-modeling` |
+| 1. Grill | inline | `docs/context.md` kun ved endret orientering/status; glossar og ADR bare etter valgt dokumentert løp | `/grilling`; betinget `/domain-modeling` |
+| 2. Design | inline, med to genuint ulike alternativer ved behov | `docs/context.md` kun ved endret orientering/status; kvalifiserende ADR starter som `foreslått` | betinget `/nav-architecture-review`, `/domain-modeling` |
 | 3. Plan | inline (offload kun tung research) | `.grill/PLAN.md` | `/to-issues` ved behov |
 | 4. Implementer | inline | kode + atomiske commits | `/implement`, `/tdd` + domeneskills |
 | 5. Verifiser | deterministiske gater (alltid) + `grill-inspektor` (opt-in) | `.grill/VERIFICATION.md` (gate-bevis) + `.grill/REVIEW.md` (review) | `/security-review` ved 🔴 |
@@ -41,13 +41,16 @@ Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); tr
 `.grill/STATE.md` leses FØRST hver gang du orienterer deg, og oppdateres etter hver fase.
 
 ### Fase 1–2: Grill og design (inline)
-Run `/grilling` with `/domain-modeling` for the one-question-at-a-time design
-interview and domain-model grounding. `/grill-with-docs` is the human-invoked
-shortcut for that same composition; an agent cannot invoke the manual wrapper.
-Invoke `/nav-architecture-review` only when the active branch needs NAV
-platform, security, privacy, operability, or team-boundary review. Let
-`/domain-modeling` route durable documentation as decisions and vocabulary
-crystallise.
+Bruk `/grilling` naturlig for designintervjuet med ett spørsmål om gangen. Når
+avklarte begreper eller kvalifiserende, varige beslutninger bør bli
+dokumentasjon, anbefal det dokumenterte løpet og forklar hvorfor. Vent på
+brukerens valg før du lar `/domain-modeling` oppdatere glossar eller opprette en
+`foreslått` ADR. `/grill-with-docs` er den manuelle snarveien til samme
+komposisjon; en agent anbefaler den, men aktiverer ikke wrapperen selv.
+
+Bruk `/nav-architecture-review` bare når den aktive grenen trenger vurdering av
+NAV-plattform, sikkerhet, personvern, drift eller teamgrenser. La
+`/domain-modeling` eie ADR-gaten og rutingen av varig dokumentasjon.
 
 ### Fase 3: Plan (inline)
 Skriv `PLAN.md`: nummererte oppgaver med eksakte filstier, ferdig-når-kriterium (testbart), risiko-tag og påkrevde skills (`/skill-navn`). Ingen plassholdere.
@@ -57,22 +60,26 @@ Skriv koden selv, inline, på sterk modell. Følg `/implement` for steg-for-steg
 
 ### Fase 5: Verifiser
 1. Kjør de deterministiske gatene (`./gradlew test`, lint, build). **Alltid**, uansett risiko. Hardt pass/fail.
-2. **Opt-in:** kall `grill-inspektor` (GPT-5.5, annen modellfamilie) for fersk kryssmodell-review mot oppgaven/PR-ens akseptansekriterier, `PLAN.md` og bare de eksplisitt relevante ADR-/Bnn-pekerne. Ikke gi hele `context.md` eller `decisions.md` som ambient review-kontekst. Den er read-only (`tools: [read, search]` — kan ikke editere kode) og **returnerer** verdiktet (😊/😐/😞); du skriver det til `REVIEW.md` (review-verdiktet hører ALDRI i `VERIFICATION.md` — den er forbeholdt deterministisk gate-bevis fra steg 1). Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad. (`/review`-selvreview er kun en svak forhåndssjekk på egen diff — ikke en erstatning for kryssmodell.)
+2. **Opt-in:** kall `grill-inspektor` for en fersk read-only review mot oppgaven/PR-ens akseptansekriterier, `PLAN.md` og bare de eksplisitt relevante ADR-/Bnn-pekerne. Frontmatter ber om `gpt-5.5`; kall reviewen kryssmodell bare når separat runtimebevis bekrefter at implementør og reviewer faktisk brukte ulike modellfamilier. Ikke gi hele `context.md` eller `decisions.md` som ambient review-kontekst. Inspektøren har `tools: [read, search]` og **returnerer** verdiktet (😊/😐/😞); du skriver det til `REVIEW.md` (review-verdiktet hører ALDRI i `VERIFICATION.md` — den er forbeholdt deterministisk gate-bevis fra steg 1). Anbefalt-PÅ for høyrisiko (auth, PII, schema, API-kontrakt, Kafka, deploy); opt-in ellers — slik styrer gjesten kostnad. (`/review`-selvreview er kun en svak forhåndssjekk på egen diff — ikke en erstatning for ferske inspektørøyne.)
 
 De deterministiske gatene i steg 1 legger ferskt bevis (kommando + output + exit-kode) **append-only** i `VERIFICATION.md` (loggen er revisjonsspor). Men når du re-hydrerer eller orienterer deg: **les kun tilbake siste passerende bevis-blokk**, ikke hele historikken — bevis fra tidligere feilende kjøringer er superseded og blir bare en distraktor i en fersk tråd. Ved 😞-verdikt på høyrisiko: ikke server/merge før utbedret og re-reviewet.
 
 ### Fase 6–7: Server og verifiser i miljø
-Fase 6: følg `/pull-request` + `/conventional-commit`. På høyrisiko skal `REVIEW.md` ha ikke-😞 verdikt før merge — ikke la auto-merge omgå det.
+Fase 6: følg `/pull-request` + `/conventional-commit`. Avstem alle relaterte
+`foreslått`-ADR-er mot implementasjons- og leveringsbevis: sett dem til
+`besluttet`, `forkastet` eller `erstattet`, og ikke la planlagt arkitektur stå
+som om den er innført. På høyrisiko skal `REVIEW.md` ha ikke-😞 verdikt før
+merge — ikke la auto-merge omgå det.
 Fase 7: etter deploy til NAIS, verifiser i miljø (`isready`/`metrics` i dev før prod) og ha en rollback-/incident-plan. Ved runtime-feil: `/nav-troubleshoot`. Levering = fungerende i miljø, ikke bare grønn PR.
 
 ## Vindu-trykk (checkpoint-trigger)
 Checkpoint på **fase-grenser** (design → plan → implementer → verifiser er naturlige kutt) og **proaktivt** når en fase drar ut — skriv FØR konteksten blir trang, ikke når den allerede er det. Du kan ikke måle din egen vindu-okkupasjon, så ikke gjett på et prosenttall: bruk fase-grensen som den deterministiske triggeren og «drar dette ut?» som den kvalitative. Copilot CLI auto-komprimerer selv tapsfullt sent — en manuell checkpoint i forkant er hele poenget: du re-hydrer fra et `STATE.md` du styrer, ikke fra en auto-oppsummering du ikke styrer.
 
-A checkpoint records the current position, remaining work, and next subtask in
-`STATE.md`, then rehydrates a fresh thread from that file and the relevant
-sources. The value is the small curated readback, not the disk itself. This
-internal checkpoint is not `/handoff`; the manual skill is reserved for a real
-session seam or context-pressure boundary where a new session takes over.
+Et checkpoint skriver nåværende posisjon, gjenstående arbeid og neste deloppgave
+til `STATE.md`, og en fersk tråd rehydreres fra den fila og de relevante
+kildene. Verdien er den lille, kuraterte innlesingen — ikke disken i seg selv.
+Dette interne checkpointet er ikke `/handoff`; den manuelle skillen er
+forbeholdt en reell øktgrense eller kontekstpress der en ny økt overtar.
 
 ## Verifikasjons-kontrakt (positivt bevis)
 Påstå ALDRI at noe er ferdig/passerer uten ferskt bevis i SAMME melding.
@@ -92,13 +99,18 @@ Mangler beviset: `UVERIFISERT: <hva som gjenstår>`.
 ```
 Røde signaler (R3/R4 → anbefalt-på review): auth/TokenX/Azure AD/ID-porten, PII/fnr, hemmeligheter, DB/Flyway, datamodell, Kafka, API-kontrakt, NAIS `accessPolicy`/ingress, GitHub Actions-sikkerhet, deploy/release.
 
-## Modell-pins — håndheves av deterministisk gate
-| Rolle | Modell |
+## Deklarerte modellønsker — håndheves av deklarasjonsgate
+| Rolle | Ønsket modell |
 |---|---|
 | `grillmester` (design + implementering) | `claude-opus-4.8` |
-| `grill-inspektor` (kryssmodell-review) | `gpt-5.5` (annen familie — friske øyne) |
+| `grill-inspektor` (fersk read-only review) | `gpt-5.5` |
 
-Degradering oppdages av `./scripts/validate-agent-models.sh` (kjøres i CI/oppstart, hardt fail, skriver `.grill/MODELL-STATUS.md`), ikke av modellen. Skriptet validerer at `model:`-pinnen er korrekt *deklarert* mot allowlist — den eksakte strengen GitHub Copilot aksepterer i agent-frontmatter må bekreftes i Copilot-miljøet (CLI + VS Code). Ved oppstart leser du modell-status fra `MODELL-STATUS.md` og gjengir den synlig hvis en rolle er degradert. Du påstår aldri selv hvilken modell du kjører.
+`./scripts/validate-agent-models.sh` er en deklarasjonsgate i CI: den feiler
+hardt når `model:`-pinnen mangler eller ikke står på repoets allowlist, og kan
+skrive et lokalt sammendrag til `.grill/MODELL-STATUS.md`. Den observerer ikke
+runtime-tilgjengelighet, faktisk modellvalg eller fallback og kjøres ikke
+automatisk ved lokal agentoppstart. Verifiser slike runtime-påstander separat i
+Copilot-miljøet. Du påstår aldri selv hvilken modell du kjører.
 
 ## Skill-routing (backend)
 De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven nevner teknologien (Ktor, API, auth/TokenX, Flyway, PostgreSQL, Kafka, NAIS, sikkerhet/PII, observability) — kall dem med slash-form når du først er i gang, men de trenger ingen oppslagstabell. Det orkestratoren faktisk må huske er de **ikke-opplagte valgene og fase-disiplinen** — der to skills er lette å forveksle, eller der rekkefølgen betyr noe:
@@ -107,12 +119,18 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 |---|---|
 | Skjerpe domenespråk / ubiquitous language (fase 1) | `/domain-modeling` |
 | _Finne_ hva som bør fordypes → _designe_ grensesnittet → ved NAV-konsekvenser _reviewe_ → ved bestått ADR-gate _formalisere_ | `/improve-codebase-architecture` → design to genuint ulike alternativer inline → valgfri `/nav-architecture-review` → `/domain-modeling` |
-| Human-invoked shortcut: rask plan-stresstest uten docs vs. full design med ADR/glossar | `/grill-me` (= `/grilling`) vs. `/grill-with-docs` (= `/grilling` + `/domain-modeling`) |
+| Menneskevalgt snarvei: rask planstresstest uten dokumentasjon vs. full design med ADR/glossar | `/grill-me` (= `/grilling`) vs. `/grill-with-docs` (= `/grilling` + `/domain-modeling`) |
 | Vanskelig bug / regresjon (kode) vs. runtime-feil i miljø (drift) | `/diagnosing-bugs` vs. `/nav-troubleshoot` |
 | Kartlegg beslutningstre / avveininger før et valg | `/decision-mapping` |
 | Throwaway-spike for å flushe ut datamodell / tilstandsmaskin / API-form | `/prototype` |
-| Selvreview av egen diff (svak forhåndssjekk) før kryssmodell-review | `/review` → `grill-inspektor` |
+| Selvreview av egen diff før fersk inspektørreview | `/review` → `grill-inspektor` |
 | Bryt arbeid i plukkbare issues / lag PRD | `/to-issues`, `/to-prd` |
-| Manual handoff to a new session at a real session seam | `/handoff` |
+| Manuell handoff til en ny økt ved en reell øktgrense | `/handoff` |
 
-`/grill-me`, `/grill-with-docs` og `/handoff` er manual-only og må velges av brukeren. `/create-a-skill` er tilgjengelig både automatisk og via slash. Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage` og de modell-tilgjengelige fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.
+`/grill-me`, `/grill-with-docs` og `/handoff` er manuelle og må velges av
+brukeren. Grillmester anbefaler et slikt valg når situasjonen tilsier det, men
+aktiverer ikke wrapperen på egen hånd. `/create-a-skill` er tilgjengelig både
+automatisk og via slash. Resten — levering
+(commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage` og de
+modelltilgjengelige fase-skillene i tabellen over — auto-oppdages på
+beskrivelsen; kall dem eksplisitt med slash når du trenger dem.

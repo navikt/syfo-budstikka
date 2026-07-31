@@ -2,8 +2,7 @@
 
 The domain model for what makes a skill great. A skill exists to wrangle
 determinism out of a stochastic system; the root virtue is **Predictability**,
-and every term below is a lever on it. This is disclosed reference for
-[`create-a-skill`](../SKILL.md).
+and every term below is a lever on it.
 
 The terms are grouped by axis: **Invocation** (how a skill is reached),
 **Information Hierarchy** (how its content is arranged), **Steering** (how the
@@ -50,8 +49,8 @@ _Avoid_: procedure, workflow, command
 
 The skill's machine-readable discovery pointer. For a **Model-Invoked** skill,
 its presence in model context is the source of **Context Load**. Runtime
-mechanics differ, so the target runtime's supported fields define exactly how
-model and user reach are configured.
+behavior is configured through GitHub Copilot's supported fields, which define
+exactly how model and user reach are configured.
 
 _Avoid_: frontmatter, summary
 

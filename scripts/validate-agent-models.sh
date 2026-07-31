@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Deterministisk gate (Grillmester prinsipp 4): validerer at hver agents
-# model:-pin er paa allowlist. Feiler hardt. Degradering oppdages HER, aldri
-# av modellen selv. Skriver status til .grill/MODELL-STATUS.md, som @grillmester leser
-# og gjengir som transparens-kontrakt.
+# Deterministisk deklarasjonsgate: validerer at hver agents model:-pin er paa
+# repoets allowlist og feiler hardt ved manglende eller ukjent pin. Gaten
+# observerer ikke runtime-modell, tilgang, fallback eller faktisk modellvalg.
+# Skriver et lokalt sammendrag til .grill/MODELL-STATUS.md.
 #
 # Bruk:  scripts/validate-agent-models.sh [agents-dir]
-# Exit:  0 = alle paa gulv, 1 = degradert/mangler (hardt fail i CI/oppstart)
+# Exit:  0 = alle deklarasjoner tillatt, 1 = manglende/ukjent deklarasjon
 set -euo pipefail
 
 AGENT_DIR="${1:-.github/agents}"
@@ -18,28 +18,29 @@ declare -A ALLOW=(
 )
 
 fail=0
-degraded=""
+invalid=""
 for role in "${!ALLOW[@]}"; do
   f="$AGENT_DIR/${role}.agent.md"
   if [ ! -f "$f" ]; then
-    echo "MANGLER: $f"; degraded+="- $role: agentfil mangler\n"; fail=1; continue
+    echo "MANGLER: $f"; invalid+="- $role: agentfil mangler\n"; fail=1; continue
   fi
   model="$(grep -E '^model:' "$f" | head -1 | sed -E 's/^model:[[:space:]]*"?([^"#]*)"?.*/\1/' | xargs)"
   if [ -z "$model" ]; then
-    echo "FEIL: $role har ingen model:-pin"; degraded+="- $role: model ikke satt\n"; fail=1; continue
+    echo "FEIL: $role har ingen model:-pin"; invalid+="- $role: model ikke satt\n"; fail=1; continue
   fi
   if [[ " ${ALLOW[$role]} " == *" $model "* ]]; then
     echo "OK   $role: $model"
   else
-    echo "DEGRADERT: $role kjorer paa '$model' (forventet: ${ALLOW[$role]})"
-    degraded+="- $role kjorer paa $model — forvent lavere kvalitet\n"; fail=1
+    echo "UGYLDIG PIN: $role deklarerer '$model' (tillatt: ${ALLOW[$role]})"
+    invalid+="- $role deklarerer $model; tillatt: ${ALLOW[$role]}\n"; fail=1
   fi
 done
 
 mkdir -p "$(dirname "$STATUS")"
 {
-  echo "## Modell-status (deterministisk gate)"
-  if [ -n "$degraded" ]; then printf "%b" "$degraded"; else echo "- alle roller paa gulv"; fi
+  echo "## Modellpinner (deklarasjonsgate)"
+  if [ -n "$invalid" ]; then printf "%b" "$invalid"; else echo "- alle deklarerte modellpinner er tillatt"; fi
+  echo "- beviser ikke runtime-tilgjengelighet, faktisk modellvalg eller fallback"
 } > "$STATUS"
 
 exit $fail

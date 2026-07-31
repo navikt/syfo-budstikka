@@ -1,13 +1,14 @@
 ---
 name: create-a-skill
-description: Create, revise, review, or diagnose an agent skill with a predictable authoring and forward-testing workflow. Use when a user asks to create or improve a skill, investigate why one does not trigger, or validate skill behavior.
+description: Create, revise, review, or diagnose a GitHub Copilot CLI skill with a predictable authoring and forward-testing workflow. Use when a user asks to create or improve a skill, investigate why one does not trigger, or validate skill behavior.
 argument-hint: "[goal or existing skill path]"
 ---
 
 # Create a Skill
 
-Create, revise, or diagnose one skill. The target repository's instructions and
-runtime contract govern the artifact this skill produces.
+Create, revise, or diagnose one GitHub Copilot CLI skill. The target
+repository's instructions and installed Copilot version govern the artifact
+this skill produces.
 
 ## Choose the mode
 
@@ -24,8 +25,8 @@ edit only when the user requested implementation.
 ## 1. Inspect the target
 
 Read the target repository's agent instructions, skill policy, existing target
-skill, neighboring skills, and known callers. Identify the target runtime and
-its available structural or discovery validators.
+skill, neighboring skills, and known callers. Identify the repository's chosen
+Copilot skill root and available structural or discovery validators.
 
 For a revision, inspect enough history and usage to distinguish intentional
 behavior from sediment. For a new skill, search for an existing skill or
@@ -35,7 +36,7 @@ Complete this step when you can state:
 
 - the skill's one job;
 - its boundary against neighboring skills;
-- the target runtime and repository policies;
+- the target repository's Copilot and language policies;
 - the current callers or intended usage.
 
 ## 2. Design the invocation boundary
@@ -46,10 +47,35 @@ representative positive prompts and nearby prompts that should not select it.
 For every human-reachable branch, define the explicit slash invocation and any
 argument shape.
 
-When targeting GitHub Copilot, load
-[the GitHub Copilot adapter](references/github-copilot.md) for supported paths,
-frontmatter, and validation. For another runtime, use its authoritative local
-contract instead.
+GitHub Copilot searches project skills in this priority order:
+
+1. `.github/skills/`
+2. `.agents/skills/`
+3. `.claude/skills/`
+
+Use the root already selected by the target repository; use `.github/skills/`
+for a new NAV convention. Do not add a parallel skill tree. Place each skill at
+`<selected-root>/<kebab-case-name>/SKILL.md`, with optional `references/`,
+`scripts/`, and `assets/` directories beside it. Keep disclosed references one
+level below `SKILL.md` and point to each one directly from `SKILL.md` with the
+condition for loading it.
+
+Use only frontmatter supported by the installed GitHub Copilot CLI:
+
+- `name` — required; match the directory and slash name.
+- `description` — required; provide model discovery signals for a
+  model-reachable skill and a concise picker summary for a manual-only skill.
+- `disable-model-invocation: true` — make the skill manual-only;
+  `user-invocable` defaults to `true`.
+- `user-invocable: false` — hide a model-reachable skill from the picker.
+- Omit both invocation flags when the skill is reachable by both model and
+  human.
+- `argument-hint` — optional guidance when slash invocation accepts genuine
+  user input.
+
+Check the
+[GitHub Copilot CLI skills reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#skills-reference)
+before introducing any other key. Repository policy may narrow these choices.
 
 Complete this step when the invocation mode, its reachable surfaces, the
 relevant prompts or explicit commands, and the human- or model-facing
@@ -87,28 +113,14 @@ edits and report these conditions as findings instead.
 
 ## 5. Validate and forward-test
 
-Run safe structural, link, and discovery checks. In create or revise mode,
-execute bundled scripts on representative fixtures and inspect the final diff
-for scope, relevance, no-ops, duplication, and stale repository assumptions.
-In diagnose or review mode, run only non-mutating checks and include successes
-and failures as evidence instead of requiring the target to pass.
-
-Forward-test in a fresh session or subagent that receives only the target
-artifact, its actual runtime/repository contract, and a realistic request. Keep
-the expected answer, suspected defect, and planned fix out of the test prompt.
-Use a temporary fixture, isolated test repository, dry-run, mock, or other
-non-production surface. A real execution that writes external state, deploys,
-migrates, sends messages, or can destroy data requires the same explicit
-authority as normal product work.
-
-Match the tests to invocation mode:
-
-- **Manual-only** — verify picker visibility, absence of autonomous selection,
-  and one safe explicit slash execution per distinct branch.
-- **Model-only** — verify positive and close-negative autonomous selection,
-  absence from the picker, and one safe representative execution per branch.
-- **Both** — verify both surfaces, positive and close-negative autonomous
-  selection, and one safe representative execution per branch.
+Immediately before validation, read
+[the Copilot CLI validation checklist](references/copilot-cli-validation.md),
+then run its structural, link, discovery, and invocation checks that are safe
+in the target repository. In create or revise mode, execute bundled scripts on
+representative fixtures and inspect the final diff for scope, relevance,
+no-ops, duplication, and stale repository assumptions. In diagnose or review
+mode, run only non-mutating checks and include successes and failures as
+evidence instead of requiring the target to pass.
 
 In create or revise mode, revise against observed behavior. The edit is
 complete when structure and links pass, invocation matches its mode, every

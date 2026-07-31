@@ -7,21 +7,32 @@ description: "Bruk når en løs idé skummer av seg FLERE sammenkoblede, åpne b
 
 Gjør beslutningstreet eksplisitt: kartlegg de åpne valgene, hvilke som blokkerer hvilke, og hvilken avveining hvert valg står på — **før** du bestemmer deg. Dette er teknikken for når design-rommet er for stort for ett intervju: du sekvenserer beslutninger i stedet for å ta dem i tilfeldig rekkefølge og angre senere.
 
-**Komplementerer dokumentert grilling, dupliserer den ikke.** Selve intervju-mekanikken (ett spørsmål av gangen, anbefalt svar + begrunnelse) eies av `/grilling`; `/domain-modeling` skjerper språk og ruter varige artefakter. Denne skillen eier **kart-strukturen**: nodene, avhengighetsgrafen og rekkefølgen. Når en node skal løses ved drøfting, kjør `/grilling` med `/domain-modeling` — og før resultatet tilbake i kartet.
+**Komplementerer grilling, dupliserer den ikke.** Selve
+intervjumekanikken (ett spørsmål av gangen, anbefalt svar + begrunnelse) eies av
+`/grilling`. Denne skillen eier **kart-strukturen**: nodene,
+avhengighetsgrafen og rekkefølgen. Når en node skal løses ved drøfting, kjør
+`/grilling` og før resultatet tilbake i kartet. Hvis varig dokumentasjon blir
+relevant, anbefal dokumentert løp og vent på brukerens valg før
+`/domain-modeling` skriver noe.
 
 Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen. Avklarte, kvalifiserende beslutninger graduerer ut av kartet og inn i `docs/adr/`; task-scope går til issue/plan og vedlikeholdt detalj til relevant topic-dokument.
 
 ## Beslutningskartet
 
 Ett kompakt Markdown-dokument per planleggings-innsats:
-`.grill/DECISIONS.md` — transient arbeidsminne (gitignorert; kvalifiserende
-beslutninger graduerer til `docs/adr/` via `/domain-modeling`). Det er den
+`.grill/DECISIONS.md` — transient arbeidsminne (gitignorert; etter valgt
+dokumentert løp kan kvalifiserende beslutninger gradueres til `docs/adr/` via
+`/domain-modeling`). Det er den
 kanoniske *arbeids*-artefakten, og **hele kartet lastes inn som kontekst i hver
 økt** — derfor må det holdes stramt.
 
 - Hold det kompakt. Tunge artefakter (utrednings-notater, spike-resultater, prototyper) lenkes fra noden, **aldri** limes inn i kartet.
-- Når en beslutning passerer hele ADR-gaten → skriv den som `docs/adr/NNNN-*.md` via `/domain-modeling` og lenk fra noden. Kartet eier det åpne; ADR-ene eier de kvalifiserende, varige valgene.
-- Nytt domenebegrep dukker opp → `docs/glossary.md` (se `/domain-modeling`). Bruk de samme begrepene i nodene.
+- Når en beslutning passerer hele ADR-gaten og brukeren har valgt å dokumentere
+  den → skriv den som `docs/adr/NNNN-*.md` via `/domain-modeling` og lenk fra
+  noden. Kartet eier det åpne; ADR-ene eier de kvalifiserende, varige valgene.
+- Når et nytt domenebegrep dukker opp, bruk det konsekvent i kartet. Skriv det
+  til `docs/glossary.md` via `/domain-modeling` først etter valgt dokumentert
+  løp.
 
 ## Node-struktur
 
@@ -38,7 +49,7 @@ Avveining: borgerkontekst on-behalf-of (TokenX) vs. ren server-til-server uten b
 Skal endepunktene kalles på vegne av en innlogget borger/saksbehandler, eller maskin-til-maskin fra et annet team?
 
 ### Beslutning
-<fylles ut når noden løses — pek til ADR via /domain-modeling hvis alle tre ADR-testene passerer>
+<fylles ut når noden løses — etter valgt dokumentert løp kan /domain-modeling kvalifisere og skrive en ADR>
 ```
 
 Hver node skal være dimensjonert til **én fokusert økt**. Blir den for stor, splitt den i flere noder med riktige `Blokkert av`-kanter.
@@ -60,7 +71,10 @@ Tegn aldri en kant du ikke kan begrunne. En falsk avhengighet tvinger frem unød
 
 Hver node løses av riktig verktøy. Velg type etter hva slags spørsmål det er:
 
-- **Drøfting** (standard) — svaret ligger i hodet til teamet/brukeren eller i kodebasen. Kjør `/grilling` med `/domain-modeling`. Kan spørsmålet besvares ved å lese repoet → utforsk i stedet for å spørre.
+- **Drøfting** (standard) — svaret ligger i hodet til teamet/brukeren eller i
+  kodebasen. Kjør `/grilling`. Kan spørsmålet besvares ved å lese repoet →
+  utforsk i stedet for å spørre. Når resultatet bør bli varig dokumentasjon,
+  anbefal dokumentert løp og vent på brukerens valg.
 - **Utredning** — svaret ligger i dokumentasjon utenfor repoet (bibliotek, tredjeparts-API, NAV-plattform: nais.io, TokenX, Maskinporten). Slå opp i offisiell dokumentasjon for plattformen eller biblioteket. Bruk `/nav-architecture-review` bare når valget har NAV-plattform-, sikkerhets-, personvern-, operabilitets- eller teamgrensekonsekvenser. Resultat: et kort markdown-notat, lenket fra noden.
 - **Spike** — spørsmålet er «virker dette / hvordan oppfører det seg». Kjør `/prototype` for selve spiken (eier kast-vekk-kode, plassering og regler) — f.eks. idempotens ved Kafka-replay, en tilstandsmaskin, eller en datamodell mot Testcontainers-Postgres. Skal kjernen modnes til ekte kode → `/tdd`. Resultat: kort notat lenket fra noden; aldri lim spike-kode inn i kartet.
 
@@ -77,7 +91,10 @@ Til slutt er tåka dyttet langt nok bak til at veien til mål er klar. Da trengs
 ### Bygg kartet (bootstrap)
 Bruker kommer med en løs idé.
 
-1. Kjør `/grilling` med `/domain-modeling` for å avdekke de åpne beslutningene. Når en gren berører NAV-plattform, dataklassifisering, auth eller teamgrenser, bruk `/nav-architecture-review` på den grenen.
+1. Kjør `/grilling` for å avdekke de åpne beslutningene. Når en gren berører
+   NAV-plattform, dataklassifisering, auth eller teamgrenser, bruk
+   `/nav-architecture-review` på den grenen. Anbefal dokumentert løp og vent på
+   brukerens valg hvis resultatene bør skrives varig.
 2. Skriv `.grill/DECISIONS.md`: mest tåke, frontlinja identifisert, trivielt-avgjørbare valg løst inline med en gang. Tegn `Blokkert av`-kantene.
 3. **Stopp.** Å bygge kartet er én økts arbeid — ikke løs nodene i samme slengen.
 
@@ -86,7 +103,9 @@ Bruker peker på et eksisterende kart + et nodenummer.
 
 1. Last **hele kartet** som kontekst.
 2. Kjør én økt for å løse noden, med riktig verktøy for typen (se over).
-3. Skriv det økta avgjorde inn i nodens `### Beslutning`. Passerer valget alle tre ADR-testene → registrer via `/domain-modeling` og lenk.
+3. Skriv det økta avgjorde inn i nodens `### Beslutning`. Passerer valget hele
+   ADR-gaten og brukeren vil dokumentere det → registrer via
+   `/domain-modeling` og lenk.
 4. Legg til nylig oppdagede noder med korrekte `Blokkert av`-kanter. Oppdater/slett noder beslutningen invaliderte.
 5. **Stopp.**
 

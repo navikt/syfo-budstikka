@@ -11,7 +11,9 @@ Dette er et backend-repo (Ktor / no.nav.syfo). Spiken handler aldri om utseende,
 
 ## Når dette er riktig verktøy
 
-- Midt i en `/grilling`-økt med `/domain-modeling` dukker det opp et valg ingen av dere klarer å avgjøre på papir — "føles denne tilstandsmaskinen riktig når X skjer rett før Y?".
+- Midt i en `/grilling`-økt dukker det opp et valg ingen av dere klarer å
+  avgjøre på papir — "føles denne tilstandsmaskinen riktig når X skjer rett før
+  Y?".
 - Du vil presse en datamodell gjennom de stygge kantene før du skriver Flyway-migrasjonen.
 - Du vil se den faktiske JSON-en og feilkontrakten et endepunkt skal gi, før du binder deg til den.
 - Du er usikker på om en Kafka-konsument er idempotent / replay-trygg, og vil mate den en sekvens av records for hånd.
@@ -40,8 +42,15 @@ Skriv ned spørsmålet i én setning øverst i spike-fila (eller i `.grill/STATE
 
 Spiken er et sideverktøy *inne i* design- og planfasen, ikke et eget løp:
 
-- **Utløses fra fase 1–2.** Når `/grilling` med `/domain-modeling` treffer en blind-spot ingen klarer å avgjøre (idempotens, en stygg tilstandsovergang, en tvilsom modell), pauser du grillingen, spiker svaret, og går tilbake.
-- **Svaret er det eneste som lagres.** Når spiken har gjort jobben: én beslutning som passerer ADR-gaten → `docs/adr/NNNN-<tittel>.md` (via `/domain-modeling`; bruk `/nav-architecture-review` først når NAV-konsekvenser er relevante). Et nytt eller skjerpet begrep → `docs/glossary.md` (via `/domain-modeling`). Task-scope går til issue/plan, vedlikeholdt detalj til relevant topic-dokument, og `docs/context.md` oppdateres bare ved endret orientering eller overordnet status.
+- **Utløses fra fase 1–2.** Når `/grilling` treffer en blind-spot ingen klarer å
+  avgjøre (idempotens, en stygg tilstandsovergang, en tvilsom modell), pauser du
+  grillingen, spiker svaret, og går tilbake.
+- **Svaret er det eneste som lagres.** Task-scope går til issue/plan og
+  vedlikeholdt detalj til relevant topic-dokument. Når et nytt begrep eller en
+  kvalifiserende beslutning bør skrives varig, anbefal dokumentert løp og vent
+  på brukerens valg før `/domain-modeling` oppdaterer glossar eller ADR. Bruk
+  `/nav-architecture-review` først når NAV-konsekvenser er relevante, og
+  oppdater `docs/context.md` bare ved endret orientering eller overordnet status.
 - **Notér åpne svar.** Kjører du AFK og brukeren ikke har bekreftet verdikten ennå: skriv spørsmålet + foreløpig funn i `.grill/STATE.md`, så det fylles inn før spiken slettes.
 
 ## Anti-mønstre

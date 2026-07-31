@@ -18,6 +18,19 @@ Before using the default paths below, follow any domain-documentation policy
 linked by the repository's instructions. That policy owns local paths, artifact
 language, and established formats. If no policy exists, use the defaults here.
 
+## Durable write boundary
+
+Write domain documentation only when the user directly asks to create or
+update it, explicitly invokes a documented workflow such as
+`/domain-modeling` or `/grill-with-docs`, or accepts a recommendation to enter
+that workflow. Autonomous model selection, a candidate found by another skill,
+or ordinary design discussion does not by itself authorise a durable write.
+
+Without that authorisation, challenge terms, discuss scenarios, and return
+glossary or ADR candidates without editing files. Explain why documented work
+would help and wait for the user's choice. Once authorised, capture resolved
+terms and qualifying decisions inline as described below.
+
 ## File structure
 
 Most repos have a single context:

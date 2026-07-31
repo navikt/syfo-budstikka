@@ -8,9 +8,9 @@ Forskning (Anthropic 2026; Stray et al. HICSS-59 2026 — NAV-studie der 59 % er
 
 Grillmesters vri på NAVs kompetansebevaring: vi flytter den menneskelige
 rigoren **opp** til det som varer — **arkitektur, kontrakter, domene, hvorfor**
-— gjennom `/grilling` med `/domain-modeling`, kvalifiserende ADR-er og
-kryssmodell-review, framfor å kreve at koden skrives for hånd. Det er der
-mennesket må forstå og beslutte; agenten eier implementeringen.
+— gjennom naturlig `/grilling`, eksplisitt valgt dokumentert løp og en fersk
+read-only inspektørreview, framfor å kreve at koden skrives for hånd. Det er
+der mennesket må forstå og beslutte; agenten eier implementeringen.
 
 ## Alltid (uansett engasjements-nivå)
 Når du genererer kode:
@@ -26,8 +26,8 @@ Hvor hands-on vil gjesten være på **kode-nivå**:
 - **Guidet** — agenten forklarer ekstra, markerer rød-sone tydeligere, og inviterer mennesket inn på kode-nivå (generer-så-forstå: «hvorfor denne tilnærmingen?», «hva kan gå galt?», «hvilke edge cases?»). Default for **juniorer** og **høyrisiko / ukjent teknologi** — der kompetansetap-risikoen er størst.
 
 Rød sone (auth/sikkerhet, kjernelogikk, arkitektur) får uansett full grill og
-kryssreview. `/domain-modeling` skriver ADR bare når valget er vanskelig å
-reversere, overraskende uten kontekst og resultatet av en reell avveining.
+fersk inspektørreview. `/domain-modeling` skriver bare etter eksplisitt valgt
+dokumentert løp og når beslutningen passerer ADR-gaten.
 
 ## Aldri
 - Generere kode uten å forklare arkitektoniske valg.

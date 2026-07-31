@@ -17,7 +17,8 @@ Jobb fra det som allerede er i samtalen. Prioritert kilderekkefølge:
 
 - `.grill/PLAN.md` — den vedtatte planen fra plan-fasen
 - eksplisitt relevante topic-dokumenter — vedlikeholdt detalj som snittene må bevare
-- relevante ADR-er — beslutninger som binder issue-innholdet (respekter dem; ikke reåpne avgjorte valg)
+- relevante ADR-er — tolk status via `docs/agents/domain.md`; respekter
+  bindende valg og bruk foreslåtte valg bare når planen faktisk bygger på dem
 - `docs/glossary.md` — domenespråk som issue-titler og -beskrivelser skal bruke
 
 Les `docs/context.md` bare hvis du trenger repository-orientering eller overordnet status.
@@ -109,4 +110,8 @@ Ikke lukk eller endre parent-issuet.
 
 ## Etter publisering
 
-Issuene er nå input til implementeringsfasen. Når et snitt plukkes, kjører @grillmester normal faseløkke på det (implementer → verifiser → server), og lukker issuet via `Closes #NNN` i PR-en. Kjør `/grilling` med `/domain-modeling` hvis et snitt viser seg å trenge mer design før det kan implementeres.
+Issuene er nå input til implementeringsfasen. Når et snitt plukkes, kjører
+@grillmester normal faseløkke på det (implementer → verifiser → server), og
+lukker issuet via `Closes #NNN` i PR-en. Kjør `/grilling` hvis et snitt viser
+seg å trenge mer design før det kan implementeres; anbefal dokumentert løp og
+vent på brukerens valg dersom varige begreper eller beslutninger bør skrives.

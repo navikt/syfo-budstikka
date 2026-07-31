@@ -90,8 +90,9 @@ groups:
 - Alert på symptomer før interne indikatorer
 - Test terskler i `dev-gcp` før du strammer dem i prod
 - Unngå mange nesten-like varsler med små variasjoner i terskel
-- Grill endring av produksjonsterskler med `/grilling`. Bruk
-  `/domain-modeling` bare når valget passerer alle tre ADR-testene.
+- Grill endring av produksjonsterskler med `/grilling`. Når valget passerer
+  ADR-gaten, anbefal dokumentert løp og vent på brukerens valg før
+  `/domain-modeling` registrerer det.
 
 ## Slack-ruting via NAIS Alert
 

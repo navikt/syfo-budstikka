@@ -82,7 +82,11 @@ Før noen grilling: sjekk at påstanden holder.
 - Rapporter: bekreftet (med kodevei), feilet, eller utilstrekkelig detalj (et sterkt `needs-info`-signal). En bekreftet verifisering gir en mye sterkere brief.
 
 ### 4. Grill (ved behov)
-Trenger saken kjøtt på beina, kjør `/grilling` med `/domain-modeling` — grill den i form ett spørsmål av gangen, skjerp domenebegreper og oppdater varige artefakter løpende. Bruk `/nav-architecture-review` for NAV-spesifikke funn; lar trepunktsgaten beslutningen passere, eier `/domain-modeling` selve ADR-en.
+Trenger saken kjøtt på beina, kjør `/grilling` og grill den i form ett spørsmål
+av gangen. Når avklarte begreper eller varige beslutninger bør dokumenteres,
+anbefal dokumentert løp, forklar hvorfor og vent på brukerens valg. Bruk
+`/nav-architecture-review` for NAV-spesifikke funn; etter valgt dokumentert løp
+eier `/domain-modeling` glossaret, ADR-gaten og selve ADR-en.
 
 ### 5. Bruk utfallet
 - `ready-for-agent` — post en arbeidsklar brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Saken regnes nå som plukkbar i @grillmester sin faseløkke.

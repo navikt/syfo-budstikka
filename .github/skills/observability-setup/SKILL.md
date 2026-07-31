@@ -167,10 +167,10 @@ Se `references/alerting.md` for Prometheus-regler og NAIS `Alert`-ressurs med Sl
 
 Grill ikke-rutinemessige valg med `/grilling`: labels som kan øke
 kardinaliteten vesentlig, produksjonsterskler, varslingskanaler som påvirker
-teamets arbeidsflyt, og lagring av sensitive domenedata. Legg vedlikeholdt
-observability-detalj i relevant topic-dokument. Bruk `/domain-modeling` bare
-når et varig valg er vanskelig å reversere, overraskende uten kontekst og
-resultatet av en reell avveining.
+teamets arbeidsflyt, og lagring av sensitive domenedata. Legg
+observability-detalj som følger av den godkjente endringen i relevant
+topic-dokument. Når et varig valg passerer ADR-gaten, anbefal dokumentert løp
+og vent på brukerens valg før `/domain-modeling` registrerer det.
 
 ## Sjekkliste
 

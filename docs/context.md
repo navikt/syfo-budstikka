@@ -11,7 +11,7 @@ to pick the convenient source.
 | Question | Source |
 |---|---|
 | What does the system actually do? | Executable code and tests |
-| What is binding and hard to reverse? | `docs/adr/NNNN-*.md` |
+| What is binding and hard to reverse? | The status semantics in `docs/agents/domain.md`, then the relevant `docs/adr/NNNN-*.md` |
 | What does a domain term mean? | `docs/glossary.md` |
 | What does an existing `Bnn` decision mean, and is it still active? | `docs/decisions.md` — the canonical compatibility register for B1-B63 |
 | Where does a new decision live? | ADR only when the three-part gate passes; issue/plan for a task-scoped choice; topic document for maintained detail |
@@ -26,7 +26,7 @@ directly instead of reading a whole file.
 - **`docs/decisions.md`** — canonical compatibility register for B1-B63. Code, ADRs, and topic documents
   reference these by number.
 - `docs/glossary.md` - domain vocabulary
-- `docs/adr/` - binding architecture decisions
+- `docs/adr/` - status-tagged architecture decisions; interpretation and lifecycle are owned by `docs/agents/domain.md`
 - `docs/kontrakt.md` - channel DTOs and the published Kafka contract
 - `docs/datamodell.md` - inbox and delivery
 - `docs/ferdigstill.md` - closing and inactivation
@@ -50,9 +50,9 @@ idempotens, innebygd retry og feilhåndtering, bedre logging med trace-id/tracin
 som oppgaveplan.
 
 `docs/decisions.md` bevarer de eksisterende B1–B63-referansene som et kompatibilitetsregister. Nye, varige valg får
-ikke nye B-numre som standard: valg som er vanskelige å reversere, overraskende
-uten kontekst og resultatet av en reell avveining går i én relevant ADR.
-Reversible eller oppgavespesifikke valg blir i GitHub-sak/plan. Eksisterende
-B-er kan presiseres eller erstattes, men statusen må stå på selve oppføringen.
+ikke nye B-numre som standard: `/domain-modeling` avgjør om de kvalifiserer til
+én relevant ADR. Reversible eller oppgavespesifikke valg blir i
+GitHub-sak/plan. Eksisterende B-er kan presiseres eller erstattes, men statusen
+må stå på selve oppføringen.
 
 Domeneblindhet (B1/ADR 0001) er den røde tråden: budstikka forgrener aldri på domenetype.

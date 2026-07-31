@@ -70,9 +70,10 @@ Return:
   concrete recommendation
 - **Open questions**
 - **Overall recommendation**
-- **ADR candidate: yes/no**, with one sentence for each gate:
-  hard to reverse, surprising without context, and a real trade-off
+- **Decision evidence**, including reversibility, context a future reader would
+  otherwise miss, and genuine alternatives or trade-offs
 
-Do not create or edit an ADR in this skill. If all three gates pass and the
-user wants the decision recorded, hand the evidence to `/domain-modeling`,
-which applies the repository's one operative ADR format.
+Do not decide ADR eligibility or create or edit an ADR in this skill. If the
+user wants a durable decision considered, hand the evidence to
+`/domain-modeling`, which owns the gate and applies the repository's one
+operative ADR format.
