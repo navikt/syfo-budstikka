@@ -13,7 +13,7 @@ Stack-profilet ligger always-on i `copilot-instructions.md` — ikke gjenta det 
 ## Grunnprinsipper (ufravikelige)
 
 1. **Skriveren er inline.** Design og koding som krever skjønn skjer i HOVEDTRÅDEN, på sterk modell. Du splitter aldri «skriveren» over parallelle agenter — koding har for få reelt uavhengige deler, og implisitte beslutninger kolliderer.
-2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) kryssmodell-verify via `grill-inspektor`, og (c) divergent design-utforsking (opt-in, read-only, kompakt retur — `/codebase-design` design-it-twice, der variantene SKAL divergere). Aldri til parallell skriving av kode.
+2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) kryssmodell-verify via `grill-inspektor`, og (c) opt-in divergent design-utforsking med kompakt retur, der variantene SKAL være genuint forskjellige. Aldri til parallell skriving av kode.
 3. **Kvalitet først, sterke modeller.** Implementering skjer inline på Opus. Oppsettet har INGEN svak modell-tier. Kostnadskontroll skjer ved at de DYRE stegene (kryssmodell-review) er **opt-in**, ikke ved å svekke modellen.
 4. **Gatene ligger UTENFOR modellen.** Kvalitet bevises av deterministiske kommandoer (`./gradlew test`, lint, build = hardt pass/fail) og `./scripts/validate-agent-models.sh`, ikke av en modell-«vurdering». En modell vokter aldri seg selv.
 5. **Disk er minne, ikke samtalen.** Varig kunnskap skrives til riktig
@@ -31,7 +31,7 @@ Durable artefakter (ADR, glossar, kontekst) ligger i **`docs/`** (committes); tr
 | Fase | Modus | Artefakt | Skills |
 |---|---|---|---|
 | 1. Grill | inline | `docs/context.md` kun ved endret orientering/status; `docs/glossary.md`; kvalifiserende ADR | `/grilling`, `/domain-modeling` |
-| 2. Design | inline | `docs/context.md` kun ved endret orientering/status; ADR bare når alle tre testene passerer | `/codebase-design`, betinget `/nav-architecture-review`, `/domain-modeling` |
+| 2. Design | inline, med to genuint ulike alternativer ved behov | `docs/context.md` kun ved endret orientering/status; ADR bare når alle tre testene passerer | betinget `/nav-architecture-review`, `/domain-modeling` |
 | 3. Plan | inline (offload kun tung research) | `.grill/PLAN.md` | `/to-issues` ved behov |
 | 4. Implementer | inline | kode + atomiske commits | `/implement`, `/tdd` + domeneskills |
 | 5. Verifiser | deterministiske gater (alltid) + `grill-inspektor` (opt-in) | `.grill/VERIFICATION.md` (gate-bevis) + `.grill/REVIEW.md` (review) | `/security-review` ved 🔴 |
@@ -106,7 +106,7 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 | Når du er i tvil | Velg |
 |---|---|
 | Skjerpe domenespråk / ubiquitous language (fase 1) | `/domain-modeling` |
-| _Finne_ hva som bør fordypes → _designe_ grensesnittet → ved NAV-konsekvenser _reviewe_ → ved bestått ADR-gate _formalisere_ | `/improve-codebase-architecture` → `/codebase-design` → valgfri `/nav-architecture-review` → `/domain-modeling` |
+| _Finne_ hva som bør fordypes → _designe_ grensesnittet → ved NAV-konsekvenser _reviewe_ → ved bestått ADR-gate _formalisere_ | `/improve-codebase-architecture` → design to genuint ulike alternativer inline → valgfri `/nav-architecture-review` → `/domain-modeling` |
 | Human-invoked shortcut: rask plan-stresstest uten docs vs. full design med ADR/glossar | `/grill-me` (= `/grilling`) vs. `/grill-with-docs` (= `/grilling` + `/domain-modeling`) |
 | Vanskelig bug / regresjon (kode) vs. runtime-feil i miljø (drift) | `/diagnosing-bugs` vs. `/nav-troubleshoot` |
 | Kartlegg beslutningstre / avveininger før et valg | `/decision-mapping` |
@@ -115,4 +115,4 @@ De domene-spesifikke skillene auto-oppdages på beskrivelsen sin når oppgaven n
 | Bryt arbeid i plukkbare issues / lag PRD | `/to-issues`, `/to-prd` |
 | Manual handoff to a new session at a real session seam | `/handoff` |
 
-`/grill-me`, `/grill-with-docs`, `/handoff` og `/create-a-skill` er manual-only og må velges av brukeren. Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage` og de modell-tilgjengelige fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.
+`/grill-me`, `/grill-with-docs` og `/handoff` er manual-only og må velges av brukeren. `/create-a-skill` er tilgjengelig både automatisk og via slash. Resten — levering (commit/PR/issue/README/klarspråk), `/resolving-merge-conflicts`, `/triage` og de modell-tilgjengelige fase-skillene i tabellen over — auto-oppdages på beskrivelsen; kall dem eksplisitt med slash når du trenger dem.

@@ -24,25 +24,22 @@ commands, and stop if any value differs. Use fresh output from:
 
 ```bash
 set -euo pipefail
-git rev-parse --show-toplevel
+repository_root=$(git rev-parse --show-toplevel)
+cd "$repository_root"
+printf '%s\n' "$repository_root"
 git branch --show-current
 git rev-parse HEAD
 git status --short --branch --untracked-files=all
-{
-  git diff --binary HEAD
-  while IFS= read -r -d '' untracked_file; do
-    if [[ -L "$untracked_file" ]]; then
-      untracked_kind=symlink
-    elif [[ -x "$untracked_file" ]]; then
-      untracked_kind=executable
-    else
-      untracked_kind=regular
-    fi
-    printf '\0untracked:%s:%s\0' "$untracked_kind" "$untracked_file"
-    git hash-object --no-filters -- "$untracked_file"
-  done < <(git ls-files --others --exclude-standard -z)
-} | git hash-object --stdin
+bash .github/skills/handoff/scripts/worktree-fingerprint.sh
 ```
+
+The bundled fingerprint script hashes the index and raw tracked and
+Git-reportable untracked worktree state, including symlink targets without
+following them. It fails closed with an explicit diagnostic for unmerged
+indexes, tracked submodules, embedded Git repositories, and non-ignored special
+filesystem entries. Do not produce a Git preflight when the script rejects the
+current repository state; resolve the state or tell the user that an exact
+handoff cannot be created.
 
 For each referenced ignored or out-of-worktree artifact, record its canonical
 path plus a fresh content hash or another exact expected-state check. Do not

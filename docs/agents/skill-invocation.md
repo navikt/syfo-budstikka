@@ -22,6 +22,8 @@ Existing skills are reclassified only in a dedicated, reviewable skill change.
 
 ## Authoring guidance
 
-`/create-a-skill` follows this invocation contract and is manual-only. Other
-frontmatter fields are used only when the GitHub Copilot CLI skills reference
-supports them and the skill's interface needs them.
+`/create-a-skill` is available through both automatic selection and explicit
+slash invocation so the action-oriented rename preserves the previous
+model-reachable authoring guidance. Other frontmatter fields are used only when
+the GitHub Copilot CLI skills reference supports them and the skill's interface
+needs them.

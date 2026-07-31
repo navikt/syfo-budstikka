@@ -1,8 +1,7 @@
 ---
 name: create-a-skill
-description: Create, revise, or diagnose an agent skill with a predictable authoring and forward-testing workflow.
+description: Create, revise, review, or diagnose an agent skill with a predictable authoring and forward-testing workflow. Use when a user asks to create or improve a skill, investigate why one does not trigger, or validate skill behavior.
 argument-hint: "[goal or existing skill path]"
-disable-model-invocation: true
 ---
 
 # Create a Skill

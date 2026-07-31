@@ -7,7 +7,7 @@ description: "Bruk når brukeren vil forbedre arkitekturen, finne refaktorerings
 
 Avdekk arkitektonisk friksjon i dette repoet og foreslå **fordypningsmuligheter** — refaktoreringer som gjør grunne moduler dype. Målet er testbarhet og at både mennesker og AI lett kan navigere koden.
 
-**Rolle:** dette _finner_ kandidater (oppdagelse). Designe grensesnittet på en valgt kandidat = `/codebase-design`; avhøre valget = `/grilling` med `/domain-modeling`; NAV-review = `/nav-architecture-review`; formalisere et kvalifiserende valg som ADR = `/domain-modeling`.
+**Rolle:** dette _finner_ kandidater (oppdagelse). Design grensesnittet på en valgt kandidat inline med to genuint ulike alternativer; avhør valget med `/grilling` og `/domain-modeling`; bruk `/nav-architecture-review` for NAV-review og `/domain-modeling` for å formalisere et kvalifiserende valg som ADR.
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
 
@@ -16,7 +16,7 @@ Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et 
 
 ## Vokabular
 
-Dette bruker dyp-modul-vokabularet som `/codebase-design` eier — **modul**, **grensesnitt**, **implementasjon**, **dybde** (dyp/grunn), **søm** (seam, ikke «boundary»), **adapter**, **lokalitet**, **leverage**. Bruk ordene presist; ikke drift til «komponent», «service», «lag» eller «API». Full definisjon av hvert: `/codebase-design`.
+Bruk dyp-modul-vokabularet presist: en **modul** skjuler en **implementasjon** bak et lite **grensesnitt**; **dybde** er mengden kompleksitet grensesnittet skjuler. En **søm** er stedet modulen kan skilles fra en **adapter**. **Lokalitet** holder relatert kunnskap samlet, og **leverage** er hvor mye kompleksitet ett grensesnitt bærer. Ikke drift til «komponent», «service», «lag» eller «API» når disse mer presise ordene passer.
 
 **Slettetesten** (det operative verktøyet for oppdagelse): ville det å slette modulen *konsentrere* kompleksitet (bra — den var grunn) eller bare flytte den (da var den ekte)? Et «ja, konsentrerer» er signalet du jakter på.
 
@@ -64,7 +64,7 @@ Sideeffekter skjer **løpende** mens beslutninger faller på plass:
   en reell avveining. Hopp over flyktige ("ikke verdt det nå") og
   selvinnlysende grunner. Bruk `/nav-architecture-review` hvis NAV-spesifikke
   konsekvenser må vurderes, og `/domain-modeling` for selve ADR-en.
-- **Vil du utforske alternative grensesnitt for den fordypede modulen?** Kjør `/codebase-design` (design-it-twice — alternativene lages sekvensielt inline, aldri over parallelle agenter).
+- **Vil du utforske alternative grensesnitt for den fordypede modulen?** Design to genuint ulike alternativer sekvensielt inline før du sammenligner dem. Bruk subagenter bare til kompakt, read-only divergent utforsking, aldri til parallell skriving.
 
 ### 4. Koble til faseløkka
 

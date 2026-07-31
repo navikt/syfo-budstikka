@@ -2,7 +2,8 @@
 
 syfo-budstikka er en **domeneblind** ruter som dispatcher noe til en recipient på riktig
 channel, uten å kjenne domenet (dialogmøte, aktivitetskrav osv.). Ordlista under er det
-kanoniske språket for domenet — velg disse ordene i kode, kontrakt, issues og docs.
+kanoniske språket for domenediskusjoner, issues og docs. Kode- og kontraktsnavn i parentes
+er kryssreferanser, ikke en regel om å endre stabile identifikatorer.
 
 ## Aktører
 
@@ -64,19 +65,14 @@ ikke om varselet vises på flaten.
 
 ## Kobling og lukking
 
-**(`eventId`)**:
-Produsentens unike id per melding. Brukes til dedup/idempotens og til å korrelere ett
-hendelsesløp i logg. Lever kun som den obligatoriske og autoritative Kafka-headeren
-`DispatchHeader.EVENT_ID` (ADR 0008/B61), aldri i payloaden. Manglende eller ugyldig header
-går til dead letter; en gyldig id brukes som inbox-PK og dedupes med `ON CONFLICT DO NOTHING`.
-Ulik `reference`: `eventId` er unik per hendelse, mens `reference` kobler flere hendelser
-(create→ferdigstill).
-_Unngå_: meldings-id, korrelasjons-id (i kode/logg heter feltet `eventId`)
+**Hendelses-ID (`eventId`)**:
+Produsentens unike identifikator for én dispatch-hendelse. Ulik `reference`: hendelses-ID-en
+identifiserer én hendelse, mens `reference` knytter flere hendelser sammen.
+_Unngå_: meldings-id, korrelasjons-id
 
 **Reference (`reference`)**:
-Produsentens id som kobler en opprettet dispatch til senere lukking. Budstikka bruker den
-som selektiv koblingsnøkkel og avgrenser matchen med mottaker og kanal, men kjenner ikke
-betydningen.
+Produsentens identifikator som knytter en opprettet dispatch til senere lukking. Budstikka
+kjenner ikke identifikatorens domenebetydning.
 _Unngå_: referanse (legacy-ord)
 
 **Match key (`match key`)**:
@@ -85,8 +81,8 @@ Nøkkelen som brukes for å matche inactivate mot tidligere create. I modellen e
 _Unngå_: matchnøkkel (legacy-ord i kodekontekst)
 
 **Recipient match-id (`recipient_id`)**:
-Recipient-identifikatoren i `delivery` som inngår i match key (personident eller orgnummer).
-For inactivate-hendelser er dette samme id som konsumenten kjenner ved create.
+Den stabile recipient-identifikatoren produsenten kjenner ved create, enten personident eller
+orgnummer. Den inngår i match key ved senere inactivate.
 
 **Create (`operation=CREATE`)**:
 Å be budstikka opprette en ny dispatch.
@@ -100,11 +96,6 @@ Budstikkas lukking av en dispatch på én channel, avledet fra den lagrede creat
 _Unngå_: inaktiver (legacy-ord i kodekontekst)
 
 ## Levering
-
-**CAS (compare-and-set)**:
-Et atomisk update-mønster der raden bare oppdateres hvis den fortsatt har forventet state
-(for eksempel `... WHERE state='CLAIMED'`). Brukes for å unngå dobbeltprosessering når
-flere workere konkurrerer om samme rad.
 
 **Delivery (`delivery`)**:
 Én dispatch til én recipient på én channel, som budstikka utfører og sporer til den er terminal.

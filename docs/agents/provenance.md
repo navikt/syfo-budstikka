@@ -44,8 +44,8 @@ The repository-local files are the operative versions.
 | `.github/skills/domain-modeling/SKILL.md` | `skills/engineering/domain-modeling/SKILL.md` | Imported with a portable repository-policy seam; syfo paths and formats live in `docs/agents/domain.md` |
 | `.github/skills/domain-modeling/ADR-FORMAT.md` | `skills/engineering/domain-modeling/ADR-FORMAT.md` | Retains Matt's minimal fallback, decision gate, and qualification list; repository policy takes precedence |
 | `.github/skills/domain-modeling/CONTEXT-FORMAT.md` | `skills/engineering/domain-modeling/CONTEXT-FORMAT.md` | Imported as the English fallback; the local Norwegian glossary mapping lives in `docs/agents/domain.md` |
-| `.github/skills/handoff/SKILL.md` | `skills/productivity/handoff/SKILL.md` | Adapted with OS-temporary storage, absolute-path output, and conditional receiver repository-state safeguards |
-| `.github/skills/create-a-skill/SKILL.md` | `skills/productivity/writing-great-skills/SKILL.md`; Hovmester `dist/skills/create-a-skill/SKILL.md` | Reworked into one concise, manual, action-oriented workflow under Hovmester's stable public name |
+| `.github/skills/handoff/SKILL.md` | `skills/productivity/handoff/SKILL.md` | Adapted with OS-temporary storage, absolute-path output, and a bundled fail-closed repository-state fingerprint |
+| `.github/skills/create-a-skill/SKILL.md` | `skills/productivity/writing-great-skills/SKILL.md`; Hovmester `dist/skills/create-a-skill/SKILL.md` | Reworked into one concise, action-oriented workflow under Hovmester's stable public name while preserving model and human reachability |
 | `.github/skills/create-a-skill/references/principles.md` | `skills/productivity/writing-great-skills/SKILL.md` | Matt's English principles adapted into progressively disclosed, runtime-neutral reference |
 | `.github/skills/create-a-skill/references/glossary.md` | `skills/productivity/writing-great-skills/GLOSSARY.md` | Complete term set retained in English and condensed for the local actionable skill |
 
