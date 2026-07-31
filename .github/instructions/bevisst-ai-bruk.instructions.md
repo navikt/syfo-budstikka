@@ -25,9 +25,9 @@ Hvor hands-on vil gjesten være på **kode-nivå**:
   stack.
 - **Guidet** — agenten forklarer ekstra, markerer rød-sone tydeligere, og inviterer mennesket inn på kode-nivå (generer-så-forstå: «hvorfor denne tilnærmingen?», «hva kan gå galt?», «hvilke edge cases?»). Default for **juniorer** og **høyrisiko / ukjent teknologi** — der kompetansetap-risikoen er størst.
 
-Rød sone (auth/sikkerhet, kjernelogikk, arkitektur) får uansett full grill og
-fersk inspektørreview. `/domain-modeling` skriver bare etter eksplisitt valgt
-dokumentert løp og når beslutningen passerer ADR-gaten.
+Rød sone klassifiseres og gates etter den kanoniske risiko- og reviewpolicyen i
+`.github/copilot-instructions.md`. `/domain-modeling` skriver bare etter
+eksplisitt valgt dokumentert løp og når beslutningen passerer ADR-gaten.
 
 ## Aldri
 - Generere kode uten å forklare arkitektoniske valg.

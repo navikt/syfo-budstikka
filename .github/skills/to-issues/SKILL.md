@@ -1,13 +1,16 @@
 ---
 name: to-issues
-description: "Bruk når en plan, et design, en PRD eller `.grill/PLAN.md` skal brytes ned i selvstendig plukkbare GitHub-issues på navikt/syfo-budstikka. Typisk etter @grillmester sin plan-fase, eller når noen sier 'lag issues', 'splitt opp i tickets', 'bryt ned arbeidet', 'lag epic + sub-issues'."
+description: "Bruk når en plan, et design eller en PRD skal brytes ned i selvstendig plukkbare GitHub-issues på navikt/syfo-budstikka. Typisk etter @grillmester sin plan-fase, eller når noen sier 'lag issues', 'splitt opp i tickets', 'bryt ned arbeidet', 'lag epic + sub-issues'."
 ---
 
 # to-issues
 
 Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i tjenesten, ikke et horisontalt snitt av ett lag.
 
-Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` + eksplisitt relevante topic-dokumenter og ADR-er, output er issues på `navikt/syfo-budstikka` som er klare for plukking.
+Dette er broa mellom plan-fasen og implementeringen i @grillmester sin
+faseløkke: input er den aktive planen + eksplisitt relevante topic-dokumenter
+og ADR-er, output er issues på `navikt/syfo-budstikka` som er klare for
+plukking.
 
 ## Arbeidsflyt
 
@@ -15,7 +18,9 @@ Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkk
 
 Jobb fra det som allerede er i samtalen. Prioritert kilderekkefølge:
 
-- `.grill/PLAN.md` — den vedtatte planen fra plan-fasen
+- samtalen, aktivt parent-issue eller PRD — den vedtatte planen fra plan-fasen
+- en oppgavelokal `.grill/PLAN.md` når den kallende arbeidsflyten eksplisitt har
+  valgt den
 - eksplisitt relevante topic-dokumenter — vedlikeholdt detalj som snittene må bevare
 - relevante ADR-er — tolk status via `docs/agents/domain.md`; respekter
   bindende valg og bruk foreslåtte valg bare når planen faktisk bygger på dem

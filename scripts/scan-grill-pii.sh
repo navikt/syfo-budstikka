@@ -19,7 +19,7 @@ rule_regex=(
   '(^|[^0-9])[0-9]{11}([^0-9]|$)'
   'eyJ[A-Za-z0-9_-]{10,}'
   '-{5}BEGIN'
-  '(passord|password|secret|client[_-]?secret|api[_-]?key|token)[[:space:]]*[:=]'
+  '(^|[^[:alnum:]_-])(passord|password|secret|client[_-]?secret|api[_-]?key|token)[[:space:]]*[:=]'
   'Bearer[[:space:]]+[A-Za-z0-9._-]{10,}'
 )
 

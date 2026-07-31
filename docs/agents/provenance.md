@@ -30,6 +30,19 @@ material from it is imported in this slice. `navikt/hovmester` declares no
 repository license, so this repository asserts none for it and relies on
 internal team ownership instead.
 
+## Locally adapted workflow agents
+
+The following repository agents were reviewed against the pinned Hovmester
+revision. They preserve the useful role boundaries while keeping the existing
+Grillmester phase loop and repository policy. The local files are the operative
+contracts.
+
+| Local path | Hovmester path at the pinned revision | Local handling |
+|---|---|---|
+| `.github/agents/grillmester.agent.md` | `dist/agents/hovmester.agent.md` | Adapted to preserve Grillmester's phase loop, natural grilling, R0/R1 fast path, phase anchor, and end-to-end ownership while delegating one Kokk slice at a time |
+| `.github/agents/kokk.agent.md` | `dist/agents/kokk.agent.md` | Adapted to one concise task brief, one vertical slice, five explicit completion statuses, and a commit-free handoff to the orchestrator |
+| `.github/agents/grill-inspektor.agent.md` | `dist/agents/inspektor-claude.agent.md` | Adapted to a compact independent review contract with explicit `view`, `grep`, and `glob` tools, no write or shell boundary, and no mandatory positive section |
+
 ## Imported and adapted skill core
 
 The following paths were reviewed against the pinned Matt Pocock revision and,

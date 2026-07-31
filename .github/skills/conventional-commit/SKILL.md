@@ -70,7 +70,7 @@ Konsumenter må oppdatere sin deserialisering.
 - Ikke avslutt emnelinjen med punktum
 - Hold deg konsekvent til norsk i hele meldingen
 - Referer til GitHub-issue i footer: `Closes #123` / `Fixes #456`
-- Ta alltid med `Co-authored-by`-trailer for Copilot
+- Ikke legg til `Co-authored-by` eller andre automatiske bidragsyter-trailere
 
 ## Arbeidsflyt
 
@@ -92,8 +92,7 @@ Basert på diff-en:
 
 ```bash
 git commit -m "type(scope): kort beskrivelse" \
-  -m "Utdypende forklaring hvis nødvendig." \
-  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+  -m "Utdypende forklaring hvis nødvendig."
 ```
 
 ### 4. Flere logiske endringer
@@ -117,24 +116,19 @@ Hvis du oppdager sensitive data: **STOPP** og varsle brukeren.
 
 ```bash
 # Enkel feature
-git commit -m "feat(routing): legg til health-endepunkt for NAIS" \
-  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+git commit -m "feat(routing): legg til health-endepunkt for NAIS"
 
 # Bugfiks med issue-referanse
 git commit -m "fix(auth): håndter utløpt TokenX-token" \
   -m "Token-validering kastet 500 i stedet for 401 ved utløpt token,
 som ga uklare feilmeldinger til konsumenter." \
-  -m "Fixes #456
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+  -m "Fixes #456"
 
 # Oppgradering av avhengighet
-git commit -m "build(deps): oppgrader postgresql-driver til 42.7.4" \
-  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+git commit -m "build(deps): oppgrader postgresql-driver til 42.7.4"
 
 # Breaking change
 git commit -m "feat(routing)!: fjern deprecated /api/v1/budskap" \
   -m "BREAKING CHANGE: /api/v1/budskap er fjernet. Bruk /api/v2/budskap.
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+Konsumenter må oppdatere integrasjonen."
 ```

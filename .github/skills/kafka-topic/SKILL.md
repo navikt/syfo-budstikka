@@ -38,7 +38,7 @@ Følg det dominerende mønsteret. Hvis repoet ikke har Kafka fra før, velg plai
    kandidater for dokumentert løp; vent på brukerens valg før
    `/domain-modeling` skriver dem.
 5. Implementer etter mønsteret for stacken (se referansefilene under).
-6. Verifiser med tester (se referansefilene) og loggfør i `.grill/VERIFICATION.md` (@grillmester fase 5).
+6. Verifiser med tester (se referansefilene) og returner evidensen til @grillmester fase 5.
 
 ## Sync vs. hendelse — når velge hva
 

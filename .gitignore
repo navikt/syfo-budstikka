@@ -32,6 +32,7 @@ mise.local.toml
 
 # Lokalt agent oppsett
 .opencode/
+.playwright-mcp/
 
 # Python
 __pycache__/

@@ -91,10 +91,14 @@ Dokumenter API-ene i formatet **teamet allerede bruker** (OpenAPI/Swagger, Postm
 
 - Forming av ny kontrakt → stresstest med `/grilling`; anbefal dokumentert løp
   og vent på brukerens valg når varige begreper eller beslutninger bør skrives.
-  Bruk `.grill/` bare til transient oppgavearbeid.
+  Bruk oppgavelokal `.grill/` bare når den kallende arbeidsflyten eksplisitt har
+  valgt det.
 - Sikkerhetssensitive valg (wildcard inbound, ekstern eksponering,
-  brudd-endring) → kjør en fersk `grill-inspektor`-review før implementasjon.
-- Sjekk PLAN.md / VERIFICATION.md i `.grill/` for at kontraktsendringen er dekket av plan og verifikasjon før merge.
+  brudd-endring) → bruk `/security-review` eller `/nav-architecture-review` i
+  designfasen, og følg den kanoniske R3/R4-gaten i
+  `.github/copilot-instructions.md` etter implementasjon og verifisering.
+- Sjekk den aktive oppgaven/PR-en for at kontraktsendringen er dekket av plan og
+  verifikasjon før merge.
 
 ## Grenser
 
