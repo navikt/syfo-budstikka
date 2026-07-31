@@ -2,7 +2,7 @@
 
 Denne referansen dekker kun NAV-spesifikke innstillinger.
 
-Generisk SQL-optimalisering (EXPLAIN ANALYZE, indeksvalg, N+1, SELECT *, JSONB-operatorer, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) er utenfor scope for denne skillen — modellen kan dette selv. Se PostgreSQL-dokumentasjonen, eller teamets egen best-practice hvis det finnes.
+Generisk SQL-optimalisering (EXPLAIN ANALYZE, indeksvalg, N+1, SELECT *, JSONB-operatorer, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) er utenfor scope for denne skillen. Se PostgreSQL-dokumentasjonen eller teamets etablerte praksis.
 
 ## Tilkoblingspool — HikariCP i NAIS-containere
 

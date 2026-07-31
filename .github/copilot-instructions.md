@@ -52,6 +52,6 @@ These apply to all code assistance in this repository.
   else — mechanics, verbs, plumbing, technical identifiers — is English
   (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full rule with
   examples in `.github/instructions/kotlin.instructions.md`.
-- **Quality gates are deterministic and outside the model:** `./gradlew test`,
+- **Quality gates are deterministic:** `./gradlew test`,
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.

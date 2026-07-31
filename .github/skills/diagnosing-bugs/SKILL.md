@@ -133,7 +133,7 @@ Finnes en korrekt søm:
 4. Se den passere.
 5. Kjør fase 1-loopen mot det opprinnelige (u-minimerte) scenarioet.
 
-Pass/fail avgjøres deterministisk og utenfor modellen: `./gradlew test` (og lint/build der relevant). Ingen "ser riktig ut"-påstand uten ferskt bevis — kommando + output + exit-kode i samme melding.
+Pass/fail avgjøres deterministisk med `./gradlew test` (og lint/build der relevant). Ingen "ser riktig ut"-påstand uten ferskt bevis — kommando + output + exit-kode i samme melding.
 
 ## Fase 6 — Opprydding + post-mortem
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Deterministisk deklarasjonsgate: validerer at hver agents model:-pin er paa
-# repoets allowlist og feiler hardt ved manglende eller ukjent pin. Gaten
-# observerer ikke runtime-modell, tilgang, fallback eller faktisk modellvalg.
+# Validerer agentenes `model:`-felt mot repoets allowlist.
 #
 # Bruk:  scripts/validate-agent-models.sh [agents-dir]
 # Exit:  0 = alle deklarasjoner tillatt, 1 = manglende/ukjent deklarasjon

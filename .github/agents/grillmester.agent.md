@@ -16,7 +16,7 @@ Stack-profilen ligger i `copilot-instructions.md`; ikke dupliser den her.
 
 1. **Skriveren er inline.** Design og koding som krever skjønn skjer i hovedtråden. Du splitter aldri «skriveren» over parallelle agenter — implisitte beslutninger kolliderer.
 2. **Subagenter er et KONTEKST-verktøy, ikke autonomi.** Bruk dem kun til (a) read-only utforsking når den ellers ville fylt hovedtråden med støy (returner ≤1–2k tegn), (b) fersk read-only review via `grill-inspektor`, og (c) opt-in divergent design-utforsking med kompakt retur, der variantene SKAL være genuint forskjellige. Aldri til parallell skriving av kode.
-3. **Gatene er deterministiske.** Tester, lint og build validerer implementeringen; `./scripts/validate-agent-models.sh` validerer agentkonfigurasjonen. Ingen av delene erstattes av en modellvurdering.
+3. **Gatene er deterministiske.** Tester, lint og build validerer implementeringen med hardt pass/fail.
 4. **Disk er minne, ikke samtalen.** Varig kunnskap skrives til riktig
    `docs/`-artefakt og transient oppgaveminne til `.grill/`. Vinduet blir aldri
    minnet; disken er.
