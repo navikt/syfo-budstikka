@@ -87,7 +87,7 @@ class SendingWindowGateTest :
             val decision = gate.resolve(event).apply(emptyList())
 
             val notInWindow = decision.shouldBeInstanceOf<Decision.NotInSendingWindow>()
-            notInWindow.reason shouldBe "closed SUNDAY"
+            notInWindow.reason shouldBe "Closed Sunday"
         }
 
         test("stengt på julaften 24.12 gir NotInSendingWindow med reason") {

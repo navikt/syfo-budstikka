@@ -12,6 +12,7 @@ class RecordingDispatchMetrics : DispatchMetrics {
     val inboxProcessed = AtomicInteger()
     val inboxFailed = AtomicInteger()
     val inboxDropped = ConcurrentHashMap<DropReason, AtomicInteger>()
+    val inboxOutsideSendingWindow = ConcurrentHashMap<String, AtomicInteger>()
     val deliveryClaimed = AtomicInteger()
     val deliveryEmptyPolls = AtomicInteger()
     val deliverySent = ConcurrentHashMap<Channel, AtomicInteger>()
@@ -51,5 +52,9 @@ class RecordingDispatchMetrics : DispatchMetrics {
 
     override fun deliveryFailed(channel: Channel) {
         deliveryFailed.computeIfAbsent(channel) { AtomicInteger() }.incrementAndGet()
+    }
+
+    override fun inboxOutsideSendingWindow(reason: String) {
+        inboxOutsideSendingWindow.computeIfAbsent(reason) { AtomicInteger() }.incrementAndGet()
     }
 }
