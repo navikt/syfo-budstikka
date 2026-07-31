@@ -18,7 +18,7 @@ private fun zdt(year: Int, month: Int, day: Int, hour: Int, minute: Int = 0): In
         ZonedDateTime.of(year, month, day, hour, minute, 0, 0, oslo).toInstant().toEpochMilli()
     )
 
-// Instans med samme konfigurasjon som BudstikkaSendingWindow
+// Inkluderer julaften 24.12
 private val hours = openingHours {
     zone = TimeZone.of("Europe/Oslo")
     closedOn(DayOfWeek.SUNDAY)

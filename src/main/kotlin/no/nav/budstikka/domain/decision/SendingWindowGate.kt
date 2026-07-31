@@ -32,8 +32,4 @@ internal class SendingWindowGate(
             }
         }
     }
-
-    companion object {
-        private val DEFAULT_NEXT_RETRY = 1.hours
-    }
 }
