@@ -20,7 +20,7 @@ internal class SendingWindowGate(
             event.content
                 .gatedSendingWindow()
                 ?.takeIf { it == SendingWindow.BUDSTIKKA_OPENING_HOURS }
-                ?.let { !BudstikkaSendingWindow.isOpen(now) }
+                ?.let { BudstikkaSendingWindow.isClosed(now) }
                 ?: false
 
         return ResolvedRule { deliveries ->

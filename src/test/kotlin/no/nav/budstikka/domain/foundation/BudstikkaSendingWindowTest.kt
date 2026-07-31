@@ -14,15 +14,15 @@ class BudstikkaSendingWindowTest :
     FunSpec({
 
         test("isOpen: åpent i åpningstid (tirsdag 12:00)") {
-            BudstikkaSendingWindow.isOpen(LocalDateTime(2025, 2, 11, 12, 0).toInstant(Oslo)) shouldBe true
+            BudstikkaSendingWindow.isClosed(LocalDateTime(2025, 2, 11, 12, 0).toInstant(Oslo)) shouldBe false
         }
 
         test("isOpen: stengt utenfor åpningstid (mandag 06:00)") {
-            BudstikkaSendingWindow.isOpen(LocalDateTime(2025, 2, 10, 6, 0).toInstant(Oslo)) shouldBe false
+            BudstikkaSendingWindow.isClosed(LocalDateTime(2025, 2, 10, 6, 0).toInstant(Oslo)) shouldBe true
         }
 
         test("isOpen: stengt søndag") {
-            BudstikkaSendingWindow.isOpen(LocalDateTime(2025, 2, 9, 12, 0).toInstant(Oslo)) shouldBe false
+            BudstikkaSendingWindow.isClosed(LocalDateTime(2025, 2, 9, 12, 0).toInstant(Oslo)) shouldBe true
         }
 
         test("nextOpen: søndag 10:00 gir mandag 00:00") {

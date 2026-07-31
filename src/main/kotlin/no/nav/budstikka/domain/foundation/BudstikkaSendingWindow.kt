@@ -16,7 +16,6 @@ object BudstikkaSendingWindow {
             open(LocalTime(9, 0), LocalTime(20, 0))
         }
 
-    fun isOpen(instant: Instant = Clock.System.now()) = openingHours.isOpen(instant)
-
+    fun isClosed(instant: Instant = Clock.System.now()) = !openingHours.isOpen(instant)
     fun nextOpen(instant: Instant = Clock.System.now()) = openingHours.opensAt(instant)
 }
