@@ -28,7 +28,7 @@ class SendingWindowGateTest :
                 TEST_SYKMELDT,
                 Varseltype.OPPGAVE,
                 "test",
-                sendingWindow = sendingWindow
+                sendingWindow = sendingWindow,
             )
 
         test("tirsdag 12:00 (åpent) gir Processed") {
@@ -43,11 +43,12 @@ class SendingWindowGateTest :
         context("SendingWindow ONGOING gir processed uavhengig av dato") {
             val rodeDager = NorwegianRodeDager.rodeDager(20206).keys
             withData(rodeDager) { day ->
-                val gate = SendingWindowGate(
-                    MutableClock(
-                        LocalDateTime(day.year, day.month.number, day.day, 12, 0).toInstant(oslo)
+                val gate =
+                    SendingWindowGate(
+                        MutableClock(
+                            LocalDateTime(day.year, day.month.number, day.day, 12, 0).toInstant(oslo),
+                        ),
                     )
-                )
                 val event =
                     Dispatch(reference = "ref-1", content = brukervarselContent(sendingWindow = SendingWindow.ONGOING))
 
@@ -82,15 +83,16 @@ class SendingWindowGateTest :
             val clock = MutableClock(LocalDateTime(2025, 2, 11, 12, 0).toInstant(oslo))
             val gate = SendingWindowGate(clock)
             val event = Dispatch(reference = "ref-1", content = brukervarselContent())
-            val drafts = listOf(
-                DeliveryDraft(
-                    reference = "ref-1",
-                    operation = Operation.CREATE,
-                    channel = Channel.BRUKERVARSEL,
-                    recipient = Recipient.Person(TEST_SYKMELDT),
-                    content = brukervarselContent(),
-                ),
-            )
+            val drafts =
+                listOf(
+                    DeliveryDraft(
+                        reference = "ref-1",
+                        operation = Operation.CREATE,
+                        channel = Channel.BRUKERVARSEL,
+                        recipient = Recipient.Person(TEST_SYKMELDT),
+                        content = brukervarselContent(),
+                    ),
+                )
             val decision = gate.resolve(event).apply(drafts)
 
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldBe drafts

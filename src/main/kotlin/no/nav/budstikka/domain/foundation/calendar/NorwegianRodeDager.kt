@@ -6,10 +6,10 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 
 internal fun LocalDate.plusDays(n: Int): LocalDate = plus(n, DateTimeUnit.DAY)
+
 internal fun LocalDate.minusDays(n: Int): LocalDate = minus(n, DateTimeUnit.DAY)
 
 object NorwegianRodeDager {
-
     @Volatile
     private var cache: Map<Int, Map<LocalDate, String>> = emptyMap()
 
@@ -51,7 +51,10 @@ object NorwegianRodeDager {
         val easter = easterSunday(year)
         val acc = LinkedHashMap<LocalDate, String>()
 
-        fun add(date: LocalDate, name: String) {
+        fun add(
+            date: LocalDate,
+            name: String,
+        ) {
             val existing = acc[date]
             acc[date] = if (existing == null) name else "$existing / $name"
         }

@@ -77,7 +77,7 @@ class DispatchSerializationTest :
                     "ArbeidsgivervarselInactivate" to
                         ArbeidsgivervarselInactivate(
                             reference = "ref-123",
-                            orgnummer = Orgnummer(TEST_ORGNUMMER.value)
+                            orgnummer = Orgnummer(TEST_ORGNUMMER.value),
                         ),
                 )
 
@@ -93,9 +93,9 @@ class DispatchSerializationTest :
                 envelope(
                     BrevCreate(
                         TEST_SYKMELDT_2,
-                        "jp-9"
-                    )
-                )
+                        "jp-9",
+                    ),
+                ),
             ) shouldContain "\"type\":\"BrevCreate\""
         }
 
@@ -135,9 +135,9 @@ class DispatchSerializationTest :
                 envelope(
                     BrevCreate(
                         TEST_SYKMELDT_2,
-                        "jp-9"
-                    )
-                )
+                        "jp-9",
+                    ),
+                ),
             ) shouldContain TEST_SYKMELDT_2.value
         }
     })

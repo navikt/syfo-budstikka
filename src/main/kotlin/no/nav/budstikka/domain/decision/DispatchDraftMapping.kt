@@ -43,7 +43,7 @@ internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
         is ArbeidsgivervarselInactivate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
-            -> null
+        -> null
     }
 
 internal fun DispatchContent.gatedSendingWindow(): SendingWindow? =
@@ -59,7 +59,7 @@ internal fun DispatchContent.gatedSendingWindow(): SendingWindow? =
         is BrevCreate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
-            -> null
+        -> null
     }
 
 internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =

@@ -4,7 +4,6 @@ import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.SendingWindow
 import no.nav.budstikka.domain.foundation.BudstikkaSendingWindow
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
 
 /**
  * SendingWindowGate: blokkerer utsending utenfor vårt bestemte tidsvindu.
@@ -18,7 +17,8 @@ internal class SendingWindowGate(
     override suspend fun resolve(event: Dispatch): ResolvedRule {
         val now = clock.now()
         val gatedSendingWindow =
-            event.content.gatedSendingWindow()
+            event.content
+                .gatedSendingWindow()
                 ?.takeIf { it == SendingWindow.BUDSTIKKA_OPENING_HOURS }
                 ?.let { !BudstikkaSendingWindow.isOpen(now) }
                 ?: false

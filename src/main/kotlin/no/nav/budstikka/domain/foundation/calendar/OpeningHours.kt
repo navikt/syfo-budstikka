@@ -13,8 +13,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
-fun openingHours(block: OpeningHoursBuilder.() -> Unit): OpeningHours =
-    OpeningHoursBuilder().apply(block).build()
+fun openingHours(block: OpeningHoursBuilder.() -> Unit): OpeningHours = OpeningHoursBuilder().apply(block).build()
 
 class OpeningHoursBuilder {
     private val rules = mutableListOf<OpeningRule>()
@@ -22,12 +21,21 @@ class OpeningHoursBuilder {
     var horizon: Duration = 30.days
 
     fun rule(rule: OpeningRule) = apply { rules += rule }
+
     fun closedOn(vararg days: DayOfWeek) = rule(ClosedOnDays(days.toSet()))
-    fun closedOn(month: Month, day: Int, name: String) =
-        rule(ClosedOnDates { date -> if (date.month == month && date.day == day) name else null })
+
+    fun closedOn(
+        month: Month,
+        day: Int,
+        name: String,
+    ) = rule(ClosedOnDates { date -> if (date.month == month && date.day == day) name else null })
 
     fun closedOnRodeDager() = rule(ClosedOnDates())
-    fun open(from: LocalTime, until: LocalTime) = rule(OpenBetween(from, until))
+
+    fun open(
+        from: LocalTime,
+        until: LocalTime,
+    ) = rule(OpenBetween(from, until))
 
     internal fun build() = OpeningHours(rules.toList(), zone, horizon)
 }
@@ -45,18 +53,26 @@ class OpeningHours internal constructor(
     fun isOpen(instant: Instant): Boolean = violations(instant).isEmpty()
 
     fun opensAt(instant: Instant): Instant =
-        if (isOpen(instant)) instant else scanTo(instant) { isOpen(it) }
-            ?: error("Ingen åpning funnet innenfor $horizon fra $instant")
+        if (isOpen(instant)) {
+            instant
+        } else {
+            scanTo(instant) { isOpen(it) }
+                ?: error("Ingen åpning funnet innenfor $horizon fra $instant")
+        }
 
-    private fun scanTo(from: Instant, stopWhen: (Instant) -> Boolean): Instant? {
+    private fun scanTo(
+        from: Instant,
+        stopWhen: (Instant) -> Boolean,
+    ): Instant? {
         val deadline = from + horizon
         var cursor = from
         repeat(MAX_STEPS) {
             val moment = Moment(cursor, zone)
-            val next = rules
-                .map { it.nextBoundary(moment) }
-                .filter { it > cursor }
-                .minOrNull() ?: return null
+            val next =
+                rules
+                    .map { it.nextBoundary(moment) }
+                    .filter { it > cursor }
+                    .minOrNull() ?: return null
             if (next > deadline) return null
             if (stopWhen(next)) return next
             cursor = next
@@ -70,20 +86,28 @@ class OpeningHours internal constructor(
 }
 
 /** Et tidspunkt sett fra en gitt tidssone. */
-class Moment(val instant: Instant, val zone: TimeZone) {
+class Moment(
+    val instant: Instant,
+    val zone: TimeZone,
+) {
     val local: LocalDateTime = instant.toLocalDateTime(zone)
     val date: LocalDate get() = local.date
     val time: LocalTime get() = local.time
     val dayOfWeek: DayOfWeek get() = local.dayOfWeek
 
-    fun at(date: LocalDate, time: LocalTime): Instant =
-        LocalDateTime(date, time).toInstant(zone)
+    fun at(
+        date: LocalDate,
+        time: LocalTime,
+    ): Instant = LocalDateTime(date, time).toInstant(zone)
 
     fun startOfNextDay(): Instant = date.plusDays(1).atStartOfDayIn(zone)
 }
 
 /** Grunnen til at det er stengt. */
-data class Closed(val rule: String, val reason: String)
+data class Closed(
+    val rule: String,
+    val reason: String,
+)
 
 fun interface OpeningRule {
     /** null = regelen er tilfreds. */
@@ -96,16 +120,16 @@ fun interface OpeningRule {
     fun nextBoundary(moment: Moment): Instant = moment.startOfNextDay()
 }
 
-internal class ClosedOnDays(private val days: Set<DayOfWeek>) : OpeningRule {
-    override fun check(moment: Moment): Closed? =
-        if (moment.dayOfWeek in days) Closed("weekday", "Stengt ${moment.dayOfWeek}") else null
+internal class ClosedOnDays(
+    private val days: Set<DayOfWeek>,
+) : OpeningRule {
+    override fun check(moment: Moment): Closed? = if (moment.dayOfWeek in days) Closed("weekday", "Stengt ${moment.dayOfWeek}") else null
 }
 
 internal class ClosedOnDates(
     private val calendar: (LocalDate) -> String? = NorwegianRodeDager::nameOf,
 ) : OpeningRule {
-    override fun check(moment: Moment): Closed? =
-        calendar(moment.date)?.let { Closed("holiday", "$it (${moment.date})") }
+    override fun check(moment: Moment): Closed? = calendar(moment.date)?.let { Closed("holiday", "$it (${moment.date})") }
 }
 
 /** Åpent i [from, until) samme døgn. Vinduet kan ikke krysse midnatt. */
@@ -118,8 +142,11 @@ internal class OpenBetween(
     }
 
     override fun check(moment: Moment): Closed? =
-        if (moment.time in from..<until) null
-        else Closed("hours", "Åpent $from–$until")
+        if (moment.time in from..<until) {
+            null
+        } else {
+            Closed("hours", "Åpent $from–$until")
+        }
 
     override fun nextBoundary(moment: Moment): Instant {
         val t = moment.time
