@@ -16,6 +16,7 @@ contracts; this page does not duplicate their full workflows.
   domain knowledge. Their descriptions are the discovery surface.
 - **Instructions** (`.github/instructions/` and
   `.github/copilot-instructions.md`) hold repository and path-specific policy.
+
 ## Workflow shape
 
 Grillmester uses a seven-phase loop: grill, design, plan, implement, verify,

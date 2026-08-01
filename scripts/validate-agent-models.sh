@@ -55,8 +55,9 @@ for role in grillmester kokk grill-inspektor; do
     fi
   fi
 
-  if awk 'BEGIN { delimiters=0 } $0 == "---" { delimiters++; next } delimiters >= 2 { print }' "$f" |
-    grep -Eiq '(claude-opus|gpt-[0-9])'; then
+  body="$(awk 'BEGIN { delimiters=0 } $0 == "---" { delimiters++; next }
+    delimiters >= 2 { print }' "$f")"
+  if grep -Eiq '(claude-opus|gpt-[0-9])' <<< "$body"; then
     echo "INVALID: $role body contains a model identifier; keep it in frontmatter only"
     fail=1
   fi
