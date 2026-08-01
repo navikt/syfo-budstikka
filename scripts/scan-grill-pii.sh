@@ -29,17 +29,7 @@ scan_file() {
   for i in "${!rule_names[@]}"; do
     name="${rule_names[$i]}"; pat="${rule_regex[$i]}"
     # -I hopper binærfiler, -n gir linjenr; vi beholder KUN linjenrene (kaster innholdet).
-    # GitHub Actions-permissionen `id-token` med `write` eller `none` er ikke en hemmelighet.
-    if [ "$name" = "hemmelighet" ]; then
-      lines="$(
-        grep -InE -e "$pat" "$file" 2>/dev/null |
-          grep -Ev '^[0-9]+:[[:space:]]*id-to''ken:[[:space:]]*(write|none)([[:space:]]*#.*)?$' |
-          cut -d: -f1 |
-          paste -sd, -
-      )" || true
-    else
-      lines="$(grep -InE -e "$pat" "$file" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
-    fi
+    lines="$(grep -InE -e "$pat" "$file" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
     if [ -n "$lines" ]; then
       echo "PII-mistanke ($name) i $label — linje(r): $lines"
       hits=1

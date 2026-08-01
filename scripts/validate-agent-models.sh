@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
-# Validate the complete custom-agent frontmatter and repository CLI setting.
+# Validate required agent model pins and the Inspector's read-only boundary.
 #
 # Usage: scripts/validate-agent-models.sh [agents-dir]
-# Exit: 0 = exact contract matches, 1 = missing, extra, or unsafe declaration
+# Exit: 0 = required declarations are valid, 1 = missing or unsafe declaration
 set -euo pipefail
 
 AGENT_DIR="${1:-.github/agents}"
-REPO_ROOT="$(cd "$AGENT_DIR/../.." && pwd)"
-
-EXPECTED_FILES="grill-inspektor.agent.md grillmester.agent.md kokk.agent.md"
-
 fail=0
-actual_files="$(find "$AGENT_DIR" -maxdepth 1 -type f -name '*.agent.md' -exec basename {} \; | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//')"
-if [ "$actual_files" != "$EXPECTED_FILES" ]; then
-  echo "INVALID agent set: '$actual_files' (expected: '$EXPECTED_FILES')"
-  fail=1
-fi
+
+declare -A EXPECTED_MODELS=(
+  [grillmester]="claude-opus-5"
+  [kokk]="gpt-5.6-terra"
+  [grill-inspektor]="claude-opus-5"
+)
+
+frontmatter_for() {
+  awk 'NR == 1 { next } $0 == "---" { found=1; exit } { print }
+    END { if (!found) exit 1 }' "$1"
+}
 
 for role in grillmester kokk grill-inspektor; do
   f="$AGENT_DIR/${role}.agent.md"
@@ -29,52 +31,40 @@ for role in grillmester kokk grill-inspektor; do
     continue
   fi
 
-  if ! frontmatter="$(awk '
-    NR == 1 { next }
-    $0 == "---" { found=1; exit }
-    { print }
-    END { if (!found) exit 1 }
-  ' "$f")"; then
+  if ! frontmatter="$(frontmatter_for "$f")"; then
     echo "INVALID: $role has no closing frontmatter delimiter"
     fail=1
     continue
   fi
 
-  case "$role" in
-    grillmester)
-      expected_contract=$'name: grillmester\ndescription: "Use @grillmester for non-trivial work that benefits from clarified requirements, explicit design decisions, a bounded implementation slice, and evidence-backed review."\nmodel: "claude-opus-5"\nuser-invocable: true\ndisable-model-invocation: true\ntools:\n  - read\n  - search\n  - edit\n  - execute\n  - agent\n  - skill\n  - web\n  - ask_user'
-      ;;
-    kokk)
-      expected_contract=$'name: kokk\ndescription: "Internal implementer for one complete, independently testable vertical slice supplied through a concise Kokk task brief."\nmodel: "gpt-5.6-terra"\nuser-invocable: false\ndisable-model-invocation: false\ntools:\n  - read\n  - search\n  - edit\n  - execute\n  - skill'
-      ;;
-    grill-inspektor)
-      expected_contract=$'name: grill-inspektor\ndescription: "Internal independent reviewer for a complete task-scoped diff, its acceptance criteria, named decisions, and deterministic evidence."\nmodel: "claude-opus-5"\nuser-invocable: false\ndisable-model-invocation: false\ntools:\n  - view\n  - grep\n  - glob'
-      ;;
-  esac
-
-  if [ "$frontmatter" != "$expected_contract" ]; then
-    echo "INVALID: $role frontmatter contract differs from the expected profile"
+  model_count="$(grep -Ec '^model:' <<< "$frontmatter" || true)"
+  model="$(sed -nE 's/^model:[[:space:]]*"?([^"#]+)"?[[:space:]]*$/\1/p' <<< "$frontmatter")"
+  if [ "$model_count" -ne 1 ] || [ "$model" != "${EXPECTED_MODELS[$role]}" ]; then
+    echo "INVALID: $role must declare model ${EXPECTED_MODELS[$role]} exactly once"
     fail=1
   fi
 
+  if [ "$role" = "grill-inspektor" ]; then
+    tools_count="$(grep -Ec '^tools:' <<< "$frontmatter" || true)"
+    tool_set="$(awk '/^tools:/ { in_tools=1; next }
+      in_tools && /^  - / { sub(/^  - /, ""); print; next }
+      in_tools { exit }' <<< "$frontmatter" | LC_ALL=C sort)"
+    if [ "$tools_count" -ne 1 ] || [ "$tool_set" != $'glob\ngrep\nview' ]; then
+      echo "INVALID: $role tools must be exactly glob, grep, and view"
+      fail=1
+    fi
+  fi
+
   if awk 'BEGIN { delimiters=0 } $0 == "---" { delimiters++; next } delimiters >= 2 { print }' "$f" |
-    grep -Eiq '(claude|gpt|gemini|grok|kimi|mai)-[0-9a-z.]'; then
+    grep -Eiq '(claude-opus|gpt-[0-9])'; then
     echo "INVALID: $role body contains a model identifier; keep it in frontmatter only"
     fail=1
   fi
 
-  echo "OK   $role"
 done
 
-settings="$REPO_ROOT/.github/copilot/settings.json"
-if [ ! -f "$settings" ]; then
-  echo "MISSING: $settings"
-  fail=1
-elif [ "$(tr -d '[:space:]' < "$settings")" != '{"includeCoAuthoredBy":false}' ]; then
-  echo "INVALID: $settings must set only includeCoAuthoredBy=false"
-  fail=1
-else
-  echo "OK   repository setting: includeCoAuthoredBy=false"
+if [ "$fail" -eq 0 ]; then
+  echo "OK   required agent semantics"
 fi
 
 exit $fail

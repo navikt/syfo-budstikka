@@ -1,8 +1,8 @@
 # Grillmester — GitHub Copilot CLI setup
 
 This document is the human-facing map of the repository's agent setup. The
-checked-in agent profiles, skills, instructions, and repository settings are
-the operative contracts; this page does not duplicate their full workflows.
+checked-in agent profiles, skills, and instructions are the operative
+contracts; this page does not duplicate their full workflows.
 
 ## Components
 
@@ -16,9 +16,6 @@ the operative contracts; this page does not duplicate their full workflows.
   domain knowledge. Their descriptions are the discovery surface.
 - **Instructions** (`.github/instructions/` and
   `.github/copilot-instructions.md`) hold repository and path-specific policy.
-- **Repository settings** (`.github/copilot/settings.json`) contain shared CLI
-  behavior that GitHub Copilot officially supports at repository scope.
-
 ## Workflow shape
 
 Grillmester uses a seven-phase loop: grill, design, plan, implement, verify,
@@ -50,10 +47,6 @@ rules live once in `.github/copilot-instructions.md`.
 Runtime claims come from current agent frontmatter, Copilot discovery, the
 repository gates, and an authenticated bounded pilot. Historical setup prose
 does not prove which configuration the runtime applied.
-
-Copilot CLI 1.0.77 honors `includeCoAuthoredBy=false` in interactive sessions,
-but its programmatic `-p` path still injects the default trailer instruction.
-Treat the setting as advisory in that mode and verify every commit message.
 
 Sources, reviewed revisions, and local adaptations are recorded in
 `docs/agents/provenance.md`. The repository files remain the only runtime

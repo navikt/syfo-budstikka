@@ -44,6 +44,8 @@ brief is not actionable.
   focused tests wherever the repository has a test seam.
 - Run every verification command from the brief. Report the command, relevant
   result, and exit code; never report stale evidence as current.
+- For R3/R4, identify the affected risk surface and what the evidence does not
+  prove.
 - If the same approach fails twice, reassess the cause and use a materially
   different bounded approach. Return `BLOCKED` when safe completion requires
   expanded scope or unavailable authority.

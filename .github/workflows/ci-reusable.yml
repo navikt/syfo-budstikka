@@ -1,7 +1,7 @@
 name: Reusable CI
 
 # Gjenbrukbar CI-gate (workflow_call). Executes ci.yaml on PR and in merge queue. Shares the same
-# deterministic gates as the rest of the repository: agent contracts, compilation + ktlint + test, and
+# deterministic gates as the rest of the repository: agent model pins, compilation + ktlint + test, and
 # container-image build (Jib, without push). See .github/instructions/github-actions.instructions.md.
 on:
   workflow_call:
@@ -19,8 +19,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Deterministic gate 1: exact agent frontmatter, tools and repository setting (hard fail).
-      - name: Validate agent contracts
+      # Deterministic gate 1: agent model pins on allowlist (hard fail).
+      - name: Validate agent model pins
         run: bash scripts/validate-agent-models.sh .github/agents
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0

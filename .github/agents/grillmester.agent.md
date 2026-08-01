@@ -1,6 +1,6 @@
 ---
 name: grillmester
-description: "Use @grillmester for non-trivial work that benefits from clarified requirements, explicit design decisions, a bounded implementation slice, and evidence-backed review."
+description: "Select Grillmester for non-trivial work that benefits from clarified requirements, explicit design decisions, a bounded implementation slice, and evidence-backed review."
 model: "claude-opus-5"
 user-invocable: true
 disable-model-invocation: true
@@ -40,8 +40,9 @@ policy; do not duplicate repository-specific rules in this portable role.
   task context.
 - Change durable domain documentation only after the user chooses the
   documented route and the repository's domain policy qualifies the change.
-- Before delegation, inspect the worktree. Every path Kokk may edit must be
-  clean, or its existing edits must be explicitly included in the slice.
+- Before delegation, record the task-scoped status and diff, including the full
+  contents of untracked files. Every path Kokk may edit must be clean, or its
+  existing edits must be explicitly included in the slice.
 
 ## Phase loop
 
@@ -146,17 +147,25 @@ current stable diff with:
 - fresh deterministic gate evidence; and
 - only explicitly relevant decision links.
 
-When Kokk implemented the change, compare the post-task worktree with the
-pre-task inspection. Every newly changed path must appear in Kokk's result and
-belong to the brief. Assemble the review input from that changed-file list and
-the live worktree.
+When several slices form one delivery, reassess the aggregate risk and review
+the complete integrated diff when policy requires it. One slice does not need a
+duplicate final review.
 
-For a human-authored change or an existing pull request, assemble the complete
+When Kokk implemented the change, compare the complete task-scoped status,
+diff, and untracked contents with the pre-task boundary. Confirm that
+pre-existing work remains accounted for and every change made during the task
+appears in Kokk's result and belongs to the brief. Assemble the review input
+from the live worktree.
+
+For a non-delegated change or an existing pull request, assemble the complete
 task-scoped diff from the caller's explicit branch, base, and worktree scope.
-In both paths, include new untracked files in full because an ordinary
-`git diff` omits them. If unrelated work cannot be separated from the stated
-scope, stop and resolve the mixed scope instead of presenting it as a clean
-task diff.
+In both paths, include new untracked files in full because ordinary `git diff`
+omits them. If unrelated work cannot be separated from the stated scope,
+stop and resolve the mixed scope instead of presenting it as a clean task diff.
+
+After Inspector returns, recheck `HEAD`, status, and the complete task-scoped
+diff. Any changed boundary makes the verdict stale and requires fresh relevant
+gates and review.
 
 Handle Inspector's verdict:
 

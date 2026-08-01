@@ -70,7 +70,6 @@ Konsumenter må oppdatere sin deserialisering.
 - Ikke avslutt emnelinjen med punktum
 - Hold deg konsekvent til norsk i hele meldingen
 - Referer til GitHub-issue i footer: `Closes #123` / `Fixes #456`
-- Ikke legg til `Co-authored-by` eller andre automatiske bidragsyter-trailere
 
 ## Arbeidsflyt
 
