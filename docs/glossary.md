@@ -107,5 +107,14 @@ Tidsrommet en dispatch faktisk sendes i — løpende, eller innenfor NKS' åpnin
 **DeathGate**:
 Kontrollen som stanser dispatch til en person registrert som død.
 
+**OpeningHours**:
+Gjenbrukbar åpningstids-komposisjon for budstikkas sendevindu (09–20 man–lør, stengt søndager og
+røde dager, samt julaften). Eksponerer `isOpen`, `opensAt` (neste åpne tidspunkt innen en horisont)
+og `violations` (hvilke regler som stenger). Tidssone: `Europe/Oslo`. Se ADR 0011.
+
+**SendingWindowGate**:
+`DecisionRule` som sjekker om nåværende tidspunkt er innenfor åpningstider. Returnerer
+`Decision.NotInSendingWindow(nextRetry)` med neste åpningstid ved lukket vindu. Se ADR 0012.
+
 **BrevFallback**:
 Å sende brev når recipienten ikke kan varsles digitalt.

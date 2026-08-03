@@ -128,6 +128,8 @@ stable `#bnn` anchor (for example `#b61`) or search directly, for example
   Vraket: on-the-fly-deserialisering ved lukking, eget hydrert mellomlag (overengineering), `reference` som ny header
   (utvider kontrakt + tvillingkilde), behold eventId i payload som autoritativ (opprinnelig ADR-0008-forslag — forkastet
   av team: eventId er en teknisk id, ett kildested renere; hard header-avhengighet tatt bevisst).
+  OPPDATERT (ADR 0014, #166): hold-plasseringen er avgjort til INBOX-HOLD — indeks på
+  `inbox_message.reference` og ytterligere match-kolonner hører til FERDIGSTILL-mot-inbox-arbeidet.
 
 ## FERDIGSTILL-beslutninger (se docs/ferdigstill.md)
 

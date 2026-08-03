@@ -87,10 +87,15 @@ beslutnings-workeren (B10/B28 er uendret).
    (90-dagers replay-vindu fra B26 pluss litt margin), med samme periodiske slette-coroutine
    (B42). Vi lagrer minst mulig: rå bytes, tekniske Kafka-koordinater og eventId når vi har
    den. Parse-feil logges aldri rått (B58), bare feiltype og koordinater.
-7. Hold-plassering (inbox-hold eller outbox-hold) er fortsatt åpen, men ikke lenger
-   blokkert. Denne ADR-en tar ikke det valget.
+7. Hold-plassering (inbox-hold eller outbox-hold) ble avgjort i ADR 0014
+   (inbox-hold); da denne ADR-en ble skrevet var valget fortsatt åpent, men ikke
+   lenger blokkert. Denne ADR-en tar ikke det valget.
 
 ### Åpen oppfølging: hold-plassering
+
+> **Oppdatert:** Valget er tatt i [ADR 0014](0014-inbox-hold-for-sendevindu.md)
+> (inbox-hold). Avsnittet under beskriver hvorfor det var åpent da denne ADR-en
+> ble skrevet, og beholdes for historikk.
 
 En hydrert inbox gjør både outbox-hold med `CANCELLED` og ekte inbox-hold (annullering før
 sending) billigere. Valget må få en eksplisitt eier og en varig GitHub-sak før implementering;

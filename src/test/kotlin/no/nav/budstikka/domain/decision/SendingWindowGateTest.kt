@@ -41,7 +41,7 @@ class SendingWindowGateTest :
         }
 
         context("SendingWindow ONGOING gir processed uavhengig av dato") {
-            val rodeDager = NorwegianRodeDager.rodeDager(20206).keys
+            val rodeDager = NorwegianRodeDager.rodeDager(2026).keys
             withData(rodeDager) { day ->
                 val gate =
                     SendingWindowGate(

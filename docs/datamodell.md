@@ -13,13 +13,14 @@ erDiagram
         uuid        event_id PK
         text        reference
         jsonb       content
-        text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED"
+        text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED|WAIT"
         text        drop_reason "nullable"
         int         attempt
         timestamptz next_attempt_time "nullable"
         timestamptz received_at
         timestamptz processed_at "nullable"
         text        error_message "nullable"
+        text        wait_reason "nullable (sendevindu-hold, ADR 0014)"
     }
 
     delivery {
@@ -59,10 +60,9 @@ erDiagram
   `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
   FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
   utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
-  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Ytterligere match-
-  kolonner legges til kun hvis den
-  [åpne hold-plasseringen](adr/0008-hydrert-inbox-parse-ved-ingest.md#åpen-oppfølging-hold-plassering)
-  lander på inbox-hold.
+  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Hold-plasseringen er
+  avgjort til inbox-hold ([ADR 0014](adr/0014-inbox-hold-for-sendevindu.md)); ytterligere
+  match-kolonner legges til med det FERDIGSTILL-mot-inbox-arbeidet.
 - `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
   content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
@@ -82,12 +82,18 @@ erDiagram
 RECEIVED -> CLAIMED -> PROCESSED
                    -> DROPPED
                    -> FAILED
+                   -> WAIT       (utenfor sendevindu, ADR 0014)
 
 CLAIMED -> CLAIMED (lease utløpt, kan re-claimes)
+WAIT    -> CLAIMED (sendevindu åpnet: next_attempt_time passert)
 ```
 
 - Claim bruker `FOR UPDATE SKIP LOCKED` og lease via `next_attempt_time`.
-- `attempt` økes ved claim.
+- `attempt` økes ved claim, men **ikke** når en `WAIT`-rad vekkes: venting er en planlagt
+  utsettelse, ikke et feilforsøk, og skal ikke forbruke attempt-budsjettet (ADR 0014). Ellers
+  kunne gjentatte sendevindu-hold poison-`FAILED`-e en legitimt ventende melding.
+- Ventårsaken lagres i `wait_reason` (ikke `error_message`, som er forbeholdt reelle feil).
+  `wait_reason` nullstilles ved terminal overgang og ved poison-`FAILED`.
 - Terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) er compare-and-set fra `CLAIMED`:
   raden oppdateres atomisk bare mens den fortsatt har forventet state. Dette hindrer
   dobbeltprosessering når flere workere konkurrerer om samme rad.
@@ -112,11 +118,10 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
 - `dead_letter_message_received_at_idx` på `(received_at)`
 
-> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox,
-> altså kun hvis den
-> [åpne hold-plasseringen](adr/0008-hydrert-inbox-parse-ved-ingest.md#åpen-oppfølging-hold-plassering)
-> lander på inbox-hold. Kolonnen finnes fra starten (ADR 0008); indeksen kommer med det
-> arbeidet.
+> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox.
+> Hold-plasseringen er avgjort til inbox-hold i
+> [ADR 0014](adr/0014-inbox-hold-for-sendevindu.md), så indeksen hører til det arbeidet.
+> Kolonnen finnes fra starten (ADR 0008).
 
 ## Observability-koblinger
 

@@ -56,3 +56,13 @@ GitHub-sak/plan. Eksisterende B-er kan presiseres eller erstattes, men statusen
 må stå på selve oppføringen.
 
 Domeneblindhet (B1/ADR 0001) er den røde tråden: budstikka forgrener aldri på domenetype.
+
+### Sendevindu (issue #171/#27)
+
+Dispatch kan gates til budstikkas sendevindu: åpent **mandag–lørdag 09–20** (`Europe/Oslo`), stengt søndager og norske
+røde dager (påske via Meeus/Jones/Butcher, Kr. himmelfart, pinse, 1. mai, 17. mai, 1.–2. juledag) samt julaften
+(24.12). Nyttårsaften (31.12) er **ikke** stengt. Gaten gjelder kun hendelser merket
+`SendingWindow.BUDSTIKKA_OPENING_HOURS`. Logikken er en generisk `openingHours { }`-komposisjon i
+`domain/foundation/calendar/`, konfigurert i `BudstikkaSendingWindowLookup` og anvendt av `SendingWindowGate`
+(ADR 0011, 0012, 0013). Ventende leveranser holdes på inbox (`WAIT` på `inbox_message`), avgjort i ADR 0014 (#166);
+FERDIGSTILL kansellerer en ventende OPPRETT direkte.

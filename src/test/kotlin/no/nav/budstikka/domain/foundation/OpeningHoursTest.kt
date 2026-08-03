@@ -24,13 +24,12 @@ private fun zdt(
         ZonedDateTime.of(year, month, day, hour, minute, 0, 0, oslo).toInstant().toEpochMilli(),
     )
 
-// Inkluderer julaften 24.12
 private val hours =
     openingHours {
         zone = TimeZone.of("Europe/Oslo")
         closedOn(DayOfWeek.SUNDAY)
         closedOnRodeDager()
-        open(LocalTime(8, 0), LocalTime(20, 0))
+        open(LocalTime(9, 0), LocalTime(20, 0))
     }
 
 class OpeningHoursTest :
@@ -40,8 +39,8 @@ class OpeningHoursTest :
             hours.isOpen(zdt(2025, 2, 11, 12)) shouldBe true
         }
 
-        test("Stengt før 08 — mandag 06:00") {
-            hours.isOpen(zdt(2025, 2, 10, 6)) shouldBe false
+        test("Stengt før 09 — mandag 08:00") {
+            hours.isOpen(zdt(2025, 2, 10, 8)) shouldBe false
         }
 
         test("Stengt etter 20 — mandag 21:00") {
@@ -92,24 +91,24 @@ class OpeningHoursTest :
             hours.isOpen(zdt(2025, 12, 26, 12)) shouldBe false
         }
 
-        test("Grense 08:00:00 — åpent") {
-            hours.isOpen(zdt(2025, 2, 10, 8, 0)) shouldBe true
+        test("Grense 09:00:00 — åpent") {
+            hours.isOpen(zdt(2025, 2, 10, 9, 0)) shouldBe true
         }
 
         test("Grense 20:00:00 — stengt") {
             hours.isOpen(zdt(2025, 2, 10, 20, 0)) shouldBe false
         }
 
-        test("opensAt søndag 10:00 gir tid til mandag 08:00") {
+        test("opensAt søndag 10:00 gir tid til mandag 09:00") {
             val opening = hours.opensAt(zdt(2025, 2, 9, 10))
             opening shouldNotBe null
-            (opening - zdt(2025, 2, 9, 10)).inWholeHours shouldBe 22
+            (opening - zdt(2025, 2, 9, 10)).inWholeHours shouldBe 23
         }
 
-        test("opensAt 03:00 tirsdag gir tid til 08:00 samme dag") {
+        test("opensAt 03:00 tirsdag gir tid til 09:00 samme dag") {
             val opening = hours.opensAt(zdt(2025, 2, 11, 3))
             opening shouldNotBe null
-            (opening - zdt(2025, 2, 11, 3)).inWholeHours shouldBe 5
+            (opening - zdt(2025, 2, 11, 3)).inWholeHours shouldBe 6
         }
 
         test("Påskealgoritme 2024: påskedag = 31. mars") {

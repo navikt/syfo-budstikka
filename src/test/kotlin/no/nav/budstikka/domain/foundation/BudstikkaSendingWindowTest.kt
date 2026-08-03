@@ -25,7 +25,7 @@ class BudstikkaSendingWindowTest :
             BudstikkaSendingWindowLookup.isClosed(LocalDateTime(2025, 2, 9, 12, 0).toInstant(Oslo)) shouldBe true
         }
 
-        test("nextOpen: søndag 10:00 gir mandag 00:00") {
+        test("nextOpen: søndag 10:00 gir mandag 09:00") {
             val instant = LocalDateTime(2025, 2, 9, 10, 0).toInstant(Oslo)
             val next = BudstikkaSendingWindowLookup.nextOpen(instant)
             next shouldNotBeSameInstanceAs instant

@@ -7,7 +7,8 @@ import kotlin.time.Clock
 
 /**
  * SendingWindowGate: blokkerer utsending utenfor vårt bestemte tidsvindu.
- * Åpent mandag–lørdag 08:00–20:00 (Europe/Oslo), stengt søndager og norske helligdager + julaften og nyttårsaften.
+ * Åpent mandag–lørdag 09:00–20:00 (Europe/Oslo), stengt søndager og norske røde dager + julaften (24.12).
+ * Nyttårsaften (31.12) er ikke stengt. Se ADR 0011–0013.
  *
  * Altinn og dokdist har egne regler for utsending.
  */

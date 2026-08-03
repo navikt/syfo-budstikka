@@ -20,6 +20,7 @@ object InboxMessageTable : Table("inbox_message") {
     val receivedAt = timestamp("received_at").defaultExpression(CurrentTimestamp)
     val processedAt = timestamp("processed_at").nullable()
     val errorMessage = text("error_message").nullable()
+    val waitReason = text("wait_reason").nullable()
 
     override val primaryKey = PrimaryKey(eventId)
 

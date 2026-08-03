@@ -56,10 +56,14 @@ class InboxMessageRepositoryImpl(
         return database.transact {
             val now = Clock.System.now()
             failPoisonRows(now, maxAttempts)
-            val claimed =
+            val claimedRows =
                 InboxMessageTable
-                    .select(InboxMessageTable.eventId, InboxMessageTable.reference, InboxMessageTable.content)
-                    .where {
+                    .select(
+                        InboxMessageTable.eventId,
+                        InboxMessageTable.reference,
+                        InboxMessageTable.content,
+                        InboxMessageTable.state,
+                    ).where {
                         (InboxMessageTable.state eq InboxMessageState.RECEIVED.name) or
                             claimExpired(now, maxAttempts) or waitExpired(now)
                     }.orderBy(
@@ -68,22 +72,54 @@ class InboxMessageRepositoryImpl(
                     ).limit(limit)
                     .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate(ForUpdateOption.PostgreSQL.MODE.SKIP_LOCKED))
                     .map { row ->
-                        InboxMessage(
-                            eventId = row[InboxMessageTable.eventId],
-                            reference = row[InboxMessageTable.reference],
-                            content = row[InboxMessageTable.content],
+                        ClaimedRow(
+                            wasWaiting = row[InboxMessageTable.state] == InboxMessageState.WAIT.name,
+                            message =
+                                InboxMessage(
+                                    eventId = row[InboxMessageTable.eventId],
+                                    reference = row[InboxMessageTable.reference],
+                                    content = row[InboxMessageTable.content],
+                                ),
                         )
                     }
-            if (claimed.isNotEmpty()) {
-                InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.eventId } }) {
-                    it[state] = InboxMessageState.CLAIMED.name
-                    it[nextAttemptTime] = now + lease
-                    it[attempt] = attempt + 1
-                }
-            }
-            claimed
+            markClaimed(claimedRows, now, lease)
+            claimedRows.map { it.message }
         }
     }
+
+    /**
+     * Marks the claimed rows CLAIMED with a fresh [lease]. Waking a WAIT row is a scheduled resume
+     * (the sending window opened), not a failed attempt, so it must NOT consume the attempt budget
+     * (ADR 0014): otherwise repeated sending-window holds would count against [maxAttempts] and could
+     * poison-FAIL a legitimately waiting message. Fresh RECEIVED rows and expired CLAIMED rows still
+     * increment `attempt` as before.
+     */
+    private fun markClaimed(
+        rows: List<ClaimedRow>,
+        now: Instant,
+        lease: Duration,
+    ) {
+        val wakingWaitIds = rows.filter { it.wasWaiting }.map { it.message.eventId }
+        val attemptingIds = rows.filterNot { it.wasWaiting }.map { it.message.eventId }
+        if (attemptingIds.isNotEmpty()) {
+            InboxMessageTable.update({ InboxMessageTable.eventId inList attemptingIds }) {
+                it[state] = InboxMessageState.CLAIMED.name
+                it[nextAttemptTime] = now + lease
+                it[attempt] = attempt + 1
+            }
+        }
+        if (wakingWaitIds.isNotEmpty()) {
+            InboxMessageTable.update({ InboxMessageTable.eventId inList wakingWaitIds }) {
+                it[state] = InboxMessageState.CLAIMED.name
+                it[nextAttemptTime] = now + lease
+            }
+        }
+    }
+
+    private data class ClaimedRow(
+        val wasWaiting: Boolean,
+        val message: InboxMessage,
+    )
 
     private fun waitExpired(now: Instant): Op<Boolean> =
         (InboxMessageTable.state eq InboxMessageState.WAIT.name) and
@@ -125,6 +161,7 @@ class InboxMessageRepositoryImpl(
             it[state] = InboxMessageState.FAILED.name
             it[nextAttemptTime] = null
             it[processedAt] = now
+            it[waitReason] = null
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
         logger.warn(
@@ -156,9 +193,8 @@ class InboxMessageRepositoryImpl(
             (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
         }) {
             it[InboxMessageTable.state] = InboxMessageState.WAIT.name
-            it[InboxMessageTable.dropReason] = reason
+            it[InboxMessageTable.waitReason] = reason
             it[InboxMessageTable.nextAttemptTime] = nextRetry
-            it[InboxMessageTable.processedAt] = Clock.System.now()
         } > 0
 
     private fun terminate(
@@ -173,6 +209,7 @@ class InboxMessageRepositoryImpl(
             it[InboxMessageTable.state] = state.name
             it[InboxMessageTable.dropReason] = dropReason
             it[InboxMessageTable.errorMessage] = errorMessage
+            it[InboxMessageTable.waitReason] = null
             it[processedAt] = Clock.System.now()
         } > 0
 }
