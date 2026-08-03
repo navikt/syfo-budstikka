@@ -4,7 +4,7 @@ Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i
 `no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon,
 DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting.
 Vedlikehold modellen i relevant topic-dokument når det inngår i den godkjente
-endringen, og legg verifikasjonsbevis i `.grill/VERIFICATION.md`. Når
+endringen, og returner verifikasjonsbevis til den aktive oppgaven. Når
 modelleringen avdekker et varig valg som passerer ADR-gaten, anbefal dokumentert
 løp og vent på brukerens valg før `/domain-modeling` registrerer det.
 

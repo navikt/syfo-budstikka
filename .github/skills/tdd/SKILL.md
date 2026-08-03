@@ -43,7 +43,10 @@ RIKTIG (vertikalt):
 
 ### 1. Planlegg
 
-Les `docs/glossary.md` når testnavn og grensesnittvokabular trenger domenespråk, og bare ADR-ene som binder området du rører. Følger du en plan fra `@grillmester`, hold deg til `.grill/PLAN.md` og kryss av atferdene der. Les `docs/context.md` bare ved behov for repository-orientering eller overordnet status.
+Les `docs/glossary.md` når testnavn og grensesnittvokabular trenger domenespråk,
+og bare ADR-ene som binder området du rører. Følger du en plan eller oppgavebrief
+fra `@grillmester`, hold deg til atferdene der. Les `docs/context.md` bare ved
+behov for repository-orientering eller overordnet status.
 
 Før du skriver kode:
 
@@ -105,7 +108,8 @@ Når alle tester består, se etter [refaktoreringskandidater](refaktorering.md):
 
 **Aldri refaktorer mens RED.** Kom til GREEN først.
 
-Når implementasjonen er ferdig og grønn, oppdater `.grill/VERIFICATION.md` med hva som faktisk ble verifisert (kommandoen som ble kjørt og resultatet), slik at `@grillmester`-løkka kan lukke fasen.
+Når implementasjonen er ferdig og grønn, returner kommandoen som ble kjørt og
+resultatet til den kallende arbeidsflyten, slik at `@grillmester` kan lukke verifiseringsfasen.
 
 ## Sjekkliste per syklus
 

@@ -179,8 +179,10 @@ Bruk `Naisjob` når teamet trenger batch-kjøringer (nattlige jobber, engangs-mi
   vanskelig reverserbart og ikke-opplagt valg av ingress, scaling-strategi,
   Postgres-tier/HA eller Kafka-pool — anbefal dokumentert løp og vent på
   brukerens valg før `/domain-modeling` registrerer det.
-- Endring i `accessPolicy`, auth-flagg eller scopes → kjør `/security-review` (loggføres i `.grill/VERIFICATION.md`).
-- Endring i prod-resources, replicas eller nye GCP-ressurser (kostnad) → kjør `grill-inspektor` før merge og legg evidens i `.grill/VERIFICATION.md`.
+- Endring i `accessPolicy`, auth-flagg eller scopes → kjør `/security-review` og
+  returner evidensen til den aktive oppgaven.
+- Endring i prod-resources, replicas eller nye GCP-ressurser (kostnad) følger
+  den kanoniske R3/R4-gaten i `.github/copilot-instructions.md`.
 
 NAIS-dok: https://doc.nais.io/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
 

@@ -13,7 +13,9 @@ Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke
 
 - En kandidat som passerer ADR-gaten → anbefal dokumentert løp og vent på
   brukerens valg før `/domain-modeling` skriver.
-- Reviewfunn → reviewsvaret eller `.grill/REVIEW.md`; deterministiske verktøybevis (trivy/zizmor-output, exit-koder) → `.grill/VERIFICATION.md`.
+- Returner reviewfunn og deterministiske verktøybevis (trivy/zizmor-output,
+  exit-koder) til den aktive oppgaven. Skriv dem bare til en oppgavelokal
+  `.grill/`-fil når den kallende arbeidsflyten eksplisitt har valgt det.
 - Vedlikeholdte rammer for datahåndtering som følger av en godkjent endring →
   relevant topic-dokument. Nye domenebegreper er kandidater for dokumentert løp;
   vent på brukerens valg før glossaret oppdateres. Oppdater `docs/context.md`
@@ -122,7 +124,8 @@ git log -p --all -S 'password' -- '*.kt' '*.kts' '*.yaml' | head -100
 git log -p --all -S 'secret' -- '*.kt' '*.kts' '*.yaml' | head -100
 ```
 
-Legg bevis (kommando + output + exit-kode) i `.grill/VERIFICATION.md` — ingen «ser trygt ut»-påstander uten ferskt bevis.
+Returner bevis (kommando + output + exit-kode) til den kallende arbeidsflyten —
+ingen «ser trygt ut»-påstander uten ferskt bevis.
 
 ## Hemmeligheter
 

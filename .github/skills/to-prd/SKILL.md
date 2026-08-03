@@ -1,24 +1,25 @@
 ---
 name: to-prd
-description: "Bruk når en ferdig-grillet idé eller design skal støpes til et PRD og legges på issue-trackeren — UTEN nytt intervju, bare syntese av det som allerede er diskutert i tråden og skrevet til .grill/. @grillmester rett etter design/plan-fasen, eller når noen sier 'skriv et PRD', 'lag kravspec', 'oppsummer dette til en sak'."
+description: "Bruk når en ferdig-grillet idé eller design skal støpes til et PRD og legges på issue-trackeren — UTEN nytt intervju, bare syntese av det som allerede er avklart i samtalen eller den aktive oppgaven. @grillmester rett etter design/plan-fasen, eller når noen sier 'skriv et PRD', 'lag kravspec', 'oppsummer dette til en sak'."
 ---
 
 # to-prd
 
-Tar samtalekonteksten + det som ligger i `.grill/` og produserer et PRD som
-publiseres til issue-trackeren. **Ikke intervju brukeren** — syntetisér det dere
+Tar samtalekonteksten og den aktive oppgaven og produserer et PRD som publiseres
+til issue-trackeren. Les en oppgavelokal `.grill/`-fil bare når den kallende
+arbeidsflyten eksplisitt har valgt den. **Ikke intervju brukeren** — syntetisér det dere
 allerede har kommet frem til. Mangler grunnlaget (uklart problem, ingen
 avklarte beslutninger), stopp og anbefal `/grilling` i stedet for å gjette. Hvis
 varige begreper eller beslutninger bør dokumenteres under avklaringen, anbefal
 det dokumenterte løpet og vent på brukerens valg.
 
-## Forutsetning: les arbeidsminnet først
+## Forutsetning: les de avklarte kildene først
 Dette er et seint steg i Grillmester sin faseløkke. Før du skriver, les det som allerede er avklart:
-- samtalen, oppgaven/parent-issuet og `.grill/PLAN.md` — valgt scope og ferdig-når-kriterier
+- samtalen, oppgaven/parent-issuet og aktiv plan — valgt scope og ferdig-når-kriterier
 - eksplisitt relevante topic-dokumenter og ADR-er — vedlikeholdt detalj; tolk
   ADR-status via `docs/agents/domain.md`
 - `docs/glossary.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
-- `.grill/VERIFICATION.md` hvis implementeringsbevis faktisk er relevant
+- ferskt implementeringsbevis fra den aktive oppgaven, hvis det faktisk er relevant
 
 Les `docs/context.md` bare hvis PRD-et trenger repository-orientering eller overordnet status.
 

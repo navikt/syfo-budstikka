@@ -19,12 +19,15 @@ Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen
 
 ## Beslutningskartet
 
-Ett kompakt Markdown-dokument per planleggings-innsats:
-`.grill/DECISIONS.md` — transient arbeidsminne (gitignorert; etter valgt
-dokumentert løp kan kvalifiserende beslutninger gradueres til `docs/adr/` via
-`/domain-modeling`). Det er den
-kanoniske *arbeids*-artefakten, og **hele kartet lastes inn som kontekst i hver
-økt** — derfor må det holdes stramt.
+Returner ett kompakt Markdown-kart per planleggingsinnsats. Samtalen eller det
+aktive issuet er standard hjem. Når den kallende arbeidsflyten eksplisitt
+trenger et kart som skal overleve en reell øktgrense, kan det lagres
+oppgavelokalt, for eksempel som
+`.grill/DECISIONS.md`. Etter valgt dokumentert løp kan kvalifiserende
+beslutninger gradueres til `docs/adr/` via `/domain-modeling`.
+
+Når kartet er lagret, er det den kanoniske *arbeids*-artefakten, og hele kartet
+lastes inn som kontekst i hver økt — derfor må det holdes stramt.
 
 - Hold det kompakt. Tunge artefakter (utrednings-notater, spike-resultater, prototyper) lenkes fra noden, **aldri** limes inn i kartet.
 - Når en beslutning passerer hele ADR-gaten og brukeren har valgt å dokumentere
@@ -95,11 +98,13 @@ Bruker kommer med en løs idé.
    NAV-plattform, dataklassifisering, auth eller teamgrenser, bruk
    `/nav-architecture-review` på den grenen. Anbefal dokumentert løp og vent på
    brukerens valg hvis resultatene bør skrives varig.
-2. Skriv `.grill/DECISIONS.md`: mest tåke, frontlinja identifisert, trivielt-avgjørbare valg løst inline med en gang. Tegn `Blokkert av`-kantene.
+2. Returner kartet med mest tåke, frontlinja identifisert og
+   trivielt-avgjørbare valg løst inline. Tegn `Blokkert av`-kantene. Skriv det
+   bare til en eksplisitt valgt oppgavelokal fil eller et aktivt issue.
 3. **Stopp.** Å bygge kartet er én økts arbeid — ikke løs nodene i samme slengen.
 
 ### Løs en node (resume)
-Bruker peker på et eksisterende kart + et nodenummer.
+Bruker peker på et eksisterende kart eller en valgt kartfil + et nodenummer.
 
 1. Last **hele kartet** som kontekst.
 2. Kjør én økt for å løse noden, med riktig verktøy for typen (se over).
@@ -111,7 +116,10 @@ Bruker peker på et eksisterende kart + et nodenummer.
 
 ## Parallellisme
 
-Brukeren kan løse flere uavhengige noder samtidig (noder uten felles `Blokkert av`-sti). Forvent derfor at andre økter endrer kartet mens du jobber — les hele kartet på nytt før du skriver, og rør bare din egen node + dens nye barn.
+Brukeren kan løse flere uavhengige noder samtidig (noder uten felles `Blokkert
+av`-sti). Når kartet er lagret i en delt arbeidsartefakt, forvent at andre økter
+kan endre det — les hele kartet på nytt før du skriver, og rør bare din egen
+node + dens nye barn.
 
 ## Når kartet er overflødig
 

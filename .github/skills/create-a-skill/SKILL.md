@@ -7,7 +7,7 @@ argument-hint: "[goal or existing skill path]"
 # Create a Skill
 
 Create, revise, or diagnose one GitHub Copilot CLI skill. The target
-repository's instructions and installed Copilot version govern the artifact
+repository's instructions and supported Copilot contract govern the artifact
 this skill produces.
 
 ## Choose the mode

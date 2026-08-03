@@ -8,7 +8,7 @@ description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstik
 Flytt innkommende issues (og eksterne PR-er) på `navikt/syfo-budstikka` gjennom en liten tilstandsmaskin: **klassifiser → verifiser → grill ved behov → skriv en arbeidsklar brief**. Fokuset her er **vurdering og klargjøring**, ikke oppretting.
 
 Dette komplementerer to nabo-skills — ikke dupliser dem:
-- `/to-issues` bryter en *ferdig plan* (`.grill/PLAN.md`) i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
+- `/to-issues` bryter en *ferdig plan* i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
 - `/issue-management` eier selve oppretting-, type-, label- og board-mekanikken (issue-typer, sub-issues, avhengigheter, prosjektboard, ferdigmelding). Slå opp der — `issue-management/references/issue-types.md` for type/label og `issue-management/references/projects.md` for board — når du faktisk setter en rolle eller status. Gjenta ikke mekanikken her.
 
 En **PR er et issue med kode**: samme roller, samme tilstander. Der noe avviker for en PR er det merket "for en PR" under. En bar `#42` slås opp som issue eller PR.

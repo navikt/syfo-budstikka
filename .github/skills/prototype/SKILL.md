@@ -5,7 +5,9 @@ description: "Bruk når et design er for usikkert for papir og du vil teste det 
 
 # prototype
 
-En spike er **kast-vekk-kode som svarer på ett spørsmål**. Den lever i et eget spor, er tydelig merket som kast-vekk, og dør når svaret er funnet. Lærdommen — ikke koden — mates inn i `.grill/`-artefaktene.
+En spike er **kast-vekk-kode som svarer på ett spørsmål**. Den lever i et eget
+spor, er tydelig merket som kast-vekk, og dør når svaret er funnet. Lærdommen —
+ikke koden — returneres til samtalen eller den aktive oppgaven.
 
 Dette er et backend-repo (Ktor / no.nav.syfo). Spiken handler aldri om utseende, alltid om **atferd og form**: hvordan en tilstand utvikler seg, hvilke data en modell faktisk klarer å representere, hvordan et API-svar ser ut, eller hva en konsument gjør når den samme hendelsen kommer to ganger.
 
@@ -22,7 +24,8 @@ Hvis spørsmålet allerede er avklart og du bare skal bygge — feil verktøy. B
 
 ## Velg vinkel
 
-Skriv ned spørsmålet i én setning øverst i spike-fila (eller i `.grill/STATE.md`) før du koder. En spike som svarer på feil spørsmål er ren sløsing.
+Skriv ned spørsmålet i én setning øverst i spike-fila eller i den aktive
+oppgaven før du koder. En spike som svarer på feil spørsmål er ren sløsing.
 
 - **"Føles modellen/tilstandsmaskinen riktig?"** → bygg en bitteliten interaktiv `main()` som lar deg drive modellen for hånd og se tilstanden endre seg etter hver handling.
 - **"Hva skal API-formen / feilkontrakten være?"** → skissér request/response som `data class`, start en minimal `embeddedServer` med én route, og `curl` mot den til formen føles riktig.
@@ -51,7 +54,9 @@ Spiken er et sideverktøy *inne i* design- og planfasen, ikke et eget løp:
   på brukerens valg før `/domain-modeling` oppdaterer glossar eller ADR. Bruk
   `/nav-architecture-review` først når NAV-konsekvenser er relevante, og
   oppdater `docs/context.md` bare ved endret orientering eller overordnet status.
-- **Notér åpne svar.** Kjører du AFK og brukeren ikke har bekreftet verdikten ennå: skriv spørsmålet + foreløpig funn i `.grill/STATE.md`, så det fylles inn før spiken slettes.
+- **Notér åpne svar.** Kjører du AFK og brukeren ikke har bekreftet verdikten
+  ennå: returner spørsmålet + foreløpig funn til den aktive oppgaven. Skriv det
+  bare i oppgavelokal `.grill/` når den kallende arbeidsflyten har valgt det.
 
 ## Anti-mønstre
 

@@ -157,7 +157,7 @@ Content-Type: application/json
    dokumentert løp og vent på brukerens valg før `/domain-modeling` registrerer
    det.
 4. For lokal kjøring og JVM-tester: se [`references/local-auth-mock.md`](references/local-auth-mock.md).
-5. Endringer i auth-validering eller accessPolicy → kjør `/security-review` før levering (@grillmester fase 5, loggføres i `.grill/VERIFICATION.md`).
+5. Endringer i auth-validering eller accessPolicy → kjør `/security-review` før levering og returner evidensen til @grillmester fase 5.
 
 NAIS-dok: https://doc.nais.io/auth/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
 

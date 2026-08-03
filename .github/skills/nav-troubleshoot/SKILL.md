@@ -15,7 +15,7 @@ Skillen ruter symptom → riktig diagnostisk tre. Den fikse-disiplinerte delen (
 2. **Detekter faktisk stack i denne kodestien** — plain Apache Kafka clients vs. Rapids & Rivers, Azure AD vs. TokenX vs. ID-porten/Maskinporten. Diagnosen må matche det appen faktisk kjører, ikke hva manifestet kunne hatt.
 3. **Følg diagnostisk tre** i riktig `references/*.md` — steg for steg.
 4. **Foreslå minst invasive fiks først**; eskaler kun hvis nødvendig.
-5. **Lukk feilen via `/diagnosing-bugs`** — skriv regresjonstest (`./gradlew test`, Ktor `testApplication { }`) der det finnes en korrekt søm, og noter ferskt grønt bevis i `.grill/VERIFICATION.md`.
+5. **Lukk feilen via `/diagnosing-bugs`** — skriv regresjonstest (`./gradlew test`, Ktor `testApplication { }`) der det finnes en korrekt søm, og returner ferskt grønt bevis til den aktive oppgaven.
 
 ## Symptom-oversikt
 
@@ -63,7 +63,8 @@ Deploy feiler
 - `/kafka-topic` — consumer/producer-mønstre, SSL-env, idempotens, Rapids & Rivers
 - `/flyway-migration` og `/postgresql-review` — schema, migrering, query- og indeksvurdering (design-tid)
 - `/observability-setup` — Micrometer/Prometheus + Mimir/Loki/Tempo-oppsett (design-tid; nav-troubleshoot leser signalene, observability-setup etablerer dem)
-- `/diagnosing-bugs` — feedback-loop, repro, hypoteser, regresjonstest; sporer arbeid i `.grill/` på linje med @grillmester sin faseløkke
+- `/diagnosing-bugs` — feedback-loop, repro, hypoteser og regresjonstest;
+  returnerer funn og verifikasjon til den aktive oppgaven
 
 ## Grenser
 

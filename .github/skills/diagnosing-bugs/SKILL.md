@@ -7,7 +7,12 @@ description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, 
 
 En disiplin for vanskelige feil. Hopp over faser kun når du eksplisitt kan begrunne det.
 
-Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare topic-dokumentene og ADR-ene som berører symptomet, glossaret når domenespråk er relevant, og `docs/context.md` kun ved behov for repository-orientering eller overordnet status. For ikke-trivielle fikser sporer du arbeidet i `.grill/` (`STATE.md` leses først) på linje med @grillmester sin faseløkke.
+Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare
+topic-dokumentene og ADR-ene som berører symptomet, glossaret når domenespråk er
+relevant, og `docs/context.md` kun ved behov for repository-orientering eller
+overordnet status. For ikke-trivielle fikser bruker du aktiv oppgave eller
+oppgavebrief som avgrensning; oppgavelokal `.grill/` brukes bare når den
+kallende arbeidsflyten har valgt det.
 
 Er symptomet et **runtime-/plattformproblem** (appen kjører, men feiler i drift) — start i symptom-tabellen nederst og følg det diagnostiske treet i `/nav-troubleshoot` (som eier trærne), deretter tilbake hit for fikse-disiplinen.
 
@@ -144,7 +149,7 @@ Kreves før du erklærer ferdig:
 - [ ] All `[DEBUG-...]`-instrumentering fjernet (`grep -rn "DEBUG-" src/`)
 - [ ] Throwaway-harness slettet (eller flyttet til en tydelig merket debug-lokasjon)
 - [ ] Hypotesen som viste seg riktig er skrevet i commit/PR-melding — så neste debugger lærer
-- [ ] Ferskt grønt bevis for kvalitetsgatene noteres i `.grill/VERIFICATION.md` (kobler til @grillmester sin verifiser-fase)
+- [ ] Ferskt grønt bevis for kvalitetsgatene returneres til @grillmester sin verifiser-fase
 
 **Spør så: hva ville forhindret denne feilen?** Involverer svaret
 arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling),

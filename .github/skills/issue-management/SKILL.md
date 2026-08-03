@@ -7,13 +7,18 @@ description: "Bruk når et GitHub-issue på navikt/syfo-budstikka skal opprettes
 
 Opprett og håndter individuelle GitHub Issues på `navikt/syfo-budstikka` — med epics, sub-issues, avhengigheter, prosjektboard og ferdigmelding.
 
-Dette er **mekanikk-skillen** for issue-livsløpet. Skal en hel `.grill/PLAN.md` brytes ned i mange vertikale snitt, gjør `/to-issues` det grovarbeidet først; denne skillen håndterer det enkelte issuet derfra (struktur, kobling, status, lukking). I @grillmester sin faseløkke hører den hjemme i plan- og serveringsfasen.
+Dette er **mekanikk-skillen** for issue-livsløpet. Skal en hel plan brytes ned i
+mange vertikale snitt, gjør `/to-issues` det grovarbeidet først; denne skillen
+håndterer det enkelte issuet derfra (struktur, kobling, status, lukking). I
+@grillmester sin faseløkke hører den hjemme i plan- og serveringsfasen.
 
 ## Arbeidsflyt
 
 ### 1. Sjekk om issue allerede finnes
 
-Før du oppretter et nytt issue: sjekk om brukeren allerede har referert til ett (f.eks. `#123` eller en GitHub-URL). Hvis ja, bruk det eksisterende. Sjekk også `.grill/PLAN.md` / `.grill/STATE.md` — snittet kan allerede være sporet der.
+Før du oppretter et nytt issue: sjekk om brukeren allerede har referert til ett
+(f.eks. `#123` eller en GitHub-URL). Hvis ja, bruk det eksisterende. Sjekk også
+den aktive planen; snittet kan allerede være sporet der.
 
 ### 2. Velg type
 
@@ -98,7 +103,8 @@ Når en epic skal løses stegvis:
 
 ### 7. Ferdigmelding på issues
 
-Etter at et issue er løst, legg igjen en ferdigmelding. Hent fakta fra `.grill/VERIFICATION.md` der den finnes:
+Etter at et issue er løst, legg igjen en ferdigmelding. Hent fakta fra ferskt
+verifikasjonsbevis i den aktive oppgaven:
 
 ```bash
 gh issue comment ISSUE_NUMMER --repo navikt/syfo-budstikka --body "COMMENT_BODY"
@@ -118,7 +124,7 @@ Strukturert og kortfattet:
 
 **Verifisering:** `./gradlew test` (+ build/lint) — [pass/fail + exit-kode, eller `Ikke kjørt` + grunn]
 
-**Inspeksjon:** [Godkjent / Godkjent med merknader / Må følges opp] — [kort oppsummering, evt. fra grill-inspektor]
+**Inspeksjon:** [APPROVED / CONCERNS / CHANGES_REQUIRED / MISSING_EVIDENCE / NEEDS_CONTEXT / Ikke kjørt] — [kort oppsummering; for CONCERNS, menneskelig aksept: ja/nei]
 
 **PR:** #PR_NUMMER
 ~~~
@@ -152,7 +158,7 @@ Relates to #ISSUE_NUMMER
 ```
 Er oppgaven stor nok for en epic?
 ├── Ja → Opprett Epic + underliggende issues
-│         (bruk /to-issues for å tegne vertikale snitt fra .grill/PLAN.md)
+│         (bruk /to-issues for å tegne vertikale snitt fra planen)
 │   └── Hvert sub-issue: selvstendig, med avhengigheter og akseptansekriterier
 └── Nei → Opprett frittstående issue
     └── Type? → Feature / Story / Task / Bug

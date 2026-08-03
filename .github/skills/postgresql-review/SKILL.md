@@ -153,11 +153,11 @@ issue/plan og vedlikeholdt database- og skjemadetalj i relevant topic-dokument.
 Når et varig arkitekturvalg passerer ADR-gaten — for eksempel PostgreSQL vs.
 Kafka for et integrasjonsbehov eller expand-migrate-contract for et delt
 schema — anbefal dokumentert løp og vent på brukerens valg før
-`/domain-modeling` registrerer det. Speil pool- og migrasjonssteg i
-`.grill/PLAN.md`. Verifiser pool-dimensjonering og at migrasjoner kjører grønt
-(Testcontainers), og legg evidensen i `.grill/VERIFICATION.md` før PR. For
-endringer som rører delte schemas eller pool-konfig er det verdt en ekstra
-review (`grill-inspektor`) før merge.
+`/domain-modeling` registrerer det. Speil pool- og migrasjonssteg i den aktive
+planen. Verifiser pool-dimensjonering og at migrasjoner kjører grønt
+(Testcontainers), og returner evidensen til den aktive oppgaven før PR.
+Endringer som rører delte schemas eller pool-konfig følger den kanoniske R3/R4-
+gaten i `.github/copilot-instructions.md`.
 
 ## Referansefiler
 

@@ -135,6 +135,6 @@ Når en migrering inngår i en planlagt endring, legg task-scope og rolloutsteg 
 issue/plan og vedlikeholdt skjemadetalj i relevant topic-dokument. Når et varig
 valg passerer ADR-gaten, anbefal dokumentert løp og vent på brukerens valg før
 `/domain-modeling` registrerer det. Verifiser at migreringen kjører grønt via
-Testcontainers og legg evidensen i `.grill/VERIFICATION.md` før PR. For
-endringer som rører migreringer er det verdt å kjøre en ekstra review
-(`grill-inspektor`) før merge.
+Testcontainers og returner evidensen til den aktive oppgaven før PR. Endringer
+som rører migreringer følger den kanoniske R3/R4-gaten i
+`.github/copilot-instructions.md`.

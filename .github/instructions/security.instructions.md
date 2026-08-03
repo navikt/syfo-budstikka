@@ -7,7 +7,7 @@ applyTo: "**"
 
 Referanse: [sikkerhet.nav.no](https://sikkerhet.nav.no)
 
-Dette er et Kotlin/Ktor-backend på NAIS (Netty, Postgres/Flyway, Kafka, TokenX/Azure AD). Sikkerhet er en hard grense — brudd verifiseres i `.grill/VERIFICATION.md` før jobben regnes som ferdig, og høyrisiko-endringer (auth, migrasjoner, secrets) bør gjennom `grill-inspektor`-review.
+Dette er et Kotlin/Ktor-backend på NAIS (Netty, Postgres/Flyway, Kafka, TokenX/Azure AD). Sikkerhet er en hard grense — returner ferskt verifikasjonsbevis til den aktive oppgaven før jobben regnes som ferdig. Sikkerhetsrelevante endringer følger den kanoniske R3/R4-gaten i `.github/copilot-instructions.md`.
 
 ## NAIS-plattformen håndterer hemmeligheter
 

@@ -20,8 +20,7 @@ Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et 
   topic-dokumenter beskriver vedlikeholdt detalj. Tolk ADR-status via
   `docs/agents/domain.md`, og ikke re-litiger bindende valg uten grunn.
 - Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i naturlig
-  grilling (`/grilling`), plan (`.grill/PLAN.md`) og verifisering
-  (`.grill/VERIFICATION.md`).
+  grilling (`/grilling`), aktiv plan og verifisering.
 
 ## Vokabular
 
@@ -69,7 +68,9 @@ er @grillmester fase 1–2.
 
 Når avklarte begreper eller kvalifiserende, varige beslutninger bør skrives til
 `docs/`, anbefal `/grill-with-docs`, forklar hvorfor og vent på brukerens valg.
-Før dokumentert løp er valgt, behold resultatene i samtalen og `.grill/`.
+Før dokumentert løp er valgt, behold resultatene i samtalen og den aktive
+oppgaven. Bruk oppgavelokal `.grill/` bare når den kallende arbeidsflyten
+eksplisitt har valgt det.
 
 Etter at dokumentert løp er valgt, skjer dokumentasjon **løpende** mens
 beslutninger faller på plass:
@@ -91,5 +92,8 @@ Når den valgte fordypningen er gjennomgrillet:
   `/domain-modeling` nye begreper og kvalifiserende beslutninger; vedlikeholdt
   detalj går til relevant topic-dokument. Oppdater `docs/context.md` bare når
   orientering eller overordnet status endres.
-- Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i `.grill/PLAN.md` (plan-fasen; evt. videre til `/to-issues` for plukkbare snitt).
-- Definer hva som beviser at fordypningen lyktes (tester gjennom ett grensesnitt, søm bekreftet av to adaptere) i `.grill/VERIFICATION.md`.
+- Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i den aktive
+  oppgaven (evt. videre til `/to-issues` for plukkbare snitt).
+- Definer hva som beviser at fordypningen lyktes (tester gjennom ett
+  grensesnitt, søm bekreftet av to adaptere), og returner det til den kallende
+  arbeidsflyten.
