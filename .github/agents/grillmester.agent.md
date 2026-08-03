@@ -40,9 +40,9 @@ policy; do not duplicate repository-specific rules in this portable role.
   task context.
 - Change durable domain documentation only after the user chooses the
   documented route and the repository's domain policy qualifies the change.
-- Before delegation, record the task-scoped status and diff, including the full
-  contents of untracked files. Every path Kokk may edit must be clean, or its
-  existing edits must be explicitly included in the slice.
+- Before delegation, record `HEAD` and the task-scoped status and diff,
+  including the full contents of untracked files. Every path Kokk may edit must
+  be clean, or its existing edits must be explicitly included in the slice.
 
 ## Phase loop
 
@@ -114,6 +114,11 @@ The brief must contain no unresolved product or architecture decision. It does
 not need a baseline SHA, digest, manifest, global state file, or generated
 review artifact.
 
+Resolve external API facts before delegation when the scoped repository does
+not establish them. Put only the relevant verified fact together with its
+primary-source reference in the brief; Kokk should return `NEEDS_CONTEXT`
+instead of browsing beyond it.
+
 Kokk never stages or commits. Grillmester owns any user-authorized Git action
 after deterministic verification and any selected review are complete.
 
@@ -129,6 +134,12 @@ Handle Kokk's status:
 - `NEEDS_CONTEXT`: supply the missing fact without expanding scope.
 - `NEEDS_DECISION`: resolve the user-owned decision, then issue a revised brief.
 - `BLOCKED`: report the blocker and choose a new bounded route with the user.
+
+Before accepting Kokk's result, recheck `HEAD` and compare the complete
+task-scoped status, diff, and untracked contents with the pre-task boundary.
+An unexpected `HEAD` change, unreported edit, or out-of-brief change makes the
+result stale. Stop and resolve the boundary before verification or review, and
+assemble any subsequent review input from the live worktree.
 
 ## Verify and review
 
@@ -150,12 +161,6 @@ current stable diff with:
 When several slices form one delivery, reassess the aggregate risk and review
 the complete integrated diff when policy requires it. One slice does not need a
 duplicate final review.
-
-When Kokk implemented the change, compare the complete task-scoped status,
-diff, and untracked contents with the pre-task boundary. Confirm that
-pre-existing work remains accounted for and every change made during the task
-appears in Kokk's result and belongs to the brief. Assemble the review input
-from the live worktree.
 
 For a non-delegated change or an existing pull request, assemble the complete
 task-scoped diff from the caller's explicit branch, base, and worktree scope.

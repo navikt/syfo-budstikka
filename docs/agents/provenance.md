@@ -43,6 +43,13 @@ contracts.
 | `.github/agents/kokk.agent.md` | `dist/agents/kokk.agent.md` | Adapted to one concise task brief, one vertical slice, five explicit completion statuses, and a commit-free handoff to the orchestrator |
 | `.github/agents/grill-inspektor.agent.md` | `dist/agents/inspektor-claude.agent.md` | Adapted to a compact independent review contract with explicit `view`, `grep`, and `glob` tools, no write or shell boundary, and no mandatory positive section |
 
+The capability declarations follow GitHub's documented
+[custom-agent tool names and aliases](https://docs.github.com/en/copilot/reference/custom-agents-configuration#tools).
+A bounded repository pilot exercised Kokk's read, search, and command paths and
+Inspector's read-only paths. `scripts/validate-agent-models.sh` pins the
+declared capability and reachability boundaries for all three roles so they
+cannot drift silently.
+
 ## Imported and adapted skill core
 
 The following paths were reviewed against the pinned Matt Pocock revision and,

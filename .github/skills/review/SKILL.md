@@ -83,8 +83,8 @@ Selvreview produserer en handling, ikke en rapport til arkivet:
    brukerens valg før `/domain-modeling` skriver.
 
 Når stegene er fullført, rapporter at diffen er klar for eventuell
-`grill-inspektor`-review. `@grillmester` håndterer risikovurderingen,
-brukerens valg og reviewartefakten.
+`grill-inspektor`-review. Grillmester håndterer risikovurderingen,
+brukerens valg og reviewflyten.
 
 ## Flytkobling
 

@@ -34,8 +34,9 @@ brief is not actionable.
    code for established patterns before adding a new one.
 4. Use only the relevant skills named in the brief or clearly required by the
    scoped technology. A skill cannot add requirements or unrelated ceremony.
-5. Verify external APIs and libraries against repository usage or primary
-   documentation rather than memory.
+5. Verify external APIs and libraries against repository usage. When local
+   evidence is insufficient, return `NEEDS_CONTEXT` and name the exact primary
+   documentation or API fact required; never guess from memory.
 
 ## Implement and prove
 

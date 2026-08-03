@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate required agent model pins and the Inspector's read-only boundary.
+# Validate required agent model pins and capability boundaries.
 #
 # Usage: scripts/validate-agent-models.sh [agents-dir]
 # Exit: 0 = required declarations are valid, 1 = missing or unsafe declaration
@@ -12,6 +12,24 @@ declare -A EXPECTED_MODELS=(
   [grillmester]="claude-opus-5"
   [kokk]="gpt-5.6-terra"
   [grill-inspektor]="claude-opus-5"
+)
+
+declare -A EXPECTED_TOOLS=(
+  [grillmester]=$'agent\nask_user\nedit\nexecute\nread\nsearch\nskill\nweb'
+  [kokk]=$'edit\nexecute\nread\nsearch\nskill'
+  [grill-inspektor]=$'glob\ngrep\nview'
+)
+
+declare -A EXPECTED_USER_INVOCABLE=(
+  [grillmester]="true"
+  [kokk]="false"
+  [grill-inspektor]="false"
+)
+
+declare -A EXPECTED_MODEL_INVOCATION_DISABLED=(
+  [grillmester]="true"
+  [kokk]="false"
+  [grill-inspektor]="false"
 )
 
 frontmatter_for() {
@@ -37,6 +55,17 @@ for role in grillmester kokk grill-inspektor; do
     continue
   fi
 
+  if ! awk '
+    /^[[:space:]]*$/ { next }
+    /^[[:space:]]*#/ { next }
+    /^(name|description|model|user-invocable|disable-model-invocation|tools):/ { next }
+    /^  - [[:alnum:]_-]+([[:space:]]+#.*)?$/ { next }
+    { exit 1 }
+  ' <<< "$frontmatter"; then
+    echo "INVALID: $role frontmatter must use canonical top-level fields and tool-list syntax"
+    fail=1
+  fi
+
   model_count="$(grep -Ec '^model:' <<< "$frontmatter" || true)"
   model="$(sed -nE 's/^model:[[:space:]]*"?([^"#]+)"?[[:space:]]*$/\1/p' <<< "$frontmatter")"
   if [ "$model_count" -ne 1 ] || [ "$model" != "${EXPECTED_MODELS[$role]}" ]; then
@@ -44,15 +73,39 @@ for role in grillmester kokk grill-inspektor; do
     fail=1
   fi
 
-  if [ "$role" = "grill-inspektor" ]; then
-    tools_count="$(grep -Ec '^tools:' <<< "$frontmatter" || true)"
-    tool_set="$(awk '/^tools:/ { in_tools=1; next }
-      in_tools && /^  - / { sub(/^  - /, ""); print; next }
-      in_tools { exit }' <<< "$frontmatter" | LC_ALL=C sort)"
-    if [ "$tools_count" -ne 1 ] || [ "$tool_set" != $'glob\ngrep\nview' ]; then
-      echo "INVALID: $role tools must be exactly glob, grep, and view"
-      fail=1
-    fi
+  user_invocable_count="$(grep -Ec '^user-invocable:' <<< "$frontmatter" || true)"
+  user_invocable="$(sed -nE 's/^user-invocable:[[:space:]]*(true|false)[[:space:]]*$/\1/p' <<< "$frontmatter")"
+  if [ "$user_invocable_count" -ne 1 ] || [ "$user_invocable" != "${EXPECTED_USER_INVOCABLE[$role]}" ]; then
+    echo "INVALID: $role has the wrong user-invocable boundary"
+    fail=1
+  fi
+
+  model_invocation_count="$(grep -Ec '^disable-model-invocation:' <<< "$frontmatter" || true)"
+  model_invocation_disabled="$(sed -nE 's/^disable-model-invocation:[[:space:]]*(true|false)[[:space:]]*$/\1/p' <<< "$frontmatter")"
+  if [ "$model_invocation_count" -ne 1 ] || [ "$model_invocation_disabled" != "${EXPECTED_MODEL_INVOCATION_DISABLED[$role]}" ]; then
+    echo "INVALID: $role has the wrong model-invocation boundary"
+    fail=1
+  fi
+
+  tools_count="$(grep -Ec '^tools:' <<< "$frontmatter" || true)"
+  tool_set="$(awk '
+    /^tools:[[:space:]]*$/ { in_tools=1; next }
+    in_tools && /^[[:space:]]*$/ { next }
+    in_tools && /^[[:space:]]*#/ { next }
+    in_tools && /^  - / {
+      item=$0
+      sub(/^  - /, "", item)
+      sub(/[[:space:]]+#.*$/, "", item)
+      sub(/[[:space:]]+$/, "", item)
+      if (item !~ /^[[:alnum:]_-]+$/) item="__INVALID_TOOL_SYNTAX__"
+      print item
+      next
+    }
+    in_tools { exit }
+  ' <<< "$frontmatter" | LC_ALL=C sort)"
+  if [ "$tools_count" -ne 1 ] || [ "$tool_set" != "${EXPECTED_TOOLS[$role]}" ]; then
+    echo "INVALID: $role tools do not match its required capability boundary"
+    fail=1
   fi
 
   body="$(awk 'BEGIN { delimiters=0 } $0 == "---" { delimiters++; next }
