@@ -37,9 +37,6 @@ also require an explicit user request.
 
 ## Agent setup
 
-- **Barista** is the manually selected, solo-first entry point for ordinary
-  work. It recommends Grillmester before unresolved decisions or red signals,
-  and invokes Grill-inspektor only after explicit review opt-in.
 - **Grillmester** owns the non-trivial workflow from clarification through
   delivery synthesis and delegates one bounded implementation slice at a time.
 - **Kokk** is the internal writer for that slice and returns deterministic

@@ -6,9 +6,6 @@ contracts; this page does not duplicate their full workflows.
 
 ## Components
 
-- **Barista** (`.github/agents/barista.agent.md`) owns ordinary work end to end
-  through a solo-first workflow and recommends Grillmester when decisions or
-  risk require orchestration.
 - **Grillmester** (`.github/agents/grillmester.agent.md`) owns clarification,
   design, risk, routing, checkpoints, verification, and delivery synthesis.
 - **Kokk** (`.github/agents/kokk.agent.md`) implements one bounded vertical
@@ -21,12 +18,6 @@ contracts; this page does not duplicate their full workflows.
   `.github/copilot-instructions.md`) hold repository and path-specific policy.
 
 ## Workflow shape
-
-Barista is the lightweight entry point for ordinary work. It plans, implements,
-and verifies suitable work itself. It never invokes Kokk or Grillmester; it
-recommends that the user select Grillmester when the solo route is no longer
-appropriate. Grill-inspektor is Barista's only agent route and requires
-explicit review opt-in.
 
 Grillmester uses a seven-phase loop: grill, design, plan, implement, verify,
 deliver, and verify in the environment. R0/R1 work with locked requirements and
