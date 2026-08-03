@@ -1,7 +1,7 @@
 # NAV Threat Model — STRIDE, DFD, trusseltabell, DPIA, auditlogg, Datatilsynet
 
-Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i
-`no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon,
+Dyp referanse for trusselmodellering av NAV-applikasjoner. Brukes når SKILL.md
+eskalerer: ny datakategori, ny integrasjon,
 DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting.
 Vedlikehold modellen i relevant topic-dokument når det inngår i den godkjente
 endringen, og returner verifikasjonsbevis til den aktive oppgaven. Når
@@ -30,7 +30,7 @@ Start med en enkel DFD før du vurderer STRIDE. Målet er å synliggjøre datafl
 == Ingress / Wonderwall ==
     |
     v
-(Ktor-backend, no.nav.syfo)
+(Ktor-backend)
     | \
     |  \---> {Kafka-topic}
     |
@@ -70,7 +70,7 @@ STRIDE brukes her som sjekkliste, ikke som generisk akademisk øvelse. For hver 
 - [ ] Brukerautentisering via riktig IDP: ID-porten for innbyggere, Azure AD for ansatte, Maskinporten for eksterne M2M, TokenX for intern service-to-service på vegne av bruker.
 - [ ] Token-validering validerer `iss`, `aud`, `exp`, `nbf` og signatur mot IDP-ens JWKS (`token-validation-ktor-v3`/`tokenValidationSupport`, se `/auth-overview`).
 - [ ] For Azure AD M2M: `azp`-claim valideres mot `AZURE_APP_PRE_AUTHORIZED_APPS`. Uten denne sjekken kan hvilken som helst app i tenanten kalle tjenesten.
-- [ ] Call-ID (`Nav-Call-Id`) propageres, men brukes *aldri* som autorisasjonsgrunnlag.
+- [ ] Request- og flytkorrelasjon følger repoets dokumenterte modell og brukes *aldri* som autorisasjonsgrunnlag.
 - [ ] For impersonering/on-behalf-of: Verifiser at originalbruker er riktig tema-bruker i `sub`/`pid`.
 
 ### Tampering (tukling)
@@ -85,12 +85,12 @@ STRIDE brukes her som sjekkliste, ikke som generisk akademisk øvelse. For hver 
 
 ### Repudiation (fornektelse)
 
-**NAV-kontekst:** Bruker eller ansatt kan i ettertid hevde at en handling ikke ble utført, eller at visning av persondata ikke skjedde.
+**NAV-kontekst:** Bruker eller ansatt kan i ettertid hevde at en handling ikke ble utført, eller at visning av persondata ikke skjedde. Auditkrav gjelder bare når repoets dokumenterte behov og beslutninger krever det.
 
-- [ ] CEF-auditlogg når NAV-ansatte ser personopplysninger (ikke ved hver API-sjekk — ved faktisk visning).
-- [ ] Én handling = én auditlogglinje. Ingen tap i stille feil.
-- [ ] Auditlogg inneholder: tidsstempel, handling (`audit:read/update/create/delete`), subjekt-ID (fnr/aktør), utfører (ansatt-UPN/e-post), request-path, beslutning (`Permit`/`Deny`).
-- [ ] Auditlogg skrives til egen logger (`auditLogger`) med egen appender i `logback.xml` — ikke blandet inn i applikasjonslogg.
+- [ ] Hvis repoets dokumenterte policy krever auditlogging ved ansattvisning, brukes den etablerte mekanismen ved faktisk visning — ikke ved hver API-sjekk.
+- [ ] Når auditlogg er påkrevd: én handling = én auditlogglinje. Ingen tap i stille feil.
+- [ ] Når auditlogg er påkrevd: innholdet følger dokumentert format og dataminimering.
+- [ ] Når auditlogg er påkrevd: den holdes adskilt fra applikasjonens standardlogg.
 - [ ] Vedtaks- og sakshistorikk har ikke-overskrivbare revisjoner (append-only eller event-sourcet), slik at "hvem gjorde hva når" kan rekonstrueres.
 
 Se seksjonen [Audit-logging-krav](#audit-logging-krav-for-sensitive-personopplysninger) for detaljer.
@@ -160,6 +160,9 @@ Ved tvil: **spør Personvernombudet**. Utelatelse av DPIA ved plikt er selvstend
 DPIA er ikke et engangsdokument — den oppdateres når behandlingen endres.
 
 ## Audit-logging-krav for sensitive personopplysninger
+
+Bruk denne seksjonen bare for systemer med et etablert auditloggkrav. Den
+oppretter ikke et slikt krav; repoets egne beslutninger er styrende.
 
 ### Hva skal logges
 
@@ -249,8 +252,8 @@ Alle brudd skal dokumenteres internt — også de som ikke utløser varsling til
 
 - `../SKILL.md` — PII-klassifisering, accessPolicy-vurdering, eskalering til sikkerhetschampion.
 - `gdpr-privacy.md` — NAV-spesifikk PII-kategorisering, retention, dataminimering.
-- `api-security.md` — Nav-Call-Id, Nav-Consumer-Id, accessPolicy som primærmekanisme.
+- `api-security.md` — request-/flytkorrelasjon, Nav-Consumer-Id og accessPolicy som primærmekanisme.
 - `/auth-overview` — JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar.
-- `/kotlin-ktor` — StatusPages/ApiError-feilkontrakt, CallId/MDC.
+- `/kotlin-ktor` — StatusPages/ApiError-feilkontrakt og repo-definert korrelasjon/MDC.
 - `/flyway-migration` — constraints og PII-kolonner i migreringer.
 - [sikkerhet.nav.no](https://sikkerhet.nav.no) — NAVs Golden Path, autoritativ sikkerhetsveiledning.

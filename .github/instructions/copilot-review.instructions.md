@@ -1,66 +1,22 @@
 ---
-description: "Aktiveres når GitHub Copilot Code Review kjører på en PR i dette repoet — styrer hvilke funn som prioriteres og hvordan kommentarer formuleres"
+description: "GitHub Copilot Code Review priorities for concrete, consequential findings in this repository."
 applyTo: "**"
 ---
 
-# Copilot Code Review — retningslinjer for syfo-budstikka
+# GitHub Copilot code review
 
-Disse instruksjonene brukes når GitHub Copilot Code Review aktiveres på PR-er i dette
-Ktor-backendet (Kotlin, Netty, NAIS, Postgres/Flyway/Kafka, TokenX/Azure AD; pakke `no.nav.syfo`).
+Only when acting as GitHub Copilot Code Review:
 
-Formålet er korte, presise review-forslag med høy signalverdi. Instruksjonen supplerer
-repo-spesifikke regler i andre `instructions`-filer, men overstyrer dem ikke.
-
-## Kjernesjekker
-
-1. **Scope-disiplin og diff-disproporsjon**
-   - Vurder om endringen holder seg til oppgavens scope.
-   - Flagg når diffen rører ubeslektet kode eller virker ute av proporsjon med oppgaven.
-   - Typiske tegn: store formatterings-sveip, fil-rename uten funksjonell grunn, refactor utenfor stated scope, urelaterte avhengighets-bump i `build.gradle.kts` eller `gradle/libs.versions.toml`.
-
-2. **Sikkerhet og persondata**
-   - Databasekall skal bruke parameteriserte queries (prepared statements), aldri streng-konkatenert SQL.
-   - Secrets skal ikke ligge i kode, `application.conf`, NAIS-manifest, testdata eller logger — de hentes fra miljøvariabler/secrets.
-   - Personopplysninger (fnr, navn, diagnose, sykmeldingsdata) skal aldri logges eller eksponeres i feilmeldinger/API-svar uten klart behov.
-   - Flagg alltid røde signaler: endringer i auth (TokenX/Azure AD-validering, `issuer`/`audience`/`jwks`), NAIS `accessPolicy`, auditlogg, nye eksterne integrasjoner eller `serviceuser`-tilgang.
-   - Ved tvil: foreslå manuell sikkerhetsgjennomgang via `/security-review`.
-
-3. **Ktor- og backend-korrekthet**
-   - Sjekk at nye routes ligger bak riktig `authenticate { }`-blokk, og at åpne `/internal`-endepunkter (isalive/isready/metrics) ikke krever auth.
-   - Sjekk at suspending kall ikke blokkerer event-loopen (ingen blokkerende I/O uten `Dispatchers.IO`).
-   - Sjekk at HTTP-statuskoder og feilhåndtering er konsistente (`StatusPages`, ikke svelgede exceptions).
-   - Sjekk at ressurser lukkes (DB-connections, HttpClient, Kafka-consumere) og at coroutine-scope ikke lekker.
-
-4. **Datalag, migrasjoner og Kafka**
-   - Flyway-migrasjoner skal være additive og idempotent-vennlige; flagg endring av allerede commitet migrasjonsfil (skal være ny `V__`-fil i stedet).
-   - Sjekk at nye kolonner/constraints ikke bryter eksisterende data eller rullerende deploy.
-   - For Kafka: sjekk at consumer-offsets håndteres riktig, at deserialiseringsfeil ikke stopper konsumet stille, og at topic/konsumentgruppe matcher konvensjon.
-
-5. **Navnekonvensjon**
-   - Kotlin-identifikatorer skal følge regelen «norsk KUN på domeneord, alt annet engelsk» (se `kotlin.instructions.md`). Flagg norske ord på teknisk mekanikk (`lagre`→`save`, `innhent`→`fetch`, `tilKolonner`→`toColumns`, `erDod`→`isDead`).
-   - Domeneord som forblir norske: `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`. Ikke flagg disse.
-
-## Avgrensning
-
-- Denne filen beskriver kun kjernesjekker for Copilot Code Review.
-- Dype arkitektur- og domenereviews håndteres av egne agenter og skills, koblet
-  til `@grillmester`-faseløkka, varige `docs/`-artefakter og den aktive
-  oppgaven. Oppgavelokal `.grill/` brukes bare når den kallende arbeidsflyten
-  eksplisitt velger det.
-- Reviewkommentarer skal være handlingsrettede, med tydelig risiko og anbefalt endring.
-
-## Prioritering i kommentarer
-
-1. Korrekthet og sikkerhet (auth, persondata, dataintegritet)
-2. Driftsrisiko (migrasjoner, rullerende deploy, NAIS-config, ressurslekkasjer)
-3. Vedlikeholdbarhet og scope-disiplin
-
-## Kommentarstil
-
-- Kommentaren skal vise *hva* som er problemet, *hvorfor* det betyr noe, og *hva* som bør endres.
-- Bruk korte Kotlin-/Ktor-eksempler der det gjør forslaget konkret.
-- Unngå lange avsporinger; hold fokus på observerbar risiko i PR-en.
-- Unngå duplikater når samme funn gjelder flere steder; samle i ett tydelig punkt.
-
-Hvis ingen konkrete funn finnes, skal reviewen være kort og bekrefte at endringen ser
-konsistent ut med repoets mønstre.
+- Review only the current pull-request diff against its acceptance criteria,
+  named decisions, and established repository patterns.
+- Apply the six analysis axes in `.github/skills/review/SKILL.md` and relevant
+  path-specific instructions.
+- Prioritize correctness, security and privacy, compatibility and rollout,
+  operations, then scope and maintainability.
+- Report only concrete, consequential issues introduced by the diff. Anchor
+  each finding to changed code, state the failure mode and impact, and suggest
+  the smallest useful correction.
+- Avoid invented requirements, speculative concerns, style-only nits, and
+  duplicate findings. If there are no findings, keep the response brief.
+- Use a short code example only when it makes the correction concrete.
+- Apply the `security-review` skill when the diff crosses a security boundary.

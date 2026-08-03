@@ -1,11 +1,12 @@
 ---
 name: observability-setup
-description: "Bruk ved etablering eller forbedring av observability i syfo-budstikka: Micrometer-metrikker og PrometheusMeterRegistry i Ktor, MicrometerMetrics-plugin, /internal/isalive|isready|prometheus, strukturert JSON-logging med trace_id/callId, korrelasjons-ID (Nav-Callid/x_request_id), OpenTelemetry-tracing, PromQL/LogQL, Grafana-dashboards og Prometheus-alerts i NAIS — eller når noen sier /observability-setup."
+description: "Bruk ved etablering eller forbedring av observability i syfo-budstikka: Micrometer/Prometheus i Ktor, konfigurerte health- og scrape-ruter, strukturert JSON-logging med event_id/reference og OTel trace-felt, PromQL/LogQL, Grafana-dashboards og Prometheus-alerts i NAIS — eller når noen sier /observability-setup."
 ---
 
 # Observability i syfo-budstikka
 
-Ktor 3.x på Netty, pakke `no.nav.syfo`, kjører i NAIS. Hold hovedreglene her korte — bruk `references/` for fullstendige eksempler.
+Ktor 3.x på Netty, kildepakke `no.nav.budstikka`, kjører i NAIS. Hold
+hovedreglene her korte — bruk `references/` for fullstendige eksempler.
 
 - **Metrikker** forteller *hva* som skjer
 - **Logger** forklarer *hvorfor* det skjedde
@@ -14,15 +15,20 @@ Ktor 3.x på Netty, pakke `no.nav.syfo`, kjører i NAIS. Hold hovedreglene her k
 
 ## Arbeidsflyt
 
-1. Les NAIS-manifestet, `src/main/resources/application.yaml`, `logback.xml` og `build.gradle.kts`/`gradle/libs.versions.toml` for eksisterende observability-oppsett.
-2. Finn etablerte mønstre for `MicrometerMetrics`, `MeterRegistry`-injeksjon (Koin), `CallId`/`CallLogging`, MDC-felt og health-routes.
-3. Verifiser hvilke endepunkter NAIS faktisk scraper og prober mot: `/internal/isalive`, `/internal/isready`, `/internal/prometheus` (eller `/internal/metrics`). Stiene i koden må matche manifestet.
+1. Les NAIS-manifestet, aktiv applikasjonskonfigurasjon, `logback.xml` og
+   `build.gradle.kts`/`gradle/libs.versions.toml` for eksisterende oppsett.
+2. Finn etablerte mønstre for `MicrometerMetrics`, Ktor DI, `MdcKeys`,
+   strukturerte loggfelter og health-ruter.
+3. Verifiser health- og scrape-stiene mot både `InternalApi` og NAIS-manifestet;
+   kode og manifest må være identiske.
 4. Start med standardmetrikker (Ktor HTTP-server + JVM) og utvid med domenemetrikker som gir operativ verdi.
 5. Legg til dashboards og varsler først når metrikkene og label-settet er stabile.
 
 ## Metrikker i Ktor (Micrometer)
 
-Ktor har ingen Actuator. Opprett `PrometheusMeterRegistry` selv, installer `MicrometerMetrics`-pluginen, og eksponer registry-scrapet på en intern route. Hent samme registry videre via Koin der du måler domenehendelser.
+Ktor har ingen Actuator. Opprett ett `PrometheusMeterRegistry`, installer
+`MicrometerMetrics`, eksponer samme registry på den konfigurerte interne ruten,
+og del det via repoets eksisterende Ktor DI.
 
 ```kotlin
 val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
@@ -38,17 +44,20 @@ install(MicrometerMetrics) {
 }
 
 routing {
-    get("/internal/prometheus") { call.respond(registry.scrape()) }
-    get("/internal/isalive") { call.respondText("OK") }
-    get("/internal/isready") { call.respondText("OK") }
+    get("/internal/metrics") { call.respond(registry.scrape()) }
+    get("/internal/health/is_alive") { call.respondText("OK") }
+    get("/internal/health/is_ready") { call.respondText("OK") }
 }
 ```
 
 - `MicrometerMetrics` gir automatisk `ktor_http_server_requests_seconds` (count/sum/bucket) med tags for route, method og status.
 - Bruk `distributionStatisticConfig` med `percentilesHistogram(true)` hvis du trenger p95/p99 fra Prometheus.
-- `liveness` (`/internal/isalive`) skal være enkel og bare svare på om prosessen bør restartes. `readiness` (`/internal/isready`) skal avhenge av faktiske avhengigheter (Postgres-pool, Kafka-consumer) — men hold logikken lett.
+- Behold repoets etablerte liveness- og readiness-semantikk. Endre ikke hvilke
+  avhengigheter de måler uten en eksplisitt beslutning; Kafka-helse kan for
+  eksempel eies av consumer-lag i stedet for readiness.
 
-Se `references/micrometer.md` for `Counter`/`Timer`/`Gauge`/`DistributionSummary`, Koin-injeksjon, domene- og Kafka-metrikker.
+Se `references/micrometer.md` for `Counter`/`Timer`/`Gauge`/
+`DistributionSummary`, registry-wiring, domene- og Kafka-metrikker.
 
 ## Navngivning for metrikker og labels
 
@@ -72,36 +81,32 @@ Egne labels skal dekke domeneaspekter:
 - Foretrekk normaliserte route-verdier (`/api/oppgaver/{id}`), ikke ekspanderte path-parametre
 - Hver unik label-kombinasjon er en ny tidsserie: legg bare til labels som faktisk brukes i dashboards, varsler eller feilsøking
 
-## Korrelasjons-ID i NAV-stacken
+## Korrelasjonsmodell
 
-Korrelasjons-ID lar deg følge en forespørsel på tvers av tjenester, Kafka-meldinger og logger. Repoet bruker allerede `CallId`/`CallLogging` (se `kotlin-ktor`-skillen) — bygg videre på det, ikke parallelt.
+Les B46, B58 og B59 i `docs/decisions.md` før du endrer korrelasjon:
 
-### Headers
-- `Nav-Callid` — NAV-konvensjon; les inn og propager på alle utgående HTTP-kall og Kafka-headere
-- `X-Request-Id` / `X-Correlation-ID` — aksepter som fallback for eksterne integrasjoner
-- W3C `traceparent` — settes automatisk av OpenTelemetry-agenten i NAIS
-
-```kotlin
-install(CallId) {
-    header(HttpHeaders.XRequestId)
-    retrieveFromHeader("Nav-Callid")
-    generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("x_request_id")
-}
-```
+- `event_id` er den persisterte korrelasjonen gjennom én asynkron eventflyt.
+- `reference` korrelerer relaterte events på tvers av opprett/ferdigstill.
+- W3C `traceparent` og `trace_id`/`span_id` dekker hvert tekniske hopp via
+  NAIS OpenTelemetry-agenten.
+- En request-ID brukes bare når en etablert synkron kontrakt krever den. Den
+  propageres ikke i Kafka og presenteres aldri som ende-til-ende uten persistens.
 
 ### MDC og trace-korrelasjon
-Legg `callId` og `trace_id` på MDC slik at logback-encoderen automatisk får dem på alle logger i request-scope. Med OpenTelemetry-agenten kan du hente aktiv trace:
+
+Fest persisterte forretnings-ID-er på MDC i hvert prosesseringssteg og rydd dem
+etterpå. Bruk `MDCContext` over suspenderingspunkter. OTel-agenten legger
+trace-feltene på MDC; ikke lag en parallell manuell modell.
 
 ```kotlin
-MDC.put("callId", call.callId)
-MDC.put("trace_id", Span.current().spanContext.traceId)
+MDC.putCloseable(MdcKeys.EVENT_ID, eventId.toString()).use {
+    withContext(MDCContext()) { process() }
+}
 ```
 
-Inkluder `trace_id`, `span_id` og `callId` i loggene slik at Loki kan korrelere med Tempo (klikkbare trace-IDer i Grafana).
+Logstash-encoderen tar med `event_id`, `reference`, `trace_id` og `span_id` når
+de finnes, slik at Loki kan korreleres med Tempo uten å blande forretnings- og
+trace-identitet.
 
 ## Logging og tracing
 
@@ -119,12 +124,13 @@ Inkluder `trace_id`, `span_id` og `callId` i loggene slik at Loki kan korrelere 
   "@timestamp": "2026-06-29T10:23:45.123Z",
   "level": "INFO",
   "message": "Oppgave behandlet",
-  "logger_name": "no.nav.syfo.oppgave.OppgaveService",
+  "logger_name": "no.nav.budstikka.application.DeliveryWorker",
   "thread_name": "eventLoopGroupProxy-4-1",
   "trace_id": "2f2f2264a8b6df9f8b3d614f4c9ce111",
   "span_id": "b3d614f4c9ce111a",
-  "callId": "abc-123",
-  "event_type": "oppgave_behandlet"
+  "event_id": "8d4e0fd3-8f26-4f93-9585-67f7aa80df86",
+  "reference": "technical-reference",
+  "event_type": "delivery_sent"
 }
 ```
 
@@ -132,12 +138,14 @@ Minimumsfelt: `@timestamp`, `level`, `message`. Legg domenedata i top-level felt
 
 ## Grafana-dashboards for syfo-budstikka
 
-Appen bør ha ett dashboard med disse panelene som baseline. Bruk `app`, `namespace` og `cluster` som template-variabler.
+Les det eksisterende dashboardet før du endrer paneler. Bruk `app`, `namespace`
+og `cluster` som template-variabler.
 
-### Golden signals
-- **Request rate** — `sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))` (per `route`/`method`)
-- **Error rate** — 5xx-andel av total trafikk, både prosent og absolutt rate
-- **Latency p95/p99** — `histogram_quantile(0.95, sum(rate(ktor_http_server_requests_seconds_bucket[5m])) by (le, route))`
+### Domene- og workerflyt
+- Inbox behandlet, droppet og feilet
+- Leveranser per kanal, resultat og drop-årsak
+- Worker runs, failures, varighet og empty-poll-ratio
+- Meldingskorrelasjon på `event_id` og `reference`
 
 ### Ressurser
 - **Connection pool** — `hikaricp_connections_active / hikaricp_connections_max` for Postgres (krever HikariCP-binder)
@@ -148,12 +156,8 @@ Appen bør ha ett dashboard med disse panelene som baseline. Bruk `app`, `namesp
 - **Consumer lag** — `kafka_consumer_lag` / `kafka_consumergroup_lag` per `topic` og `consumer_group`
 - **Consumer/producer rate** og feil per topic
 
-### Domene
-- Behandlede hendelser per minutt, per `event_type`
-- Feilrate per flyt (`result="failure"`)
-- Behandlingstid for kritiske operasjoner
-
-Se `references/promql-logql.md` for komplette PromQL- og LogQL-eksempler.
+Se `references/promql-logql.md` for generell PromQL-/LogQL-syntaks; faktisk
+kode og dashboard eier metrikk- og feltnavnene.
 
 ## Varsling
 
@@ -174,13 +178,13 @@ og vent på brukerens valg før `/domain-modeling` registrerer det.
 
 ## Sjekkliste
 
-- [ ] `/internal/isalive`, `/internal/isready` og scrape-path (`/internal/prometheus`) stemmer med NAIS-manifestet
+- [ ] Health- og scrape-stiene i kode stemmer med NAIS-manifestet
 - [ ] `MicrometerMetrics` installert med felles `PrometheusMeterRegistry` + JVM-binders
 - [ ] OpenTelemetry auto-instrumentation vurdert/aktivert i NAIS
-- [ ] Strukturert JSON-logging til stdout med `trace_id`, `span_id`, `callId`
-- [ ] `Nav-Callid` leses via `CallId`, propageres på utgående kall og legges på MDC
+- [ ] Strukturert JSON-logging til stdout med trygge `event_id`/`reference`-felt og OTel `trace_id`/`span_id`
+- [ ] Korrelasjon følger B46/B58/B59; ingen request-ID fremstilles som ende-til-ende over asynkrone grenser
 - [ ] Viktige domenemetrikker definert med stabile `snake_case`-navn og lave-kardinalitets labels
-- [ ] Dashboards dekker request rate, error rate, latency p95/p99, pool usage og Kafka lag
+- [ ] Dashboard dekker domeneflyt, worker-helse, Kafka-lag, feillogger og meldingskorrelasjon
 - [ ] Varsler finnes for høy feilrate, høy latency, pod restarts og kritiske avhengigheter
 - [ ] Logger, traces og metric-labels inneholder ikke fnr, aktør-id, tokens eller andre hemmeligheter
 
@@ -190,9 +194,9 @@ og vent på brukerens valg før `/domain-modeling` registrerer det.
 - Bruk `snake_case` og enhetssuffiks for metrikker
 - Bruk lave og begrensede label-verdier
 - Logg strukturert JSON til stdout (ikke filer)
-- Propager `Nav-Callid` og legg `trace_id`/`callId` i logger via eksisterende `CallId`/`CallLogging`
+- Følg repoets persisterte korrelasjonsmodell og OTel-felt per hopp
 - Følg eksisterende logging- og metrikkmønstre i repoet
-- Verifiser health paths, scrape path og tracing-oppsett mot faktisk NAIS-konfig og `application.yaml`
+- Verifiser health paths, scrape path og tracing-oppsett mot faktisk NAIS- og applikasjonskonfigurasjon
 
 ### Spør først / grill
 - Nye labels som kan øke kardinalitet vesentlig

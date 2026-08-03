@@ -1,35 +1,19 @@
 ---
-applyTo: "**"
+description: "Explain material code choices and protect human understanding when source, build, runtime, or deployment code changes."
+applyTo: "src/**,build.gradle.kts,settings.gradle.kts,gradle.properties,gradlew*,gradle/**,mise.toml,nais/**,grafana/**,.github/workflows/**,scripts/**"
 ---
 
-# Bevisst AI-bruk — kompetanse på riktig nivå
+# Deliberate AI collaboration
 
-Forskning (Anthropic 2026; Stray et al. HICSS-59 2026 — NAV-studie der 59 % er bekymret for kompetansetap; 35–39 % forståelse ved blind delegering vs. 86 % ved aktiv spørring etterpå) viser at **hvordan** du bruker AI betyr mer enn **om**.
+When generating or changing code or runtime configuration:
 
-Grillmesters vri på NAVs kompetansebevaring: vi flytter den menneskelige
-rigoren **opp** til det som varer — **arkitektur, kontrakter, domene, hvorfor**
-— gjennom naturlig `/grilling`, eksplisitt valgt dokumentert løp og en fersk
-read-only inspektørreview, framfor å kreve at koden skrives for hånd. Det er
-der mennesket må forstå og beslutte; agenten eier implementeringen.
+- Explain material architecture, contract, and trade-off choices; skip routine
+  syntax narration.
+- Mark auth and security, core domain rules or state machines, and data or
+  schema changes as red-zone work, and state what the user should understand.
+- Preserve relevant error handling and security boundaries in examples.
+- Invite questions about material choices.
+- Never encourage blind or unreviewed copy-paste of generated code.
 
-## Alltid (uansett engasjements-nivå)
-Når du genererer kode:
-- Forklar **hvorfor**, ikke bare **hva** — arkitektoniske valg og avveininger.
-- **Marker rød-sone-kode** («forstå dette grundig»): auth/sikkerhet, kjernelogikk/forretningsregler, datamodell, tilstandsmaskiner.
-- Avslutt med «Still gjerne spørsmål om valgene over».
-
-## Engasjements-nivå (opt-in — avklar tidlig, eller les team-/repo-preferanse)
-Hvor hands-on vil gjesten være på **kode-nivå**:
-- **Full delegering** — agenten eier koden; mennesket eier design via grillen
-  og beslutter hvilke valg som passerer ADR-gaten. Default for erfarne på kjent
-  stack.
-- **Guidet** — agenten forklarer ekstra, markerer rød-sone tydeligere, og inviterer mennesket inn på kode-nivå (generer-så-forstå: «hvorfor denne tilnærmingen?», «hva kan gå galt?», «hvilke edge cases?»). Default for **juniorer** og **høyrisiko / ukjent teknologi** — der kompetansetap-risikoen er størst.
-
-Rød sone klassifiseres og gates etter den kanoniske risiko- og reviewpolicyen i
-`.github/copilot-instructions.md`. `/domain-modeling` skriver bare etter
-eksplisitt valgt dokumentert løp og når beslutningen passerer ADR-gaten.
-
-## Aldri
-- Generere kode uten å forklare arkitektoniske valg.
-- Oppfordre til blind copy-paste av generert kode.
-- Hoppe over feilhåndtering eller sikkerhetsmønstre i eksempler.
+Follow the canonical risk and review policy in
+`.github/copilot-instructions.md`.

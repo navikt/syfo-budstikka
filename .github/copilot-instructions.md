@@ -16,9 +16,13 @@ context pointers, not eager includes:
 - When creating, updating, or publishing tracker work, read
   [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md).
 - When domain terminology, domain documentation, or a durable decision is in
-  scope, read [`docs/agents/domain.md`](../docs/agents/domain.md).
+  scope, read [`docs/agents/domain.md`](../docs/agents/domain.md) for load order
+  and source ownership; do not load `docs/context.md` as ambient context.
 - Before creating or substantially rewriting an artifact, read
   [`docs/agents/language-policy.md`](../docs/agents/language-policy.md).
+- When the user identifies as junior, requests guided learning, or needs support
+  with unfamiliar technology, read
+  [`docs/agents/ai-collaboration.md`](../docs/agents/ai-collaboration.md).
 - When creating, revising, reviewing, or diagnosing a skill, read
   [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md).
 - When copying, adapting, or updating upstream material, read

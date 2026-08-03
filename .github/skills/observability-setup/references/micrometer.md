@@ -8,7 +8,9 @@ Backend-mønstre for Kotlin/Ktor i syfo-budstikka. Ktor har ingen Actuator — d
 
 ## MeterRegistry-oppsett
 
-Opprett ett `PrometheusMeterRegistry`, installer `MicrometerMetrics`-pluginen, og del samme instans via Koin slik at domenekode måler mot samme registry som HTTP-metrikkene.
+Opprett ett `PrometheusMeterRegistry`, installer `MicrometerMetrics`-pluginen,
+og del samme instans via repoets Ktor DI slik at domenekode måler mot samme
+registry som HTTP-metrikkene.
 
 ```kotlin
 // build.gradle.kts
@@ -27,16 +29,16 @@ fun Application.installMetrics(registry: PrometheusMeterRegistry) {
         meterBinders = listOf(JvmMemoryMetrics(), JvmGcMetrics(), ProcessorMetrics())
     }
     routing {
-        get("/internal/prometheus") { call.respond(registry.scrape()) }
+        get("/internal/metrics") { call.respond(registry.scrape()) }
     }
 }
 ```
 
-Registrer registryet som singleton i Koin og injiser det der du måler:
+Registrer registryet én gang i Ktor DI og løs samme instans der du måler:
 
 ```kotlin
-val metricsModule = module {
-    single { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
+dependencies {
+    provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
 }
 ```
 
@@ -153,24 +155,13 @@ Mål mottatte events, vellykket behandling, feil, behandlingstid og consumer lag
 
 ## Health-routes
 
-NAV-konvensjon er enkle interne routes, ikke Actuator. Tilpass alltid stiene til NAIS-manifestet.
-
-```kotlin
-routing {
-    get("/internal/isalive") { call.respondText("OK") }
-    get("/internal/isready") {
-        if (kafkaConsumer.isReady() && dataSource.isHealthy()) {
-            call.respondText("OK")
-        } else {
-            call.respond(HttpStatusCode.ServiceUnavailable, "NOT READY")
-        }
-    }
-}
-```
+NAV-konvensjon er enkle interne routes, ikke Actuator. Les de etablerte stiene
+og semantikken fra kode og NAIS-manifest før endring; de må matche eksakt.
 
 **Tommelfingerregler**
-- `isalive` (liveness) svarer på om prosessen bør restartes — hold den triviell
-- `isready` (readiness) svarer på om instansen kan ta trafikk nå — la den avhenge av faktiske avhengigheter (Postgres-pool, Kafka)
+- liveness svarer på om prosessen bør restartes — hold den triviell
+- readiness følger repoets dokumenterte avhengighetsgrense; legg ikke Kafka
+  eller andre avhengigheter inn uten en eksplisitt beslutning
 - Ikke legg tung logikk i health checks
 - Hold detaljer fri for sensitiv informasjon
 - Netty/`EngineMain` håndterer `SIGTERM` og graceful shutdown — du trenger ikke manuell readiness-vipping ved nedstenging

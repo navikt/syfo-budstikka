@@ -54,15 +54,15 @@ Er det noe i diffen som oppgaven IKKE ba om? Refaktorering snikinnført i en fei
 Sammenlign diffen mot oppgaven/issuet, den aktive planen eller oppgavebriefen og eksplisitt relevante topic-dokumenter. For hvert krav: innfridd / delvis / mangler. For hver ADR som rører området: følger koden beslutningen, eller avviker den stille? Et stille ADR-avvik er en blocker, ikke en detalj.
 
 ### F. Standard-dekning (mot repoets konvensjoner)
-Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feilkontrakt via StatusPages, DI-mønster, navngiving, pakkestruktur under `no.nav.syfo`? Hopp over alt verktøy håndhever (formattering, import-orden) — det fanges av gatene, ikke av øynene dine.
+Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feilkontrakt via StatusPages, DI-mønster, navngiving og kildepakkene i det aktive treet? Hopp over alt verktøy håndhever (formattering, import-orden) — det fanges av gatene, ikke av øynene dine.
 
 ## NAV/Ktor-kanttilfeller (akse C, sjekkliste)
 
 - **Auth:** Manglende eller feil claim-sjekk? `azp` validert mot `AZURE_APP_PRE_AUTHORIZED_APPS`? NAVident/`pid` hentet trygt (ikke `!!` på en claim som kan mangle)? Route bak riktig `authenticate("…")`-gren?
-- **PII i logger:** Sniker fnr, navn, diagnose eller sykmeldingsstatus seg inn i en standard-logglinje via string-interpolasjon? Visning av persondata til ansatt → CEF-auditlog, ikke standardlogg. (Detaljer: `/security-review`.)
+- **PII i logger:** Sniker fnr, navn, diagnose eller sykmeldingsstatus seg inn i en standard-logglinje via string-interpolasjon? Hvis repoets dokumenterte policy krever audit ved ansattvisning, brukes den etablerte auditmekanismen — aldri standardlogg. (Detaljer: `/security-review`.)
 - **Kafka:** Tom/`null` record-value? Idempotens ved redelivery? Manuell vs. auto-commit-semantikk? Poison-message — havner den i DLQ eller looper den? Offset committet før eller etter sideeffekt?
 - **Postgres/Flyway:** Ny migrering — kjørbar fremover OG bakoverkompatibel med kjørende pods (rolling deploy)? `NOT NULL`-kolonne uten default på en ikke-tom tabell? N+1 introdusert? Connection lukket / returnert til pool? Transaksjonsgrense rundt fler-stegs skriving?
-- **Ktor HTTP:** Feil mappet til riktig status via StatusPages (ikke lekket stacktrace til klient)? `Nav-Call-Id` propagert til utgående kall? Timeout og retry på eksterne kall? Paginering bevart?
+- **Ktor HTTP:** Feil mappet til riktig status via StatusPages (ikke lekket stacktrace til klient)? Korrelasjon følger repoets dokumenterte modell uten å framstille en request-ID som ende-til-ende over asynkrone grenser? Timeout og retry på eksterne kall? Paginering bevart?
 - **NAIS:** Endret `accessPolicy.inbound` speilet i auth-koden, og omvendt? `outbound` mot riktig cluster/namespace? Ny env-variabel faktisk satt i manifestet?
 - **Coroutines:** Blokkerende kall i en suspend-funksjon? Manglende `CoroutineScope`/structured concurrency? Exception svelget i en launch?
 

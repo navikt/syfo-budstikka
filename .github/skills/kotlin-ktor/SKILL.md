@@ -1,11 +1,12 @@
 ---
 name: kotlin-ktor
-description: "Bruk ved Ktor-spesifikt arbeid i no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering, og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor. Bruk /kotlin for ren Kotlin-kode uten Ktor-oppsett."
+description: "Bruk ved Ktor-spesifikt arbeid i et NAV Kotlin-backend: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor. Bruk /kotlin for ren Kotlin-kode uten Ktor-oppsett."
 ---
 
-# Ktor — NAV-spesifikt (syfo-budstikka)
+# Ktor — NAV-backend
 
-Kotlin + Ktor 3.x på Netty, pakke `no.nav.syfo`. Java 25, Gradle. Norsk er arbeidsspråk.
+Undersøk aktiv Ktor-versjon, engine, kildepakke, byggoppsett og språkpolicy før
+du velger et mønster. Skillens eksempler er mekanismer, ikke repo-fakta.
 
 ## Skill-grenser
 
@@ -15,19 +16,11 @@ Kotlin + Ktor 3.x på Netty, pakke `no.nav.syfo`. Java 25, Gradle. Norsk er arbe
 
 ## Oppstart og moduler
 
-Repoet bruker **config-basert oppstart** med `EngineMain`, ikke `embeddedServer { }`. Moduler registreres i `src/main/resources/application.yaml` under `ktor.application.modules`, ikke i `main.kt`:
-
-```yaml
-ktor:
-  deployment:
-    port: 8080
-  application:
-    modules:
-      - no.nav.syfo.RoutingKt.configureRouting
-      - no.nav.syfo.AppKt.apiModule
-```
-
-`main.kt` kaller bare `io.ktor.server.netty.EngineMain.main(args)`. En ny `Application.xxx()`-modul tas i bruk ved å legge fully-qualified `<Fil>Kt.<funksjon>`-referansen i listen over — å bare skrive funksjonen er ikke nok.
+Undersøk eksisterende entrypoint og Ktor-konfigurasjon før du endrer oppstart.
+Ikke anta `application.yaml` fremfor `application.conf`, `EngineMain` fremfor
+`embeddedServer`, eller et bestemt pakkenavn. Ved config-basert oppstart må den
+fullt kvalifiserte modulreferansen matche kildefilen, og nye moduler legges til
+med samme format som repoet allerede bruker.
 
 ## Avhengigheter (version catalogs)
 
@@ -55,22 +48,22 @@ authenticate("azureAd") {
 
 ## Avhengighetsinjeksjon
 
-Detekter eksisterende DI-mønster først. Er `io.insert-koin` i avhengighetene: bruk Koin (`install(Koin) { modules(appModule) }`, hent via `by inject()`). Ellers er **manuell konstruktørinjeksjon** i `Application`-modulen default — ikke dra inn et DI-rammeverk uoppfordret. (Dette repoet har ingen Koin i dag.)
+Detekter eksisterende DI-mønster først og behold det. Ktor
+`DependencyRegistry`, Koin og manuell konstruktørinjeksjon har ulike idiomer;
+ikke innfør et nytt DI-rammeverk eller anta ett av dem uten bevis i aktiv kode.
 
 ## Logging og sporing
 
-```kotlin
-install(CallId) {
-    header(HttpHeaders.XRequestId)
-    generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("x_request_id")
-}
-```
+Les repoets dokumenterte korrelasjonsmodell før du legger til en identifikator.
+En request-ID kan korrelere et synkront HTTP-hopp, men er ikke ende-til-ende over
+Kafka- eller databasebaserte asynkrone grenser uten persistens. Bruk Ktor
+`CallId` bare når en etablert synkron kontrakt krever det, og scope MDC slik at
+verdier ryddes etter kallet. For asynkrone flyter brukes repoets persisterte
+forretnings-ID-er; W3C trace context dekker normalt hvert tekniske hopp.
 
-NAIS forventer strukturert (JSON) logging til stdout for innsamling. Logg aldri fnr eller særlige kategorier personopplysninger i klartekst — bruk callId/aktørreferanser i stedet.
+NAIS forventer strukturert (JSON) logging til stdout for innsamling. Logg aldri
+fnr eller særlige kategorier personopplysninger i klartekst — bruk bare trygge,
+dokumenterte korrelasjonsfelt.
 
 ## Feilhåndtering — StatusPages + ApiError
 
@@ -82,7 +75,13 @@ Team-standard `PaginatedResponse<T>`-wrapper og route-validering med tidlig-retu
 
 ## Utgående HttpClient (kall mot nedstrøms-tjeneste)
 
-Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `ktorLibs.client.*`, med eksplisitt timeout/retry, `Nav-Call-Id`-propagering og oversettelse av nedstrøms-feil til repoets feilkontrakt. Token for kallet hentes som beskrevet i `/auth-overview` (TokenX OBO / Azure AD M2M) — ikke dupliser auth her. Se [references/http-client.md](references/http-client.md) for konkret oppsett (motor, `HttpTimeout`, `HttpRequestRetry`, callId-header, `ApiErrorException`-mapping; circuit breaker krever Resilience4j — ikke native i Ktor).
+Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via
+`ktorLibs.client.*`, med eksplisitt timeout/retry, korrelasjon etter den
+etablerte synkrone kontrakten og oversettelse av nedstrøms-feil til repoets
+feilkontrakt. Token for kallet hentes som beskrevet i `/auth-overview` (TokenX
+OBO / Azure AD M2M) — ikke dupliser auth her. Se
+[references/http-client.md](references/http-client.md) for konkret oppsett;
+circuit breaker krever Resilience4j og finnes ikke native i Ktor.
 
 ## Persistens (Postgres / Flyway)
 
@@ -97,7 +96,7 @@ Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `k
 
 - Konsumenter må være **idempotente** og tåle replay — dedup på nøkkel/offset, ikke anta exactly-once.
 - Definer eksplisitt oppførsel når downstream er nede (retry/DLQ), og bekreft `accessPolicy`/topic-tilgang i NAIS.
-- Logg med callId/hendelse-id, aldri rå payload med PII.
+- Logg med repoets trygge korrelasjonsfelt, aldri rå payload med PII.
 
 ## Graceful shutdown
 

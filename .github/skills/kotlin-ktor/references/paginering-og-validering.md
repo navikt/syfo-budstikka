@@ -1,6 +1,8 @@
 # Kodeeksempler — Paginering og input-validering
 
-Team-standard mønstre for `no.nav.syfo`-Ktor-routes. Valider tidlig og kast `ApiErrorException` — StatusPages-pluginen (se `error-handling.md`) gir riktig feilrespons.
+Mønstre for NAV Ktor-routes. Valider tidlig og kast repoets etablerte
+`ApiErrorException` — StatusPages-pluginen (se `error-handling.md`) gir riktig
+feilrespons.
 
 ## Paginering
 
