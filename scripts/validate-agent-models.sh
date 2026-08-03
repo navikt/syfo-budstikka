@@ -9,24 +9,28 @@ AGENT_DIR="${1:-.github/agents}"
 fail=0
 
 declare -A EXPECTED_MODELS=(
+  [barista]="gpt-5.6-terra"
   [grillmester]="claude-opus-5"
   [kokk]="gpt-5.6-terra"
   [grill-inspektor]="claude-opus-5"
 )
 
 declare -A EXPECTED_TOOLS=(
+  [barista]=$'agent\nask_user\nedit\nexecute\nread\nsearch\nskill\nweb'
   [grillmester]=$'agent\nask_user\nedit\nexecute\nread\nsearch\nskill\nweb'
   [kokk]=$'edit\nexecute\nread\nsearch\nskill'
   [grill-inspektor]=$'glob\ngrep\nview'
 )
 
 declare -A EXPECTED_USER_INVOCABLE=(
+  [barista]="true"
   [grillmester]="true"
   [kokk]="false"
   [grill-inspektor]="false"
 )
 
 declare -A EXPECTED_MODEL_INVOCATION_DISABLED=(
+  [barista]="true"
   [grillmester]="true"
   [kokk]="false"
   [grill-inspektor]="false"
@@ -37,7 +41,7 @@ frontmatter_for() {
     END { if (!found) exit 1 }' "$1"
 }
 
-for role in grillmester kokk grill-inspektor; do
+for role in barista grillmester kokk grill-inspektor; do
   f="$AGENT_DIR/${role}.agent.md"
   if [ ! -f "$f" ]; then
     echo "MISSING: $f"; fail=1; continue
@@ -66,9 +70,22 @@ for role in grillmester kokk grill-inspektor; do
     fail=1
   fi
 
+  name_count="$(grep -Ec '^name:' <<< "$frontmatter" || true)"
+  canonical_name_count="$(grep -Fxc "name: $role" <<< "$frontmatter" || true)"
+  if [ "$name_count" -ne 1 ] || [ "$canonical_name_count" -ne 1 ]; then
+    echo "INVALID: $role must declare its canonical name exactly once"
+    fail=1
+  fi
+
+  description_count="$(grep -Ec '^description:' <<< "$frontmatter" || true)"
+  if [ "$description_count" -ne 1 ] || ! grep -Eq '^description: "[^"[:cntrl:]]+"$' <<< "$frontmatter"; then
+    echo "INVALID: $role must declare one non-empty quoted description"
+    fail=1
+  fi
+
   model_count="$(grep -Ec '^model:' <<< "$frontmatter" || true)"
-  model="$(sed -nE 's/^model:[[:space:]]*"?([^"#]+)"?[[:space:]]*$/\1/p' <<< "$frontmatter")"
-  if [ "$model_count" -ne 1 ] || [ "$model" != "${EXPECTED_MODELS[$role]}" ]; then
+  canonical_model_count="$(grep -Fxc "model: \"${EXPECTED_MODELS[$role]}\"" <<< "$frontmatter" || true)"
+  if [ "$model_count" -ne 1 ] || [ "$canonical_model_count" -ne 1 ]; then
     echo "INVALID: $role must declare model ${EXPECTED_MODELS[$role]} exactly once"
     fail=1
   fi

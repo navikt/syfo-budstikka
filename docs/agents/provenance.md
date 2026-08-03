@@ -39,6 +39,7 @@ contracts.
 
 | Local path | Hovmester path at the pinned revision | Local handling |
 |---|---|---|
+| `.github/agents/barista.agent.md` | `dist/agents/barista.agent.md` | Adapted as a compact English solo-first entry point: it owns ordinary implementation, routes unresolved decisions and high risk to user-selected Grillmester, and invokes only an explicitly selected Grill-inspektor review |
 | `.github/agents/grillmester.agent.md` | `dist/agents/hovmester.agent.md` | Adapted to preserve Grillmester's phase loop, natural grilling, R0/R1 fast path, phase anchor, and end-to-end ownership while delegating one Kokk slice at a time |
 | `.github/agents/kokk.agent.md` | `dist/agents/kokk.agent.md` | Adapted to one concise task brief, one vertical slice, five explicit completion statuses, and a commit-free handoff to the orchestrator |
 | `.github/agents/grill-inspektor.agent.md` | `dist/agents/inspektor-claude.agent.md` | Adapted to a compact independent review contract with explicit `view`, `grep`, and `glob` tools, no write or shell boundary, and no mandatory positive section |
@@ -48,7 +49,7 @@ The capability declarations follow GitHub's documented
 A bounded repository pilot on 2026-08-03 exercised Kokk's read, search, and
 command paths and Inspector's read-only paths.
 `scripts/validate-agent-models.sh` pins the declared capability and reachability
-boundaries for all three roles so they cannot drift silently.
+boundaries for all four roles so they cannot drift silently.
 
 ## Imported and adapted skill core
 
