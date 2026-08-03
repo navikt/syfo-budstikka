@@ -61,3 +61,5 @@ tms-varsel-java-builder = { module = "no.nav.tms.varsel:java-builder", version.r
 tms-mikrofrontend-selector-builder = { module = "no.nav.tms.mikrofrontend.selector:builder", version.ref = "tmsMikrofrontendSelector" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
+ktor-server-test = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

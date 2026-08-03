@@ -3,6 +3,7 @@ package no.nav.budstikka.domain.decision
 import no.nav.budstikka.domain.dispatch.DispatchContent
 import no.nav.budstikka.domain.dispatch.Orgnummer
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import kotlin.time.Instant
 
 /**
  * Channels that budstikka can route to (B27). One neutral channel abstraction; downstream forms
@@ -57,6 +58,11 @@ data class DeliveryDraft(
 sealed interface Decision {
     data class Processed(
         val deliveries: List<DeliveryDraft>,
+    ) : Decision
+
+    data class NotInSendingWindow(
+        val nextRetry: Instant,
+        val reason: String,
     ) : Decision
 
     data class Dropped(

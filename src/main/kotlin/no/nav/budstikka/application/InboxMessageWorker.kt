@@ -79,6 +79,7 @@ class InboxMessageWorker(
             is Decision.Processed -> inboxProcessed()
             is Decision.Dropped -> inboxDropped(decision.reason)
             is Decision.Failed -> inboxFailed()
+            is Decision.NotInSendingWindow -> inboxOutsideSendingWindow(decision.reason)
         }
     }
 
@@ -104,5 +105,11 @@ class InboxMessageWorker(
                     kv(MdcKeys.REASON, errorMessage),
                 )
             }
+
+            is Decision.NotInSendingWindow ->
+                listOf(
+                    kv(MdcKeys.RESULT, "WAIT"),
+                    kv(MdcKeys.REASON, reason),
+                )
         }
 }

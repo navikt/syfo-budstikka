@@ -117,6 +117,8 @@ dependencies {
     testImplementation(libs.testcontainers.kafka)
     testImplementation(libs.exposed.migration.core)
     testImplementation(libs.exposed.migration.jdbc)
+    testImplementation(libs.ktor.server.test)
+    testImplementation(libs.kotlin.test)
 }
 
 tasks {

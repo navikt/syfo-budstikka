@@ -44,6 +44,7 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         kafkaModule()
         authModule()
         clientModule()
+        gateModule()
         workerModule()
         livenessModule()
         overrides()

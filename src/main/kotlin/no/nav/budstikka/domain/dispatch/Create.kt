@@ -15,7 +15,7 @@ data class BrukervarselCreate(
     val visibleUntil: Instant? = null,
     val externalVarsling: ExternalVarsling? = null,
     val brevFallback: BrevFallback? = null,
-    val sendingWindow: SendingWindow? = null,
+    val sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
 ) : DispatchContent,
     Brukervarsel {
     override val partitionKey: String get() = personIdentifier.value
@@ -35,7 +35,7 @@ data class LedervarselCreate(
     val link: String? = null,
     val visibleUntil: Instant? = null,
     val externalVarsling: ExternalVarsling? = null,
-    val sendingWindow: SendingWindow? = null,
+    val sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
 ) : DispatchContent {
     override val partitionKey: String get() = sykmeldt.value
 }
@@ -66,7 +66,7 @@ data class ArbeidsgivervarselCreate(
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
-    val sendingWindow: SendingWindow? = null,
+    val sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 }
