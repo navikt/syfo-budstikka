@@ -5,7 +5,7 @@ import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.domain.dispatch.Ledervarsel
 
 /**
- * [ChannelHandler] for the LEDERVARSEL channel (ADR 0012): sends an in-app activity notification to
+ * [ChannelHandler] for the LEDERVARSEL channel (ADR 0016): sends an in-app activity notification to
  * Dine Sykmeldte via [LedervarselPublisher]. Rethrows (transient) to the worker; a payload that does
  * not match the channel is a permanent [DeliveryOutcome.Failed]. Mirrors [BrukervarselChannelHandler].
  */

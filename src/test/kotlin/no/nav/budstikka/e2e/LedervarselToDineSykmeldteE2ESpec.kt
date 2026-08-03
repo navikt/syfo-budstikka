@@ -20,7 +20,7 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * End-to-end proof for the LEDERVARSEL channel (#108, ADR 0012): boots the ENTIRE app against
+ * End-to-end proof for the LEDERVARSEL channel (#108, ADR 0016): boots the ENTIRE app against
  * Testcontainers, produces a `Dispatch(LedervarselCreate)` to the budstikka topic, and asserts that
  * the whole run (inbox → decide → outbox → LedervarselChannelHandler → producer) ends with an
  * `OpprettHendelse` on `dinesykmeldte-hendelser-v2` with the correct `oppgavetype`/`ansattFnr` and

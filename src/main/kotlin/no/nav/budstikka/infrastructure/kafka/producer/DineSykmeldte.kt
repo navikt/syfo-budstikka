@@ -9,7 +9,7 @@ import no.nav.budstikka.domain.dispatch.LedervarselInactivate
 import kotlin.time.Clock
 
 /**
- * Producer adapter for LEDERVARSEL (ADR 0012): maps budstikka's neutral [Ledervarsel] to
+ * Producer adapter for LEDERVARSEL (ADR 0016): maps budstikka's neutral [Ledervarsel] to
  * `navikt/dinesykmeldte-backend`'s `DineSykmeldteHendelse` schema on
  * `team-esyfo.dinesykmeldte-hendelser-v2`. Anti-corruption layer (B23): the domain types never leak
  * out — we serialize a LOCAL DTO that mirrors the consumer's fields exactly (verified against the

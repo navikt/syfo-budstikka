@@ -13,9 +13,12 @@ import kotlinx.datetime.toLocalDateTime
 import no.nav.budstikka.domain.dispatch.BrukervarselCreate
 import no.nav.budstikka.domain.dispatch.Dispatch
 import no.nav.budstikka.domain.dispatch.DispatchContent
+import no.nav.budstikka.domain.dispatch.LedervarselCreate
+import no.nav.budstikka.domain.dispatch.Oppgavetype
 import no.nav.budstikka.domain.dispatch.SendingWindow
 import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.MutableClock
 
@@ -55,6 +58,25 @@ class SendingWindowGateTest :
                 val decision = gate.resolve(event).apply(emptyList())
                 decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldBe emptyList()
             }
+        }
+
+        test("LedervarselCreate (default ONGOING) passerer gaten selv søndag (stengt) — ADR 0016") {
+            val now = LocalDateTime(2025, 2, 9, 12, 0).toInstant(oslo)
+            val gate = SendingWindowGate(MutableClock(now))
+            val event =
+                Dispatch(
+                    reference = "ref-1",
+                    content =
+                        LedervarselCreate(
+                            sykmeldt = TEST_SYKMELDT,
+                            orgnummer = TEST_ORGNUMMER,
+                            oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
+                            text = "test",
+                        ),
+                )
+            val decision = gate.resolve(event).apply(emptyList())
+
+            decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldBe emptyList()
         }
 
         test("tirsdag 03:00 (stengt) gir NotInSendingWindow med nextRetry i fremtiden") {
