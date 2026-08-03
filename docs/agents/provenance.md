@@ -45,10 +45,10 @@ contracts.
 
 The capability declarations follow GitHub's documented
 [custom-agent tool names and aliases](https://docs.github.com/en/copilot/reference/custom-agents-configuration#tools).
-A bounded repository pilot exercised Kokk's read, search, and command paths and
-Inspector's read-only paths. `scripts/validate-agent-models.sh` pins the
-declared capability and reachability boundaries for all three roles so they
-cannot drift silently.
+A bounded repository pilot on 2026-08-03 exercised Kokk's read, search, and
+command paths and Inspector's read-only paths.
+`scripts/validate-agent-models.sh` pins the declared capability and reachability
+boundaries for all three roles so they cannot drift silently.
 
 ## Imported and adapted skill core
 

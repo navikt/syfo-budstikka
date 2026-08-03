@@ -85,3 +85,6 @@ These apply to all code assistance in this repository.
 - **Quality gates are deterministic:** `./gradlew test`,
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.
+- **Staged sensitive-data gate:** Before an authorized local commit, run
+  `bash scripts/scan-grill-pii.sh`. Maintainers can enforce the same check as a
+  local pre-commit hook with `git config core.hooksPath .githooks`.

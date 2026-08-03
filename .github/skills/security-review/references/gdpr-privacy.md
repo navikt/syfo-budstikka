@@ -9,7 +9,10 @@ NAV opererer med fire PII-nivåer definert i SKILL.md-tabellen: **strengt fortro
 - **Sykefravær er strengt fortrolig.** I `syfo`-domenet er sykmeldinger, diagnoser og det at en bruker er sykmeldt implisitt helseinformasjon → strengt fortrolig.
 - **Ytelsesdata er klassifiseringsbare implisitt.** "Bruker mottar AAP" eller "uføretrygd" er implisitt helseinformasjon → strengt fortrolig. Avklar alltid per ytelse.
 - **Kode 6/7** (adressesperre/fortrolig adresse) må håndteres som strengt fortrolig uansett felt.
-- **Fødselsnummer og D-nummer** er fortrolige. Bruk aldri ekte fnr i kode, eksempler eller tester. Placeholder: `00000000000`. Skatteetatens syntetiske testserie kan brukes, men må merkes eksplisitt.
+- **Fødselsnummer og D-nummer** er fortrolige. Bruk aldri ekte fnr i kode,
+  eksempler eller tester. Bruk `<SYNTHETIC_FNR>` i maler og dokumentasjon. Når
+  kjørbar kode krever gyldig format, bruk Skatteetatens syntetiske testserie og
+  merk testdataene eksplisitt.
 
 ## Pekere til autoritative kilder
 

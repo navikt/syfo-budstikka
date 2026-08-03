@@ -124,7 +124,7 @@ Strukturert og kortfattet:
 
 **Verifisering:** `./gradlew test` (+ build/lint) — [pass/fail + exit-kode, eller `Ikke kjørt` + grunn]
 
-**Inspeksjon:** [Godkjent / Godkjent med merknader / Må følges opp] — [kort oppsummering, evt. fra grill-inspektor]
+**Inspeksjon:** [APPROVED / CONCERNS / CHANGES_REQUIRED / MISSING_EVIDENCE / NEEDS_CONTEXT / Ikke kjørt] — [kort oppsummering; for CONCERNS, menneskelig aksept: ja/nei]
 
 **PR:** #PR_NUMMER
 ~~~
