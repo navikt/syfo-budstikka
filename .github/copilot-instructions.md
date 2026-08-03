@@ -16,9 +16,13 @@ context pointers, not eager includes:
 - When creating, updating, or publishing tracker work, read
   [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md).
 - When domain terminology, domain documentation, or a durable decision is in
-  scope, read [`docs/agents/domain.md`](../docs/agents/domain.md).
+  scope, read [`docs/agents/domain.md`](../docs/agents/domain.md) for load order
+  and source ownership; do not load `docs/context.md` as ambient context.
 - Before creating or substantially rewriting an artifact, read
   [`docs/agents/language-policy.md`](../docs/agents/language-policy.md).
+- When the user identifies as junior, requests guided learning, needs support
+  with unfamiliar technology, or the work is R3/R4, read
+  [`docs/agents/ai-collaboration.md`](../docs/agents/ai-collaboration.md).
 - When creating, revising, reviewing, or diagnosing a skill, read
   [`docs/agents/skill-invocation.md`](../docs/agents/skill-invocation.md).
 - When copying, adapting, or updating upstream material, read
@@ -77,6 +81,10 @@ or delivery boundary.
 
 These apply to all code assistance in this repository.
 
+- **Human understanding:** The agent may own implementation and verification;
+  the human owns durable product, architecture, contract, and domain choices.
+  Explain the why, trade-offs, and what the human needs to understand for
+  material choices, especially R3/R4; skip routine syntax narration.
 - **Naming:** Norwegian words only for domain terms (`Brukervarsel`,
   `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`). Everything
   else — mechanics, verbs, plumbing, technical identifiers — is English
