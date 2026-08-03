@@ -1,9 +1,9 @@
 ---
-description: "Brukes ved alt Kotlin-arbeid i dette Ktor-backend-repoet: routes/plugins, JWT-claims, DI, logging, feilhåndtering, Gradle Version Catalog, Flyway, Kafka, metrikker og tester."
+description: "Brukes ved alt Kotlin-arbeid i dette Ktor-backend-repoet (no.nav.syfo): routes/plugins, JWT-claims, DI, logging, feilhåndtering, Gradle Version Catalog, Flyway, Kafka, metrikker og tester."
 applyTo: "**/*.kt"
 ---
 
-# Kotlin — Nav Ktor-backend
+# Kotlin — Nav Ktor-backend (no.nav.syfo)
 
 Denne fila er kort og bindende: harde regler som alltid gjelder for `*.kt`.
 Detaljert arbeidsflyt ligger i skills:
@@ -28,9 +28,6 @@ Detaljert arbeidsflyt ligger i skills:
    - Ingen fnr, tokens eller annen PII i logger eller feilmeldinger.
    - Ingen hardkodede secrets, URL-er eller auth-verdier i kode.
    - Valider auth-config (`issuer`/`audience`) via konfigurasjon.
-   - Etablerte `/internal`-endepunkter for helse og metrikker forblir utenfor
-     applikasjonsauth og matcher NAIS-manifestet, med mindre en eksplisitt
-     beslutning endrer grensen.
 
 4. **Avhengigheter og konfigurasjon:**
    - Bruk version catalogs: `ktorLibs.*` for Ktor, `libs.*` for øvrige avhengigheter.

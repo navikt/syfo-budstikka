@@ -1,8 +1,6 @@
 # Utgående HttpClient — kall mot nedstrøms-tjeneste
 
-Konkret oppsett for når et Ktor-backend selv kaller en annen tjeneste.
-Token-utveksling (TokenX OBO / Azure AD M2M) eies av `/auth-overview` — her
-dekker vi klient-oppsett, timeout/retry, sporing og feilkontrakt.
+Konkret oppsett for når dette Ktor-backendet (`no.nav.syfo`) selv kaller en annen tjeneste. Token-utveksling (TokenX OBO / Azure AD M2M) eies av `/auth-overview` — her dekker vi klient-oppsett, timeout/retry, sporing og feilkontrakt.
 
 ## Klient med timeout, retry og logging
 
@@ -24,12 +22,17 @@ val httpClient = HttpClient(CIO) {
 }
 ```
 
-## Følg den etablerte korrelasjonskontrakten
+## Propagér `Nav-Call-Id` på utgående kall
 
-Ikke innfør `Nav-Call-Id` eller en annen request-ID som standard. Propager en
-korrelasjonsheader bare når den synkrone kontrakten og repoets dokumenterte
-modell krever det. En slik ID blir ikke ende-til-ende over en asynkron grense
-uten persistens; bruk repoets persisterte forretnings-ID der.
+```kotlin
+suspend fun hentNoe(callId: String): Noe {
+    val response = httpClient.get("$baseUrl/api/noe") {
+        header("Nav-Call-Id", callId)            // samme callId som CallId-pluginen satte
+        header(HttpHeaders.Authorization, "Bearer ${token()}")  // token: se /auth-overview
+    }
+    return response.toDomainOrThrow()
+}
+```
 
 ## Oversett nedstrøms-feil til feilkontrakten FØR StatusPages
 
@@ -49,5 +52,5 @@ suspend fun HttpResponse.toDomainOrThrow(): Noe = when (status.value) {
 
 - **Circuit breaker** finnes ikke native i Ktor-klienten — bruk Resilience4j hvis en ustabil nedstrøms-avhengighet krever det.
 - **Retry kun det som er trygt å gjenta**: idempotente GET/PUT/DELETE, eller POST med idempotensnøkkel. Aldri blind retry på en skrivende POST uten idempotens.
-- **Aldri logg responsbody med PII** — logg status og trygg teknisk kontekst.
+- **Aldri logg responsbody med PII** — logg status + callId.
 - **Token hentes per `/auth-overview`** (TokenX-exchange ved brukerkontekst, Azure AD M2M ellers) — ikke hardkod eller del token på tvers av brukere.

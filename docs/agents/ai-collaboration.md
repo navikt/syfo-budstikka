@@ -1,9 +1,9 @@
 # AI collaboration depth
 
-Use this guide when a user asks for a guided learning mode, is working in
-unfamiliar technology, or wants to choose how much implementation-level
-explanation they receive. It does not add a routine startup question or change
-the repository's risk, review, or delivery policy.
+Use this guide when a user asks for guided learning, identifies as junior,
+works in unfamiliar technology, wants to choose the explanation depth, or the
+task is R3/R4. It does not add a routine startup question or change the
+repository's risk, review, or delivery policy.
 
 ## Why interaction style matters
 
@@ -22,16 +22,17 @@ explanations of every syntax choice.
 ## Collaboration modes
 
 - **Delegated:** The agent owns implementation and verification. The human owns
-  product and architecture choices and understands material red-zone changes.
-  Use this for familiar, settled work unless the user asks for more guidance.
+  durable product, architecture, contract, and domain choices. Use this for
+  familiar, settled R0-R2 work unless the user asks for more guidance.
 - **Guided:** The agent adds concise explanations and comprehension prompts,
-  especially around unfamiliar technology or red-zone changes. Useful prompts
+  especially around unfamiliar technology or R3/R4 choices. Useful prompts
   include: why this approach, what can fail, and which edge cases matter.
 
 Do not ask every user to choose a mode. Follow an explicit preference; otherwise
 infer the lightest suitable mode from the task and explain material choices.
-Prefer Guided when the user identifies as junior or explicitly wants to learn.
-Never encourage blind or unreviewed copy-paste of generated code.
+Prefer Guided when the user identifies as junior, explicitly wants to learn,
+works in unfamiliar technology, or the task is R3/R4. Never encourage blind or
+unreviewed copy-paste of generated code.
 
 ## Sources
 

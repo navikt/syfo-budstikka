@@ -1,8 +1,6 @@
 # Feilhåndtering — Ktor StatusPages (komplett implementasjon)
 
-Mønster for en enhetlig feilkontrakt i NAV Ktor-tjenester. Klienter får samme
-JSON-form, og uventede feil lekker verken stacktrace, exception-tekst eller
-payload.
+Team-standard for enhetlig feilkontrakt i `no.nav.syfo`-Ktor-tjenester. Klienter får alltid samme JSON-form, og uventede feil lekker ikke stacktrace.
 
 ## ApiError og ErrorType
 
@@ -62,7 +60,7 @@ fun determineApiError(cause: Throwable, path: String): ApiError = when (cause) {
     is BadRequestException -> cause.toApiError(path)
     is NotFoundException -> cause.toApiError(path)
     is ApiErrorException -> cause.toApiError(path)
-    else -> ApiError(HttpStatusCode.InternalServerError, ErrorType.INTERNAL_SERVER_ERROR, "Internal server error", path)
+    else -> ApiError(HttpStatusCode.InternalServerError, ErrorType.INTERNAL_SERVER_ERROR, cause.message ?: "Internal server error", path)
 }
 
 fun BadRequestException.toApiError(path: String?): ApiError {
@@ -87,28 +85,27 @@ fun Throwable.rootCause(): Throwable {
 
 ## Logging
 
-Forventede klientfeil (`ApiErrorException`) logges på `warn`, uventede på
-`error`. Logg bare repoets etablerte, trygge korrelasjonsfelt, aldri rå payload
-med PII.
+Forventede klientfeil (`ApiErrorException`) logges på `warn`, uventede på `error`. Logg callId, aldri rå payload med PII.
 
 ```kotlin
 private fun logException(call: ApplicationCall, cause: Throwable) {
-    val errorType = kv("error_type", cause.javaClass.simpleName)
+    val callId = call.callId
+    val logMessage = "Caught exception, callId=$callId"
     val log = call.application.log
     when (cause) {
-        is ApiErrorException -> log.warn("Request failed {}", errorType)
-        else -> log.error("Request failed {}", errorType)
+        is ApiErrorException -> log.warn(logMessage, cause)
+        else -> log.error(logMessage, cause)
     }
 }
 ```
 
 ## apiModule() — oppsett
 
-`installStatusPages()` registreres i en `Application`-modul. Ved config-basert
-oppstart må modulreferansen finnes i konfigurasjonsfilen repoet faktisk bruker.
+`installStatusPages()` registreres i en `Application`-modul. Husk å legge modulen i `application.yaml` (`ktor.application.modules`) for at den skal kjøre.
 
 ```kotlin
 fun Application.apiModule() {
+    installCallId()
     installContentNegotiation()
     installStatusPages()
     // ... routing

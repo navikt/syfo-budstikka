@@ -2,16 +2,22 @@
 
 Generisk API-sikkerhet (CORS-oppsett, CSP/X-Frame-Options/HSTS, Ktor `Authentication`/`CORS`-plugin-boilerplate, rate-limit-filterkode, cookie `Secure/HttpOnly/SameSite`, session fixation, CSRF-teori) er utenfor scope — LLM-en kan dette, og auth-oppsettet i koden dekkes av `/auth-overview`. Denne referansen dekker kun NAV-spesifikk signal.
 
-## Request- og flytkorrelasjon
+## Sporbarhet med Nav-Call-Id
 
-Følg repoets dokumenterte korrelasjonsmodell. En request-ID, noen ganger kalt
-`Nav-Call-Id`, kan korrelere et synkront HTTP-hopp, men krysser ikke en Kafka-
-eller databasebasert asynkron grense med mindre den persisteres. Propager den
-bare der den etablerte kontrakten krever det. Bruk normalt W3C trace context per
-hopp og en persistert forretnings-ID for en asynkron flyt.
+`Nav-Call-Id` må propageres gjennom hele kjeden. I Ktor settes den ved inngang via `CallId`-pluginen, legges i MDC for strukturert logging, og sendes videre på alle downstream-kall.
 
-En korrelasjons-ID er ikke koblet til `accessPolicy`, brukes aldri som
-autorisasjonsgrunnlag og er ikke i seg selv en auditlogg.
+```kotlin
+install(CallId) {
+    header(HttpHeaders.XRequestId)               // eller "Nav-Call-Id"
+    generate { UUID.randomUUID().toString() }
+    verify { it.isNotBlank() }
+}
+install(CallLogging) {
+    callIdMdc("callId")                          // tilgjengelig i alle logglinjer
+}
+```
+
+I klientkall til andre NAV-tjenester: sett `Nav-Call-Id` fra MDC på request, ikke generer en ny. Headeren brukes for korrelasjon, audit og feilsøking på tvers av tjenester. Den er ikke koblet til `accessPolicy`, som er NAIS sin nettverkskontroll, og brukes *aldri* som autorisasjonsgrunnlag.
 
 ## Nav-Consumer-Id for rate limiting og audit
 
