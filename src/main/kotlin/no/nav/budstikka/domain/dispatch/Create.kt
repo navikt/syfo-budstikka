@@ -23,20 +23,26 @@ data class BrukervarselCreate(
 
 /**
  * 2. Ledervarsel: nærmeste leder, Dine Sykmeldte. Carries `(sykmeldt, orgnummer)`, NOT an NL fnr;
- * a future channel adapter must resolve Nærmeste leder (B24). That lookup and handler are not
- * implemented yet. Partition anchor = Sykmeldt.
+ * budstikka resolves Nærmeste leder itself (B24). Partition anchor = Sykmeldt.
+ *
+ * PURELY IN-APP (ADR 0016): delivered to `dinesykmeldte-hendelser-v2` as an activity notification;
+ * NO external carrier (SMS/email) → `externalVarsling` is deliberately omitted (false affordance, B40).
+ * External notification to the leader is a separate ARBEIDSGIVERVARSEL(NL) dispatch (B6/B32, #24).
+ * `oppgavetype` is required (dinesykmeldte's PK requirement, ADR 0015). `sendingWindow` default = `ONGOING`
+ * as purely in-app (corrects B25); `ONGOING` is passed through immediately by the SendingWindowGate.
  */
 @Serializable
 @SerialName("LedervarselCreate")
 data class LedervarselCreate(
     val sykmeldt: PersonIdentifier,
     val orgnummer: Orgnummer,
+    val oppgavetype: Oppgavetype,
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val externalVarsling: ExternalVarsling? = null,
-    val sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
-) : DispatchContent {
+    val sendingWindow: SendingWindow = SendingWindow.ONGOING,
+) : DispatchContent,
+    Ledervarsel {
     override val partitionKey: String get() = sykmeldt.value
 }
 

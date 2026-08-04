@@ -9,6 +9,26 @@ sealed interface Brukervarsel {
     val partitionKey: String
 }
 
+/** Marker interface for the LEDERVARSEL channel content (mirrors [Brukervarsel]); dispatch seam in the handler. */
+sealed interface Ledervarsel {
+    val partitionKey: String
+}
+
+/**
+ * Oppgavetype for LEDERVARSEL (ADR 0015): a CLOSED, budstikka-owned enum (same pattern as
+ * [Tag]/[AltinnResourceId]), NOT an opaque string. Required by the dinesykmeldte contract
+ * (`OpprettHendelse.oppgavetype`, part of the consumer's PK `(id, oppgavetype)` + UI grouping).
+ * Budstikka NEVER branches on the value (`when(oppgavetype)` does not exist, B30/B39) — the enum is a
+ * name list. The Kotlin identifier is decoupled from the wire via [wireValue]: dinesykmeldte can
+ * change a wire string without touching the producers. #108 ships ONE representative value; the rest
+ * are added additively at onboarding (B36).
+ */
+enum class Oppgavetype(
+    val wireValue: String,
+) {
+    DIALOGMOTE_INNKALLING("DIALOGMOTE_INNKALLING"),
+}
+
 /** Channel for `ekstern varsling` (SMS/email) in addition to the surface. */
 enum class ExternalChannel { SMS, EMAIL }
 
