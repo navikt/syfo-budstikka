@@ -68,7 +68,8 @@ Inkluder eksterne PR-er i bøttene og merk hver linje `[PR]` eller `[issue]`. Di
 ### 1. Hent kontekst
 Les hele saken (body, kommentarer, labels, forfatter, datoer; for en PR også diffen). Parse tidligere triage-notater så du ikke spør om det som allerede er løst. Utforsk kodebasen:
 
-- Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare relevante topic-dokumenter og ADR-er, glossaret for domenespråk, og `docs/context.md` når saken faktisk krever repository-orientering eller overordnet status.
+- Følg repository-policyen for dokumentasjon og last bare kilder som er
+  relevante for saken.
 - Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon
   av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og
   rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg
@@ -91,7 +92,8 @@ Trenger saken kjøtt på beina, kjør `/grilling` og grill den i form ett spørs
 av gangen. Når avklarte begreper eller varige beslutninger bør dokumenteres,
 anbefal dokumentert løp, forklar hvorfor og vent på brukerens valg. Bruk
 `/nav-architecture-review` for NAV-spesifikke funn; etter valgt dokumentert løp
-eier `/domain-modeling` glossaret, ADR-gaten og selve ADR-en.
+brukes `/domain-modeling` til å oppdatere glossaret eller skrive en
+kvalifiserende ADR under repository-policyen.
 
 ### 5. Bruk utfallet
 - `ready-for-agent` — post en arbeidsklar brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Saken regnes nå som plukkbar i @grillmester sin faseløkke.

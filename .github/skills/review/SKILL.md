@@ -51,7 +51,11 @@ Tom liste, `null`, manglende felt, samtidighet, retry, timeout. NAV/Ktor-spesifi
 Er det noe i diffen som oppgaven IKKE ba om? Refaktorering snikinnført i en feilretting, urelatert formattering, en «mens jeg var her»-endring. Hver hunk skal kunne spores til oppgaven/issuet eller den aktive planen. Det motsatte også: ba oppgaven om noe som ikke er i diffen?
 
 ### E. Krav-dekning (mot spec)
-Sammenlign diffen mot oppgaven/issuet, den aktive planen eller oppgavebriefen og eksplisitt relevante topic-dokumenter. For hvert krav: innfridd / delvis / mangler. For hver ADR som rører området: følger koden beslutningen, eller avviker den stille? Et stille ADR-avvik er en blocker, ikke en detalj.
+Sammenlign diffen mot oppgaven/issuet, den aktive planen eller oppgavebriefen og
+relevant vedlikeholdt dokumentasjon. For hvert krav: innfridd / delvis /
+mangler. Følg repository-policyens statustolkning for relevante ADR-er. Et
+stille avvik fra et akseptert valg er en blocker; et foreslått valg binder bare
+når den aktive oppgaven uttrykkelig bygger på det.
 
 ### F. Standard-dekning (mot repoets konvensjoner)
 Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feilkontrakt via StatusPages, DI-mønster, navngiving, pakkestruktur under `no.nav.syfo`? Hopp over alt verktøy håndhever (formattering, import-orden) — det fanges av gatene, ikke av øynene dine.
@@ -89,8 +93,7 @@ brukerens valg og reviewflyten.
 ## Flytkobling
 
 - **Fase i faseløkka:** verifiser (fase 5), før eventuell inspektørreview.
-- **Leser:** oppgaven/issuet, aktiv plan eller oppgavebrief og eksplisitt relevante
-  topic-dokumenter og ADR-er. Les oppgavelokal `.grill/` bare når den kallende
-  arbeidsflyten har valgt den, og `docs/context.md` bare ved behov for
-  orientering eller overordnet status.
+- **Leser:** oppgaven/issuet, aktiv plan eller oppgavebrief og kildene som
+  repository-policyen gjør relevante. Les oppgavelokal `.grill/` bare når den
+  kallende arbeidsflyten har valgt den.
 - **Dybde:** bruk relevant domeneskill når et funn krever spesialisert review.

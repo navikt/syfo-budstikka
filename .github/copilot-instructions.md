@@ -18,7 +18,7 @@ context pointers, not eager includes:
 - When domain terminology, maintained documentation, a durable decision, KDoc,
   or an ordinary code comment is in scope, read
   [`docs/agents/domain.md`](../docs/agents/domain.md) for load order and source
-  ownership; do not load `docs/context.md` as ambient context.
+  ownership.
 - Before creating or substantially rewriting an artifact, read
   [`docs/agents/language-policy.md`](../docs/agents/language-policy.md).
 - When the user identifies as junior, requests guided learning, needs support

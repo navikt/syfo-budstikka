@@ -34,7 +34,9 @@ den aktive planen; snittet kan allerede være sporet der.
 
 Hvis repoet har issue-maler i `.github/ISSUE_TEMPLATE/` for den valgte typen, les feltstrukturen fra malen og lag en markdown-body med tilsvarende seksjoner. Finnes ingen mal, bruk en kort, fast struktur: **Hva**, **Hvorfor**, **Akseptansekriterier**, og for backend-arbeid relevante lag (migrasjon / route / konsument / auth / test / NAIS).
 
-Bruk domenespråket fra `docs/glossary.md` i titler og beskrivelser når det finnes, og respekter beslutninger i `docs/adr/` for området du rører.
+Følg repository-policyen for dokumentasjon: bruk det kanoniske domenespråket i
+titler og beskrivelser, og bevar aksepterte valg som gjelder området. Et
+foreslått valg binder bare når den aktive oppgaven uttrykkelig bygger på det.
 
 Inkluder alltid når relevant:
 - **Avhengigheter:** `Blokkert av #NNN`

@@ -8,31 +8,30 @@ description: "Bruk når en plan, et design eller en PRD skal brytes ned i selvst
 Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i tjenesten, ikke et horisontalt snitt av ett lag.
 
 Dette er broa mellom plan-fasen og implementeringen i @grillmester sin
-faseløkke: input er den aktive planen + eksplisitt relevante topic-dokumenter
-og ADR-er, output er issues på `navikt/syfo-budstikka` som er klare for
-plukking.
+faseløkke: input er den aktive planen og bare de vedlikeholdte kildene som
+repository-policyen gjør relevante; output er issues på
+`navikt/syfo-budstikka` som er klare for plukking.
 
 ## Arbeidsflyt
 
 ### 1. Hent kontekst
 
-Jobb fra det som allerede er i samtalen. Prioritert kilderekkefølge:
+Jobb fra det som allerede er i samtalen. Følg repository-policyen for
+dokumentasjon og last bare det snittene trenger:
 
 - samtalen, aktivt parent-issue eller PRD — den vedtatte planen fra plan-fasen
 - en oppgavelokal `.grill/PLAN.md` når den kallende arbeidsflyten eksplisitt har
   valgt den
-- eksplisitt relevante topic-dokumenter — vedlikeholdt detalj som snittene må bevare
-- relevante ADR-er — tolk status via `docs/agents/domain.md`; respekter
-  bindende valg og bruk foreslåtte valg bare når planen faktisk bygger på dem
-- `docs/glossary.md` — domenespråk som issue-titler og -beskrivelser skal bruke
-
-Les `docs/context.md` bare hvis du trenger repository-orientering eller overordnet status.
+- vedlikeholdt dokumentasjon og bindende valg som snittene må bevare
+- kanonisk domenespråk som issue-titler og -beskrivelser skal bruke
 
 Hvis brukeren oppgir en issue-referanse (nummer, URL) som argument, hent issuet fra GitHub og les body + kommentarer. Det blir parent-issue for snittene.
 
 ### 2. Utforsk kodebasen (ved behov)
 
-Har du ikke allerede kartlagt koden, gjør det nå for å forstå utgangspunktet. Issue-titler og -beskrivelser skal bruke domenespråket fra `docs/glossary.md` og respektere ADR-ene i området du rører.
+Har du ikke allerede kartlagt koden, gjør det nå for å forstå utgangspunktet.
+Issue-titler og -beskrivelser skal bruke det kanoniske domenespråket og bevare
+bindende valg i området de berører.
 
 Se etter **prefaktorering** som gjør implementeringen enklere: "gjør endringen lett, så gjør den lette endringen." Prefaktorering blir egne issues som plukkes først.
 
@@ -52,7 +51,8 @@ Flyway-migrasjon  →  repository/spørring  →  domene/service
 - Et fullført snitt er demonstrerbart eller verifiserbart for seg selv (et kall som returnerer riktig svar, en melding som konsumeres idempotent, en rad som havner i Postgres)
 - Prefaktorering gjøres først, som egne snitt
 - Beskriv styrende begrensninger kort nok til at snittet kan forstås alene;
-  følg lenkereglene i `docs/agents/domain.md`
+  legg bare til en målrettet dokumentasjonslenke når repository-policyen sier
+  at den tilfører verdi
 
 </vertikalt-snitt-regler>
 

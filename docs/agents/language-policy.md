@@ -4,7 +4,8 @@ Use language deliberately by artifact type.
 
 ## Target state
 
-- `README.md` and user-facing product copy are Norwegian Bokmål.
+- `README.md`, maintained product and domain documentation, ADRs, and
+  user-facing product copy are Norwegian Bokmål.
 - Established Norwegian domain code identifiers remain Norwegian, for example
   `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, and
   `Brev`. A glossary `_Unngå_` note governs prose vocabulary; it does not
@@ -15,14 +16,10 @@ Use language deliberately by artifact type.
 - Preserve quoted Norwegian product copy and canonical Norwegian domain terms
   when they are the subject.
 
-Issue, pull-request, commit-message, and ADR prose language is deliberately
-**not** settled by this document. `docs/agents/domain.md` owns repository
-documentation placement and ADR form; `/domain-modeling` applies the portable
-ADR gate and creates durable domain documentation after authorisation;
-`/klarsprak` may polish prose without changing that contract. Other artifact
-language follows the skill that produces it, including `/conventional-commit`,
-until a later change migrates it on purpose. Do not treat this file as
-authority to switch them.
+Issue, pull-request, and commit-message language is deliberately not settled
+here. It follows the producing workflow until a later change chooses a common
+language. `/klarsprak` may polish Norwegian prose without changing artifact
+ownership or meaning.
 
 ## Incremental migration
 
