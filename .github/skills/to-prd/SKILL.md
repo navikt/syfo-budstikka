@@ -14,19 +14,19 @@ varige begreper eller beslutninger bør dokumenteres under avklaringen, anbefal
 det dokumenterte løpet og vent på brukerens valg.
 
 ## Forutsetning: les de avklarte kildene først
-Dette er et seint steg i Grillmester sin faseløkke. Før du skriver, les det som allerede er avklart:
-- samtalen, oppgaven/parent-issuet og aktiv plan — valgt scope og ferdig-når-kriterier
-- eksplisitt relevante topic-dokumenter og ADR-er — vedlikeholdt detalj; tolk
-  ADR-status via `docs/agents/domain.md`
-- `docs/glossary.md` — domenespråket; **bruk disse begrepene konsekvent** i hele PRD-et
-- ferskt implementeringsbevis fra den aktive oppgaven, hvis det faktisk er relevant
 
-Les `docs/context.md` bare hvis PRD-et trenger repository-orientering eller overordnet status.
+Dette er et seint steg i Grillmester sin faseløkke. Følg repository-policyen
+for dokumentasjon og last bare kilder som er relevante for PRD-et:
+
+- samtalen, oppgaven/parent-issuet og aktiv plan — valgt scope og ferdig-når-kriterier
+- vedlikeholdt dokumentasjon og bindende valg som avgrenser løsningen
+- kanonisk domenespråk — bruk de samme begrepene konsekvent i hele PRD-et
+- ferskt implementeringsbevis fra den aktive oppgaven, hvis det faktisk er relevant
 
 PRD-et skal være en trofast syntese av dette, ikke en ny idé.
 
 ## Prosess
-1. **Utforsk repoet** for nåtilstand hvis du ikke allerede har gjort det (`no.nav.syfo`-pakkestruktur, ruter, Flyway-migreringer, Kafka-konsumenter, `nais/`-config). Respekter eksisterende ADR-er i området du berører.
+1. **Utforsk repoet** for nåtilstand hvis du ikke allerede har gjort det (`no.nav.syfo`-pakkestruktur, ruter, Flyway-migreringer, Kafka-konsumenter, `nais/`-config). Respekter bindende ADR-er i området du berører; foreslåtte valg gjelder bare når den aktive oppgaven bygger på dem.
 
 2. **Skjær sømmene (test-seams).** Pek på hvor funksjonaliteten testes. Foretrekk eksisterende sømmer fremfor nye, og legg dem så høyt som mulig. I et Ktor-backend betyr det typisk:
    - Rute-/applikasjonsnivå via `testApplication { ... }` med `client` mot ekte ruter — den høyeste, mest verdifulle sømmen.
@@ -64,7 +64,9 @@ Beslutninger som er tatt. Kan inkludere:
 - Skjemaendringer (Flyway-migrering) og Kafka-topic/-kontrakt (nøkkel, schema, idempotens/replay)
 - Feilkontrakt (StatusPages / ApiError) og oppførsel når avhengigheter er nede
 - Observability: metrikker, logging (PII-hensyn), tracing fra dag én
-- Arkitekturvalg — pek til relevant `docs/adr/NNNN-*.md` i stedet for å gjenta begrunnelsen
+- Arkitekturbegrensninger som påvirker scope — beskriv dem kort og
+  selvstendig; legg bare til en målrettet dokumentasjonslenke når
+  repository-policyen sier at den tilfører verdi
 
 **Ikke** inkluder konkrete filstier eller kodeutdrag — de blir utdaterte fort.
 

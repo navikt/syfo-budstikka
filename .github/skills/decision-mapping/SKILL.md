@@ -15,7 +15,9 @@ avhengighetsgrafen og rekkefølgen. Når en node skal løses ved drøfting, kjø
 relevant, anbefal dokumentert løp og vent på brukerens valg før
 `/domain-modeling` skriver noe.
 
-Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen. Avklarte, kvalifiserende beslutninger graduerer ut av kartet og inn i `docs/adr/`; task-scope går til issue/plan og vedlikeholdt detalj til relevant topic-dokument.
+Plass i faseløkka: fase 1–2 (Utforske/Design), som stillaset rundt grillingen.
+Kartet eier uløste valg og midlertidig arbeidsstatus. Avklarte resultater går
+til riktig eier etter repoets dokumentasjonspolicy.
 
 ## Beslutningskartet
 
@@ -24,18 +26,18 @@ aktive issuet er standard hjem. Når den kallende arbeidsflyten eksplisitt
 trenger et kart som skal overleve en reell øktgrense, kan det lagres
 oppgavelokalt, for eksempel som
 `.grill/DECISIONS.md`. Etter valgt dokumentert løp kan kvalifiserende
-beslutninger gradueres til `docs/adr/` via `/domain-modeling`.
+beslutninger skrives via `/domain-modeling`.
 
 Når kartet er lagret, er det den kanoniske *arbeids*-artefakten, og hele kartet
 lastes inn som kontekst i hver økt — derfor må det holdes stramt.
 
 - Hold det kompakt. Tunge artefakter (utrednings-notater, spike-resultater, prototyper) lenkes fra noden, **aldri** limes inn i kartet.
 - Når en beslutning passerer hele ADR-gaten og brukeren har valgt å dokumentere
-  den → skriv den som `docs/adr/NNNN-*.md` via `/domain-modeling` og lenk fra
-  noden. Kartet eier det åpne; ADR-ene eier de kvalifiserende, varige valgene.
+  den, lar du `/domain-modeling` skrive den. Behold resultatet i kartet bare så
+  lenge uløste noder trenger det; ikke bygg en katalog med dokumentlenker.
 - Når et nytt domenebegrep dukker opp, bruk det konsekvent i kartet. Skriv det
-  til `docs/glossary.md` via `/domain-modeling` først etter valgt dokumentert
-  løp.
+  til repoets glossar via `/domain-modeling` først etter valgt
+  dokumentert løp.
 
 ## Node-struktur
 
@@ -52,7 +54,7 @@ Avveining: borgerkontekst on-behalf-of (TokenX) vs. ren server-til-server uten b
 Skal endepunktene kalles på vegne av en innlogget borger/saksbehandler, eller maskin-til-maskin fra et annet team?
 
 ### Beslutning
-<fylles ut når noden løses — etter valgt dokumentert løp kan /domain-modeling kvalifisere og skrive en ADR>
+<fylles ut når noden løses>
 ```
 
 Hver node skal være dimensjonert til **én fokusert økt**. Blir den for stor, splitt den i flere noder med riktige `Blokkert av`-kanter.
@@ -109,8 +111,8 @@ Bruker peker på et eksisterende kart eller en valgt kartfil + et nodenummer.
 1. Last **hele kartet** som kontekst.
 2. Kjør én økt for å løse noden, med riktig verktøy for typen (se over).
 3. Skriv det økta avgjorde inn i nodens `### Beslutning`. Passerer valget hele
-   ADR-gaten og brukeren vil dokumentere det → registrer via
-   `/domain-modeling` og lenk.
+   ADR-gaten og brukeren vil dokumentere det, lar du `/domain-modeling`
+   registrere det uten å legge til en bokføringslenke i kartet.
 4. Legg til nylig oppdagede noder med korrekte `Blokkert av`-kanter. Oppdater/slett noder beslutningen invaliderte.
 5. **Stopp.**
 
@@ -129,6 +131,9 @@ Tilby da brukeren å hoppe over kartet, og anbefal i stedet å implementere dire
 
 ## Utfall
 
-Når kartet er ferdig: kvalifiserende beslutninger lever i `docs/adr/`, task-scope i issue/plan og vedlikeholdt detalj i relevante topic-dokumenter. Oppdater `docs/context.md` bare ved endret orientering eller overordnet status. Dette er inngangen til plan-fasen — `/to-prd` for kravspec, deretter `/to-issues` for å bryte ned i uavhengig-gripbare saker.
+Når kartet er ferdig, flyttes resultatene til eierne angitt i
+repoets dokumentasjonspolicy; kartet beholdes ikke som et ekstra
+register. Dette er inngangen til plan-fasen — `/to-prd` for kravspec, deretter
+`/to-issues` for å bryte ned i uavhengig-gripbare saker.
 
 Et utfylt eksempel: se [EKSEMPEL-BESLUTNINGSKART.md](references/EKSEMPEL-BESLUTNINGSKART.md).

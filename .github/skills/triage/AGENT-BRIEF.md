@@ -29,6 +29,10 @@ Agenten må vite når den er ferdig. Hvert kriterium skal være selvstendig veri
 ### Eksplisitte scope-grenser
 Si hva som er **utenfor** scope. Det hindrer agenten i å gullplette eller anta nærliggende features.
 
+Beskriv oppgaverelevante begrensninger i ønsket oppførsel eller
+akseptansekriteriene, slik at briefen kan forstås alene. Følg
+`docs/agents/domain.md`; ikke legg inn et generelt felt for beslutningslenker.
+
 ## Mal
 
 ```markdown
@@ -51,9 +55,6 @@ og feilkontrakt.
 - `TypeNavn` — hva må endres og hvorfor
 - `metodeNavn()` returtype — hva den returnerer nå vs hva den bør
 - Config/meldingsskjema — nye felter eller former som trengs
-
-**Styrende beslutninger:**
-- Følger `docs/adr/NNNN-...` der det finnes en ADR som binder valget
 
 **Akseptansekriterier:**
 - [ ] Konkret, testbart kriterium 1
@@ -89,9 +90,6 @@ av samme nøkkel skal være en no-op, ingen ny rad, ingen feil.
 - Repository-innskrivningen som persisterer hendelsen — trenger en
   idempotent upsert / unik constraint på meldingsnøkkelen
 - Konsument-løkka — bør ikke kaste på allerede-sett nøkkel
-
-**Styrende beslutninger:**
-- Følger `docs/adr/0002-kafka-idempotens-via-meldingsnokkel.md`
 
 **Akseptansekriterier:**
 - [ ] Samme melding levert to ganger gir nøyaktig én rad

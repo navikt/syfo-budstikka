@@ -6,8 +6,9 @@ description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes 
 
 Bruk denne skillen når norsk tekst skal strammes inn i kode, docs, PR, commit og logger.
 Skriv **Nav** i løpende tekst (unntak: `NAIS`, `NAVident`, `no.nav.syfo`).
-For ADR-er eier `/domain-modeling` gate, opprettelse og husformat; denne skillen
-språkvasker bare eksisterende prosa.
+For ADR-er eier `docs/agents/domain.md` den lokale formen, mens
+`/domain-modeling` bruker ADR-gaten og oppretter dokumentet etter valgt løp.
+Denne skillen språkvasker bare eksisterende prosa.
 
 Grunnreglene bor i `.github/instructions/norwegian-text.instructions.md`. Den lastes
 ikke lenger automatisk for annet enn `README.md` — **les den med view-verktøyet før du

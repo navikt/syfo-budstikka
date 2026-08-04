@@ -1,37 +1,13 @@
-# Decisions — canonical `Bnn` compatibility register
+# Decisions — frozen B1–B63 compatibility lookup
 
-This is the **canonical compatibility register** for the existing `Bnn` references used by code
-comments, ADRs, and the topic documents. When code or an ADR names one of B1-B63, the definition
-lives here.
+This file keeps existing B1–B63 references resolvable while they await
+dedicated cleanup. It is read-only: do not create identifiers, change or extend
+entries, or add new cross-references. Documentation ownership and new decision
+handling live in [`docs/agents/domain.md`](agents/domain.md).
 
-The identifiers are preserved even when their guidance is superseded, so old references still
-resolve. Current applicability is recorded on the individual entry. Look for inline markers such as
-`NYANSERT av`, `REVIDERER`, `ERSTATTER`, and `VRAKET`. ADRs remain authoritative. When an ADR
-supersedes an entry, the same change must mark that entry and point to the ADR; a mismatch is a
-documentation defect to fix.
-
-Do not mint new `Bnn` identifiers by default. Put a hard-to-reverse, surprising trade-off in one
-ADR; keep reversible or task-scoped choices in the issue or plan; keep maintained operational detail
-in the relevant topic document. Existing entries may be clarified or superseded, but every change
-must remain visible at the entry itself and point to the canonical detail. When an ADR owns that
-detail, update the `Bnn` entry with a status marker and link; do not duplicate or paraphrase the ADR.
-Some existing ADR-backed entries still carry verbatim detail for compatibility. Do not extend that
-duplication; reduce each one to a marker and link only in a dedicated, preservation-checked follow-up.
-
-Norwegian wording is preserved verbatim from the original decision text; preserving intent and
-source fidelity takes precedence over translation. See `docs/agents/language-policy.md`.
-
-## Reading order
-
-Load the narrowest thing that answers the question. When a specific `Bnn` is named, follow its
-stable `#bnn` anchor (for example `#b61`) or search directly, for example
-`grep -n -- '^- B61:' docs/decisions.md`, rather than reading this file end to end.
-
-- Binding, hard-to-reverse architecture decisions: `docs/adr/`
-- Domain vocabulary: `docs/glossary.md`
-- Orientation and current status: `docs/context.md`
-- Topic detail: `docs/kontrakt.md`, `docs/datamodell.md`, `docs/flyt.md`, `docs/ferdigstill.md`,
-  `docs/migrering.md`, `docs/teknologi.md`, `docs/teststrategi.md`, `docs/helsesjekk.md`
+Locate a named entry through its stable anchor (for example `#b61`) or direct
+search, rather than loading this file as ambient context. The Norwegian wording
+below is historical source text; do not normalise it during routine work.
 
 ## Eksisterende B1–B63-beslutninger
 

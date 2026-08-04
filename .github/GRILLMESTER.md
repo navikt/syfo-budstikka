@@ -34,11 +34,9 @@ rules live once in `.github/copilot-instructions.md`.
 ## Context and documentation
 
 - Task and pull request acceptance criteria own requirements.
-- `docs/context.md` is an orientation router, not a task plan.
-- `docs/decisions.md` preserves B1–B63 compatibility references; load only a
-  named entry and do not mint new B identifiers.
-- Focused ADRs own qualifying durable trade-offs. Glossary and ADR writes follow
-  `docs/agents/domain.md` and require the user's documented-route choice.
+- `docs/agents/domain.md` owns local documentation paths, form, narrow loading,
+  legacy decision handling, and link policy. `/domain-modeling` applies the
+  portable ADR gate and durable-write workflow under that policy.
 - `.grill/` is optional task-local scratch space. It is not a required
   cross-task state system.
 - `/handoff` is for a real session seam, not agent-to-agent delegation.
