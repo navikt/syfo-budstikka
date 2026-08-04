@@ -19,6 +19,7 @@ import no.nav.budstikka.infrastructure.database.config.toDatabaseConfig
 import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
 import no.nav.budstikka.infrastructure.kafka.config.toKafkaConfig
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics
+import no.nav.budstikka.infrastructure.replay.DeadLetterReplayer
 import no.nav.budstikka.infrastructure.worker.config.toWorkerConfig
 
 /**
@@ -41,6 +42,7 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         provide<DispatchMetrics> { MicrometerDispatchMetrics(resolve<PrometheusMeterRegistry>()) }
         databaseModule()
+        provide { DeadLetterReplayer(resolve(), resolve()) }
         kafkaModule()
         authModule()
         clientModule()

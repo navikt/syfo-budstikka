@@ -142,11 +142,12 @@ class BudstikkaTestApp private constructor(
             kafka: KafkaTestContainer = KafkaTestContainer(),
             port: Int = 0,
             withMonitoring: ((appport: Int) -> MonitoringContainers)? = null,
+            configOverrides: Map<String, String> = emptyMap(),
             overrides: DependencyRegistry.() -> Unit = {},
         ): BudstikkaTestApp {
             val postgres = PostgresTestFixture()
             try {
-                val appConfig = testConfig(postgres, kafka.bootstrapServers)
+                val appConfig = testConfig(postgres, kafka.bootstrapServers, configOverrides)
                 val server =
                     embeddedServer(
                         Netty,
@@ -187,6 +188,7 @@ class BudstikkaTestApp private constructor(
         private fun testConfig(
             postgres: PostgresTestFixture,
             bootstrapServers: String,
+            configOverrides: Map<String, String>,
         ): ApplicationConfig {
             val host = postgres.postgres.host
             val port = postgres.postgres.firstMappedPort
@@ -206,7 +208,9 @@ class BudstikkaTestApp private constructor(
                     ),
                 )
             val merged =
-                containerValues
+                ConfigFactory
+                    .parseMap(configOverrides)
+                    .withFallback(containerValues)
                     .withFallback(ConfigFactory.parseResources("application-local.conf"))
                     .withFallback(ConfigFactory.parseResources("application.conf"))
                     .resolve()

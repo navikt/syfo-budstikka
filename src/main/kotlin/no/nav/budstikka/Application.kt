@@ -7,6 +7,7 @@ import io.ktor.server.plugins.di.dependencies
 import no.nav.budstikka.api.configureInternalApi
 import no.nav.budstikka.api.installPlugins
 import no.nav.budstikka.bootstrap.installDependencyInjection
+import no.nav.budstikka.bootstrap.replayDeadLettersIfEnabled
 import no.nav.budstikka.bootstrap.startKafkaConsumers
 import no.nav.budstikka.bootstrap.startWorkers
 import no.nav.budstikka.infrastructure.database.config.migrate
@@ -45,6 +46,7 @@ fun Application.configureApplication(overrides: DependencyRegistry.() -> Unit = 
     installMetrics()
     val dataSource: DataSource by dependencies
     dataSource.migrate()
+    replayDeadLettersIfEnabled()
     startKafkaConsumers()
     startWorkers()
     configureInternalApi()
