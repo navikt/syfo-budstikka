@@ -15,9 +15,13 @@ data class BrukervarselCreate(
     val visibleUntil: Instant? = null,
     val externalVarsling: ExternalVarsling? = null,
     val brevFallback: BrevFallback? = null,
-    val sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+    var sendingWindow: SendingWindow? = null,
 ) : DispatchContent,
     Brukervarsel {
+    init {
+        sendingWindow = sendingWindow ?: SendingWindow.BUDSTIKKA_OPENING_HOURS
+    }
+
     override val partitionKey: String get() = personIdentifier.value
 }
 
@@ -40,9 +44,13 @@ data class LedervarselCreate(
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val sendingWindow: SendingWindow = SendingWindow.ONGOING,
+    var sendingWindow: SendingWindow? = null,
 ) : DispatchContent,
     Ledervarsel {
+    init {
+        sendingWindow = sendingWindow ?: SendingWindow.ONGOING
+    }
+
     override val partitionKey: String get() = sykmeldt.value
 }
 
@@ -72,8 +80,12 @@ data class ArbeidsgivervarselCreate(
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
-    val sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+    var sendingWindow: SendingWindow? = null,
 ) : DispatchContent {
+    init {
+        sendingWindow = sendingWindow ?: SendingWindow.BUDSTIKKA_OPENING_HOURS
+    }
+
     override val partitionKey: String get() = orgnummer.value
 }
 
