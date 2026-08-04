@@ -26,7 +26,8 @@ enum class ExternalChannel { SMS, EMAIL }
 
 /**
  * Optional plain-text overrides for external varsling. A `null` field leaves that channel's text
- * unspecified.
+ * unspecified. Arbeidsgivervarsel escapes the email text before it becomes an HTML field downstream;
+ * the other channels forward their values unchanged.
  */
 @Serializable
 data class ExternalVarsling(

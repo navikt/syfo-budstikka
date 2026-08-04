@@ -196,6 +196,8 @@ Alle andre varianter returnerer `null` (gates ikke av `DeathGate` i dag).
 
 - `*Inactivate` mappes til nye `DeliveryDraft`-rader direkte.
 - Oppslag på tidligere create-rad via `(reference, recipient, channel)` er **ikke implementert ennå**.
-- Delivery-eksekvering har handlere for `BRUKERVARSEL`, `LEDERVARSEL` og `MICROFRONTEND` i `DeliveryWorker` (registrert i `WorkerModule`); øvrige kanaler (`DITT_SYKEFRAVAER`, `ARBEIDSGIVERVARSEL`, `BREV`) mangler fortsatt handler.
+- Delivery-eksekvering har handlere for `BRUKERVARSEL`, `LEDERVARSEL`, `MICROFRONTEND`, `BREV` og Altinn-ressurs-stien i `ARBEIDSGIVERVARSEL` i `DeliveryWorker` (registrert i `WorkerModule`); `DITT_SYKEFRAVAER` mangler fortsatt handler.
+- Arbeidsgiverkanalen oppretter bare Altinn-ressurs-varsler. Den oppretter ikke sak, og den lukker eller inaktiverer ikke varsler. Nærmeste leder-stien kommer i egen implementasjon.
+- `ArbeidsgivervarselCreate.visibleUntil` mappes foreløpig ikke nedstrøms for arbeidsgiverkanalen.
 
 Dette dokumentet beskriver kontrakten og mappingen slik den faktisk er i koden nå.
