@@ -48,6 +48,8 @@ spec:
   accessPolicy:
     outbound:
       rules:
+        - application: notifikasjon-produsent-api
+          namespace: fager
         - application: digdir-krr-proxy
           namespace: team-rocket
       external:
@@ -76,5 +78,9 @@ spec:
       value: https://digdir-krr-proxy.intern.dev.nav.no/rest/v1/person
     - name: KRR_SCOPE
       value: api://dev-gcp.team-rocket.digdir-krr-proxy/.default
+    - name: ARBEIDSGIVER_NOTIFIKASJON_URL
+      value: https://ag-notifikasjon-produsent-api.intern.dev.nav.no/api/graphql
+    - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
+      value: api://dev-gcp.fager.notifikasjon-produsent-api/.default
   # DEFERRED (remaining Auth & ACL): tokenx inbound and outbound
-  # to narmesteleder/notifikasjon-produsent-api. Add when those channels are wired.
+  # outbound to narmesteleder. Add when that channel is wired.
