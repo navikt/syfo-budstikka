@@ -104,6 +104,29 @@ class DispatchSerializationTest :
             dispatchJson.encodeToString(envelope(BrevCreate(TEST_SYKMELDT_2, "jp-9"))) shouldNotContain "partitionKey"
         }
 
+        context("SendingWindow null-tolerance (legacy messages produced before non-null migration)") {
+            test("BrukervarselCreate with sendingWindow: null maps to BUDSTIKKA_OPENING_HOURS") {
+                val payload =
+                    """{"reference":"ref-1","content":{"type":"BrukervarselCreate","personIdentifier":"12345678901","varseltype":"BESKJED","text":"Hei","sendingWindow":null}}"""
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
+                (dispatch.content as BrukervarselCreate).sendingWindow shouldBe SendingWindow.BUDSTIKKA_OPENING_HOURS
+            }
+
+            test("ArbeidsgivervarselCreate with sendingWindow: null maps to BUDSTIKKA_OPENING_HOURS") {
+                val payload =
+                    """{"reference":"ref-2","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"DIALOGMOETE"},"tag":"DIALOGMOETE","text":"Hei","link":"https://nav.no","sendingWindow":null}}"""
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
+                (dispatch.content as ArbeidsgivervarselCreate).sendingWindow shouldBe SendingWindow.BUDSTIKKA_OPENING_HOURS
+            }
+
+            test("LedervarselCreate with sendingWindow: null maps to ONGOING") {
+                val payload =
+                    """{"reference":"ref-3","content":{"type":"LedervarselCreate","sykmeldt":"12345678901","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING","text":"Hei","sendingWindow":null}}"""
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
+                (dispatch.content as LedervarselCreate).sendingWindow shouldBe SendingWindow.ONGOING
+            }
+        }
+
         context("PII masking in toString (B9)") {
             test("PersonIdentifier is masked") {
                 TEST_SYKMELDT_2.toString() shouldBe "***"
