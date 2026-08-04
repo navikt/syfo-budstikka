@@ -35,6 +35,7 @@ directly instead of reading a whole file.
 - `docs/teknologi.md` - technology choices
 - `docs/teststrategi.md` - local test and e2e strategy
 - `docs/helsesjekk.md` - health checks
+- `docs/dead-letter-replay.md` - manual dead-letter replay procedure
 
 ## Mål (fra bruker)
 
