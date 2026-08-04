@@ -25,9 +25,8 @@ Skriv heller konkret hva som skjer, hvem som gjør det, og hva leseren skal gjø
 Start med konklusjon eller beslutning. Bakgrunn og begrunnelse kommer etterpå.
 Målet er forventningsstyring: leseren skal forstå utfallet tidlig, ikke bygges opp mot det.
 
-I en ADR: bevar husformatet og seksjonsrekkefølgen fra
-`docs/agents/domain.md` (`Kontekst` → `Beslutning` → `Konsekvenser`). Skriv
-konklusjonen først innenfor `Beslutning`.
+I en ADR: følg `docs/agents/domain.md`, få fram beslutningen tidlig og ikke legg
+til struktur eller metadata som språkvasken ikke trenger.
 I en PR-beskrivelse: skriv hva endringen gjør for konsumenten (endepunkt, Kafka-topic, migrering) før implementasjonsdetaljer.
 
 ## Unngå substantivsyke

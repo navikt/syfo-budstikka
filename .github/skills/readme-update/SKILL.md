@@ -18,7 +18,9 @@ Les faktiske kilder før du skriver én linje README:
 3. **NAIS-manifest** — `.nais/` (eller `nais/`, `.nais.yaml`) for miljøer (`dev-gcp`/`prod-gcp`), `ingresses`, `gcp.sqlInstances` (Postgres), `kafka`, `accessPolicy.inbound`/`outbound`, og `tokenx`/`azure`. Manifestet er fasiten for auth, integrasjoner og miljøer — ikke gjett.
 4. **Kode** — `src/main/kotlin/` for Ktor-oppsett: `embeddedServer`/`Application.module()`, `routing { ... }`-blokker (endepunkter), `install(Authentication)` (TokenX/Azure AD-validering), Kafka consumer/producer, og databaselag. Sjekk `src/main/resources/application.yaml` (eller `.conf`) for porter, miljøvariabler og featuretoggles, og `src/main/resources/db/migration/` for Flyway-migrasjoner.
 5. **CI/CD** — `.github/workflows/` for workflow-navn til CI-badge og deploy-flyt.
-6. **Docs** — `docs/`, ADR-er og arkitektur-notater. Lenk i stedet for å duplisere lange forklaringer.
+6. **Docs** — vedlikeholdte kontrakter og leser-/operatørdokumentasjon. Lenk
+   bare til det en README-leser trenger; ikke bygg en ADR-katalog. Følg
+   `docs/agents/domain.md` for målrettede dokumentlenker.
 
 Avklar minst dette før du skriver:
 
@@ -41,7 +43,7 @@ Avklar minst dette før du skriver:
 | Database | Hvis Postgres/Flyway | Hva databasen eier, kort om sentrale tabeller, at skjema styres av Flyway-migrasjoner i `db/migration/` |
 | Autentisering | Hvis `install(Authentication)` eller `tokenx`/`azure` i manifest | Hvilken mekanisme (TokenX, Azure AD), hvilke endepunkter som er beskyttet, hvem som er gyldige kallere (`accessPolicy.inbound`) |
 | Utvikling | Alltid | Kort seksjon nederst: stabil lokal URL (typisk `http://localhost:8080`) og hvor leseren finner ferske kommandoer. Pek til `./gradlew tasks` i stedet for å liste konkrete `./gradlew test`/`build`/`run` |
-| Les mer | Hvis docs finnes | Lenker til `docs/`, ADR-er og arkitektur |
+| Les mer | Hvis docs finnes | Lenker til vedlikeholdte topic- og operatørdokumenter leseren trenger |
 | For Nav-ansatte | Alltid | Kontaktlenke til team-Slack som siste seksjon, pluss intern team-info. For team-esyfo er `[#esyfo på Slack](https://nav-it.slack.com/archives/C012X796B4L)` standard når ikke annet er kjent |
 
 ## Steg 3: Generer eller oppdater

@@ -30,7 +30,8 @@ Pakk endringen i en PR som kan reviewes uten gjetting: tydelig tittel, riktig is
 
 5. **Risiko og reviewer-fokus er tydelig.**
    - Kall ut endringer i auth, PII/logg, Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`/secrets/deploy.
-   - Pek på ADR ved styrende beslutninger.
+   - Beskriv oppgaverelevante begrensninger kort; følg lenkereglene i
+     `docs/agents/domain.md` for eventuelle dokumentlenker.
    - **Ferdig når:** reviewer vet hva som må kontrolleres nøye.
 
 6. **Ingen sensitive data eksponeres.**

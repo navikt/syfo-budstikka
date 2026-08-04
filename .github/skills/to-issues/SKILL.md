@@ -51,7 +51,8 @@ Flyway-migrasjon  →  repository/spørring  →  domene/service
 - Hvert snitt leverer en smal, men KOMPLETT vei gjennom alle berørte lag
 - Et fullført snitt er demonstrerbart eller verifiserbart for seg selv (et kall som returnerer riktig svar, en melding som konsumeres idempotent, en rad som havner i Postgres)
 - Prefaktorering gjøres først, som egne snitt
-- Bind hvert snitt til relevant ADR der det finnes en beslutning som styrer det
+- Beskriv styrende begrensninger kort nok til at snittet kan forstås alene;
+  følg lenkereglene i `docs/agents/domain.md`
 
 </vertikalt-snitt-regler>
 
@@ -96,8 +97,6 @@ For sub-issues: `Del av epic: #EPIC_NR`.
 Kort beskrivelse av dette vertikale snittet. Beskriv ende-til-ende-oppførsel, ikke lag-for-lag-implementering.
 
 Unngå konkrete filstier og kodesnutter — de blir utdaterte fort. Unntak: hvis et design/prototype har produsert en snutt som koder en beslutning mer presist enn prosa (datakontrakt, Kafka-meldingsskjema, Flyway-DDL, feilkontrakt), inline kun de beslutningsbærende bitene og noter hvor de kommer fra.
-
-Pek på styrende ADR der det finnes: `Følger docs/adr/NNNN-...`.
 
 ## Akseptansekriterier
 

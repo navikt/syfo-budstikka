@@ -47,11 +47,11 @@ Kode-identifikatorer (`.kt`) følger en strengere regel enn prosa: norsk KUN på
 
 | Teksttype | Tone | Tips |
 |-----------|------|------|
-| ADR (`docs/adr/`) | Nøytral, teknisk | Kontekst → Beslutning → Konsekvenser. Beslutning i presens, aktiv form. |
+| ADR (`docs/adr/`) | Nøytral, teknisk | Følg `docs/agents/domain.md`. Få fram beslutning og begrunnelse tidlig uten å legge til fast seksjonsstillas. |
 | README | Direkte, vennlig | Start med hva tjenesten gjør, deretter oppsett (`./gradlew run`, NAIS). Ikke selg prosjektet. |
 | Loggmelding | Entydig, søkbar | Konkret hendelse + nøkkelverdier. Ingen svulstige ord. Aldri personopplysninger. |
 | Feilmelding / API-respons | Enkel, handlingsrettet | Hva gikk galt + hva mottakeren kan gjøre. Aktiv form. |
-| PR-beskrivelse | Konkret | Hva endres, hvorfor. Lenk til issue/ADR. |
+| PR-beskrivelse | Konkret | Hva endres, hvorfor. Lenk til issue; bruk bare en målrettet dokumentlenke når begrunnelsen ellers blir uklar. |
 | Commit-melding | Konkret, imperativ | Følg conventional commits. |
 
 ## Kilder

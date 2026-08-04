@@ -64,7 +64,8 @@ Beslutninger som er tatt. Kan inkludere:
 - Skjemaendringer (Flyway-migrering) og Kafka-topic/-kontrakt (nøkkel, schema, idempotens/replay)
 - Feilkontrakt (StatusPages / ApiError) og oppførsel når avhengigheter er nede
 - Observability: metrikker, logging (PII-hensyn), tracing fra dag én
-- Arkitekturvalg — pek til relevant `docs/adr/NNNN-*.md` i stedet for å gjenta begrunnelsen
+- Arkitekturbegrensninger som påvirker scope — beskriv dem kort og
+  selvstendig; følg lenkereglene i `docs/agents/domain.md`
 
 **Ikke** inkluder konkrete filstier eller kodeutdrag — de blir utdaterte fort.
 

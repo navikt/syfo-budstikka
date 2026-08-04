@@ -22,7 +22,6 @@ Hver kommentar du poster under triage **må** starte med:
 ## Referansedokumenter
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md) — hvordan skrive en durabel, arbeidsklar brief
-- [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) — hvordan `.out-of-scope/`-kunnskapsbasen virker
 
 ## Roller
 
@@ -70,7 +69,13 @@ Inkluder eksterne PR-er i bøttene og merk hver linje `[PR]` eller `[issue]`. Di
 Les hele saken (body, kommentarer, labels, forfatter, datoer; for en PR også diffen). Parse tidligere triage-notater så du ikke spør om det som allerede er løst. Utforsk kodebasen:
 
 - Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare relevante topic-dokumenter og ADR-er, glossaret for domenespråk, og `docs/context.md` når saken faktisk krever repository-orientering eller overordnet status.
-- Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg 5). **(b) tidligere avvist** — les `.out-of-scope/*.md` og flagg det som ligner.
+- Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon
+  av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og
+  rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg
+  5). **(b) tidligere avvist** — søk etter konseptet i lukkede GitHub-issues og
+  `wontfix`-saker. Les lukkediskusjonen og behandle saken som tidligere avvist
+  bare når begrunnelsen faktisk sier det; en levert eller duplisert sak er
+  tidligere arbeid, ikke en avvisning.
 
 ### 2. Anbefal
 Si din kategori- og tilstands-anbefaling med begrunnelse, pluss en kort kodebase-oppsummering relevant for saken — inkludert om den allerede er implementert. Vent på retning.
@@ -93,9 +98,11 @@ eier `/domain-modeling` glossaret, ADR-gaten og selve ADR-en.
 - `ready-for-human` — samme struktur som en agent-brief, men noter *hvorfor* den ikke kan delegeres.
 - `needs-info` — post triage-notat (mal under).
 - `wontfix` — lukk, med kommentar avhengig av *hvorfor*:
-  - **Allerede implementert** — endringen finnes alt. Pek på hvor den lever i koden. Skriv **ikke** til `.out-of-scope/` (den basen er for *avviste*, ikke bygde, ønsker).
+  - **Allerede implementert** — endringen finnes alt. Pek på hvor den lever i koden.
   - **Avvist (bug)** — høflig forklaring, så lukk.
-  - **Avvist (enhancement)** — skriv til `.out-of-scope/`, lenk til den fra en kommentar, så lukk ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+  - **Avvist (enhancement)** — skriv en selvstendig begrunnelse i
+    lukkekommentaren, så lukk. Det lukkede issuet er historikken; opprett ikke
+    et eget beslutningsarkiv i repoet.
 - `needs-triage` — sett rollen. Valgfri kommentar hvis det er delvis fremgang.
 
 ## Rask tilstandsoverstyring

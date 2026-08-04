@@ -81,7 +81,7 @@ were reviewed on 2026-07-31 and adopted only in the narrow form recorded here:
 
 | Proposal | Local handling |
 |---|---|
-| [`mattpocock/skills#299`](https://github.com/mattpocock/skills/issues/299) | `docs/agents/domain.md` distinguishes planning ADRs from binding intent and adds an explicit promotion/rejection lifecycle |
+| [`mattpocock/skills#299`](https://github.com/mattpocock/skills/issues/299) | Unresolved choices remain in the issue, plan, or decision map; a deliberately persisted proposal is status-marked, with no mandatory promotion or backlink protocol |
 | [`mattpocock/skills#306`](https://github.com/mattpocock/skills/issues/306) | `/handoff` separates freshly verified state from unverified claims and asks the receiver to recheck branch, HEAD, and status; no fingerprint or persistence framework was adopted |
 
 ## Import rule
