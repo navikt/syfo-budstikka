@@ -3,6 +3,7 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
 import no.nav.budstikka.application.delivery.ChannelHandler
@@ -15,6 +16,7 @@ import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
@@ -41,6 +43,7 @@ fun DependencyRegistry.workerModule() {
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
+            Channel.ARBEIDSGIVERVARSEL to ArbeidsgivervarselChannelHandler(resolve<ArbeidsgiverNotificationPublisher>()),
         )
     }
     provide<List<BackgroundLoop>> {
