@@ -134,9 +134,26 @@ abstract class VerifyWireOptInGate : DefaultTask() {
                 unexpected.joinToString("\n")
         }
 
-        val ungated = sources.filterNot { source -> errors.any { it.contains(source.name) } }
+        val expectedErrorLocations =
+            sources.flatMap { source ->
+                source.readLines().mapIndexedNotNull { index, line ->
+                    if (OPT_IN_PROBE in line) ErrorLocation(source.name, index + 1) else null
+                }
+            }
+        check(expectedErrorLocations.isNotEmpty()) {
+            "No '$OPT_IN_PROBE' markers found in the raw-wire fixtures."
+        }
+
+        val actualErrorLocations =
+            errors
+                .mapNotNull { line ->
+                    ERROR_LOCATION.find(line)?.destructured?.let { (fileName, lineNumber) ->
+                        ErrorLocation(fileName, lineNumber.toInt())
+                    }
+                }.toSet()
+        val ungated = expectedErrorLocations.filterNot(actualErrorLocations::contains)
         check(ungated.isEmpty()) {
-            "These fixtures use raw wire API that is NOT gated: ${ungated.joinToString(", ") { it.name }}"
+            "These raw-wire probes compiled WITHOUT '${optInMarker.get()}': ${ungated.joinToString()}"
         }
 
         logger.lifecycle(
@@ -190,14 +207,21 @@ abstract class VerifyWireOptInGate : DefaultTask() {
         val output: String,
     )
 
+    private data class ErrorLocation(
+        val fileName: String,
+        val lineNumber: Int,
+    )
+
     private companion object {
         const val KOTLIN_CLI_MAIN_CLASS = "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler"
 
         /** The CLI compiler prints `<path>:<line>:<column>: error: <message>`. */
         val ERROR_LINE = Regex("""(^|\s)error: """)
+        val ERROR_LOCATION = Regex("""([^/\\\s]+\.kt):(\d+):\d+: error:""")
 
         /** Distinctive words from the marker's own `@RequiresOptIn` message. */
         const val OPT_IN_EVIDENCE = "raw wire API"
+        const val OPT_IN_PROBE = "// opt-in-probe"
     }
 }
 
