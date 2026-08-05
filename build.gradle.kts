@@ -48,7 +48,7 @@ kotlin {
 }
 
 // The container image is built with plain Jib (the Ktor plugin activates JibPlugin), not Ktor's
-// docker{} tasks; see ADR 0010. Explicitly setting the Chainguard base (JRE 25) in from.image removes
+// docker{} tasks. Explicitly setting the Chainguard base (JRE 25) in from.image avoids
 // the Ktor plugin's JRE validation and setupJibLocal path (a Task.project deprecation remains in
 // the Jib plugin's own tasks: upstream, not our code).
 //

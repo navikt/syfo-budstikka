@@ -7,7 +7,7 @@ import no.nav.budstikka.domain.decision.DropReason
  * Metrics port (issue #28) for decision and delivery workers. The application layer emits domain
  * events through this port; a Micrometer adapter in infrastructure counts them in the shared
  * Prometheus registry. This keeps workers free from Micrometer imports (the same port/adapter seam
- * as [TransactionRunner] and repositories, ADR 0007).
+ * as [TransactionRunner] and repositories).
  *
  * Contract: implementations only count; they never throw or perform I/O, so a metrics failure
  * cannot disrupt effectuation. Labels stay low-cardinality and PII-free ([Channel] names and fixed

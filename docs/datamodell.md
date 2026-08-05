@@ -55,7 +55,7 @@ erDiagram
 
 ## Inbox og dead letter
 
-- Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008, superseder ADR 0002) og
+- Konsumenten **parser hele `Dispatch` ved ingest** (ADR 0008) og
   hydrerer `inbox_message`: dedup på **header-eventId** (`DispatchHeader.EVENT_ID`) som PK,
   `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
   FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel

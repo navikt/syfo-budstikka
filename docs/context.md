@@ -41,7 +41,7 @@ Dispatch kan gates til budstikkas sendevindu: åpent **mandag–lørdag 09–20*
 røde dager (påske via Meeus/Jones/Butcher, Kr. himmelfart, pinse, 1. mai, 17. mai, 1.–2. juledag) samt julaften
 (24.12). Nyttårsaften (31.12) er **ikke** stengt. Gaten gjelder kun hendelser merket
 `SendingWindow.BUDSTIKKA_OPENING_HOURS`. Logikken er en generisk `openingHours { }`-komposisjon i
-`domain/foundation/calendar/`, konfigurert i `BudstikkaSendingWindowLookup` og anvendt av `SendingWindowGate`
-(ADR 0011, 0012, 0013). Ventende leveranser holdes på inbox (`WAIT` på
+`domain/foundation/calendar/`, konfigurert i `BudstikkaSendingWindowLookup` og anvendt av `SendingWindowGate`.
+Ventende opprettelser holdes på inbox (`WAIT` på
 `inbox_message`). Direkte FERDIGSTILL-kansellering av en ventende OPPRETT er
-planlagt i #26; begrunnelsen er foreslått i ADR 0014 og avventer #166.
+planlagt i #26; inbox-hold er besluttet i ADR 0014.
