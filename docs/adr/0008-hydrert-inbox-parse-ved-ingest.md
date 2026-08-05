@@ -2,7 +2,6 @@
 
 - Status: Besluttet
 - Dato: 2026-07-21
-- Erstatter: [ADR 0002](0002-inbox-header-dedup-uten-deserialisering.md)
 
 Ingest parser hele `Dispatch` og lagrer `reference` og `content` strukturert på
 inbox-raden. `eventId` finnes bare i den obligatoriske Kafka-headeren og brukes

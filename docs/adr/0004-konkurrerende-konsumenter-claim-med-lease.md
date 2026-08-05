@@ -4,7 +4,7 @@
 - Dato: 2026-07-10
 - Utestående retting: issue #157
 
-Flere replikaer claimer disjunkte rader med `FOR UPDATE SKIP LOCKED` og en
+Flere replikaer claimer ulike rader uten overlapp med `FOR UPDATE SKIP LOCKED` og en
 tidsbegrenset lease. Claimet committes før eksterne oppslag, og terminale
 tilstandsendringer er atomiske og tilstandsgarderte. Utløpt lease gjør raden
 tilgjengelig igjen etter krasj.

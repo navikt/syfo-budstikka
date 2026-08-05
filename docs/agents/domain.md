@@ -80,7 +80,10 @@ ADR only when the choice is all three:
 If one condition is missing, keep the information in its normal owner. New
 ADRs live in `docs/adr/`; `docs/agents/language-policy.md` owns their language.
 Increment the highest existing four-digit number and preserve intentional
-gaps. The current local form defaults to short prose:
+gaps. Use a descriptive filename and a title that state both the scoped subject
+and the decision, so the directory listing and heading reveal when the ADR is
+relevant. Avoid vague titles that name only a topic. The current local form
+defaults to short prose:
 
 ```md
 # ADR NNNN — Kort tittel
