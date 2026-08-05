@@ -160,7 +160,7 @@ class BudstikkaProducerApiTest :
         }
 
         context("brevCreate") {
-            test("defaults the distribution type to IMPORTANT") {
+            test("defaults to IMPORTANT and the ordinary dokdist route") {
                 val encoded =
                     Budstikka.brevCreate(
                         eventId = EVENT_ID,
@@ -172,7 +172,8 @@ class BudstikkaProducerApiTest :
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrevCreate",""" +
-                    """"personIdentifier":"11111111111","journalpostId":"jp-1","distributionType":"IMPORTANT"}}"""
+                    """"personIdentifier":"11111111111","journalpostId":"jp-1",""" +
+                    """"distributionType":"IMPORTANT","tvingSentralPrint":false}}"""
             }
 
             test("an explicit distribution type overrides the default") {
@@ -185,7 +186,22 @@ class BudstikkaProducerApiTest :
                         distributionType = DistributionType.OTHER,
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrevCreate",""" +
-                    """"personIdentifier":"11111111111","journalpostId":"jp-1","distributionType":"OTHER"}}"""
+                    """"personIdentifier":"11111111111","journalpostId":"jp-1",""" +
+                    """"distributionType":"OTHER","tvingSentralPrint":false}}"""
+            }
+
+            test("tvingSentralPrint opts in to forced paper delivery") {
+                Budstikka
+                    .brevCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        journalpostId = "jp-1",
+                        tvingSentralPrint = true,
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"BrevCreate",""" +
+                    """"personIdentifier":"11111111111","journalpostId":"jp-1",""" +
+                    """"distributionType":"IMPORTANT","tvingSentralPrint":true}}"""
             }
         }
 

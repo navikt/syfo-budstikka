@@ -35,7 +35,7 @@ class BrevChannelHandler(
             journalpostId = brev.journalpostId,
             distributionType = brev.distributionType.toPortDistributionType(),
             eventId = inboxEventId ?: id,
-            forceCentralPrint = true,
+            forceCentralPrint = brev.tvingSentralPrint,
         )
 
     private fun DistributionType.toPortDistributionType(): PortDistributionType =

@@ -50,9 +50,9 @@ object Budstikka {
      * @param link where the notification takes the person; omit for a notification without a target.
      * @param visibleUntil when Min side stops showing the notification; omit to keep it until inactivated.
      * @param externalVarsling adds SMS or email in addition to Min side; omit for Min side only.
-     * @param brevFallback lets budstikka send the document as a Brev instead when the person has
-     *   Reservasjon — printed and posted, like [brevCreate], never routed digitally. Requires a
-     *   `journalpostId` you have already created.
+     * @param brevFallback lets budstikka send the document through dokumentdistribusjon instead
+     *   when the person cannot be notified digitally; dokdist picks the channel, which for a
+     *   reserved person means paper. Requires a `journalpostId` you have already created.
      * @param sendingWindow when the notification may leave budstikka.
      */
     fun brukervarselCreate(
@@ -158,13 +158,15 @@ object Budstikka {
     }
 
     /**
-     * Brev: a printed letter to the Sykmeldt. Budstikka always forces central print
-     * (dokdistfordeling with `tvingKanal: PRINT`); this is deliberately not the ordinary dokdist
-     * route, so the letter goes on paper even when the person could receive it digitally in
-     * Digipost. A Brev cannot be inactivated once sent, so there is no matching inactivate
-     * function.
+     * Brev: a document distributed to the Sykmeldt through dokumentdistribusjon. By default
+     * dokdist picks the channel itself — digital mailbox (Digipost/e-Boks) for persons without
+     * Reservasjon, central print otherwise. A Brev cannot be inactivated once sent, so there is
+     * no matching inactivate function.
      *
      * @param journalpostId the journalpost you have already created for the document.
+     * @param tvingSentralPrint forces central print (dokdist's `tvingKanal: PRINT`) so the letter
+     *   goes on paper even when the person could receive it digitally. This is the exception, not
+     *   the default — in esyfovarsel only the aktivitetsplikt re-notification does it.
      */
     fun brevCreate(
         eventId: EventId,
@@ -172,6 +174,7 @@ object Budstikka {
         sykmeldt: PersonIdentifier,
         journalpostId: String,
         distributionType: DistributionType = DistributionType.IMPORTANT,
+        tvingSentralPrint: Boolean = false,
     ): EncodedDispatch {
         requireReference(reference)
         sykmeldt.requirePersonIdentifier("sykmeldt")
@@ -180,6 +183,7 @@ object Budstikka {
             personIdentifier = sykmeldt,
             journalpostId = journalpostId,
             distributionType = distributionType,
+            tvingSentralPrint = tvingSentralPrint,
         ).encode(eventId, reference)
     }
 

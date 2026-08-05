@@ -132,7 +132,11 @@ data class AltinnResource(
     val resource: AltinnResourceId,
 ) : ArbeidsgiverRecipient
 
-/** Physical letter for a Sykmeldt. This variant has no inactivation operation. */
+/**
+ * A document distributed to the Sykmeldt through dokumentdistribusjon. By default dokdist picks
+ * the channel itself (digital mailbox for persons without Reservasjon, print otherwise);
+ * [tvingSentralPrint] forces paper. This variant has no inactivation operation.
+ */
 @InternalBudstikkaWire
 @Serializable
 @SerialName("BrevCreate")
@@ -140,9 +144,10 @@ data class BrevCreate(
     val personIdentifier: PersonIdentifier,
     val journalpostId: String,
     val distributionType: DistributionType = DistributionType.IMPORTANT,
+    val tvingSentralPrint: Boolean = false,
 ) : DispatchContent {
     override val partitionKey: String get() = personIdentifier.value
 
     /** Omits [journalpostId] because it identifies a document about a person. */
-    override fun toString(): String = "BrevCreate(distributionType=$distributionType)"
+    override fun toString(): String = "BrevCreate(distributionType=$distributionType, tvingSentralPrint=$tvingSentralPrint)"
 }

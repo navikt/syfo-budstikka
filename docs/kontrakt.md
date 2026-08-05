@@ -172,18 +172,18 @@ fasadefunksjonene: `brukervarsel*` er Min sides produktnavn (ikke «alle kanaler
 sykmeldt»), `dittSykefravaer*` og `arbeidsgivernotifikasjon*` navngir kanal/produkt når
 de blir sendbare.
 
-## Brev: alltid tvungen sentral print
+## Brev: ordinær dokdist-løype som default, tvungen print som opt-in
 
-`brevCreate` bestiller dokdistfordeling med `tvingKanal: PRINT` — brevet går alltid på
-papir, også for personer uten Reservasjon som ellers ville fått det digitalt i Digipost.
-Dette er et bevisst avvik fra dokdist ordinær løype, og navnet «Brev» er derfor ærlig.
-(I esyfovarsel lurte «brev»-navnet folk til å tro alt gikk på post, mens ikke-reserverte
-fikk det i Digipost.) Ordinær løype **vil trengs ved migrering fra esyfovarsel**: der går
-7 av 8 dokdist-kallsteder ordinært (`tvingSentralPrint = false`), inkludert tre
-varseltyper med brev som eneste kanal uten KRR-sjekk — bare
-aktivitetsplikt-renotifiseringen tvinger print. Ordinær løype må da bli en egen variant
-med et navn som sier at kanalvalget ligger hos dokdist — ikke en endring av `brevCreate`.
-`brevFallback` på `brukervarselCreate` bruker samme kanal og gjelder bare ved Reservasjon.
+`brevCreate` bestiller dokumentdistribusjon der dokdist selv velger kanal: digital
+postkasse (Digipost/e-Boks) for personer uten Reservasjon, print ellers. Feltet
+`tvingSentralPrint` (default `false`) tvinger sentral print (`tvingKanal: PRINT`) —
+brevet går da på papir uansett. Defaulten speiler esyfovarsel, der 7 av 8
+dokdist-kallsteder går ordinær løype (inkludert tre varseltyper med brev som eneste
+kanal uten KRR-sjekk); bare aktivitetsplikt-renotifiseringen tvinger print. Lærdommen
+derfra: metoden het `sendBrevTilFysiskPrint` selv om den *ikke* tvang print, så her er
+kanalvalget et eksplisitt felt navngitt etter dokdists eget begrep — ikke skjult i et
+metodenavn. `brevFallback` på `brukervarselCreate` bruker samme kanal med ordinær løype
+og gjelder bare når personen ikke kan varsles digitalt.
 
 ## Mapping til delivery-draft (faktisk kode)
 
