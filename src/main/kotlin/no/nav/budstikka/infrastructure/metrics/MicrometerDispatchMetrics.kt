@@ -7,7 +7,7 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 
 /**
- * Micrometer adapter for [DispatchMetrics] (ADR 0007). Counts domain events in the shared registry;
+ * Micrometer adapter for [DispatchMetrics]. Counts domain events in the shared registry;
  * names follow the Prometheus convention (Micrometer dot names → `snake_case`, counters gain `_total`):
  *
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,

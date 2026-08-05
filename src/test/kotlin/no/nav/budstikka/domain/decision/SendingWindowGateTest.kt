@@ -60,7 +60,7 @@ class SendingWindowGateTest :
             }
         }
 
-        test("LedervarselCreate (default ONGOING) passerer gaten selv søndag (stengt) — ADR 0016") {
+        test("LedervarselCreate med default ONGOING passerer gaten selv på søndag") {
             val now = LocalDateTime(2025, 2, 9, 12, 0).toInstant(oslo)
             val gate = SendingWindowGate(MutableClock(now))
             val event =
@@ -121,6 +121,15 @@ class SendingWindowGateTest :
 
             val notInWindow = decision.shouldBeInstanceOf<Decision.NotInSendingWindow>()
             notInWindow.reason shouldBe "Julaften (2025-12-24)"
+        }
+
+        test("nyttårsaften 31.12 er åpen innenfor klokkeslettet") {
+            val clock = MutableClock(LocalDateTime(2025, 12, 31, 12, 0).toInstant(oslo))
+            val gate = SendingWindowGate(clock)
+            val event = Dispatch(reference = "ref-1", content = brukervarselContent())
+            val decision = gate.resolve(event).apply(emptyList())
+
+            decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldBe emptyList()
         }
 
         test("åpent vindu passerer deliveries uendret") {

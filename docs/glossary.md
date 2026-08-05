@@ -1,126 +1,93 @@
 # Glossar — syfo-budstikka
 
-syfo-budstikka er en **domeneblind** ruter som dispatcher noe til en recipient på riktig
-channel, uten å kjenne domenet (dialogmøte, aktivitetskrav osv.). Ordlista under er det
-kanoniske språket for domenediskusjoner, issues og docs. Kode- og kontraktsnavn i parentes
-er kryssreferanser, ikke en regel om å endre stabile identifikatorer.
+Dette er det kanoniske språket for domenediskusjoner, issues og dokumentasjon.
+Stabile kode- og kontraktsnavn står i parentes der koblingen er nyttig.
 
 ## Aktører
 
 **Produsent**:
-Fagsystem som ber budstikka sende en dispatch. Eier *hva* og *når*, og kjenner domenet.
+Fagsystemet som ber budstikka formidle noe og eier innholdet og tidspunktet.
 _Unngå_: avsender, klient
 
-**Recipient (`recipient`)**:
-Den en dispatch er rettet mot — en sykmeldt, en nærmeste leder eller en arbeidsgiver.
-_Unngå_: mottaker (legacy-ord)
+**Mottaker**:
+Personen eller virksomheten en formidling er rettet mot.
+_Unngå_: recipient i norsk prosa
 
 **Sykmeldt**:
-Personen sykefraværet gjelder. Identifiseres med personident.
+Personen sykefraværet gjelder.
 _Unngå_: bruker, pasient, arbeidstaker
 
 **Nærmeste leder**:
-Arbeidsgivers representant som følger opp den sykmeldte. Budstikka resolver hvem det er
-ved sendetidspunkt (produsenten oppgir aldri leder-identiteten).
-_Unngå_: leder
+Arbeidsgiverens representant som følger opp den sykmeldte.
+_Unngå_: leder når relasjonen er relevant
 
 **Arbeidsgiver**:
-Virksomheten (underenhet) den sykmeldte har arbeidsforhold hos. Identifiseres med orgnummer.
+Virksomheten den sykmeldte har arbeidsforhold hos.
 _Unngå_: bedrift, org
 
-## Kjernebegreper
+## Formidling
 
-**Dispatch**:
-Det en produsent ber budstikka nå ut med til en recipient. Paraply over alle former — varsel,
-brev, e-post og microfrontend-flate — uavhengig av channel.
-_Unngå_: varselbestilling, bestilling, melding
+**Formidling (`Dispatch`)**:
+En produsents anmodning om å gjøre innhold tilgjengelig for en mottaker gjennom én kanal.
+_Unngå_: melding når både anmodningen og det leverte innholdet kan menes
 
-**Domeneblind**:
-At budstikka aldri forgrener på domenetype; den ruter på channel og tekniske attributter.
-Se `adr/0001-domeneblind-varselruter.md`.
-
-**Channel (`channel`)**:
-Den konkrete veien en dispatch når recipienten (Min side-brukervarsel, Dine Sykmeldte,
-Ditt Sykefravær, arbeidsgivervarsel, brev, microfrontend).
-_Unngå_: kanal (legacy-ord i kodekontekst)
+**Kanal**:
+Måten innholdet gjøres tilgjengelig på, for eksempel Min side, Dine Sykmeldte eller brev.
 
 **Varsel**:
-En dispatch som gir recipienten beskjed om noe — en beskjed eller en oppgave. Én av flere
-former for dispatch.
+En formidling som gjør mottakeren oppmerksom på en beskjed eller oppgave.
 _Unngå_: notifikasjon
 
+**Varseltype**:
+Om et brukervarsel er en beskjed eller en oppgave.
+_Unngå_: oppgavetype
+
 **Microfrontend**:
-En innebygd flate budstikka slår på eller av på en recipients Min side. Ikke et varsel, men en
-av/på-synlighet uten recipient-lukking.
+En innebygd flate som kan gjøres synlig eller skjules på Min side.
 
 **Brev**:
-Fysisk eller digital postforsendelse. Kan ikke ferdigstilles.
+En fysisk eller digital postforsendelse.
 
 **Ekstern varsling**:
-Påminnelse via SMS eller e-post i tillegg til flaten.
+En SMS eller e-post som varsler om innhold i en annen flate.
 
-**Reservasjon**:
-Recipientens reservasjon mot digital kontakt. Styrer kun ekstern varsling og brevfallback —
-ikke om varselet vises på flaten.
+**Digital kontaktstatus**:
+KRR-opplysningen om en person kan varsles digitalt.
+_Unngå_: reservasjon når også manglende verifisert kontaktinformasjon kan være årsaken
 
-**Oppgavetype (`oppgavetype`)**:
-Kategorien til et ledervarsel på Dine Sykmeldte-channelen, som styrer gruppering i
-oversikten hos nærmeste leder. Modelleres som lukket, budstikka-eid enum (ADR 0015);
-budstikka forgrener aldri på den, men bærer den videre til dinesykmeldte via `wireValue`.
-_Unngå_: hendelsestype, varseltype (det er en egen ting)
+**Oppgavetype**:
+Kategorien som grupperer et ledervarsel i Dine Sykmeldte.
+_Unngå_: hendelsestype, varseltype
 
-## Kobling og lukking
+## Livsløp
 
-**Hendelses-ID (`eventId`)**:
-Produsentens unike identifikator for én dispatch-hendelse. Ulik `reference`: hendelses-ID-en
-identifiserer én hendelse, mens `reference` knytter flere hendelser sammen.
-_Unngå_: meldings-id, korrelasjons-id
+**Referanse (`reference`)**:
+Produsentens identifikator som knytter en opprettelse til en senere ferdigstilling.
+_Unngå_: hendelses-ID, korrelasjons-ID
 
-**Reference (`reference`)**:
-Produsentens identifikator som knytter en opprettet dispatch til senere lukking. Budstikka
-kjenner ikke identifikatorens domenebetydning.
-_Unngå_: referanse (legacy-ord)
+**Opprettelse (`OPPRETT`)**:
+En formidling som gjør nytt innhold tilgjengelig for mottakeren.
 
-**Match key (`match key`)**:
-Nøkkelen som brukes for å matche inactivate mot tidligere create. I modellen er matchen
-`(reference, recipient_id, channel)`.
-_Unngå_: matchnøkkel (legacy-ord i kodekontekst)
+**Ferdigstilling (`FERDIGSTILL`)**:
+En formidling som lukker eller skjuler tidligere opprettet innhold.
+_Unngå_: sletting
 
-**Recipient match-id (`recipient_id`)**:
-Den stabile recipient-identifikatoren produsenten kjenner ved create, enten personident eller
-orgnummer. Den inngår i match key ved senere inactivate.
+**Leveranse (`Delivery`)**:
+Resultatet av å tilpasse én formidling til én mottaker og én kanal.
 
-**Create (`operation=CREATE`)**:
-Å be budstikka opprette en ny dispatch.
-_Unngå_: opprett (legacy-ord i kodekontekst)
+**Sendevindu**:
+Tidsrommet en formidling kan gjøres tilgjengelig i.
 
-**Ferdigstill**:
-Å lukke en tidligere dispatch hos recipienten. Channel-spesifikk.
+**Brev som reservekanal (`BrevFallback`)**:
+Et brev som sendes når mottakeren ikke kan varsles digitalt.
 
-**Inactivate (`operation=INACTIVATE`)**:
-Budstikkas lukking av en dispatch på én channel, avledet fra den lagrede create-raden.
-_Unngå_: inaktiver (legacy-ord i kodekontekst)
+## Sammenhenger
 
-## Levering
+- En **produsent** sender en **formidling** til én **mottaker** gjennom én **kanal**.
+- En formidling kan gi én eller flere **leveranser** når en reservekanal er valgt.
+- En **ferdigstilling** bruker samme **referanse** som opprettelsen den skal lukke.
 
-**Delivery (`delivery`)**:
-Én dispatch til én recipient på én channel, som budstikka utfører og sporer til den er terminal.
-_Unngå_: leveranse (legacy-ord)
+## Avklart tvetydighet
 
-**SendingWindow**:
-Tidsrommet en dispatch faktisk sendes i — løpende, eller innenfor NKS' åpningstid.
-
-**DeathGate**:
-Kontrollen som stanser dispatch til en person registrert som død.
-
-**OpeningHours**:
-Gjenbrukbar åpningstids-komposisjon for budstikkas sendevindu (09–20 man–lør, stengt søndager og
-røde dager, samt julaften). Eksponerer `isOpen`, `opensAt` (neste åpne tidspunkt innen en horisont)
-og `violations` (hvilke regler som stenger). Tidssone: `Europe/Oslo`. Se ADR 0011.
-
-**SendingWindowGate**:
-`DecisionRule` som sjekker om nåværende tidspunkt er innenfor åpningstider. Returnerer
-`Decision.NotInSendingWindow(nextRetry)` med neste åpningstid ved lukket vindu. Se ADR 0012.
-
-**BrevFallback**:
-Å sende brev når recipienten ikke kan varsles digitalt.
+`Reservasjon` brukes bare når KRR faktisk oppgir reservasjon som årsak; den bredere
+beslutningen om digital rekkevidde omtales som **digital kontaktstatus**.
