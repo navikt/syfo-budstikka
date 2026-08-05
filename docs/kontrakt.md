@@ -178,7 +178,10 @@ de blir sendbare.
 papir, også for personer uten Reservasjon som ellers ville fått det digitalt i Digipost.
 Dette er et bevisst avvik fra dokdist ordinær løype, og navnet «Brev» er derfor ærlig.
 (I esyfovarsel lurte «brev»-navnet folk til å tro alt gikk på post, mens ikke-reserverte
-fikk det i Digipost.) Skulle ordinær løype noen gang trengs, må den bli en egen variant
+fikk det i Digipost.) Ordinær løype **vil trengs ved migrering fra esyfovarsel**: der går
+7 av 8 dokdist-kallsteder ordinært (`tvingSentralPrint = false`), inkludert tre
+varseltyper med brev som eneste kanal uten KRR-sjekk — bare
+aktivitetsplikt-renotifiseringen tvinger print. Ordinær løype må da bli en egen variant
 med et navn som sier at kanalvalget ligger hos dokdist — ikke en endring av `brevCreate`.
 `brevFallback` på `brukervarselCreate` bruker samme kanal og gjelder bare ved Reservasjon.
 
