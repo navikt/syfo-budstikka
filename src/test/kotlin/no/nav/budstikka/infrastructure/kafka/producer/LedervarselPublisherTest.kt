@@ -5,9 +5,9 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.LedervarselInactivate
-import no.nav.budstikka.domain.dispatch.Oppgavetype
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.LedervarselInactivate
+import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.MutableClock

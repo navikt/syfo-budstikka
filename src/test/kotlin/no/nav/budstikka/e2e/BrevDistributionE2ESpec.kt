@@ -6,10 +6,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.port.DocumentDistributor
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor

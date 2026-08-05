@@ -4,9 +4,9 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DistributionRequest
 import no.nav.budstikka.application.port.DistributionResponse
 import no.nav.budstikka.application.port.DocumentDistributor
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.DistributionType
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.DistributionType
 import no.nav.budstikka.application.port.DistributionType as PortDistributionType
 
 class BrevChannelHandler(

@@ -1,11 +1,11 @@
 package no.nav.budstikka.infrastructure.kafka.producer
 
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
-import no.nav.budstikka.domain.dispatch.Brukervarsel
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.ExternalChannel
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
+import no.nav.budstikka.contract.Brukervarsel
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.ExternalChannel
+import no.nav.budstikka.contract.ExternalVarsling
 import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.tms.varsel.builder.InaktiverVarselBuilder
 import no.nav.tms.varsel.builder.OpprettVarselBuilder
@@ -13,7 +13,7 @@ import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import kotlin.time.Instant
 import kotlin.time.toJavaInstant
-import no.nav.budstikka.domain.dispatch.Varseltype as DomainVarseltype
+import no.nav.budstikka.contract.Varseltype as DomainVarseltype
 import no.nav.tms.varsel.action.EksternKanal as TmsEksternKanal
 import no.nav.tms.varsel.action.Sensitivitet as TmsSensitivitet
 import no.nav.tms.varsel.action.Varseltype as TmsVarseltype

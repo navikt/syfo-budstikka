@@ -11,14 +11,14 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DistributionRequest
 import no.nav.budstikka.application.port.DistributionResponse
 import no.nav.budstikka.application.port.DocumentDistributor
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import java.util.UUID
 import no.nav.budstikka.application.port.DistributionType as PortDistributionType
-import no.nav.budstikka.domain.dispatch.DistributionType as BrevDistributionType
+import no.nav.budstikka.contract.DistributionType as BrevDistributionType
 
 class BrevChannelHandlerTest :
     FunSpec({

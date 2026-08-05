@@ -1,14 +1,14 @@
 package no.nav.budstikka.fakes
 
 import no.nav.budstikka.application.port.InboxMessage
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.domain.decision.Recipient
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.Varseltype
 import java.util.UUID
 
 fun inboxMessage(

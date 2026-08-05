@@ -1,6 +1,6 @@
 package no.nav.budstikka.application.port
 
-import no.nav.budstikka.domain.dispatch.DispatchContent
+import no.nav.budstikka.contract.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant

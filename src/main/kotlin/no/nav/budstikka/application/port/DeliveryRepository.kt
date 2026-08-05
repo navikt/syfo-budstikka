@@ -1,8 +1,8 @@
 package no.nav.budstikka.application.port
 
+import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.domain.dispatch.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
 

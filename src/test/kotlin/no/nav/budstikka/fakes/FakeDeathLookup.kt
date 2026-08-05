@@ -1,6 +1,6 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.foundation.DeathLookup
 
 class FakeDeathLookup : DeathLookup {

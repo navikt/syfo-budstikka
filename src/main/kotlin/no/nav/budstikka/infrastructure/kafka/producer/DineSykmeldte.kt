@@ -3,9 +3,9 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import no.nav.budstikka.application.port.LedervarselPublisher
-import no.nav.budstikka.domain.dispatch.Ledervarsel
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.LedervarselInactivate
+import no.nav.budstikka.contract.Ledervarsel
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.LedervarselInactivate
 import kotlin.time.Clock
 
 /**
