@@ -113,7 +113,8 @@ Det betyr:
 - `AltinnResourceId`: `DIALOGMOETE`
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
 - `Oppgavetype` (LEDERVARSEL): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Representativ verdi nå: `DIALOGMOTE_INNKALLING`; resten additivt ved onboarding.
-- `Sakstilknytning(sakId)`
+- `Sakstilknytning(sakId)` — B31: produsenten eier sak-livsløpet; budstikka mapper bare
+  `sakId` → `grupperingsid` nedstrøms og oppretter aldri sak selv (lukkestatus via B39)
 
 Viktige valg:
 
