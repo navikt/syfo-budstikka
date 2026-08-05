@@ -44,8 +44,8 @@ object FacadeOnlyProducer {
     fun brukervarselInactivate(eventId: EventId): EncodedDispatch =
         Budstikka.brukervarselInactivate(eventId = eventId, reference = "fixture-1", sykmeldt = sykmeldt)
 
-    fun ledervarsel(eventId: EventId): EncodedDispatch =
-        Budstikka.ledervarselCreate(
+    fun dineSykmeldteVarsel(eventId: EventId): EncodedDispatch =
+        Budstikka.dineSykmeldteVarselCreate(
             eventId = eventId,
             reference = "fixture-2",
             sykmeldt = sykmeldt,
@@ -57,8 +57,8 @@ object FacadeOnlyProducer {
             sendingWindow = SendingWindow.ONGOING,
         )
 
-    fun ledervarselInactivate(eventId: EventId): EncodedDispatch =
-        Budstikka.ledervarselInactivate(eventId = eventId, reference = "fixture-2", sykmeldt = sykmeldt)
+    fun dineSykmeldteVarselInactivate(eventId: EventId): EncodedDispatch =
+        Budstikka.dineSykmeldteVarselInactivate(eventId = eventId, reference = "fixture-2", sykmeldt = sykmeldt)
 
     fun brev(eventId: EventId): EncodedDispatch =
         Budstikka.brevCreate(

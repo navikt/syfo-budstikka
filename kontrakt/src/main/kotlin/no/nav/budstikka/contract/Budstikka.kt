@@ -37,7 +37,10 @@ object Budstikka {
     const val TOPIC: String = "team-esyfo.budstikka.v1"
 
     /**
-     * Brukervarsel to the Sykmeldt on Min side.
+     * Brukervarsel to the Sykmeldt on Min side. Brukervarsel is Min side's product name for its
+     * notifications (the varsel-API), and this function is named after that product — it is not a
+     * catch-all for every channel that can reach the Sykmeldt. Ditt Sykefravær, Brev and
+     * microfrontends are separate variants.
      *
      * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
      * @param reference your own id for the notification, used to inactivate it later
@@ -47,8 +50,9 @@ object Budstikka {
      * @param link where the notification takes the person; omit for a notification without a target.
      * @param visibleUntil when Min side stops showing the notification; omit to keep it until inactivated.
      * @param externalVarsling adds SMS or email in addition to Min side; omit for Min side only.
-     * @param brevFallback lets budstikka send a Brev instead when the person has Reservasjon.
-     *   Requires a `journalpostId` you have already created.
+     * @param brevFallback lets budstikka send the document as a Brev instead when the person has
+     *   Reservasjon — printed and posted, like [brevCreate], never routed digitally. Requires a
+     *   `journalpostId` you have already created.
      * @param sendingWindow when the notification may leave budstikka.
      */
     fun brukervarselCreate(
@@ -97,8 +101,11 @@ object Budstikka {
     }
 
     /**
-     * Ledervarsel: an in-app activity notification about the Sykmeldt in Dine Sykmeldte. The channel
-     * has no external carrier, so there is no SMS or email option here. You pass the Sykmeldt and the
+     * An in-app activity notification about the Sykmeldt in Dine Sykmeldte. The function is named
+     * after the channel it delivers on; the wire variant keeps budstikka's established domain name
+     * [LedervarselCreate]. Naming the recipient instead would mislead: the leader can also be
+     * reached through Arbeidsgivervarsel once that channel is finished, and this channel has no
+     * external carrier, so there is no SMS or email option here. You pass the Sykmeldt and the
      * organisation, never a leader's personident: budstikka forwards `(sykmeldt, orgnummer,
      * oppgavetype)` to Dine Sykmeldte as an activity notification and does no Nærmeste leder lookup
      * of its own.
@@ -107,7 +114,7 @@ object Budstikka {
      * @param orgnummer the organisation the employment belongs to.
      * @param oppgavetype required by Dine Sykmeldte to group and deduplicate the notification.
      */
-    fun ledervarselCreate(
+    fun dineSykmeldteVarselCreate(
         eventId: EventId,
         reference: String,
         sykmeldt: PersonIdentifier,
@@ -135,12 +142,12 @@ object Budstikka {
     }
 
     /**
-     * Closes a Ledervarsel created earlier.
+     * Closes a Dine Sykmeldte varsel created earlier with [dineSykmeldteVarselCreate].
      *
      * @param sykmeldt the same employee as in the create; the contract never carries a leader's
      *   personident.
      */
-    fun ledervarselInactivate(
+    fun dineSykmeldteVarselInactivate(
         eventId: EventId,
         reference: String,
         sykmeldt: PersonIdentifier,
@@ -151,8 +158,11 @@ object Budstikka {
     }
 
     /**
-     * Brev: physical distribution of a document to the Sykmeldt. A Brev cannot be inactivated once
-     * sent, so there is no matching inactivate function.
+     * Brev: a printed letter to the Sykmeldt. Budstikka always forces central print
+     * (dokdistfordeling with `tvingKanal: PRINT`); this is deliberately not the ordinary dokdist
+     * route, so the letter goes on paper even when the person could receive it digitally in
+     * Digipost. A Brev cannot be inactivated once sent, so there is no matching inactivate
+     * function.
      *
      * @param journalpostId the journalpost you have already created for the document.
      */

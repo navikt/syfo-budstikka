@@ -102,10 +102,10 @@ class BudstikkaProducerApiTest :
             }
         }
 
-        context("ledervarselCreate") {
+        context("dineSykmeldteVarselCreate") {
             test("minimal call defaults the sending window to ONGOING and keys on the Sykmeldt") {
                 val encoded =
-                    Budstikka.ledervarselCreate(
+                    Budstikka.dineSykmeldteVarselCreate(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
@@ -123,7 +123,7 @@ class BudstikkaProducerApiTest :
 
             test("optional fields are carried through unchanged") {
                 val encoded =
-                    Budstikka.ledervarselCreate(
+                    Budstikka.dineSykmeldteVarselCreate(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
@@ -143,10 +143,10 @@ class BudstikkaProducerApiTest :
             }
         }
 
-        context("ledervarselInactivate") {
+        context("dineSykmeldteVarselInactivate") {
             test("closes by reference and keys on the Sykmeldt, not the leader") {
                 val encoded =
-                    Budstikka.ledervarselInactivate(
+                    Budstikka.dineSykmeldteVarselInactivate(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
@@ -304,8 +304,8 @@ class BudstikkaProducerApiTest :
                 listOf(
                     "brukervarselCreate",
                     "brukervarselInactivate",
-                    "ledervarselCreate",
-                    "ledervarselInactivate",
+                    "dineSykmeldteVarselCreate",
+                    "dineSykmeldteVarselInactivate",
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",

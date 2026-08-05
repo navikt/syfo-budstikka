@@ -163,8 +163,8 @@ class ContractPrivacyTest :
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                         ),
-                    "ledervarselCreate" to
-                        Budstikka.ledervarselCreate(
+                    "dineSykmeldteVarselCreate" to
+                        Budstikka.dineSykmeldteVarselCreate(
                             eventId = EVENT_ID,
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
@@ -173,8 +173,8 @@ class ContractPrivacyTest :
                             text = SYNTHETIC_TEXT,
                             link = SYNTHETIC_LINK,
                         ),
-                    "ledervarselInactivate" to
-                        Budstikka.ledervarselInactivate(
+                    "dineSykmeldteVarselInactivate" to
+                        Budstikka.dineSykmeldteVarselInactivate(
                             eventId = EVENT_ID,
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
@@ -260,7 +260,7 @@ class ContractPrivacyTest :
 
             test("orgnummer that is not 9 digits") {
                 shouldThrow<IllegalArgumentException> {
-                    Budstikka.ledervarselCreate(
+                    Budstikka.dineSykmeldteVarselCreate(
                         eventId = EVENT_ID,
                         reference = SYNTHETIC_REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
@@ -276,7 +276,7 @@ class ContractPrivacyTest :
 
             test("blank link when a link is given") {
                 shouldThrow<IllegalArgumentException> {
-                    Budstikka.ledervarselCreate(
+                    Budstikka.dineSykmeldteVarselCreate(
                         eventId = EVENT_ID,
                         reference = SYNTHETIC_REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,

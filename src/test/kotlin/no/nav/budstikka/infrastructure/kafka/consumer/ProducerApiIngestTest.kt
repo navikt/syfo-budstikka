@@ -52,8 +52,8 @@ class ProducerApiIngestTest :
                         ),
                     "brukervarselInactivate" to
                         Budstikka.brukervarselInactivate(eventId = eventId, reference = "ref-1", sykmeldt = SYKMELDT),
-                    "ledervarselCreate" to
-                        Budstikka.ledervarselCreate(
+                    "dineSykmeldteVarselCreate" to
+                        Budstikka.dineSykmeldteVarselCreate(
                             eventId = eventId,
                             reference = "ref-1",
                             sykmeldt = SYKMELDT,
@@ -61,8 +61,8 @@ class ProducerApiIngestTest :
                             oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                             text = "Din ansatte har fått en innkalling",
                         ),
-                    "ledervarselInactivate" to
-                        Budstikka.ledervarselInactivate(eventId = eventId, reference = "ref-1", sykmeldt = SYKMELDT),
+                    "dineSykmeldteVarselInactivate" to
+                        Budstikka.dineSykmeldteVarselInactivate(eventId = eventId, reference = "ref-1", sykmeldt = SYKMELDT),
                     "brevCreate" to
                         Budstikka.brevCreate(
                             eventId = eventId,
@@ -89,8 +89,8 @@ class ProducerApiIngestTest :
                 mapOf(
                     "brukervarselCreate" to BrukervarselCreate::class,
                     "brukervarselInactivate" to BrukervarselInactivate::class,
-                    "ledervarselCreate" to LedervarselCreate::class,
-                    "ledervarselInactivate" to LedervarselInactivate::class,
+                    "dineSykmeldteVarselCreate" to LedervarselCreate::class,
+                    "dineSykmeldteVarselInactivate" to LedervarselInactivate::class,
                     "brevCreate" to BrevCreate::class,
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,

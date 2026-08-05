@@ -161,6 +161,27 @@ gjør kun et DB-insert). Kanalen har **ingen ekstern bærer** (SMS/e-post).
   `NarmesteLeder(sykmeldt)`-mottaker.
 - Wire: `DineSykmeldteHendelse` (JSON), Kafka-key = `reference` (ikke fnr).
 
+### Navngiving i produsent-API-et
+
+Fasadefunksjonene heter `dineSykmeldteVarselCreate`/`dineSykmeldteVarselInactivate` —
+de navngir **kanalen**, ikke mottakeren. «Ledervarsel» ville lest som «varsel til leder»
+og blitt tvetydig den dagen Arbeidsgivervarsel-kanalen også når lederen. Internt i
+budstikka og på wire beholder varianten det etablerte domenenavnet `LedervarselCreate`;
+wire-navn er kompatibilitetskritiske og endres ikke. Samme akse gjelder de andre
+fasadefunksjonene: `brukervarsel*` er Min sides produktnavn (ikke «alle kanaler til
+sykmeldt»), `dittSykefravaer*` og `arbeidsgivernotifikasjon*` navngir kanal/produkt når
+de blir sendbare.
+
+## Brev: alltid tvungen sentral print
+
+`brevCreate` bestiller dokdistfordeling med `tvingKanal: PRINT` — brevet går alltid på
+papir, også for personer uten Reservasjon som ellers ville fått det digitalt i Digipost.
+Dette er et bevisst avvik fra dokdist ordinær løype, og navnet «Brev» er derfor ærlig.
+(I esyfovarsel lurte «brev»-navnet folk til å tro alt gikk på post, mens ikke-reserverte
+fikk det i Digipost.) Skulle ordinær løype noen gang trengs, må den bli en egen variant
+med et navn som sier at kanalvalget ligger hos dokdist — ikke en endring av `brevCreate`.
+`brevFallback` på `brukervarselCreate` bruker samme kanal og gjelder bare ved Reservasjon.
+
 ## Mapping til delivery-draft (faktisk kode)
 
 `DispatchContent.toDeliveryDraft(reference)` mapper til:
