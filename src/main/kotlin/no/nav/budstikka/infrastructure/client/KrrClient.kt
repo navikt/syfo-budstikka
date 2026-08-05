@@ -18,10 +18,8 @@ import no.nav.budstikka.infrastructure.client.config.KrrConfig
 import sharedJson
 
 /**
- * B22 anti-corruption adapter for ReservationGate (ADR 0009): looks up Recipient contact and
- * Reservasjon status in digdir-krr-proxy and translates it to [ReservationLookup]. KRR
- * `kanVarsles == false` means no `ekstern varsling`, either because of Reservasjon or because there
- * is no verified contact information.
+ * Looks up digital contact status in digdir-krr-proxy. `kanVarsles == false` means the person cannot
+ * receive external varsling, whether because of reservation or missing verified contact details.
  */
 class KrrClient(
     private val httpClient: HttpClient,
@@ -29,11 +27,11 @@ class KrrClient(
     private val tokenProvider: TokenProvider,
 ) : ReservationLookup {
     override suspend fun isReserved(ident: PersonIdentifier): Boolean {
-        val token = tokenProvider.token(config.scope)
+        val accessToken = tokenProvider.token(config.scope)
         val response =
             httpClient.get(config.url) {
                 accept(ContentType.Application.Json)
-                bearerAuth(token)
+                bearerAuth(accessToken)
                 header(NAV_PERSONIDENT_HEADER, ident.value)
             }
         return parseIsReserved(response.status, response.bodyAsText())

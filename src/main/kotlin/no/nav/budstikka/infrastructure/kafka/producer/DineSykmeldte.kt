@@ -9,14 +9,9 @@ import no.nav.budstikka.domain.dispatch.LedervarselInactivate
 import kotlin.time.Clock
 
 /**
- * Producer adapter for LEDERVARSEL (ADR 0016): maps budstikka's neutral [Ledervarsel] to
- * `navikt/dinesykmeldte-backend`'s `DineSykmeldteHendelse` schema on
- * `team-esyfo.dinesykmeldte-hendelser-v2`. Anti-corruption layer (B23): the domain types never leak
- * out — we serialize a LOCAL DTO that mirrors the consumer's fields exactly (verified against the
- * consumer's source: `orgnummer`, `oppgavetype: String`, ISO-8601 timestamps).
- *
- * Kafka key = `reference` (= the consumer's `id`, dedup PK `(id, oppgavetype)`), NOT an fnr.
- * `ansattFnr` (Fortrolig, B42) is carried ONLY in the payload, never in a log (B46).
+ * Maps [Ledervarsel] to the Dine Sykmeldte wire format using a local DTO. The Kafka key is
+ * `reference`, which is also the consumer's identifier; the sykmeldt identifier exists only in the
+ * payload and must never be logged.
  */
 fun ledervarselPublisher(
     topic: String,
@@ -86,8 +81,7 @@ private fun toInactivateMessage(
 /**
  * Local mirror of the consumer's wire schema (`no.nav.syfo.hendelser.kafka.model` in
  * dinesykmeldte-backend). Deliberately NOT shared/imported — budstikka owns its own anti-corruption
- * boundary (B23). `timestamp`/`utlopstidspunkt` are ISO-8601 strings (the consumer's Jackson reads
- * them as `OffsetDateTime`, `WRITE_DATES_AS_TIMESTAMPS=false`).
+ * boundary. `timestamp` and `utlopstidspunkt` are ISO-8601 strings.
  */
 @Serializable
 private data class DineSykmeldteHendelseDto(

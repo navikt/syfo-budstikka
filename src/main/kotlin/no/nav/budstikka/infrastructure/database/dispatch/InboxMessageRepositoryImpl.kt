@@ -90,9 +90,8 @@ class InboxMessageRepositoryImpl(
     /**
      * Marks the claimed rows CLAIMED with a fresh [lease]. Waking a WAIT row is a scheduled resume
      * (the sending window opened), not a failed attempt, so it must NOT consume the attempt budget
-     * (ADR 0014): otherwise repeated sending-window holds would count against [maxAttempts] and could
-     * poison-FAIL a legitimately waiting message. Fresh RECEIVED rows and expired CLAIMED rows still
-     * increment `attempt` as before.
+     * or repeated holds could fail a legitimately waiting message. Fresh RECEIVED rows and expired
+     * CLAIMED rows still increment `attempt`.
      */
     private fun markClaimed(
         rows: List<ClaimedRow>,
@@ -134,12 +133,12 @@ class InboxMessageRepositoryImpl(
             (InboxMessageTable.attempt less maxAttempts)
 
     /**
-     * Terminal gate for poison rows (#71): expired CLAIMED rows claimed [maxAttempts] times without
+     * Expired CLAIMED rows claimed [maxAttempts] times without
      * reaching terminal status become FAILED. Runs in the same transaction as claim, so a
      * deterministic failing row stops being reclaimed and cannot block the queue head (`receivedAt ASC`).
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
-     * disjoint rows without blocking each other (ADR 0004, no leader).
+     * distinct rows without blocking each other.
      */
     private fun failPoisonRows(
         now: Instant,

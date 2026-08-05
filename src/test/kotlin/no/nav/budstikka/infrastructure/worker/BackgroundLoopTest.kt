@@ -140,7 +140,7 @@ class BackgroundLoopTest :
         }
 
         test("default stale threshold scales with slow intervals") {
-            // An hourly loop (e.g. the future cleanup worker, B42) must not be declared dead between
+            // An hourly loop must not be declared dead between
             // healthy rounds: the derived threshold covers at least two missed rounds.
             BackgroundLoop.defaultStaleThreshold(1.hours) shouldBe 2.hours
             // Fast loops keep the conservative floor so a slow-but-healthy round is not flagged.

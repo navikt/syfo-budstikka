@@ -23,10 +23,6 @@ import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.deadLookupFor
 
-/**
- * The death gate in isolation: it self-selects on [gatedPerson] and looks up PDL only when the event can
- * be gated. [DecisionProcessTest] covers the chain effects (short-circuit, e2e).
- */
 class DeathGateTest :
     FunSpec({
         fun envelope(content: DispatchContent) = Dispatch(reference = "ref-1", content = content)

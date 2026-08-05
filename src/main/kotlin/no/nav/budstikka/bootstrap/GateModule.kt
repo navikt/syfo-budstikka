@@ -10,8 +10,7 @@ import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.domain.foundation.ReservationLookup
 
 fun DependencyRegistry.gateModule() {
-    // B55: DeathGate BEFORE ReservationGate, so a dead Recipient short-circuits to Dropped before
-    // the Reservasjon/BrevFallback transformation (ADR 0009).
+    // A dead recipient must be dropped before reservation can add a reserve Brev.
     provide<List<DecisionRule>> {
         listOf(
             SendingWindowGate(),

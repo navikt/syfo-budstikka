@@ -25,11 +25,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Full BREV path for #21: Kafka → inbox → decision → delivery → BREV handler → dokdist port.
- * Dokdist and PDL are replaced with fakes through the test harness, while the app boots with real DB, Kafka,
- * consumers, and workers.
- */
 @Tags("E2E")
 class BrevDistributionE2ESpec :
     FunSpec({

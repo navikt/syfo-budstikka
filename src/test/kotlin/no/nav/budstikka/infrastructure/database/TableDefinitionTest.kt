@@ -8,15 +8,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.vendors.currentDialectMetadata
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
 
-/**
- * Verifies that each Exposed table mapping mirrors the migrated Postgres schema exactly.
- *
- * [MigrationUtils.statementsRequiredForDatabaseMigration] returns the DDL statements Exposed would
- * have to run to make the database match the mapping. An empty list means the mapping and the
- * migration are in sync; any statement reveals drift (missing column default, unregistered index,
- * wrong nullability, etc.). Replaces the previous manual column-by-column verification in the
- * repository tests.
- */
 class TableDefinitionTest :
     FunSpec({
         val fixture = PostgresTestFixture()

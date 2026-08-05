@@ -30,12 +30,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
 /**
- * Shared end-to-end substrate (B50/B51): starts Postgres + Kafka in code, boots the entire app
- * (consumer + workers + Ktor) in process against the containers, and lets [overrides] replace real adapters
- * with fakes through the [configureApplication] wiring seam. The same substrate is used by e2e specs and the
- * local run ([no.nav.budstikka.LocalApp]).
- *
- * The production boundary holds: everything here is in `src/test`, never in the production JAR.
+ * Boots the full application against Postgres and Kafka containers. [overrides] can replace external
+ * adapters with fakes for end-to-end tests and the local run.
  */
 private const val POLL_ATTEMPTS = 5
 
@@ -46,25 +42,18 @@ class BudstikkaTestApp private constructor(
     private val appConfig: ApplicationConfig,
     private val monitoring: MonitoringContainers? = null,
 ) : AutoCloseable {
-    /** Separate connection for assertions/inspection against the same Postgres container as the app. */
     val database: Database
         get() = postgres.database
 
     val bootstrapServers: String
         get() = kafka.bootstrapServers
 
-    /**
-     * Shared Docker network when the app starts with `enableKafkaNetwork = true` (local run only);
-     * otherwise null. Used to place Kafka UI on the same network as Kafka.
-     */
     val network: Network?
         get() = kafka.network
 
-    /** Internal bootstrap address (`kafka:19092`) on the shared network; null without a network listener. */
     val internalBootstrapServers: String?
         get() = kafka.internalBootstrapServers
 
-    /** JDBC URL for the running Postgres container — logged during a local run for live inspection (B51). */
     val jdbcUrl: String
         get() = postgres.jdbcUrl
 
@@ -77,7 +66,6 @@ class BudstikkaTestApp private constructor(
     val dineSykmeldteTopic: String
         get() = appConfig.property("kafka.producers.dinesykmeldte-hendelser.topic").getString()
 
-    /** Publishes a record to [topic] with optional headers (typically eventId; see B54). */
     fun produce(
         topic: String,
         key: String?,
@@ -97,11 +85,7 @@ class BudstikkaTestApp private constructor(
         }
     }
 
-    /**
-     * Reads all records currently on [topic] from the beginning (a fresh consumer group per call,
-     * `earliest`), so that e2e specs can assert on what budstikka actually produced downstream.
-     * Intended for use inside a Kotest `eventually { }` block while the async workers run.
-     */
+    /** Reads [topic] from the beginning with a fresh consumer group on each call. */
     fun consumeRecords(
         topic: String,
         pollTimeout: Duration = 1.seconds,
@@ -132,11 +116,8 @@ class BudstikkaTestApp private constructor(
 
     companion object {
         /**
-         * Starts the containers, boots the app with [overrides], and waits until the server is ready.
-         * Call [AutoCloseable] (for example via `use { }`) to tear everything down.
-         *
-         * With [enableKafkaNetwork] = true, Kafka receives a shared Docker network and an internal listener,
-         * allowing the local run to connect Kafka UI on the same network. E2e leaves it disabled (the default).
+         * Starts the containers and application. Closing the result tears down all resources.
+         * [enableKafkaNetwork] adds the internal listener needed by the local Kafka UI.
          */
         fun start(
             kafka: KafkaTestContainer = KafkaTestContainer(),

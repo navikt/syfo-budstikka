@@ -208,7 +208,7 @@ class InboxDispatchRepositoryIntegrationTest :
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                // Still 1: waking from WAIT is a scheduled resume, not a failed attempt (ADR 0014).
+                // Waking from WAIT is a scheduled resume, not a failed attempt.
                 row[InboxMessageTable.attempt] shouldBe 1
                 row[InboxMessageTable.waitReason] shouldBe "Closed Sunday"
             }
