@@ -107,7 +107,7 @@ class DispatchSerializationTest :
         context("SendingWindow null-tolerance (legacy messages produced before non-null migration)") {
             test("BrukervarselCreate with sendingWindow: null maps to BUDSTIKKA_OPENING_HOURS") {
                 val payload =
-                    """{"reference":"ref-1","content":{"type":"BrukervarselCreate","personIdentifier":"12345678901","varseltype":"BESKJED","text":"Hei","sendingWindow":null}}"""
+                    """{"reference":"ref-1","content":{"type":"BrukervarselCreate","personIdentifier":"${TEST_SYKMELDT_2.value}","varseltype":"BESKJED","text":"Hei","sendingWindow":null}}"""
                 val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
                 (dispatch.content as BrukervarselCreate).sendingWindow shouldBe SendingWindow.BUDSTIKKA_OPENING_HOURS
             }
@@ -121,13 +121,13 @@ class DispatchSerializationTest :
 
             test("LedervarselCreate with sendingWindow: null maps to ONGOING") {
                 val payload =
-                    """{"reference":"ref-3","content":{"type":"LedervarselCreate","sykmeldt":"12345678901","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING","text":"Hei","sendingWindow":null}}"""
+                    """{"reference":"ref-3","content":{"type":"LedervarselCreate","sykmeldt":"${TEST_SYKMELDT_2.value}","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING","text":"Hei","sendingWindow":null}}"""
                 val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
                 (dispatch.content as LedervarselCreate).sendingWindow shouldBe SendingWindow.ONGOING
             }
         }
 
-        context("PII masking in toString (B9)") {
+        context("PII masking in toString") {
             test("PersonIdentifier is masked") {
                 TEST_SYKMELDT_2.toString() shouldBe "***"
             }

@@ -20,15 +20,6 @@ private val logger = LoggerFactory.getLogger("no.nav.budstikka.LocalApp")
 // Outside the typical reserved ports (3000/8080/8081/9090). E2e uses port 0 (random) for parallelism.
 private const val LOCAL_PORT = 8282
 
-/**
- * Local run (B50/B53): boots the entire app against Testcontainers (Postgres + Kafka) with port fakes
- * wired through the same substrate as the e2e harness — no Texas/tokens/compose (B51). Run with
- * `./gradlew runLocal`. Everything is in `src/test`, so the fakes can never end up in the production JAR.
- *
- * Live inspection: connect psql/DataGrip to the logged JDBC URL, open Kafka UI at the logged URL
- * (topics/messages/consumer groups), or connect a Kafka client to the bootstrap servers while the
- * process is running. Stop with Ctrl+C.
- */
 fun main() {
     val kafka = KafkaTestContainer(enableNetworkListener = true)
     val app =
@@ -40,7 +31,7 @@ fun main() {
         ) {
             // Demonstrates the fake seam: the real PDL adapter is replaced with a configurable in-memory fake.
             provide<DeathLookup> { FakeDeathLookup() }
-            // The KRR Reservasjon lookup is replaced with a fake (no Texas/tokens locally, B51).
+            // The local KRR lookup uses no Texas token or external service.
             provide<ReservationLookup> { FakeReservationLookup() }
             // The local BREV flow must not call dokdist/Texas.
             provide<DocumentDistributor> { FakeDocumentDistributor() }

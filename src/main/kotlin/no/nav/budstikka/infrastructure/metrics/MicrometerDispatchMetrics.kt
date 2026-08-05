@@ -16,8 +16,8 @@ import no.nav.budstikka.domain.decision.DropReason
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
  *
  * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. Counting
- * happens at the replica's decision/delivery; in a lease race (ADR 0004), a loser may count an
- * outcome without writing a row. That is accepted observability noise, not an accounting source.
+ * happens before the final state transition is guaranteed, so these metrics are observability
+ * signals rather than an accounting source.
  */
 class MicrometerDispatchMetrics(
     private val registry: MeterRegistry,

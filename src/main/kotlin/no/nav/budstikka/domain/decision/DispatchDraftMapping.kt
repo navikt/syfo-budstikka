@@ -15,20 +15,10 @@ import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.SendingWindow
 
-/*
- * Pure mapping from [DispatchContent] to [DeliveryDraft] route attributes (channel, operation, and
- * recipient), and to the Sykmeldt a person gate (for example [DeathGate]) may apply to. No I/O;
- * total and deterministic, tested with pure data.
- */
-
 /**
  * Sykmeldt a person gate applies to, or `null` when the event is not a Sykmeldt-directed CREATE.
- * Gates use this for self-selection: a gate without a gated person leaves the Delivery unchanged, and
- * [DeathGate] does not query PDL when the result cannot gate, nor does [SendingWindowGate] enforce any rules.
- *
- * The `when` is deliberately total (no `else`): a new [DispatchContent] variant must cause a
- * compilation error here, making the gate decision explicit and preventing a new Sykmeldt-directed
- * CREATE from silently bypassing person gates.
+ * The exhaustive `when` makes every new [DispatchContent] variant choose explicitly whether person
+ * gates apply.
  */
 internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
     when (this) {
@@ -105,10 +95,7 @@ private fun DispatchContent.draft(
     recipient: Recipient,
 ): DeliveryDraft = DeliveryDraft(reference, operation, channel, recipient, this)
 
-/**
- * BREV Delivery derived from [BrukervarselCreate.brevFallback], or `null` when there is no
- * BrevFallback. [ReservationGate] calls this only for a Sykmeldt with Reservasjon (B8/ADR 0009).
- */
+/** Creates the reserve Brev after [ReservationGate] has blocked external varsling. */
 internal fun BrukervarselCreate.brevFallbackDraft(reference: String): DeliveryDraft? =
     brevFallback?.let { fallback ->
         DeliveryDraft(

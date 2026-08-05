@@ -15,19 +15,9 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Decision worker (#56): claims received inbox messages (FOR UPDATE SKIP LOCKED + lease, ADR 0004:
- * several replicas can run concurrently) and effectuates each result through [EffectuateDecision]
- * (delivery plus inbox status in one database transaction).
- *
- * The message is hydrated at ingest (ADR 0008): `content` is guaranteed parseable, so the worker
- * does not decode the payload. It reconstructs [Dispatch] from the row and delegates the decision to
- * [DecisionProcess].
- *
- * The worker owns one round ([runOnce]); bootstrap composes loop lifecycle (interval, heartbeat,
- * shutdown) around it through `BackgroundLoop`. It shares lease-budget draining with the outbox
- * worker through [LeaseBudgetDrainer]: it stops starting messages once the lease budget is spent, so
- * a slow batch does not cross the lease (and a peer re-enriches the same message). Untouched claimed
- * messages remain until their lease expires.
+ * Claims hydrated inbox messages, decides them through [DecisionProcess], and persists each outcome
+ * through [EffectuateDecision]. [LeaseBudgetDrainer] prevents a batch from starting work beyond its
+ * lease budget.
  */
 class InboxMessageWorker(
     private val repository: InboxMessageRepository,

@@ -3,10 +3,7 @@ package no.nav.budstikka.domain.dispatch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/**
- * Envelope for the neutral Kafka contract (B22, B43). `eventId` is not part of the payload; it
- * exists only as the Kafka header [DispatchHeader.EVENT_ID] (ADR 0008).
- */
+/** Kafka payload envelope. `eventId` exists only in the [DispatchHeader.EVENT_ID] header. */
 @Serializable
 data class Dispatch(
     val reference: String,
@@ -14,10 +11,8 @@ data class Dispatch(
 )
 
 /**
- * Sealed root for all content (B22). Create, Inactivate, and Microfrontend enable/disable are
- * encoded in the type, so the compiler enforces B21. [partitionKey] is the Kafka record key (B5) =
- * Recipient ID, keeping Dispatches for one Recipient ordered on the same partition. The getter has
- * no backing field and is therefore not serialised.
+ * Sealed root for contract variants. [partitionKey] is the Kafka record key that preserves ordering
+ * for one recipient and is not serialized into the payload.
  */
 @Serializable
 sealed interface DispatchContent {

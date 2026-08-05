@@ -45,9 +45,7 @@ class LedervarselPublisherTest :
                     val opprett = json["opprettHendelse"]!!.jsonObject
                     opprett["ansattFnr"]!!.jsonPrimitive.content shouldBe TEST_SYKMELDT.value
                     opprett["orgnummer"]!!.jsonPrimitive.content shouldBe TEST_ORGNUMMER.value
-                    // wireValue, not the Kotlin identifier (ADR 0015). Representative value:
-                    // the enum name and wireValue are identical now (DIALOGMOTE_INNKALLING), so this
-                    // assertion does not distinguish .name from .wireValue until the set grows a divergent value.
+                    // The value currently matches the enum name, so this cannot detect accidental use of `.name`.
                     opprett["oppgavetype"]!!.jsonPrimitive.content shouldBe "DIALOGMOTE_INNKALLING"
                     opprett["tekst"]!!.jsonPrimitive.content shouldBe "Din ansatte er innkalt til dialogmøte"
                     opprett["lenke"]!!.jsonPrimitive.content shouldBe "https://nav.no/dm/1"

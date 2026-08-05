@@ -4,7 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-/** Close Brukervarsel; matching key = sykmeldt (CREATE partition anchor). */
 @Serializable
 @SerialName("BrukervarselInactivate")
 data class BrukervarselInactivate(
@@ -16,7 +15,6 @@ data class BrukervarselInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Close Ledervarsel; Match key = Sykmeldt, NOT NL fnr (B24: unknown to the Produsent). */
 @Serializable
 @SerialName("LedervarselInactivate")
 data class LedervarselInactivate(
@@ -28,7 +26,6 @@ data class LedervarselInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Close Ditt Sykefravær message; Match key = Sykmeldt. */
 @Serializable
 @SerialName("DittSykefravaerInactivate")
 data class DittSykefravaerInactivate(
@@ -39,7 +36,6 @@ data class DittSykefravaerInactivate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** Close Arbeidsgivervarsel; matching key = organisation (B32). */
 @Serializable
 @SerialName("ArbeidsgivervarselInactivate")
 data class ArbeidsgivervarselInactivate(
@@ -50,12 +46,7 @@ data class ArbeidsgivervarselInactivate(
     override val partitionKey: String get() = orgnummer.value
 }
 
-/**
- * Microfrontend (B41): visibility on Min side, kept OUTSIDE the Inactivate mechanism. It is a
- * separate activate/deactivate pair, an on/off switch for `(Sykmeldt, microfrontendId)`, not a
- * Delivery matched by `reference` and Recipient. A separate sealed subtype constrains the contract
- * to exactly this pair; the compiler enforces exhaustive `when` without `else`.
- */
+/** Visibility toggle keyed by `(personIdentifier, microfrontendId)`, not by a Dispatch reference. */
 @Serializable
 sealed interface Microfrontend : DispatchContent {
     val personIdentifier: PersonIdentifier
@@ -71,7 +62,6 @@ data class MicrofrontendEnable(
     val visibleUntil: Instant? = null,
 ) : Microfrontend
 
-/** Microfrontend “ferdigstill”: disable visibility (B41). */
 @Serializable
 @SerialName("MicrofrontendDisable")
 data class MicrofrontendDisable(

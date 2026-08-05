@@ -32,12 +32,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Full KRR/BrevFallback path for #22 (ADR 0009): a Sykmeldt with Reservasjon (`kanVarsles=false`)
- * and BrevFallback yields both an in-app Brukervarsel without `ekstern varsling` and a BREV Delivery
- * through dokdist. KRR/dokdist/PDL and the Brukervarsel publisher are replaced with fakes; the rest
- * is real (database, Kafka, consumer, and workers).
- */
 @Tags("E2E")
 class BrukervarselReservationE2ESpec :
     FunSpec({

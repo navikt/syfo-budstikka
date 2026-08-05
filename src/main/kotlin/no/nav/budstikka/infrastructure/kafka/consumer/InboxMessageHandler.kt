@@ -16,16 +16,11 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Parses the full [Dispatch] at ingest and persists a hydrated, deduplicated inbox row (ADR 0008).
- * Deduplicates on `event_id` (PK, ON CONFLICT DO NOTHING) from the Kafka header, deliberately after
- * parsing rather than before (deviation from ADR 0008 point 3; see ADR note).
+ * Parses [Dispatch] at ingest and persists a hydrated inbox row deduplicated by the event ID header.
  *
- * Failure taxonomy: syntactically invalid input (missing/invalid header, empty or unparseable payload)
- * is dead-lettered and its offset committed; transient failure (database unavailable) is rethrown
- * without commit for re-poll.
- *
- * PII: a parse failure can include fnr in its exception message (kotlinx echoes raw JSON), so never
- * log the message or throwable: log only the failure code.
+ * Invalid input is dead-lettered; transient persistence failures are rethrown for re-poll. Parsing
+ * failures may echo the payload in exception messages, so this handler never logs them or their
+ * throwables.
  */
 class InboxMessageHandler(
     private val inboxMessageRepository: InboxMessageRepository,
@@ -55,7 +50,7 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
-        // DL can lack eventId: correlate by Kafka coordinates, not MDC. Never log payload (B58).
+        // A dead letter can lack eventId; correlate by Kafka coordinates and never log its payload.
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
@@ -72,7 +67,6 @@ class InboxMessageHandler(
             return
         }
         inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
-        // eventId in MDC so the Loki line for consumption correlates with the rest of the flow (B45).
         validEvents.forEach { record ->
             MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(

@@ -13,8 +13,8 @@ import kotlin.time.Duration
 /**
  * Shared machinery for claim-lease workers (inbox and delivery): claim a batch, process each row
  * within [leaseBudgetFraction] of the lease, and stop starting rows once the budget is spent.
- * Untouched claimed rows remain until lease expiry and a later poll (or a peer, ADR 0004) picks them
- * up. Each row is processed with its eventId in MDC for correlation. Item-specific failures are
+ * Untouched claimed rows remain until lease expiry and a later poll picks them up. Each row is
+ * processed with its eventId in MDC for correlation. Item-specific failures are
  * isolated; the drainer stops only after [maxConsecutiveItemFailures] consecutive failures (a
  * systemic-failure heuristic).
  */
@@ -54,12 +54,6 @@ class LeaseBudgetDrainer(
         }
     }
 
-    /**
-     * Processes one claimed row with its eventId in MDC. On success the counter resets (returns 0).
-     * An item-specific failure is isolated (logged and counted) so the next row can continue, unless
-     * [maxConsecutiveItemFailures] is reached; then the failure is rethrown as systemic. Logging is
-     * inside the MDC scope so entries carry [MdcKeys.EVENT_ID]. Returns the new consecutive count.
-     */
     private suspend fun <T> processItem(
         item: T,
         eventId: (T) -> String?,

@@ -13,20 +13,12 @@ import no.nav.budstikka.domain.dispatch.DispatchHeader
 import no.nav.budstikka.domain.dispatch.LedervarselCreate
 import no.nav.budstikka.domain.dispatch.Oppgavetype
 import no.nav.budstikka.domain.dispatch.Orgnummer
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.testsupport.BudstikkaTestApp
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * End-to-end proof for the LEDERVARSEL channel (#108, ADR 0016): boots the ENTIRE app against
- * Testcontainers, produces a `Dispatch(LedervarselCreate)` to the budstikka topic, and asserts that
- * the whole run (inbox → decide → outbox → LedervarselChannelHandler → producer) ends with an
- * `OpprettHendelse` on `dinesykmeldte-hendelser-v2` with the correct `oppgavetype`/`ansattFnr` and
- * Kafka key = `reference`. No external side effect (the channel is purely in-app). Tagged `E2E` →
- * run via `./gradlew e2eTest`.
- */
 @Tags("E2E")
 class LedervarselToDineSykmeldteE2ESpec :
     FunSpec({
@@ -34,14 +26,14 @@ class LedervarselToDineSykmeldteE2ESpec :
             BudstikkaTestApp.start().use { app ->
                 val eventId = UUID.randomUUID()
                 val reference = "e2e-ledervarsel-${UUID.randomUUID()}"
-                val ansattFnr = "12345678901"
+                val ansattFnr = TEST_SYKMELDT.value
                 val orgnummer = "987654321"
                 val dispatch =
                     Dispatch(
                         reference = reference,
                         content =
                             LedervarselCreate(
-                                sykmeldt = PersonIdentifier(ansattFnr),
+                                sykmeldt = TEST_SYKMELDT,
                                 orgnummer = Orgnummer(orgnummer),
                                 oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                                 text = "Din ansatte er innkalt til dialogmøte",

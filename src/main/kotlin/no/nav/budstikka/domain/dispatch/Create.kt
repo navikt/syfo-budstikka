@@ -4,7 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-/** 1. Brukervarsel: Sykmeldt, Min side. */
 @Serializable
 @SerialName("BrukervarselCreate")
 data class BrukervarselCreate(
@@ -26,14 +25,8 @@ data class BrukervarselCreate(
 }
 
 /**
- * 2. Ledervarsel: nærmeste leder, Dine Sykmeldte. Carries `(sykmeldt, orgnummer)`, NOT an NL fnr;
- * budstikka resolves Nærmeste leder itself (B24). Partition anchor = Sykmeldt.
- *
- * PURELY IN-APP (ADR 0016): delivered to `dinesykmeldte-hendelser-v2` as an activity notification;
- * NO external carrier (SMS/email) → `externalVarsling` is deliberately omitted (false affordance, B40).
- * External notification to the leader is a separate ARBEIDSGIVERVARSEL(NL) dispatch (B6/B32, #24).
- * `oppgavetype` is required (dinesykmeldte's PK requirement, ADR 0015). `sendingWindow` default = `ONGOING`
- * as purely in-app (corrects B25); `ONGOING` is passed through immediately by the SendingWindowGate.
+ * Activity notification in Dine Sykmeldte, partitioned by [sykmeldt]. External notification to the
+ * leader is a separate [ArbeidsgivervarselCreate] with [NarmesteLeder] as recipient.
  */
 @Serializable
 @SerialName("LedervarselCreate")
@@ -54,7 +47,6 @@ data class LedervarselCreate(
     override val partitionKey: String get() = sykmeldt.value
 }
 
-/** 3. Ditt Sykefravær message: Sykmeldt. No `variant` field (B40): downstream has only INFO. */
 @Serializable
 @SerialName("DittSykefravaerCreate")
 data class DittSykefravaerCreate(
@@ -66,7 +58,6 @@ data class DittSykefravaerCreate(
     override val partitionKey: String get() = personIdentifier.value
 }
 
-/** 4. Arbeidsgivervarsel: Min side Arbeidsgiver / Altinn. */
 @Serializable
 @SerialName("ArbeidsgivervarselCreate")
 data class ArbeidsgivervarselCreate(
@@ -89,27 +80,22 @@ data class ArbeidsgivervarselCreate(
     override val partitionKey: String get() = orgnummer.value
 }
 
-/**
- * B32: the two recipient paths are NEVER combined → sealed choice, not separate event variants.
- */
+/** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
 @Serializable
 sealed interface ArbeidsgiverRecipient
 
-/** Personal Arbeidsgivervarsel path; a future adapter must resolve Nærmeste leder (B24). */
 @Serializable
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
 ) : ArbeidsgiverRecipient
 
-/** Everyone with the Altinn role at the organisation; typed `ressurs` (B30). */
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
 ) : ArbeidsgiverRecipient
 
-/** 5. Brev: physical, for a Sykmeldt. No Ferdigstill (B3/B21). */
 @Serializable
 @SerialName("BrevCreate")
 data class BrevCreate(

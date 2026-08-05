@@ -51,7 +51,7 @@ class DecisionProcessTest :
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
         }
 
-        test("Ledervarsel is not gated on the Sykmeldt's death; future Recipient is Nærmeste leder") {
+        test("Ledervarsel to a leader is not gated on the employee's death") {
             val decision =
                 processWith(deadLookupFor(TEST_SYKMELDT)).process(
                     event(

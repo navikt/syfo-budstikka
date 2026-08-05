@@ -11,7 +11,6 @@ import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
 import no.nav.budstikka.domain.dispatch.Varseltype
 import java.util.UUID
 
-/** Shared hydrated inbox row for tests. Defaults are sufficient; override only what the test cares about. */
 fun inboxMessage(
     eventId: UUID = UUID.randomUUID(),
     reference: String = "ref-1",
