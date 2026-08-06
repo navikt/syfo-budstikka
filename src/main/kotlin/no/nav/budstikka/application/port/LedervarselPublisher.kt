@@ -1,6 +1,6 @@
 package no.nav.budstikka.application.port
 
-import no.nav.budstikka.domain.dispatch.Ledervarsel
+import no.nav.budstikka.contract.Ledervarsel
 
 /**
  * Sends an activity notification to Dine Sykmeldte. `reference` links creation and inactivation and

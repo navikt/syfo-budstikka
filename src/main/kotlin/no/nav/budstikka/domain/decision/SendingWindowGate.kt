@@ -1,7 +1,7 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.SendingWindow
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.domain.foundation.BudstikkaSendingWindowLookup
 import kotlin.time.Clock
 

@@ -1,7 +1,7 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.domain.dispatch.Orgnummer
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.Orgnummer
+import no.nav.budstikka.contract.PersonIdentifier
 
 val TEST_SYKMELDT = PersonIdentifier("11111111111")
 val TEST_SYKMELDT_2 = PersonIdentifier("12345678901")

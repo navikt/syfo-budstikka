@@ -1,8 +1,8 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.Orgnummer
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.Orgnummer
+import no.nav.budstikka.contract.PersonIdentifier
 import kotlin.time.Instant
 
 /** Neutral delivery channel persisted as `delivery.channel`; adapters own downstream formats. */

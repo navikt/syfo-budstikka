@@ -3,7 +3,9 @@
 Hvordan vi flytter varsel-produksjon fra `navikt/esyfovarsel` til syfo-budstikka uten
 dobbeltvarsling, tapte lukkinger eller spøkelses-data. Beslutninger er festet som B34–B37
 i `docs/decisions.md`. Grunnlaget er en kildekode-kartlegging av esyfovarsel (2026-07, HEAD
-`3ac54de`), se §«Type-inventar».
+`3ac54de`), se §«Type-inventar». Kanalinventar, dokdist-kallsteder og
+KRR-semantikk er kartlagt separat i [esyfovarsel-kanalkart.md](esyfovarsel-kanalkart.md)
+(2026-08).
 
 ## Hovedutfordring
 

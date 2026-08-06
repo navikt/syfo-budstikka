@@ -15,12 +15,12 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.NoDispatchMetrics
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop

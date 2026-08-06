@@ -1,6 +1,6 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.Dispatch
+import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.domain.foundation.DeathLookup
 
 /** Drops a sykmeldt-directed creation when PDL reports the person as dead. */

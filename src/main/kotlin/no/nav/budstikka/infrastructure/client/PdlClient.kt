@@ -10,7 +10,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.PdlConfig

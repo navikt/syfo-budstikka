@@ -3,7 +3,7 @@ package no.nav.budstikka.domain.decision
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import no.nav.budstikka.domain.dispatch.Dispatch
+import no.nav.budstikka.contract.Dispatch
 
 /**
  * Resolves every rule concurrently, then applies the resolved rules sequentially. Rule order

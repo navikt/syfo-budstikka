@@ -4,10 +4,10 @@ import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable

@@ -1,7 +1,7 @@
 package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.LedervarselPublisher
-import no.nav.budstikka.domain.dispatch.Ledervarsel
+import no.nav.budstikka.contract.Ledervarsel
 
 internal data class PublishedLedervarsel(
     val reference: String,

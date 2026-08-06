@@ -25,6 +25,9 @@ import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.NoDispatchMetrics
 import no.nav.budstikka.bootstrap.gateModule
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.SendingWindow
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
@@ -32,9 +35,6 @@ import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.domain.decision.SendingWindowGate
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.SendingWindow
-import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager

@@ -8,13 +8,13 @@ import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.RecordingMinSideBrukervarselPublisher
 import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
-import no.nav.budstikka.domain.dispatch.BrevFallback
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
-import no.nav.budstikka.domain.dispatch.Varseltype
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.BrevFallback
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.ExternalNotification
+import no.nav.budstikka.contract.Varseltype
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
@@ -55,7 +55,7 @@ class BrukervarselReservationE2ESpec :
                                     personIdentifier = TEST_SYKMELDT,
                                     varseltype = Varseltype.OPPGAVE,
                                     text = "Du har en oppgave",
-                                    externalVarsling = ExternalVarsling(smsText = "Nytt varsel"),
+                                    externalVarsling = ExternalNotification.smsAndEmail(smsText = "Nytt varsel"),
                                     brevFallback = BrevFallback(journalpostId = "jp-krr-1"),
                                 ),
                         )

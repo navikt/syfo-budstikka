@@ -1,19 +1,19 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
-import no.nav.budstikka.domain.dispatch.DittSykefravaerInactivate
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.LedervarselInactivate
-import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.SendingWindow
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.DittSykefravaerCreate
+import no.nav.budstikka.contract.DittSykefravaerInactivate
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.LedervarselInactivate
+import no.nav.budstikka.contract.MicrofrontendDisable
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.SendingWindow
 
 /**
  * Sykmeldt a person gate applies to, or `null` when the event is not a Sykmeldt-directed CREATE.
