@@ -59,8 +59,8 @@ spec:
           namespace: fager
         - application: digdir-krr-proxy
           namespace: team-rocket
-        - application: narmesteleder
-          namespace: teamsykmelding
+        - application: esyfo-narmesteleder
+          namespace: team-esyfo
       external:
         - host: pdl-api.prod-fss-pub.nais.io
         - host: dokdistfordeling.prod-fss-pub.nais.io
@@ -100,6 +100,6 @@ spec:
     - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
       value: api://prod-gcp.fager.notifikasjon-produsent-api/.default
     - name: NARMESTELEDER_URL
-      value: http://narmesteleder.teamsykmelding
+      value: http://esyfo-narmesteleder.team-esyfo
     - name: NARMESTELEDER_SCOPE
-      value: api://prod-gcp.teamsykmelding.narmesteleder/.default
+      value: api://prod-gcp.team-esyfo.esyfo-narmesteleder/.default
