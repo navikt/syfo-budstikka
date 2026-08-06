@@ -10,7 +10,7 @@ fail=0
 
 declare -A EXPECTED_MODELS=(
   [barista]="gpt-5.6-terra"
-  [grillmester]="claude-opus-5"
+  [grillmester]="gpt-5.6-sol"
   [kokk]="gpt-5.6-terra"
   [grill-inspektor]="claude-opus-5"
 )
