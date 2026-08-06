@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.metrics
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import no.nav.budstikka.application.port.DispatchMetrics
+import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 
@@ -14,6 +15,7 @@ import no.nav.budstikka.domain.decision.DropReason
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
  *   `inbox_message_failed_total`
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
+ * - `narmeste_leder_missing_total{reason}`
  *
  * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. Counting
  * happens before the final state transition is guaranteed, so these metrics are observability
@@ -55,6 +57,13 @@ class MicrometerDispatchMetrics(
 
     override fun deliveryFailed(channel: Channel) = delivery(channel, result = RESULT_FAILED)
 
+    override fun narmesteLederMissing(reason: NarmesteLederMissingReason) =
+        Counter
+            .builder(NARMESTE_LEDER_MISSING)
+            .tag(TAG_REASON, reason.name.lowercase())
+            .register(registry)
+            .increment()
+
     private fun delivery(
         channel: Channel,
         result: String,
@@ -83,6 +92,7 @@ class MicrometerDispatchMetrics(
         const val DELIVERY_CLAIMED = "delivery.claimed"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
         const val DELIVERY = "delivery"
+        const val NARMESTE_LEDER_MISSING = "narmeste.leder.missing"
 
         const val TAG_REASON = "reason"
         const val TAG_CHANNEL = "channel"

@@ -88,7 +88,6 @@ data class ArbeidsgivervarselCreate(
     val tag: Tag,
     val text: String,
     val link: String,
-    val externalVarsling: ExternalNotification? = null,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
@@ -103,7 +102,7 @@ data class ArbeidsgivervarselCreate(
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
     override fun toString(): String =
         "ArbeidsgivervarselCreate(tag=$tag, meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
-            "hasExternalVarsling=${externalVarsling != null}, hasSakstilknytning=${sakstilknytning != null})"
+            "hasSakstilknytning=${sakstilknytning != null})"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
@@ -122,6 +121,7 @@ sealed interface ArbeidsgiverRecipient
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
+    val externalVarsling: NarmesteLederExternalVarsling? = null,
 ) : ArbeidsgiverRecipient
 
 /** Everyone with the selected Altinn role at the organisation. */
@@ -130,6 +130,7 @@ data class NarmesteLeder(
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
+    val externalVarsling: AltinnExternalVarsling? = null,
 ) : ArbeidsgiverRecipient
 
 /**
@@ -138,6 +139,22 @@ data class AltinnResource(
  * [tvingSentralPrint] forces paper. This variant has no inactivation operation.
  */
 @InternalBudstikkaWire
+
+/** External notification texts required by the Altinn-resource delivery path. */
+@Serializable
+data class AltinnExternalVarsling(
+    val emailTitle: String,
+    val emailText: String,
+    val smsText: String,
+)
+
+/** External notification texts required by the Nærmeste leder email delivery path. */
+@Serializable
+data class NarmesteLederExternalVarsling(
+    val emailTitle: String,
+    val emailText: String,
+)
+
 @Serializable
 @SerialName("BrevCreate")
 data class BrevCreate(

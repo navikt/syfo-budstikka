@@ -52,6 +52,8 @@ spec:
           namespace: fager
         - application: digdir-krr-proxy
           namespace: team-rocket
+        - application: narmesteleder
+          namespace: teamsykmelding
       external:
         - host: pdl-api.dev-fss-pub.nais.io
         - host: dokdistfordeling-q1.dev-fss-pub.nais.io
@@ -82,5 +84,8 @@ spec:
       value: http://notifikasjon-produsent-api.fager/api/graphql
     - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
       value: api://dev-gcp.fager.notifikasjon-produsent-api/.default
-  # DEFERRED (remaining Auth & ACL): tokenx inbound and outbound
-  # outbound to narmesteleder. Add when that channel is wired.
+    - name: NARMESTELEDER_URL
+      value: http://narmesteleder.teamsykmelding
+    - name: NARMESTELEDER_SCOPE
+      value: api://dev-gcp.teamsykmelding.narmesteleder/.default
+  # DEFERRED (remaining Auth & ACL): tokenx inbound.

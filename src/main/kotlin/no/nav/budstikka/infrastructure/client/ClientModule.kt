@@ -39,4 +39,11 @@ fun DependencyRegistry.clientModule() {
             tokenProvider = resolve<TokenProvider>(),
         )
     }
+    provide<NarmesteLederLookup> {
+        NarmesteLederClient(
+            httpClient = resolve<HttpClient>(),
+            config = resolve(),
+            tokenProvider = resolve<TokenProvider>(),
+        )
+    }
 }

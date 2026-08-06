@@ -15,10 +15,12 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import no.nav.budstikka.application.port.ArbeidsgiverExternalVarsling
+import no.nav.budstikka.application.port.AltinnExternalVarsling
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
+import no.nav.budstikka.application.port.NarmesteLederExternalVarsling
 import no.nav.budstikka.domain.dispatch.AltinnResourceId
 import no.nav.budstikka.domain.dispatch.ArbeidsgiverMeldingstype
 import no.nav.budstikka.domain.dispatch.Tag
@@ -97,13 +99,39 @@ class ArbeidsgiverNotifikasjonClient(
 
     private fun ArbeidsgiverNotificationRequest.toGraphqlInput() =
         NotificationInput(
-            mottakere = listOf(NotificationRecipient(altinnRessurs = AltinnRessursInput(altinnRessurs.toWireValue()))),
+            mottakere = listOf(recipient.toGraphqlRecipient()),
             notifikasjon = NotificationContent(tag.toWireValue(), tekst, lenke),
             metadata = NotificationMetadata(virksomhetsnummer, eksternId, grupperingsid),
-            eksterneVarsler = externalVarsling?.let { listOf(it.toGraphqlExternalVarsling(altinnRessurs)) },
+            eksterneVarsler = recipient.toGraphqlExternalVarsler(),
         )
 
-    private fun ArbeidsgiverExternalVarsling.toGraphqlExternalVarsling(resource: AltinnResourceId) =
+    private fun ArbeidsgiverNotificationRecipient.toGraphqlRecipient() =
+        when (this) {
+            is ArbeidsgiverNotificationRecipient.AltinnRessurs ->
+                NotificationRecipient(altinnRessurs = AltinnRessursInput(resource.toWireValue()))
+            is ArbeidsgiverNotificationRecipient.NarmesteLeder ->
+                NotificationRecipient(
+                    naermesteLeder =
+                        NarmesteLederInput(
+                            naermesteLederFnr = narmesteLederFnr.value,
+                            ansattFnr = ansattFnr.value,
+                        ),
+                )
+        }
+
+    private fun ArbeidsgiverNotificationRecipient.toGraphqlExternalVarsler(): List<ExternalNotificationInput>? =
+        when (this) {
+            is ArbeidsgiverNotificationRecipient.AltinnRessurs ->
+                externalVarsling?.let { listOf(it.toGraphqlExternalVarsling(resource)) }
+            is ArbeidsgiverNotificationRecipient.NarmesteLeder ->
+                externalVarsling?.let { externalVarsling ->
+                    externalVarsling.epostadresser.map { epostadresse ->
+                        externalVarsling.toGraphqlExternalVarsling(epostadresse)
+                    }
+                }
+        }
+
+    private fun AltinnExternalVarsling.toGraphqlExternalVarsling(resource: AltinnResourceId) =
         ExternalNotificationInput(
             altinnressurs =
                 AltinnResourceExternalNotification(
@@ -111,6 +139,17 @@ class ArbeidsgiverNotifikasjonClient(
                     epostTittel = epostTittel,
                     epostHtmlBody = epostTekst.toEscapedHtml(),
                     smsTekst = smsTekst,
+                    sendetidspunkt = SendetidspunktInput(sendevindu = "LOEPENDE"),
+                ),
+        )
+
+    private fun NarmesteLederExternalVarsling.toGraphqlExternalVarsling(epostadresse: String) =
+        ExternalNotificationInput(
+            epost =
+                EpostExternalNotification(
+                    mottaker = EpostMottakerInput(kontaktinfo = EpostKontaktinfoInput(epostadresse = epostadresse)),
+                    epostTittel = epostTittel,
+                    epostHtmlBody = epostTekst.toEscapedHtml(),
                     sendetidspunkt = SendetidspunktInput(sendevindu = "LOEPENDE"),
                 ),
         )
@@ -182,12 +221,19 @@ private data class NotificationInput(
 
 @Serializable
 private data class NotificationRecipient(
-    @SerialName("altinnRessurs") val altinnRessurs: AltinnRessursInput,
+    @SerialName("altinnRessurs") val altinnRessurs: AltinnRessursInput? = null,
+    @SerialName("naermesteLeder") val naermesteLeder: NarmesteLederInput? = null,
 )
 
 @Serializable
 private data class AltinnRessursInput(
     val ressursId: String,
+)
+
+@Serializable
+private data class NarmesteLederInput(
+    val naermesteLederFnr: String,
+    val ansattFnr: String,
 )
 
 @Serializable
@@ -206,7 +252,8 @@ private data class NotificationMetadata(
 
 @Serializable
 private data class ExternalNotificationInput(
-    val altinnressurs: AltinnResourceExternalNotification,
+    val altinnressurs: AltinnResourceExternalNotification? = null,
+    val epost: EpostExternalNotification? = null,
 )
 
 @Serializable
@@ -216,6 +263,24 @@ private data class AltinnResourceExternalNotification(
     val epostHtmlBody: String,
     val smsTekst: String,
     val sendetidspunkt: SendetidspunktInput,
+)
+
+@Serializable
+private data class EpostExternalNotification(
+    val mottaker: EpostMottakerInput,
+    val epostTittel: String,
+    val epostHtmlBody: String,
+    val sendetidspunkt: SendetidspunktInput,
+)
+
+@Serializable
+private data class EpostMottakerInput(
+    val kontaktinfo: EpostKontaktinfoInput,
+)
+
+@Serializable
+private data class EpostKontaktinfoInput(
+    val epostadresse: String,
 )
 
 @Serializable

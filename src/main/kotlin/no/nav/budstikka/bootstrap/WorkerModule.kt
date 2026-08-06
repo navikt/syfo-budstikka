@@ -20,6 +20,7 @@ import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.domain.decision.Channel
@@ -43,7 +44,12 @@ fun DependencyRegistry.workerModule() {
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
-            Channel.ARBEIDSGIVERVARSEL to ArbeidsgivervarselChannelHandler(resolve<ArbeidsgiverNotificationPublisher>()),
+            Channel.ARBEIDSGIVERVARSEL to
+                ArbeidsgivervarselChannelHandler(
+                    publisher = resolve<ArbeidsgiverNotificationPublisher>(),
+                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
+                    metrics = resolve<DispatchMetrics>(),
+                ),
         )
     }
     provide<List<BackgroundLoop>> {

@@ -59,6 +59,8 @@ spec:
           namespace: fager
         - application: digdir-krr-proxy
           namespace: team-rocket
+        - application: narmesteleder
+          namespace: teamsykmelding
       external:
         - host: pdl-api.prod-fss-pub.nais.io
         - host: dokdistfordeling.prod-fss-pub.nais.io
@@ -97,3 +99,7 @@ spec:
       value: http://notifikasjon-produsent-api.fager/api/graphql
     - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
       value: api://prod-gcp.fager.notifikasjon-produsent-api/.default
+    - name: NARMESTELEDER_URL
+      value: http://narmesteleder.teamsykmelding
+    - name: NARMESTELEDER_SCOPE
+      value: api://prod-gcp.teamsykmelding.narmesteleder/.default

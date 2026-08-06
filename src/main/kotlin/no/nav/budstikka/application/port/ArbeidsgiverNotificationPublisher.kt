@@ -2,6 +2,7 @@ package no.nav.budstikka.application.port
 
 import no.nav.budstikka.domain.dispatch.AltinnResourceId
 import no.nav.budstikka.domain.dispatch.ArbeidsgiverMeldingstype
+import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Tag
 
 data class ArbeidsgiverNotificationRequest(
@@ -11,15 +12,33 @@ data class ArbeidsgiverNotificationRequest(
     val tag: Tag,
     val tekst: String,
     val lenke: String,
-    val altinnRessurs: AltinnResourceId,
+    val recipient: ArbeidsgiverNotificationRecipient,
     val meldingstype: ArbeidsgiverMeldingstype,
-    val externalVarsling: ArbeidsgiverExternalVarsling? = null,
 )
 
-data class ArbeidsgiverExternalVarsling(
+sealed interface ArbeidsgiverNotificationRecipient {
+    data class AltinnRessurs(
+        val resource: AltinnResourceId,
+        val externalVarsling: AltinnExternalVarsling? = null,
+    ) : ArbeidsgiverNotificationRecipient
+
+    data class NarmesteLeder(
+        val narmesteLederFnr: PersonIdentifier,
+        val ansattFnr: PersonIdentifier,
+        val externalVarsling: NarmesteLederExternalVarsling? = null,
+    ) : ArbeidsgiverNotificationRecipient
+}
+
+data class AltinnExternalVarsling(
     val epostTittel: String,
     val epostTekst: String,
     val smsTekst: String,
+)
+
+data class NarmesteLederExternalVarsling(
+    val epostTittel: String,
+    val epostTekst: String,
+    val epostadresser: List<String>,
 )
 
 sealed interface ArbeidsgiverNotificationResponse {
