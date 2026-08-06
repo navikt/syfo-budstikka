@@ -3,7 +3,7 @@
 Kildekode-kartlegging av `navikt/esyfovarsel` (HEAD per 2026-08-05). Supplerer
 [migrering.md](migrering.md) med kanalinventar, varseltype-ruting og — viktigst —
 dokumentdistribusjons-detaljene som styrte `brevCreate`-designet i
-[kontrakt.md](kontrakt.md). Flyten i esyfovarsel: Kafka-consumer på
+[produsentveiledningen](sende-varsler.md). Flyten i esyfovarsel: Kafka-consumer på
 `team-esyfo.varselbus` → `VarselBusService` → per-type service → `SenderFacade` →
 kanaladapter.
 
@@ -102,6 +102,9 @@ viser mønstrene:
 | `SM_FORHANDSVARSEL_MANGLENDE_MEDVIRKNING` | **Kun brev** (ordinær løype, ingen KRR-sjekk) |
 | `SM_VEDTAK_FRISKMELDING_TIL_ARBEIDSFORMIDLING` | **Kun brev** (ordinær løype, ingen KRR-sjekk) |
 | `AG_VARSEL_ALTINN_RESSURS` | AG-notifikasjon (Altinn-ressurs) + sak |
+
+`DineSykmeldteHendelseType` i esyfovarsel mapper
+[`NL_OPPFOLGINGSPLAN_VARSELBESTILLING` til wire-verdien `OPPFOLGINGSPLAN_PAAMINNELSE`](https://github.com/navikt/esyfovarsel/blob/4a29705189f584f5caa9371bc5ae51caffef379e/src/main/kotlin/no/nav/syfo/kafka/consumers/varselbus/domain/DineSykmeldteHendelseType.kt#L10-L15).
 
 Ortogonalt: `ferdigstill == true` kortslutter til per-kanal-inaktivering
 (brukervarsel `inaktiver`, Ditt sykefravær `LukkMelding`, Dine sykmeldte

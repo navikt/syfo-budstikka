@@ -2,7 +2,14 @@ package no.nav.budstikka.contract
 
 import kotlinx.serialization.Serializable
 
-enum class Varseltype { BESKJED, OPPGAVE }
+/** Presentation kind for a Brukervarsel on Min side. */
+enum class Varseltype {
+    /** Informational notification. */
+    BESKJED,
+
+    /** Notification that represents a task for the recipient. */
+    OPPGAVE,
+}
 
 @InternalBudstikkaWire
 sealed interface Brukervarsel {
@@ -17,21 +24,27 @@ sealed interface Ledervarsel {
 /**
  * Closed task-type contract for Dine Sykmeldte. [wireValue] decouples the published value from the
  * Kotlin identifier; budstikka carries the value without branching on it.
+ *
+ * @property wireValue Stable value delivered to Dine Sykmeldte.
  */
 enum class Oppgavetype(
     val wireValue: String,
 ) {
+    /** Invitation to a dialogue meeting. */
     DIALOGMOTE_INNKALLING("DIALOGMOTE_INNKALLING"),
 
-    /**
-     * Wire value evidenced by esyfovarsel's `DineSykmeldteHendelseType`, which maps
-     * `NL_OPPFOLGINGSPLAN_VARSELBESTILLING` to this same value (source, not an ownership claim):
-     * https://github.com/navikt/esyfovarsel/blob/4a29705189f584f5caa9371bc5ae51caffef379e/src/main/kotlin/no/nav/syfo/kafka/consumers/varselbus/domain/DineSykmeldteHendelseType.kt#L10-L15
-     */
+    /** Reminder about a follow-up plan. */
     OPPFOLGINGSPLAN_PAAMINNELSE("OPPFOLGINGSPLAN_PAAMINNELSE"),
 }
 
-enum class ExternalChannel { SMS, EMAIL }
+/** Carrier available for an optional external notification. */
+enum class ExternalChannel {
+    /** Text message. */
+    SMS,
+
+    /** Email. */
+    EMAIL,
+}
 
 /**
  * Optional plain-text overrides for external notification. A `null` field leaves that channel's text
@@ -41,6 +54,11 @@ enum class ExternalChannel { SMS, EMAIL }
  * The Kotlin type name is [ExternalNotification]; the serialized field on the wire is
  * `externalVarsling` (unaffected by this class having no discriminator) and is not renamed here — see
  * [BrukervarselCreate.externalVarsling] and [ArbeidsgivervarselCreate.externalVarsling].
+ *
+ * @property channels External carriers that may receive the notification.
+ * @property smsText Optional SMS body.
+ * @property emailTitle Optional email subject.
+ * @property emailText Optional email body.
  */
 @ConsistentCopyVisibility
 @Serializable
@@ -54,7 +72,13 @@ data class ExternalNotification private constructor(
     override fun toString(): String = "ExternalNotification(channels=$channels)"
 
     companion object {
-        /** Both carriers; the platform picks the one the person is reachable on. */
+        /**
+         * Enables both carriers; the platform picks the one the person is reachable on.
+         *
+         * @param smsText Optional SMS body.
+         * @param emailTitle Optional email subject.
+         * @param emailText Optional email body.
+         */
         fun smsAndEmail(
             smsText: String? = null,
             emailTitle: String? = null,
@@ -67,11 +91,20 @@ data class ExternalNotification private constructor(
                 emailText = emailText,
             )
 
-        /** SMS only. */
+        /**
+         * Enables SMS only.
+         *
+         * @param smsText Optional SMS body.
+         */
         fun smsOnly(smsText: String? = null): ExternalNotification =
             ExternalNotification(channels = setOf(ExternalChannel.SMS), smsText = smsText)
 
-        /** Email only. */
+        /**
+         * Enables email only.
+         *
+         * @param emailTitle Optional email subject.
+         * @param emailText Optional email body.
+         */
         fun emailOnly(
             emailTitle: String? = null,
             emailText: String? = null,
@@ -84,9 +117,21 @@ data class ExternalNotification private constructor(
     }
 }
 
-enum class DistributionType { IMPORTANT, OTHER }
+/** Distribution priority for a document sent through dokumentdistribusjon. */
+enum class DistributionType {
+    /** Important document. */
+    IMPORTANT,
 
-/** A producer-created journalpost that may be sent when external varsling is unavailable. */
+    /** Ordinary document. */
+    OTHER,
+}
+
+/**
+ * A producer-created journalpost that may be sent when external varsling is unavailable.
+ *
+ * @property journalpostId Identifier for the already-created journalpost.
+ * @property distributionType Distribution priority for the fallback document.
+ */
 @Serializable
 data class BrevFallback(
     val journalpostId: String,
@@ -96,7 +141,14 @@ data class BrevFallback(
     override fun toString(): String = "BrevFallback(distributionType=$distributionType)"
 }
 
-enum class SendingWindow { ONGOING, BUDSTIKKA_OPENING_HOURS }
+/** Time window in which Budstikka may dispatch the notification. */
+enum class SendingWindow {
+    /** Dispatch without an opening-hours restriction. */
+    ONGOING,
+
+    /** Dispatch only during Budstikka opening hours. */
+    BUDSTIKKA_OPENING_HOURS,
+}
 
 /** Producer-selected category; budstikka does not branch on it. */
 @InternalBudstikkaWire

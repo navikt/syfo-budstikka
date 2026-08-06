@@ -1,103 +1,75 @@
-# Budstikka
+# Budstikka – send varsler fra sykefraværsappene
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
-[![Ktor](https://img.shields.io/badge/Ktor-087CFA?logo=ktor&logoColor=white)](https://ktor.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Gradle](https://img.shields.io/badge/Gradle-02303A?logo=gradle&logoColor=white)](https://gradle.org/)
-[![Java](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+Budstikka gir sykefraværsappene en felles Kafka-kontrakt for å sende varsler. Appen bygger en
+ferdig `EncodedDispatch` med fasaden og publiserer den med sin egen Kafka-producer.
 
-## Formål
+## Slik sender du varsel
 
-Budstikka er en Ktor-backend for å håndtere kommunikasjon fra våre apper til flere eksterne og interne kanaler.
+Legg Nav sitt GitHub Packages-speil og kontrakten i produsentens Gradle-bygg. Kontrakten inneholder
+ikke `kafka-clients`; appen eier selv Kafka-versjon, producer-konfigurasjon og livsløp.
 
-## Big picture
+```kotlin
+repositories {
+    maven("https://github-package-registry-mirror.gc.nav.no/cached/maven-release")
+    mavenCentral()
+}
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant producer as Domeneapp
-    participant kafka as Kafka-topic team-esyfo.budstikka.v1
-    participant consumer as Inbox-consumer<br/>(ConsumerRunner + InboxMessageHandler)
-    participant inbox as inbox_message (db)
-    participant iworker as InboxMessageWorker
-    participant decision as Decision + effectuate<br/>(in-process komponent)
-    participant delivery as delivery (db)
-    participant dworker as DeliveryWorker
-    participant channel as Channel<br/>(via ChannelHandler)
-    participant target as Channel endpoint
-
-    producer->>kafka: publish header:eventId + Dispatch(reference, content)
-    consumer->>kafka: consume records
-    consumer->>inbox: saveBatch (batchInsert, dedup på eventId)
-    iworker->>inbox: claim(limit, lease)
-    iworker->>decision: process(dispatch) + effectuate(eventId, decision)
-    decision->>inbox: markProcessed/markDropped/markFailed
-    decision->>delivery: saveInTransaction(...) ved Processed
-    dworker->>delivery: claim(limit, lease, channels)
-    dworker->>channel: deliver(claimed delivery)
-    channel->>target: send
-    channel-->>dworker: Sent | Failed(reason)
-    dworker->>delivery: markSent | markFailed
+dependencies {
+    implementation("no.nav.syfo:budstikka-kontrakt:<latest release version>")
+    implementation("org.apache.kafka:kafka-clients:4.3.1")
+}
 ```
 
-## Beslutningsmønster
+Produsenten trenger minst Kotlin 2.3 og Java 21, samt Kafka-tilgang. [Producerguiden](docs/sende-varsler.md)
+beskriver påkrevd `kafka.pool` og `write` ACL.
 
-Beslutningsmotoren er en in-process komponent som kalles fra `InboxMessageWorker`, ikke en egen worker/task. Figuren viser den som én boks (`Decision + effectuate`) for å holde hovedflyten enkel.
+Opprett og lagre `EventId` sammen med eget arbeid **før** første sending. Ved retry eller recovery
+leser du den lagrede id-en og bruker den på nytt. Opprettelsen må være atomisk; en vanlig
+load-then-create-sekvens er ikke nok når flere workers kan behandle samme arbeid.
 
-I kode er den delt i `DecisionProcess` og `EffectuateDecision`, og kjører i to steg:
+```kotlin
+import no.nav.budstikka.contract.Budstikka
+import no.nav.budstikka.contract.EventId
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Varseltype
+import org.apache.kafka.clients.producer.ProducerRecord
 
-1. `DecisionRule.resolve(event)` henter grunnlag i parallell.
-2. `ResolvedRule.apply(deliveries)` foldes sekvensielt, med short-circuit ved `Dropped`/`Failed`.
+val eventId = eventIdStore.loadOrCreateAtomically(notificationId) { EventId.new() }
 
-Dette gir lavere ventetid på oppslag og samtidig forutsigbar regelrekkefølge.
+val encoded = Budstikka.brukervarselCreate(
+    eventId = eventId,
+    reference = "synthetic-reference-0001",
+    sykmeldt = PersonIdentifier("00000000000"),
+    varseltype = Varseltype.BESKJED,
+    text = "SYNTETISK-VARSELTEKST",
+)
 
-## Arkitekturoversikt
+val record = ProducerRecord(encoded.topic, encoded.key, encoded.value)
+encoded.headerBytes().forEach { (name, value) -> record.headers().add(name, value) }
+kafkaProducer.send(record)
+```
 
-Se [overordnet flyt](docs/flyt.md) for claim/lease, batch insert, kanal-mapping og flere detaljer.
+`encoded.key` er mottakerens partisjonsnøkkel. `eventId` ligger bare i headeren og brukes til
+deduplisering. Ikke logg nøkkel, payload eller varseltekst.
+
+Se [producerguiden](docs/sende-varsler.md) for støttede funksjoner, retry og versjonering.
+
+## Arkitektur
+
+Budstikka konsumerer kontrakten fra Kafka, lagrer meldingen og sender den videre til riktig kanal.
+Den interne flyten eies av [docs/flyt.md](docs/flyt.md).
 
 ## Kjøre lokalt
 
-Forutsetninger: [mise](https://mise.jdx.dev/) og en container-runtime (Docker eller podman) som kjører. `mise` gir deg riktig Java-versjon og oppgavene under.
-
-Det finnes to måter å kjøre appen lokalt på.
-
-### Testcontainers (enklest, uten compose)
+Forutsetninger: [mise](https://mise.jdx.dev/) og en container-runtime (Docker eller podman).
 
 ```sh
 mise dev:tc       # eller: ./gradlew runLocal
 ```
 
-Dette booter hele appen mot Testcontainers: Postgres og Kafka startes fra kode, eksterne integrasjoner (for eksempel PDL) byttes mot fakes, og en Kafka UI startes i nettleseren for å inspisere topics, meldinger, konsumentgrupper og offsets. Ved oppstart logges Kafka-bootstrap, formidling-topic, JDBC-URL og Kafka UI-URL for live-inspeksjon. Avslutt med Ctrl+C, som river ned containerne.
-
-Løpet trenger ikke docker-compose-infraen og henter ikke tokens. Det bruker samme test-substrat som e2e-testene. Se `docs/teststrategi.md` for detaljer.
-
-Loggene i det lokale løpet er menneskelig lesbar tekst (ikke JSON) via `src/test/resources/logback-local.xml`. Prod logger fortsatt strukturert JSON.
-
-### Docker-compose (ekte adaptere)
-
-```sh
-mise run go           # starter infra + kjører appen (./gradlew run)
-mise run infra        # starter bare Postgres + Kafka + Kafka UI
-mise run infra:down   # stopper infraen
-```
-
-`mise run go` kjører appen mot compose-infraen med de ekte adapterne. Miljøvariablene (DB, Kafka) leses fra `mise.toml`.
-
-### IntelliJ
-
-1. Åpne prosjektet som et Gradle-prosjekt og sett prosjekt-JDK til Java 25.
-2. For Testcontainers-løpet: kjør Gradle-oppgaven `runLocal` (under `application` i Gradle-vinduet), eller åpne `src/test/kotlin/no/nav/budstikka/LocalApp.kt` og kjør `main()` direkte fra kjør-knappen i margen. Dette løpet er selvstendig og trenger ingen miljøvariabler.
-3. For compose-løpet: start infraen med `mise run infra` først, og kjør deretter Gradle-oppgaven `run`. Sett da miljøvariablene fra `mise.toml` i kjørekonfigurasjonen (IntelliJ leser dem ikke automatisk fra mise).
-
-## Testing
-
-```sh
-mise run test         # enhets- og integrasjonstester (rask, e2e ekskludert)
-mise run test:e2e     # opt-in full-boot e2e mot Testcontainers
-mise run lint         # ktlintCheck
-```
-
-E2e-testene er tagget `E2E` og kobles ikke til `test` eller `build`, så deploy-løpet slipper å vente på dem. Kjør dem lokalt eller i en egen jobb ved behov.
+Løpet starter appen mot Testcontainers med Postgres, Kafka og fakes for eksterne integrasjoner.
+Se [teststrategien](docs/teststrategi.md) for testnivåer og lokal kjøring. Kjør `./gradlew tasks`
+for tilgjengelige Gradle-oppgaver.
 
 ## For Nav-ansatte
 

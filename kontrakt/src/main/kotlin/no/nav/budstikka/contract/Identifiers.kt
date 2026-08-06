@@ -2,7 +2,11 @@ package no.nav.budstikka.contract
 
 import kotlinx.serialization.Serializable
 
-/** Personident whose [toString] is always masked to prevent accidental log disclosure. */
+/**
+ * Personident whose [toString] is always masked to prevent accidental log disclosure.
+ *
+ * @property value The 11-digit personident. Treat it as person data and never log it.
+ */
 @Serializable
 @JvmInline
 value class PersonIdentifier(
@@ -11,7 +15,11 @@ value class PersonIdentifier(
     override fun toString(): String = MASKED
 }
 
-/** Organisation identifier whose [toString] is always masked. */
+/**
+ * Organisation identifier whose [toString] is always masked.
+ *
+ * @property value The 9-digit organisation number. Treat it as person data and never log it.
+ */
 @Serializable
 @JvmInline
 value class Orgnummer(
