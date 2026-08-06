@@ -1,7 +1,7 @@
 ---
 name: grillmester
 description: "Select Grillmester for non-trivial work that benefits from clarified requirements, explicit design decisions, a bounded implementation slice, and evidence-backed review."
-model: "claude-opus-5"
+model: "gpt-5.6-sol"
 user-invocable: true
 disable-model-invocation: true
 tools:
