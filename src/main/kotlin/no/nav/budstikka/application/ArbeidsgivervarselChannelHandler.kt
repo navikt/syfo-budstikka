@@ -1,46 +1,68 @@
 package no.nav.budstikka.application
 
-import no.nav.budstikka.application.port.ArbeidsgiverExternalVarsling
+import no.nav.budstikka.application.port.AltinnExternalVarsling
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DispatchMetrics
+import no.nav.budstikka.application.port.NarmesteLederExternalVarsling
+import no.nav.budstikka.application.port.NarmesteLederLookup
+import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.dispatch.AltinnResource
 import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
 import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
+import no.nav.budstikka.domain.dispatch.NarmesteLeder as NarmesteLederRecipient
 
 /**
- * Sends only the Altinn-resource path for ARBEIDSGIVERVARSEL. Closing and the Nærmeste leder path
- * are deliberately permanent failures until their dedicated slices exist. Altinn 3 does not allow
- * selecting [ExternalVarsling.channels], and external notifications are always sent as LOEPENDE:
- * [SendingWindowGate] has already waited for budstikka's delivery window.
+ * Sends ARBEIDSGIVERVARSEL through an [AltinnResource] or a Nærmeste leder path. The latter resolves
+ * the active leader at send time, so a deferred delivery follows leader changes without persisting
+ * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
+ * has already waited for budstikka's delivery window. Closing remains a permanent failure.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
+    private val narmesteLederLookup: NarmesteLederLookup,
+    private val metrics: DispatchMetrics,
 ) : ChannelHandler {
     override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
         val create =
             delivery.payload as? ArbeidsgivervarselCreate
                 ?: return payloadFailure(delivery)
-        val recipient =
-            create.recipient as? AltinnResource
-                ?: return DeliveryOutcome.Failed(
-                    "ARBEIDSGIVERVARSEL NarmesteLeder recipient is not implemented",
-                )
         if (create.link.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         }
-        val externalVarsling =
-            create.externalVarsling?.toPortExternalVarsling()
-                ?: if (create.externalVarsling == null) {
-                    null
-                } else {
-                    return DeliveryOutcome.Failed(
-                        "ARBEIDSGIVERVARSEL external varsling requires emailTitle, emailText and smsText",
+        val notificationRecipient =
+            when (val recipient = create.recipient) {
+                is AltinnResource -> recipient.toNotificationRecipient()
+                is NarmesteLederRecipient -> {
+                    val relation =
+                        withChannelHandlerFailureContext(
+                            Channel.ARBEIDSGIVERVARSEL,
+                            "resolving nærmeste leder",
+                        ) {
+                            narmesteLederLookup.findActive(recipient.sykmeldt, create.orgnummer)
+                        }
+                            ?: return narmesteLederFailure(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
+                    if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
+                        return narmesteLederFailure(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
+                    }
+                    ArbeidsgiverNotificationRecipient.NarmesteLeder(
+                        narmesteLederFnr = relation.narmesteLederFnr,
+                        ansattFnr = recipient.sykmeldt,
+                        externalVarsling =
+                            recipient.externalVarsling?.let {
+                                NarmesteLederExternalVarsling(
+                                    it.emailTitle,
+                                    it.emailText,
+                                    relation.epostadresser,
+                                )
+                            },
                     )
                 }
+            }
 
         return when (
             val response =
@@ -53,9 +75,8 @@ class ArbeidsgivervarselChannelHandler(
                             tag = create.tag,
                             tekst = create.text,
                             lenke = create.link,
-                            altinnRessurs = recipient.resource,
+                            recipient = notificationRecipient,
                             meldingstype = create.meldingstype,
-                            externalVarsling = externalVarsling,
                         ),
                     )
                 }
@@ -63,6 +84,22 @@ class ArbeidsgivervarselChannelHandler(
             ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
             is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
         }
+    }
+
+    private fun AltinnResource.toNotificationRecipient() =
+        ArbeidsgiverNotificationRecipient.AltinnRessurs(
+            resource = resource,
+            externalVarsling =
+                externalVarsling?.let {
+                    AltinnExternalVarsling(it.emailTitle, it.emailText, it.smsText)
+                },
+        )
+
+    private fun narmesteLederFailure(reason: NarmesteLederMissingReason): DeliveryOutcome.Failed {
+        metrics.narmesteLederMissing(reason)
+        return DeliveryOutcome.Failed(
+            "ARBEIDSGIVERVARSEL NarmesteLeder delivery unavailable: ${reason.name.lowercase()}",
+        )
     }
 
     private fun payloadFailure(delivery: ClaimedDelivery): DeliveryOutcome =
@@ -74,11 +111,4 @@ class ArbeidsgivervarselChannelHandler(
                     "Payload does not match ARBEIDSGIVERVARSEL channel: ${delivery.payload::class.simpleName}",
                 )
         }
-
-    private fun ExternalVarsling.toPortExternalVarsling(): ArbeidsgiverExternalVarsling? {
-        val title = emailTitle ?: return null
-        val text = emailText ?: return null
-        val sms = smsText ?: return null
-        return ArbeidsgiverExternalVarsling(title, text, sms)
-    }
 }

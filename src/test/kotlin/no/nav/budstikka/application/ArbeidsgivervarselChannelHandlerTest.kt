@@ -1,131 +1,197 @@
 package no.nav.budstikka.application
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.NarmesteLederLookup
+import no.nav.budstikka.application.port.NarmesteLederMissingReason
+import no.nav.budstikka.application.port.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.dispatch.AltinnResource
 import no.nav.budstikka.domain.dispatch.AltinnResourceId
-import no.nav.budstikka.domain.dispatch.ArbeidsgiverMeldingstype
+import no.nav.budstikka.domain.dispatch.ArbeidsgiverRecipient
 import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
-import no.nav.budstikka.domain.dispatch.ExternalVarsling
 import no.nav.budstikka.domain.dispatch.NarmesteLeder
-import no.nav.budstikka.domain.dispatch.Sakstilknytning
+import no.nav.budstikka.domain.dispatch.NarmesteLederExternalVarsling
+import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Tag
+import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
-        test("maps BESKJED with grouping id and stable inbox event id") {
+        test("publishes Altinn recipient unchanged") {
             val publisher = RecordingPublisher()
-            val payload = create(sakstilknytning = Sakstilknytning("sak-1"))
+            handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Sent
 
-            ArbeidsgivervarselChannelHandler(publisher).handle(delivery(payload)) shouldBe DeliveryOutcome.Sent
+            publisher.requests.single().recipient shouldBe
+                ArbeidsgiverNotificationRecipient.AltinnRessurs(AltinnResourceId.DIALOGMOETE)
+        }
 
-            publisher.requests.single() shouldBe
-                ArbeidsgiverNotificationRequest(
-                    virksomhetsnummer = TEST_ORGNUMMER.value,
-                    eksternId = "00000000-0000-0000-0000-000000000702",
-                    grupperingsid = "sak-1",
-                    tag = Tag.DIALOGMOETE,
-                    tekst = "Tekst",
-                    lenke = "https://nav.no/lenke",
-                    altinnRessurs = AltinnResourceId.DIALOGMOETE,
-                    meldingstype = ArbeidsgiverMeldingstype.BESKJED,
+        test("publishes NarmesteLeder without external notification when email is absent") {
+            val publisher = RecordingPublisher()
+            handler(
+                publisher,
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+            ).handle(delivery(create(NarmesteLeder(TEST_SYKMELDT)))) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().recipient shouldBe
+                ArbeidsgiverNotificationRecipient.NarmesteLeder(LEDER, TEST_SYKMELDT)
+        }
+
+        test("publishes NarmesteLeder external notification for all email addresses") {
+            val publisher = RecordingPublisher()
+            handler(
+                publisher,
+                FakeNarmesteLederLookup(
+                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test")),
+                ),
+            ).handle(
+                delivery(
+                    create(
+                        NarmesteLeder(
+                            TEST_SYKMELDT,
+                            NarmesteLederExternalVarsling("Tittel", "Tekst"),
+                        ),
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().recipient shouldBe
+                ArbeidsgiverNotificationRecipient.NarmesteLeder(
+                    LEDER,
+                    TEST_SYKMELDT,
+                    no.nav.budstikka.application.port.NarmesteLederExternalVarsling(
+                        "Tittel",
+                        "Tekst",
+                        listOf("first@example.test", "second@example.test"),
+                    ),
                 )
         }
 
-        test("maps OPPGAVE, null grouping id and complete external varsling") {
-            val publisher = RecordingPublisher()
-            val payload =
-                create(
-                    meldingstype = ArbeidsgiverMeldingstype.OPPGAVE,
-                    externalVarsling = ExternalVarsling(emailTitle = "Tittel", emailText = "Epost", smsText = "SMS"),
-                )
-
-            ArbeidsgivervarselChannelHandler(publisher).handle(delivery(payload, inboxEventId = null)) shouldBe DeliveryOutcome.Sent
-
-            publisher.requests.single().grupperingsid shouldBe null
-            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000701"
-            publisher.requests.single().meldingstype shouldBe ArbeidsgiverMeldingstype.OPPGAVE
-            publisher.requests
-                .single()
-                .externalVarsling
-                ?.epostTittel shouldBe "Tittel"
-        }
-
-        test("rejects incomplete external varsling permanently") {
-            for (externalVarsling in listOf(
-                ExternalVarsling(emailText = "text", smsText = "sms"),
-                ExternalVarsling(emailTitle = "title", smsText = "sms"),
-                ExternalVarsling(emailTitle = "title", emailText = "text"),
-            )) {
-                val outcome =
-                    ArbeidsgivervarselChannelHandler(
-                        RecordingPublisher(),
-                    ).handle(delivery(create(externalVarsling = externalVarsling)))
-                (outcome as DeliveryOutcome.Failed).reason shouldContain "requires"
-            }
-        }
-
-        test("rejects inactivate and NarmesteLeder permanently") {
-            val handler = ArbeidsgivervarselChannelHandler(RecordingPublisher())
-            (
-                handler.handle(
-                    delivery(ArbeidsgivervarselInactivate("reference", TEST_ORGNUMMER)),
-                ) as DeliveryOutcome.Failed
-            ).reason shouldContain
-                "inactivate"
-            (handler.handle(delivery(create(recipient = NarmesteLeder(TEST_SYKMELDT)))) as DeliveryOutcome.Failed).reason shouldContain
-                "NarmesteLeder"
-        }
-
-        test("rejects blank link permanently without publishing") {
-            val publisher = RecordingPublisher()
-
+        test("fails terminally with an identifier-free active leader reason") {
+            val metrics = RecordingDispatchMetrics()
             val outcome =
-                ArbeidsgivervarselChannelHandler(publisher).handle(
-                    delivery(create().copy(link = "   ")),
+                handler(RecordingPublisher(), FakeNarmesteLederLookup(null), metrics).handle(
+                    delivery(
+                        create(
+                            NarmesteLeder(
+                                TEST_SYKMELDT,
+                                NarmesteLederExternalVarsling(
+                                    "sensitive title",
+                                    "sensitive text secret@example.test",
+                                ),
+                            ),
+                        ),
+                    ),
                 )
 
-            (outcome as DeliveryOutcome.Failed).reason shouldContain "link"
-            publisher.requests shouldBe emptyList()
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL NarmesteLeder delivery unavailable: missing_active_leader"
+            metrics.narmesteLederMissing[NarmesteLederMissingReason.MISSING_ACTIVE_LEADER]?.get() shouldBe 1
+            outcome.reason shouldNotContain TEST_SYKMELDT.value
+            outcome.reason shouldNotContain TEST_ORGNUMMER.value
+            outcome.reason shouldNotContain "sensitive title"
+            outcome.reason shouldNotContain "sensitive text secret@example.test"
+            outcome.reason shouldNotContain "secret@example.test"
+        }
+
+        test("fails terminally with an identifier-free missing email reason") {
+            val metrics = RecordingDispatchMetrics()
+            val outcome =
+                handler(
+                    RecordingPublisher(),
+                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                    metrics,
+                ).handle(
+                    delivery(
+                        create(
+                            NarmesteLeder(
+                                TEST_SYKMELDT,
+                                NarmesteLederExternalVarsling(
+                                    "sensitive title",
+                                    "sensitive text secret@example.test",
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL NarmesteLeder delivery unavailable: missing_email_address"
+            metrics.narmesteLederMissing[NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS]?.get() shouldBe 1
+            outcome.reason shouldNotContain TEST_SYKMELDT.value
+            outcome.reason shouldNotContain TEST_ORGNUMMER.value
+            outcome.reason shouldNotContain "sensitive title"
+            outcome.reason shouldNotContain "sensitive text secret@example.test"
+            outcome.reason shouldNotContain "secret@example.test"
+        }
+
+        test("wraps transient NarmesteLeder lookup failures with channel context") {
+            val error =
+                shouldThrow<ChannelHandlerFailure> {
+                    handler(RecordingPublisher(), ThrowingNarmesteLederLookup()).handle(
+                        delivery(create(NarmesteLeder(TEST_SYKMELDT))),
+                    )
+                }
+
+            error.message shouldContain "ARBEIDSGIVERVARSEL channel failed while resolving nærmeste leder"
+            error.cause.shouldBeInstanceOf<IllegalStateException>()
+            error.stackTrace.any { it.className.contains("ArbeidsgivervarselChannelHandler") } shouldBe true
         }
     })
 
-private fun create(
-    recipient: no.nav.budstikka.domain.dispatch.ArbeidsgiverRecipient = AltinnResource(AltinnResourceId.DIALOGMOETE),
-    meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
-    sakstilknytning: Sakstilknytning? = null,
-    externalVarsling: ExternalVarsling? = null,
-) = ArbeidsgivervarselCreate(
-    orgnummer = TEST_ORGNUMMER,
-    recipient = recipient,
-    tag = Tag.DIALOGMOETE,
-    text = "Tekst",
-    link = "https://nav.no/lenke",
-    meldingstype = meldingstype,
-    sakstilknytning = sakstilknytning,
-    externalVarsling = externalVarsling,
-)
+private val LEDER = PersonIdentifier("22222222222")
 
-private fun delivery(
-    payload: no.nav.budstikka.domain.dispatch.DispatchContent,
-    inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
-) = ClaimedDelivery(
-    id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
-    inboxEventId = inboxEventId,
-    reference = "reference",
-    channel = Channel.ARBEIDSGIVERVARSEL,
-    payload = payload,
-)
+private fun handler(
+    publisher: RecordingPublisher,
+    lookup: NarmesteLederLookup = FakeNarmesteLederLookup(null),
+    metrics: RecordingDispatchMetrics = RecordingDispatchMetrics(),
+) = ArbeidsgivervarselChannelHandler(publisher, lookup, metrics)
+
+private fun create(recipient: ArbeidsgiverRecipient = AltinnResource(AltinnResourceId.DIALOGMOETE)) =
+    ArbeidsgivervarselCreate(
+        TEST_ORGNUMMER,
+        recipient,
+        Tag.DIALOGMOETE,
+        "Tekst",
+        "https://nav.no/lenke",
+    )
+
+private fun delivery(payload: no.nav.budstikka.domain.dispatch.DispatchContent) =
+    ClaimedDelivery(
+        id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
+        inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
+        reference = "reference",
+        channel = Channel.ARBEIDSGIVERVARSEL,
+        payload = payload,
+    )
+
+private class FakeNarmesteLederLookup(
+    private val relation: NarmesteLederRelasjon?,
+) : NarmesteLederLookup {
+    override suspend fun findActive(
+        sykmeldt: no.nav.budstikka.domain.dispatch.PersonIdentifier,
+        orgnummer: no.nav.budstikka.domain.dispatch.Orgnummer,
+    ) = relation
+}
+
+private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
+    override suspend fun findActive(
+        sykmeldt: no.nav.budstikka.domain.dispatch.PersonIdentifier,
+        orgnummer: no.nav.budstikka.domain.dispatch.Orgnummer,
+    ): NarmesteLederRelasjon? = error("narmesteleder-register unavailable")
+}
 
 private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
