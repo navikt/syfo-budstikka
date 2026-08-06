@@ -93,7 +93,7 @@ Når den valgte fordypningen er gjennomgrillet:
   detalj går til relevant topic-dokument. Oppdater `docs/context.md` bare når
   orientering eller overordnet status endres.
 - Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i den aktive
-  oppgaven (evt. videre til `/to-issues` for plukkbare snitt).
+  oppgaven (evt. videre til `/to-tickets` for plukkbare snitt).
 - Definer hva som beviser at fordypningen lyktes (tester gjennom ett
   grensesnitt, søm bekreftet av to adaptere), og returner det til den kallende
   arbeidsflyten.
