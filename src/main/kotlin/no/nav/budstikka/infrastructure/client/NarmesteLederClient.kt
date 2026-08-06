@@ -31,7 +31,7 @@ class NarmesteLederClient(
     ): NarmesteLederRelasjon? {
         val accessToken = tokenProvider.token(config.scope)
         val response =
-            httpClient.get("${config.url}/sykmeldt/narmesteleder") {
+            httpClient.get("${config.url}/internal/narmesteleder") {
                 parameter("orgnummer", orgnummer.value)
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
@@ -55,15 +55,10 @@ class NarmesteLederClient(
                     // Do not retain the cause: its message can echo the body, including fnr and email addresses.
                     error("Narmeste leder register returned an invalid response with status ${status.value}")
                 }
-            return response.narmesteLederRelasjon?.let { relation ->
+            return response.narmesteLeder?.let { relation ->
                 NarmesteLederRelasjon(
-                    narmesteLederFnr = PersonIdentifier(relation.narmesteLederFnr),
-                    epostadresser =
-                        relation.narmesteLederEpost
-                            .orEmpty()
-                            .split(',')
-                            .map(String::trim)
-                            .filter(String::isNotEmpty),
+                    narmesteLederFnr = PersonIdentifier(relation.fnr),
+                    epostadresser = relation.epostadresser,
                 )
             }
         }
@@ -72,11 +67,11 @@ class NarmesteLederClient(
 
 @Serializable
 internal data class NarmesteLederResponse(
-    val narmesteLederRelasjon: NarmesteLederResponseRelation? = null,
+    val narmesteLeder: NarmesteLederResponseRelation? = null,
 )
 
 @Serializable
 internal data class NarmesteLederResponseRelation(
-    val narmesteLederFnr: String,
-    val narmesteLederEpost: String? = null,
+    val fnr: String,
+    val epostadresser: List<String>,
 )
