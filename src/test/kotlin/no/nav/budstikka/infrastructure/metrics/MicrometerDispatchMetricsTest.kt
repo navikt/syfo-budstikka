@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY
@@ -14,6 +15,7 @@ import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Compani
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_EMPTY_POLLS
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_FAILED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_PROCESSED
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.NARMESTE_LEDER_MISSING
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.RESULT_FAILED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.RESULT_SENT
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.TAG_CHANNEL
@@ -35,6 +37,7 @@ class MicrometerDispatchMetricsTest :
             metrics.deliveryEmptyPoll()
             metrics.deliverySent(Channel.MICROFRONTEND)
             metrics.deliveryFailed(Channel.BREV)
+            metrics.narmesteLederMissing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
 
             registry.get(INBOX_MESSAGE_CLAIMED).counter().count() shouldBe 3.0
             registry.get(INBOX_MESSAGE_EMPTY_POLLS).counter().count() shouldBe 1.0
@@ -57,6 +60,11 @@ class MicrometerDispatchMetricsTest :
                 .get(DELIVERY)
                 .tag(TAG_CHANNEL, "brev")
                 .tag(TAG_RESULT, RESULT_FAILED)
+                .counter()
+                .count() shouldBe 1.0
+            registry
+                .get(NARMESTE_LEDER_MISSING)
+                .tag(TAG_REASON, "missing_active_leader")
                 .counter()
                 .count() shouldBe 1.0
         }

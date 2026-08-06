@@ -26,6 +26,8 @@ interface DispatchMetrics {
 
     fun deliveryFailed(channel: Channel)
 
+    fun narmesteLederMissing(reason: NarmesteLederMissingReason)
+
     fun inboxOutsideSendingWindow(reason: String)
 }
 
@@ -48,5 +50,16 @@ object NoDispatchMetrics : DispatchMetrics {
 
     override fun deliveryFailed(channel: Channel) = Unit
 
+    override fun narmesteLederMissing(reason: NarmesteLederMissingReason) = Unit
+
     override fun inboxOutsideSendingWindow(reason: String) = Unit
+}
+
+/**
+ * Closed reasons for the Nærmeste leder lookup metric and its identifier-free delivery failure.
+ * Kept with [DispatchMetrics] so the metric label remains fixed and low-cardinality.
+ */
+enum class NarmesteLederMissingReason {
+    MISSING_ACTIVE_LEADER,
+    MISSING_EMAIL_ADDRESS,
 }
