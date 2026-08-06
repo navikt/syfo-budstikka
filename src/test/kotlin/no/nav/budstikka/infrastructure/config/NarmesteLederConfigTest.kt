@@ -11,12 +11,12 @@ class NarmesteLederConfigTest :
     FunSpec({
         test("toNarmesteLederConfig reads platform values") {
             MapApplicationConfig(
-                "narmesteLeder.url" to "http://narmesteleder.teamsykmelding",
-                "narmesteLeder.scope" to "api://dev-gcp.teamsykmelding.narmesteleder/.default",
+                "narmesteLeder.url" to "http://esyfo-narmesteleder.team-esyfo",
+                "narmesteLeder.scope" to "api://dev-gcp.team-esyfo.esyfo-narmesteleder/.default",
             ).toNarmesteLederConfig() shouldBe
                 NarmesteLederConfig(
-                    "http://narmesteleder.teamsykmelding",
-                    "api://dev-gcp.teamsykmelding.narmesteleder/.default",
+                    "http://esyfo-narmesteleder.team-esyfo",
+                    "api://dev-gcp.team-esyfo.esyfo-narmesteleder/.default",
                 )
         }
 

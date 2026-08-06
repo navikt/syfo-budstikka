@@ -52,8 +52,8 @@ spec:
           namespace: fager
         - application: digdir-krr-proxy
           namespace: team-rocket
-        - application: narmesteleder
-          namespace: teamsykmelding
+        - application: esyfo-narmesteleder
+          namespace: team-esyfo
       external:
         - host: pdl-api.dev-fss-pub.nais.io
         - host: dokdistfordeling-q1.dev-fss-pub.nais.io
@@ -85,7 +85,7 @@ spec:
     - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
       value: api://dev-gcp.fager.notifikasjon-produsent-api/.default
     - name: NARMESTELEDER_URL
-      value: http://narmesteleder.teamsykmelding
+      value: http://esyfo-narmesteleder.team-esyfo
     - name: NARMESTELEDER_SCOPE
-      value: api://dev-gcp.teamsykmelding.narmesteleder/.default
+      value: api://dev-gcp.team-esyfo.esyfo-narmesteleder/.default
   # DEFERRED (area 5: remaining Auth & ACL, not yet grilled in docs/context.md): tokenx inbound.
