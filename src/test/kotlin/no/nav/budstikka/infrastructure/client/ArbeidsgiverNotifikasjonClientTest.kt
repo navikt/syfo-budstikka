@@ -10,11 +10,13 @@ import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
-import no.nav.budstikka.application.port.ArbeidsgiverExternalVarsling
+import no.nav.budstikka.application.port.AltinnExternalVarsling
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.domain.dispatch.AltinnResourceId
 import no.nav.budstikka.domain.dispatch.ArbeidsgiverMeldingstype
+import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
@@ -42,7 +44,7 @@ class ArbeidsgiverNotifikasjonClientTest :
                     tag = Tag.OPPFOELGING,
                     groupingId = "sak-1",
                     externalVarsling =
-                        ArbeidsgiverExternalVarsling(
+                        AltinnExternalVarsling(
                             epostTittel = "Tittel <rå>",
                             epostTekst = "A & <B>\n\"C\" 'D'",
                             smsTekst = "SMS <rå>",
@@ -87,7 +89,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             client.publish(
                 request(
                     externalVarsling =
-                        ArbeidsgiverExternalVarsling(
+                        AltinnExternalVarsling(
                             epostTittel = "Tittel",
                             epostTekst = "før\r\netter\ralene",
                             smsTekst = "SMS",
@@ -96,6 +98,39 @@ class ArbeidsgiverNotifikasjonClientTest :
             ) shouldBe ArbeidsgiverNotificationResponse.Published
 
             body shouldContain """"epostHtmlBody":"før<br>etter<br>alene""""
+        }
+
+        test("sends NarmesteLeder recipient and one email notification per address") {
+            var body = ""
+            val client =
+                client { request ->
+                    body = (request.body as TextContent).text
+                    respond("""{"data":{"nyBeskjed":{"__typename":"NyBeskjedVellykket"}}}""", HttpStatusCode.OK)
+                }
+
+            client.publish(
+                request(
+                    recipient =
+                        ArbeidsgiverNotificationRecipient.NarmesteLeder(
+                            narmesteLederFnr = PersonIdentifier("22222222222"),
+                            ansattFnr = PersonIdentifier("11111111111"),
+                            externalVarsling =
+                                no.nav.budstikka.application.port.NarmesteLederExternalVarsling(
+                                    "Tittel",
+                                    "A & <B>",
+                                    listOf("first@example.test", "second@example.test"),
+                                ),
+                        ),
+                ),
+            ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+            body shouldContain """"naermesteLeder":{"naermesteLederFnr":"22222222222","ansattFnr":"11111111111"}"""
+            body shouldContain """"virksomhetsnummer":"123456789""""
+            body shouldContain """"epostadresse":"first@example.test""""
+            body shouldContain """"epostadresse":"second@example.test""""
+            body shouldContain """"epostHtmlBody":"A &amp; &lt;B&gt;""""
+            body shouldContain """"sendevindu":"LOEPENDE""""
+            body.contains("altinnRessurs") shouldBe false
         }
 
         test("maps duplicate to Published and documented business errors to Rejected") {
@@ -158,7 +193,9 @@ private fun request(
     tag: Tag = Tag.DIALOGMOETE,
     groupingId: String? = null,
     meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
-    externalVarsling: ArbeidsgiverExternalVarsling? = null,
+    externalVarsling: AltinnExternalVarsling? = null,
+    recipient: ArbeidsgiverNotificationRecipient =
+        ArbeidsgiverNotificationRecipient.AltinnRessurs(AltinnResourceId.DIALOGMOETE, externalVarsling),
 ) = ArbeidsgiverNotificationRequest(
     virksomhetsnummer = "123456789",
     eksternId = "external-id",
@@ -166,7 +203,6 @@ private fun request(
     tag = tag,
     tekst = "Tekst",
     lenke = "https://nav.no",
-    altinnRessurs = AltinnResourceId.DIALOGMOETE,
+    recipient = recipient,
     meldingstype = meldingstype,
-    externalVarsling = externalVarsling,
 )

@@ -1,6 +1,7 @@
 package no.nav.budstikka.fakes
 
 import no.nav.budstikka.application.port.DispatchMetrics
+import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 import java.util.concurrent.ConcurrentHashMap
@@ -17,6 +18,7 @@ class RecordingDispatchMetrics : DispatchMetrics {
     val deliveryEmptyPolls = AtomicInteger()
     val deliverySent = ConcurrentHashMap<Channel, AtomicInteger>()
     val deliveryFailed = ConcurrentHashMap<Channel, AtomicInteger>()
+    val narmesteLederMissing = ConcurrentHashMap<NarmesteLederMissingReason, AtomicInteger>()
 
     override fun inboxClaimed(count: Int) {
         inboxClaimed.addAndGet(count)
@@ -52,6 +54,10 @@ class RecordingDispatchMetrics : DispatchMetrics {
 
     override fun deliveryFailed(channel: Channel) {
         deliveryFailed.computeIfAbsent(channel) { AtomicInteger() }.incrementAndGet()
+    }
+
+    override fun narmesteLederMissing(reason: NarmesteLederMissingReason) {
+        narmesteLederMissing.computeIfAbsent(reason) { AtomicInteger() }.incrementAndGet()
     }
 
     override fun inboxOutsideSendingWindow(reason: String) {

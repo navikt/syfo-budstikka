@@ -78,3 +78,21 @@ fun ApplicationConfig.toKrrConfig() =
             }
         }
     }
+
+data class NarmesteLederConfig(
+    val url: String,
+    val scope: String,
+)
+
+fun ApplicationConfig.toNarmesteLederConfig() =
+    with(configFor("narmesteLeder")) {
+        NarmesteLederConfig(
+            url = this("url"),
+            scope = this("scope"),
+        ).validate { config ->
+            buildList {
+                if (config.url.isBlank()) add("narmesteLeder.url must be set (NARMESTELEDER_URL)")
+                if (config.scope.isBlank()) add("narmesteLeder.scope must be set (NARMESTELEDER_SCOPE)")
+            }
+        }
+    }

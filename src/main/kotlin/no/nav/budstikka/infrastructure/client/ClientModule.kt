@@ -5,6 +5,7 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.DocumentDistributor
+import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
@@ -34,6 +35,13 @@ fun DependencyRegistry.clientModule() {
     }
     provide<ReservationLookup> {
         KrrClient(
+            httpClient = resolve<HttpClient>(),
+            config = resolve(),
+            tokenProvider = resolve<TokenProvider>(),
+        )
+    }
+    provide<NarmesteLederLookup> {
+        NarmesteLederClient(
             httpClient = resolve<HttpClient>(),
             config = resolve(),
             tokenProvider = resolve<TokenProvider>(),

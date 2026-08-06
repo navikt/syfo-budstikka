@@ -89,6 +89,8 @@ Det betyr:
 - `Tag`: `DIALOGMOETE`, `OPPFOELGING`
 - `AltinnResourceId`: `DIALOGMOETE`
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
+- `AltinnExternalVarsling(emailTitle, emailText, smsText)`
+- `NarmesteLederExternalVarsling(emailTitle, emailText)`
 - `Oppgavetype` (LEDERVARSEL, ADR 0015): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Representativ verdi nå: `DIALOGMOTE_INNKALLING`; resten additivt ved onboarding.
 - `Sakstilknytning(sakId)`
 
@@ -96,6 +98,21 @@ Viktige valg:
 
 - `DittSykefravaerCreate` har ikke eget `variant`-felt i kontrakten nå.
 - `ArbeidsgiverRecipient` er sealed valg (`NarmesteLeder` eller `AltinnResource`) og kombineres ikke i samme event.
+- Ekstern varsling for `ArbeidsgivervarselCreate` hører til mottakerstien, ikke hendelsen.
+  `AltinnResource(resource, externalVarsling?)` bruker valgfri
+  `AltinnExternalVarsling`, men når den er satt, er e-posttittel, e-posttekst og
+  SMS-tekst alle påkrevd. `NarmesteLeder(sykmeldt, externalVarsling?)` bruker
+  valgfri `NarmesteLederExternalVarsling` med bare e-posttittel og e-posttekst.
+  SMS finnes ikke for nærmeste leder: nedstrøms `EksterntVarselInput` godtar kun
+  én variant, og denne stien bruker e-post.
+  Oppslag og feilhåndtering for nærmeste leder er beskrevet under
+  «Ledervarsel-resolusjon (B24)». Manglende aktiv leder gir et terminalt utfall.
+  Når det finnes en aktiv leder uten e-postadresse og konsumenten har bedt om
+  ekstern varsling, gir også det et terminalt utfall for hele leveransen,
+  inkludert in-app-varselet. Varselet degraderes ikke til kun in-app, slik
+  `ReservationGate` gjør for brukervarsler (B7): Konsumenten ba eksplisitt om
+  ekstern varsling, og en stille degradering ville skjult at lederen ikke ble
+  nådd eksternt. Dette valget er under vurdering og kan endres.
 
 ## Dispatch-varianter
 
@@ -121,14 +138,14 @@ Merk:
 ## Ledervarsel-resolusjon (B24)
 
 **B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
-— IKKE NL-fnr. Budstikka slår opp aktiv leder i narmesteleder-registeret i beslutnings- fasen (som KRR/PDL).
-Partisjonsnøkkel = `sykmeldt` (stabilt anker; NL er ukjent ved publisering og kan byttes). Eliminerer dagens
+— aldri NL-fnr. Kanalhandleren slår opp aktiv leder i narmesteleder-registeret ved
+sendetidspunkt. `SendingWindowGate` kan utsette leveransen i dager, så oppslag ved
+sending gir korrekt leder etter et lederbytte og unngår å persistere lederens
+fødselsnummer i `delivery`-payloaden. `LedervarselCreate` partisjoneres på
+`sykmeldt`, mens `ArbeidsgivervarselCreate` partisjoneres på `orgnummer` for begge
+mottakerstiene (se tabellen over). For NL-stien er `sykmeldt` kun oppslagsanker mot
+narmesteleder-registeret sammen med `orgnummer`. Dette eliminerer dagens
 dobbeltoppslag i esyfovarsel.
-
-Status nå:
-
-- Kontraktformen følger B24 (`LedervarselCreate` har `sykmeldt` + `orgnummer`, ikke NL-fnr).
-- Selve NL-oppslaget er ikke koblet inn i runtime ennå.
 
 ## Ledervarsel-kanal: rent in-app (ADR 0016)
 
@@ -141,7 +158,8 @@ gjør kun et DB-insert). Kanalen har **ingen ekstern bærer** (SMS/e-post).
 - `LedervarselCreate` har **ikke** `externalVarsling` (falsk affordance, fjernet i v1).
 - `sendingWindow` beholdes; default = `ONGOING` (LØPENDE), som ren in-app.
 - **Ekstern varsling til nærmeste leder** = egen `ArbeidsgivervarselCreate` med
-  `NarmesteLeder(sykmeldt)`-mottaker (B6: flere kanaler → flere hendelser; B32).
+  `NarmesteLeder(sykmeldt, externalVarsling?)`-mottaker (B6: flere kanaler →
+  flere hendelser; B32).
 - Wire: `DineSykmeldteHendelse` (JSON), Kafka-key = `reference` (ikke fnr).
 
 ## Mapping til delivery-draft (faktisk kode)
@@ -196,8 +214,9 @@ Alle andre varianter returnerer `null` (gates ikke av `DeathGate` i dag).
 
 - `*Inactivate` mappes til nye `DeliveryDraft`-rader direkte.
 - Oppslag på tidligere create-rad via `(reference, recipient, channel)` er **ikke implementert ennå**.
-- Delivery-eksekvering har handlere for `BRUKERVARSEL`, `LEDERVARSEL`, `MICROFRONTEND`, `BREV` og Altinn-ressurs-stien i `ARBEIDSGIVERVARSEL` i `DeliveryWorker` (registrert i `WorkerModule`); `DITT_SYKEFRAVAER` mangler fortsatt handler.
-- Arbeidsgiverkanalen oppretter bare Altinn-ressurs-varsler. Den oppretter ikke sak, og den lukker eller inaktiverer ikke varsler. Nærmeste leder-stien kommer i egen implementasjon.
+- Delivery-eksekvering har handlere for `BRUKERVARSEL`, `LEDERVARSEL`, `MICROFRONTEND`, `BREV` og begge mottakerstiene i `ARBEIDSGIVERVARSEL` i `DeliveryWorker` (registrert i `WorkerModule`); `DITT_SYKEFRAVAER` mangler fortsatt handler.
+- Arbeidsgiverkanalen oppretter Altinn-ressurs-varsler og varsler til nærmeste leder.
+  Den oppretter ikke sak, og den lukker eller inaktiverer ikke varsler.
 - `ArbeidsgivervarselCreate.visibleUntil` mappes foreløpig ikke nedstrøms for arbeidsgiverkanalen.
 
 Dette dokumentet beskriver kontrakten og mappingen slik den faktisk er i koden nå.

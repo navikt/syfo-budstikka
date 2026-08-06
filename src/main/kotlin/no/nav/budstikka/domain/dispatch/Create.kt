@@ -67,7 +67,6 @@ data class ArbeidsgivervarselCreate(
     val tag: Tag,
     val text: String,
     val link: String,
-    val externalVarsling: ExternalVarsling? = null,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
@@ -88,13 +87,30 @@ sealed interface ArbeidsgiverRecipient
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
+    val externalVarsling: NarmesteLederExternalVarsling? = null,
 ) : ArbeidsgiverRecipient
 
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
+    val externalVarsling: AltinnExternalVarsling? = null,
 ) : ArbeidsgiverRecipient
+
+/** External notification texts required by the Altinn-resource delivery path. */
+@Serializable
+data class AltinnExternalVarsling(
+    val emailTitle: String,
+    val emailText: String,
+    val smsText: String,
+)
+
+/** External notification texts required by the Nærmeste leder email delivery path. */
+@Serializable
+data class NarmesteLederExternalVarsling(
+    val emailTitle: String,
+    val emailText: String,
+)
 
 @Serializable
 @SerialName("BrevCreate")
