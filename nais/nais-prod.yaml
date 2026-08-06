@@ -94,6 +94,6 @@ spec:
     - name: KRR_SCOPE
       value: api://prod-gcp.team-rocket.digdir-krr-proxy/.default
     - name: ARBEIDSGIVER_NOTIFIKASJON_URL
-      value: https://ag-notifikasjon-produsent-api.intern.nav.no/api/graphql
+      value: http://notifikasjon-produsent-api.fager/api/graphql
     - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
       value: api://prod-gcp.fager.notifikasjon-produsent-api/.default
