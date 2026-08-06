@@ -104,15 +104,17 @@ Det betyr:
 
 - `Varseltype`: `BESKJED`, `OPPGAVE`
 - `ExternalChannel`: `SMS`, `EMAIL`
-- `ExternalVarsling`: konstruktøren er privat. Bruk `ExternalVarsling.smsAndEmail(smsText, emailTitle, emailText)`,
-  `ExternalVarsling.smsOnly(smsText)` eller `ExternalVarsling.emailOnly(emailTitle, emailText)`. Tekstfeltene er valgfrie.
+- `ExternalNotification`: konstruktøren er privat. Bruk `ExternalNotification.smsAndEmail(smsText, emailTitle, emailText)`,
+  `ExternalNotification.smsOnly(smsText)` eller `ExternalNotification.emailOnly(emailTitle, emailText)`. Tekstfeltene er valgfrie.
+  Wire-feltet heter fortsatt `externalVarsling` (property-navnet er ikke endret); typen har ingen
+  klassediskriminator på wire, så Kotlin-navnebyttet endrer ikke JSON-formen.
 - `DistributionType`: `IMPORTANT`, `OTHER`
 - `BrevFallback(journalpostId, distributionType)`
 - `SendingWindow`: `ONGOING`, `BUDSTIKKA_OPENING_HOURS`
 - `Tag`: `DIALOGMOETE`, `OPPFOELGING`
 - `AltinnResourceId`: `DIALOGMOETE`
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
-- `Oppgavetype` (LEDERVARSEL): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Representativ verdi nå: `DIALOGMOTE_INNKALLING`; resten additivt ved onboarding.
+- `Oppgavetype` (LEDERVARSEL): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Verdier nå: `DIALOGMOTE_INNKALLING`, `OPPFOLGINGSPLAN_PAAMINNELSE`; resten additivt ved onboarding.
 - `Sakstilknytning(sakId)` — B31: produsenten eier sak-livsløpet; budstikka mapper bare
   `sakId` → `grupperingsid` nedstrøms og oppretter aldri sak selv (lukkestatus via B39)
 

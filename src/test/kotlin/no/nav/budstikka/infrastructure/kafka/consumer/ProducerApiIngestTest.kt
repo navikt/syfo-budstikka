@@ -10,7 +10,7 @@ import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.contract.Budstikka
 import no.nav.budstikka.contract.EncodedDispatch
 import no.nav.budstikka.contract.EventId
-import no.nav.budstikka.contract.ExternalVarsling
+import no.nav.budstikka.contract.ExternalNotification
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate
 import no.nav.budstikka.contract.MicrofrontendDisable
@@ -48,7 +48,7 @@ class ProducerApiIngestTest :
                             sykmeldt = SYKMELDT,
                             varseltype = Varseltype.OPPGAVE,
                             text = "Du har en oppgave",
-                            externalVarsling = ExternalVarsling.smsOnly(smsText = "Sjekk Min side"),
+                            externalVarsling = ExternalNotification.smsOnly(smsText = "Sjekk Min side"),
                         ),
                     "brukervarselInactivate" to
                         Budstikka.brukervarselInactivate(eventId = eventId, reference = "ref-1", sykmeldt = SYKMELDT),

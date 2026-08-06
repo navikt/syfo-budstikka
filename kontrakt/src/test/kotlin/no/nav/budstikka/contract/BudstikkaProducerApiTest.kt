@@ -51,7 +51,7 @@ class BudstikkaProducerApiTest :
                         text = SYNTHETIC_TEXT,
                         link = "https://nav.no/syk",
                         visibleUntil = VISIBLE_UNTIL,
-                        externalVarsling = ExternalVarsling.smsOnly(smsText = SYNTHETIC_SMS_TEXT),
+                        externalVarsling = ExternalNotification.smsOnly(smsText = SYNTHETIC_SMS_TEXT),
                         brevFallback = BrevFallback(journalpostId = "jp-1"),
                         sendingWindow = SendingWindow.ONGOING,
                     )
@@ -67,10 +67,10 @@ class BudstikkaProducerApiTest :
             }
 
             test("external varsling factories set exactly the channels they name") {
-                ExternalVarsling.smsAndEmail().channels shouldContainExactlyInAnyOrder
+                ExternalNotification.smsAndEmail().channels shouldContainExactlyInAnyOrder
                     listOf(ExternalChannel.SMS, ExternalChannel.EMAIL)
-                ExternalVarsling.smsOnly().channels shouldContainExactlyInAnyOrder listOf(ExternalChannel.SMS)
-                ExternalVarsling
+                ExternalNotification.smsOnly().channels shouldContainExactlyInAnyOrder listOf(ExternalChannel.SMS)
+                ExternalNotification
                     .emailOnly(
                         emailTitle = SYNTHETIC_EMAIL_TITLE,
                         emailText = SYNTHETIC_EMAIL_TEXT,
@@ -140,6 +140,20 @@ class BudstikkaProducerApiTest :
                     """"sykmeldt":"11111111111","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
                     """"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/dine-sykmeldte",""" +
                     """"visibleUntil":"2026-01-01T00:00:00Z","sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+            }
+
+            test("encodes OPPFOLGINGSPLAN_PAAMINNELSE as its exact wire value") {
+                val encoded =
+                    Budstikka.dineSykmeldteVarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        oppgavetype = Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE,
+                        text = SYNTHETIC_TEXT,
+                    )
+
+                encoded.value shouldContain """"oppgavetype":"OPPFOLGINGSPLAN_PAAMINNELSE""""
             }
         }
 
@@ -300,7 +314,7 @@ class BudstikkaProducerApiTest :
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         varseltype = Varseltype.OPPGAVE,
                         text = SYNTHETIC_TEXT,
-                        externalVarsling = ExternalVarsling.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
+                        externalVarsling = ExternalNotification.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
                     )
 
                 // Decoding is the consuming side of the contract and lives behind the wire opt-in, so the

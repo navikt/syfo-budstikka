@@ -80,6 +80,30 @@ class LedervarselPublisherTest :
             }
         }
 
+        test("forwards Oppgavetype.wireValue unchanged for OPPFOLGINGSPLAN_PAAMINNELSE") {
+            with(PublisherFixture()) {
+                ledervarselPublisher(topic, recording, MutableClock(now)).publish(
+                    reference = reference,
+                    ledervarsel =
+                        LedervarselCreate(
+                            sykmeldt = TEST_SYKMELDT,
+                            orgnummer = TEST_ORGNUMMER,
+                            oppgavetype = Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE,
+                            text = "Påminnelse om oppfølgingsplan",
+                        ),
+                )
+
+                val opprett =
+                    recording.published
+                        .single()
+                        .value
+                        .parseJson()["opprettHendelse"]!!
+                        .jsonObject
+                opprett["oppgavetype"]!!.jsonPrimitive.content shouldBe
+                    Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE.wireValue
+            }
+        }
+
         test("publishes LedervarselInactivate as DineSykmeldteHendelse.ferdigstillHendelse keyed by reference") {
             with(PublisherFixture()) {
                 ledervarselPublisher(topic, recording, MutableClock(now)).publish(

@@ -63,7 +63,7 @@ object Budstikka {
         text: String,
         link: String? = null,
         visibleUntil: Instant? = null,
-        externalVarsling: ExternalVarsling? = null,
+        externalVarsling: ExternalNotification? = null,
         brevFallback: BrevFallback? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
     ): EncodedDispatch {

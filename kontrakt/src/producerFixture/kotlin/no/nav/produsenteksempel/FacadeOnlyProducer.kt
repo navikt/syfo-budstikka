@@ -6,7 +6,7 @@ import no.nav.budstikka.contract.DistributionType
 import no.nav.budstikka.contract.EncodedDispatch
 import no.nav.budstikka.contract.EventId
 import no.nav.budstikka.contract.ExternalChannel
-import no.nav.budstikka.contract.ExternalVarsling
+import no.nav.budstikka.contract.ExternalNotification
 import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
@@ -96,9 +96,9 @@ object FacadeOnlyProducer {
     /** A fresh eventId, persisted by the Produsent before the first send and reused on every retry. */
     fun newEventId(): EventId = EventId.new()
 
-    private fun externalVarsling(): ExternalVarsling {
-        val both = ExternalVarsling.smsAndEmail(smsText = "SYNTETISK-SMSTEKST", emailTitle = "SYNTETISK-EPOSTTITTEL")
+    private fun externalVarsling(): ExternalNotification {
+        val both = ExternalNotification.smsAndEmail(smsText = "SYNTETISK-SMSTEKST", emailTitle = "SYNTETISK-EPOSTTITTEL")
         val channels: Set<ExternalChannel> = both.channels
-        return if (ExternalChannel.SMS in channels) both else ExternalVarsling.emailOnly()
+        return if (ExternalChannel.SMS in channels) both else ExternalNotification.emailOnly()
     }
 }

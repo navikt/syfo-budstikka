@@ -22,7 +22,7 @@ class DispatchSerializationTest :
                             text = "Du har en oppgave",
                             link = "https://nav.no/x",
                             visibleUntil = Instant.parse("2026-01-01T00:00:00Z"),
-                            externalVarsling = ExternalVarsling.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
+                            externalVarsling = ExternalNotification.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
                             brevFallback = BrevFallback(journalpostId = "jp-1"),
                             sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
                         ),
@@ -129,6 +129,32 @@ class DispatchSerializationTest :
             }
         }
 
+        context("ExternalVarsling -> ExternalNotification rename is invisible on the wire") {
+            // This nested object carries no class discriminator (unlike DispatchContent's `type`
+            // field), so nothing here depends on the Kotlin class name: only the field name
+            // `externalVarsling` and its own property names are on the wire. This payload is
+            // shaped exactly like a message already produced before the class was renamed from
+            // ExternalVarsling to ExternalNotification, and must keep decoding unchanged.
+            val legacyPayload =
+                """{"reference":"ref-legacy","content":{"type":"BrukervarselCreate",""" +
+                    """"personIdentifier":"${SYNTHETIC_SYKMELDT.value}","varseltype":"BESKJED","text":"Hei",""" +
+                    """"link":null,"visibleUntil":null,""" +
+                    """"externalVarsling":{"channels":["SMS","EMAIL"],"smsText":"$SYNTHETIC_SMS_TEXT",""" +
+                    """"emailTitle":null,"emailText":null},"brevFallback":null,""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+
+            test("a pre-rename payload with the externalVarsling field decodes into ExternalNotification") {
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(legacyPayload)
+                (dispatch.content as BrukervarselCreate).externalVarsling shouldBe
+                    ExternalNotification.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT)
+            }
+
+            test("re-encoding the decoded content reproduces the same externalVarsling field name and shape") {
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(legacyPayload)
+                dispatchJson.encodeToString(dispatch) shouldBe legacyPayload
+            }
+        }
+
         test("serialized payload carries the raw value (partitioning needs a real id)") {
             dispatchJson.encodeToString(
                 envelope(
@@ -148,7 +174,7 @@ class DispatchSerializationTest :
                     sykmeldt = SYNTHETIC_SYKMELDT,
                     varseltype = Varseltype.OPPGAVE,
                     text = SYNTHETIC_TEXT,
-                    externalVarsling = ExternalVarsling.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
+                    externalVarsling = ExternalNotification.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
                 )
 
             dispatchJson.decodeFromString<Dispatch>(encoded.value) shouldBe
@@ -157,7 +183,7 @@ class DispatchSerializationTest :
                         personIdentifier = SYNTHETIC_SYKMELDT,
                         varseltype = Varseltype.OPPGAVE,
                         text = SYNTHETIC_TEXT,
-                        externalVarsling = ExternalVarsling.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
+                        externalVarsling = ExternalNotification.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
                     ),
                 )
         }

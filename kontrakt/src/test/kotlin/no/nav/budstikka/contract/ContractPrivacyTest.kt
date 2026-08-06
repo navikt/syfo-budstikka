@@ -43,7 +43,7 @@ class ContractPrivacyTest :
         fun String.shouldNotLeak() = secrets.forEach { secret -> this shouldNotContain secret }
 
         val externalVarsling =
-            ExternalVarsling.smsAndEmail(
+            ExternalNotification.smsAndEmail(
                 smsText = SYNTHETIC_SMS_TEXT,
                 emailTitle = SYNTHETIC_EMAIL_TITLE,
                 emailText = SYNTHETIC_EMAIL_TEXT,
@@ -131,7 +131,7 @@ class ContractPrivacyTest :
 
         context("toString of an identifier-bearing helper type stays clean") {
             listOf<Pair<String, Any>>(
-                "ExternalVarsling" to externalVarsling,
+                "ExternalNotification" to externalVarsling,
                 "BrevFallback" to brevFallback,
                 "Sakstilknytning" to sakstilknytning,
                 "NarmesteLeder" to NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),

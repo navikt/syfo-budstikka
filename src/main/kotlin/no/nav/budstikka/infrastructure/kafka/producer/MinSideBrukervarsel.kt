@@ -5,7 +5,7 @@ import no.nav.budstikka.contract.Brukervarsel
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.contract.ExternalChannel
-import no.nav.budstikka.contract.ExternalVarsling
+import no.nav.budstikka.contract.ExternalNotification
 import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.tms.varsel.builder.InaktiverVarselBuilder
 import no.nav.tms.varsel.builder.OpprettVarselBuilder
@@ -78,7 +78,7 @@ private fun DomainVarseltype.toTms(): TmsVarseltype =
         DomainVarseltype.OPPGAVE -> TmsVarseltype.Oppgave
     }
 
-private fun ExternalVarsling.toTms(): OpprettVarselBuilder.EksternVarslingBuilder =
+private fun ExternalNotification.toTms(): OpprettVarselBuilder.EksternVarslingBuilder =
     OpprettVarselBuilder.eksternVarsling().apply {
         preferredChannel()?.let(::withPreferertKanal)
         smsText?.let(::withSmsVarslingstekst)
@@ -86,7 +86,7 @@ private fun ExternalVarsling.toTms(): OpprettVarselBuilder.EksternVarslingBuilde
         emailText?.let(::withEpostVarslingstekst)
     }
 
-private fun ExternalVarsling.preferredChannel(): TmsEksternKanal? =
+private fun ExternalNotification.preferredChannel(): TmsEksternKanal? =
     when (channels.singleOrNull()) {
         ExternalChannel.SMS -> TmsEksternKanal.SMS
         ExternalChannel.EMAIL -> TmsEksternKanal.EPOST

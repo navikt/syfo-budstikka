@@ -10,7 +10,7 @@ import no.nav.budstikka.contract.BrevFallback
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchContent
-import no.nav.budstikka.contract.ExternalVarsling
+import no.nav.budstikka.contract.ExternalNotification
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.contract.Varseltype
@@ -28,7 +28,7 @@ class ReservationGateTest :
             content: DispatchContent,
         ): Decision = DecisionProcess(listOf(ReservationGate(lookup))).process(event(content))
 
-        val externalVarsling = ExternalVarsling.smsAndEmail(smsText = "Du har et nytt varsel")
+        val externalVarsling = ExternalNotification.smsAndEmail(smsText = "Du har et nytt varsel")
         val brevFallback = BrevFallback(journalpostId = "jp-1")
 
         test("Reservasjon + ekstern varsling + BrevFallback -> in-app (no ekstern varsling) + BREV") {
