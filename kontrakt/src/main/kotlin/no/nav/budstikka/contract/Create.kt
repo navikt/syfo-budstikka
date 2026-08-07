@@ -134,6 +134,7 @@ data class AltinnResource(
 ) : ArbeidsgiverRecipient
 
 /** External notification texts required by the Altinn-resource delivery path. */
+@InternalBudstikkaWire
 @Serializable
 data class AltinnExternalVarsling(
     val emailTitle: String,
@@ -142,12 +143,14 @@ data class AltinnExternalVarsling(
 )
 
 /** External notification texts required by the Nærmeste leder email delivery path. */
+@InternalBudstikkaWire
 @Serializable
 data class NarmesteLederExternalVarsling(
     val emailTitle: String,
     val emailText: String,
 )
 
+@OptIn(InternalBudstikkaWire::class)
 private fun ArbeidsgiverRecipient.hasExternalVarsling(): Boolean =
     when (this) {
         is AltinnResource -> externalVarsling != null
