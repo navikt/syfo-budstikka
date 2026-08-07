@@ -49,6 +49,9 @@ jobs:
             run_contract_gates=true
             reason="base or head SHA is unavailable in the checkout"
           else
+            # Captured in a variable so a git diff failure fails the step instead of silently
+            # yielding an empty file list (set -e does not reach process substitutions).
+            changed_files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
             while IFS= read -r path; do
               case "$path" in
                 kontrakt/* | \
@@ -61,7 +64,7 @@ jobs:
                   break
                   ;;
               esac
-            done < <(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")
+            done <<< "$changed_files"
           fi
 
           printf 'run_contract_gates=%s\nreason=%s\n' "$run_contract_gates" "$reason" >> "$GITHUB_OUTPUT"
@@ -79,13 +82,7 @@ jobs:
           set -euo pipefail
 
           version="$(bash scripts/verify-contract-baseline.sh)"
-          VERSION="$version" python3 -c '
-          import os
-          from pathlib import Path
-          Path(os.environ["GITHUB_OUTPUT"]).open("a").write(
-              "version=" + os.environ["VERSION"] + "\n"
-          )
-          '
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
       # A published baseline is mandatory when authoritative release tags exist. The isolated consumer
       # deliberately proves resolution without the runner's Gradle cache.

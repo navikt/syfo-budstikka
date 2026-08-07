@@ -34,6 +34,7 @@ import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Varseltype
 import org.apache.kafka.clients.producer.ProducerRecord
 
+// Pseudokode: opprett og lagre EventId atomisk i egen lagring, og les samme id ved retry.
 val eventId = eventIdStore.loadOrCreateAtomically(notificationId) { EventId.new() }
 
 val encoded = Budstikka.brukervarselCreate(

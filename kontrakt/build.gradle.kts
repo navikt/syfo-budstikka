@@ -21,6 +21,9 @@ plugins {
 
 val contractVersion = providers.gradleProperty("contractVersion").orElse("0.1.0-local")
 val stableSemVer = Regex("""^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$""")
+// Raw-wire families excluded from both API gates (the Kotlin ABI dump and japicmp). The entries are
+// name-prefix wildcards: a future producer-facing public type must not reuse one of these prefixes,
+// or it would silently fall outside both gates.
 val rawWireGeneratedClassPatterns =
     listOf(
         "no.nav.budstikka.contract.AltinnResource**",
@@ -243,7 +246,9 @@ val checkPublishedContractCompatibility =
 
 /**
  * Runs a separate Kotlin 2.3 producer build against a file Maven repository. It deliberately uses
- * neither a project dependency nor Gradle's global Maven cache as a publication source.
+ * neither a project dependency nor Gradle's global Maven cache as a publication source. The nested
+ * build reuses the already-running Gradle installation instead of resolving a wrapper distribution
+ * into its isolated Gradle home; only dependency and metadata resolution stays isolated.
  */
 abstract class CheckStandaloneConsumer : DefaultTask() {
     @get:InputDirectory
@@ -292,6 +297,9 @@ abstract class CheckStandaloneConsumer : DefaultTask() {
     }
 }
 
+val currentGradleInstallation =
+    gradle.gradleHomeDir ?: error("The standalone consumer checks require a Gradle installation home.")
+
 val checkLocalConsumer =
     tasks.register<CheckStandaloneConsumer>("checkLocalConsumer") {
         group = "verification"
@@ -299,7 +307,7 @@ val checkLocalConsumer =
         dependsOn("publishContractPublicationToLocalContractRepository")
         fixtureDirectory = layout.projectDirectory.dir("consumer-fixture")
         repositoryDirectory = layout.buildDirectory.dir("local-maven-repository")
-        gradleExecutable = layout.projectDirectory.file("../gradlew")
+        gradleExecutable = currentGradleInstallation.resolve("bin/gradle")
         publishedVersion = contractVersion
         workDirectory = layout.buildDirectory.dir("local-consumer")
     }
@@ -311,7 +319,7 @@ val checkStagedConsumer =
         dependsOn("publishContractPublicationToStagingContractRepository")
         fixtureDirectory = layout.projectDirectory.dir("consumer-fixture")
         repositoryDirectory = layout.buildDirectory.dir("staging-maven-repository")
-        gradleExecutable = layout.projectDirectory.file("../gradlew")
+        gradleExecutable = currentGradleInstallation.resolve("bin/gradle")
         publishedVersion = contractVersion
         workDirectory = layout.buildDirectory.dir("staged-consumer")
     }

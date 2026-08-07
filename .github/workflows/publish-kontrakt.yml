@@ -24,202 +24,42 @@ jobs:
       - name: Require tag creation, update and deletion restrictions
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          repository="$REPOSITORY"
-          if [[ ! "$repository" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-            echo "::error::Invalid GitHub repository name for ruleset preflight."
-            exit 1
-          fi
-          owner="${repository%%/*}"
-          repository_name="${repository#*/}"
-          if [[ "$owner" == "." || "$owner" == ".." || "$repository_name" == "." || "$repository_name" == ".." ]]; then
-            echo "::error::Invalid GitHub repository name for ruleset preflight."
-            exit 1
-          fi
+          # Authenticated lookup: gh api fails the step (closed) on any HTTP, network or parse
+          # error, and the installation token avoids the shared-runner unauthenticated rate limit.
+          tag_ruleset_ids="$(
+            gh api --paginate "repos/${REPOSITORY}/rulesets?includes_parents=true&per_page=100" \
+              --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id'
+          )"
 
-          fetch_ruleset_json() {
-            local url="$1"
-            local body_file
-            local curl_exit
-            local status
-
-            body_file="$(mktemp)" ||
-              {
-                echo "::error::Could not create temporary storage for the GitHub ruleset API response." >&2
-                return 1
-              }
-
-            if status="$(
-              curl \
-              --silent \
-              --show-error \
-              --location \
-              --proto '=https' \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --output "$body_file" \
-              --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "X-GitHub-Api-Version: 2022-11-28" \
-              --header "User-Agent: budstikka-contract-ruleset-preflight" \
-              "$url"
-            )"; then
-              curl_exit=0
-            else
-              curl_exit=$?
-            fi
-
-            if [[ "$curl_exit" -ne 0 ]]; then
-              rm -f "$body_file"
-              echo "::error::Network or no-response error from the unauthenticated GitHub ruleset API (curl exit ${curl_exit}); failing closed." >&2
-              return 1
-            fi
-
-            if [[ ! "$status" =~ ^[1-5][0-9]{2}$ ]]; then
-              rm -f "$body_file"
-              echo "::error::GitHub ruleset API response had a malformed or missing HTTP status; failing closed." >&2
-              return 1
-            fi
-
-            case "$status" in
-              200)
-                if ! cat "$body_file"; then
-                  rm -f "$body_file"
-                  echo "::error::Could not read the GitHub ruleset API response body; failing closed." >&2
-                  return 1
-                fi
-                rm -f "$body_file"
-                ;;
-              403)
-                rm -f "$body_file"
-                echo "::error::Unauthenticated GitHub ruleset API rate limit may be exhausted (HTTP 403); retry later rather than changing the ruleset." >&2
-                return 1
-                ;;
-              *)
-                rm -f "$body_file"
-                echo "::error::GitHub ruleset API request failed with HTTP ${status}; failing closed." >&2
-                return 1
-                ;;
-            esac
-          }
-
-          tag_ruleset_ids=()
-          page=1
-          while :; do
-            if (( page > 1000 )); then
-              echo "::error::Ruleset pagination exceeded 1000 pages and is incomplete."
+          while IFS= read -r ruleset_id; do
+            [[ -n "$ruleset_id" ]] || continue
+            if [[ ! "$ruleset_id" =~ ^[0-9]+$ ]]; then
+              echo "::error::GitHub ruleset list returned an invalid ruleset ID."
               exit 1
             fi
-
-            page_json="$(
-              fetch_ruleset_json \
-                "https://api.github.com/repos/${repository}/rulesets?includes_parents=true&per_page=100&page=${page}"
-            )"
-            page_result="$(
-              printf '%s' "$page_json" |
-                python3 -c '
-          import json
-          import sys
-
-          try:
-              rulesets = json.load(sys.stdin)
-          except json.JSONDecodeError as error:
-              raise SystemExit(f"Could not parse GitHub ruleset list JSON: {error}") from error
-
-          if not isinstance(rulesets, list):
-              raise SystemExit("GitHub ruleset list response is not an array.")
-
-          tag_ruleset_ids = []
-          for ruleset in rulesets:
-              if not isinstance(ruleset, dict):
-                  raise SystemExit("GitHub ruleset list contains a non-object entry.")
-              if ruleset.get("target") == "tag" and ruleset.get("enforcement") == "active":
-                  ruleset_id = ruleset.get("id")
-                  if not isinstance(ruleset_id, int):
-                      raise SystemExit("An active tag ruleset has no numeric ID.")
-                  tag_ruleset_ids.append(ruleset_id)
-
-          print(f"count={len(rulesets)}")
-          print(*tag_ruleset_ids, sep="\n")
-          '
-            )"
-            mapfile -t page_lines <<< "$page_result"
-            page_count="${page_lines[0]#count=}"
-            if [[ ! "$page_count" =~ ^[0-9]+$ ]]; then
-              echo "::error::Could not determine GitHub ruleset page size."
-              exit 1
-            fi
-            for ruleset_id in "${page_lines[@]:1}"; do
-              [[ "$ruleset_id" =~ ^[0-9]+$ ]] ||
-                {
-                  echo "::error::GitHub ruleset list returned an invalid ruleset ID."
-                  exit 1
-                }
-              tag_ruleset_ids+=("$ruleset_id")
-            done
-
-            (( page_count < 100 )) && break
-            ((page += 1))
-          done
-
-          for ruleset_id in "${tag_ruleset_ids[@]}"; do
-            ruleset_json="$(
-              fetch_ruleset_json \
-                "https://api.github.com/repos/${repository}/rulesets/${ruleset_id}?includes_parents=true"
-            )"
             ruleset_match="$(
-              printf '%s' "$ruleset_json" |
-                python3 -c '
-          import json
-          import sys
-
-          try:
-              ruleset = json.load(sys.stdin)
-          except json.JSONDecodeError as error:
-              raise SystemExit(f"Could not parse GitHub ruleset detail JSON: {error}") from error
-
-          if not isinstance(ruleset, dict):
-              raise SystemExit("GitHub ruleset detail response is not an object.")
-          ref_name = ruleset.get("conditions", {}).get("ref_name", {})
-          if not isinstance(ref_name, dict):
-              raise SystemExit("GitHub ruleset detail has invalid ref-name conditions.")
-          includes = ref_name.get("include", [])
-          excludes = ref_name.get("exclude", [])
-          rules = ruleset.get("rules", [])
-          if (
-              not isinstance(includes, list)
-              or not all(isinstance(include, str) for include in includes)
-              or not isinstance(excludes, list)
-              or not all(isinstance(exclude, str) for exclude in excludes)
-              or not isinstance(rules, list)
-          ):
-              raise SystemExit("GitHub ruleset detail has invalid conditions or rules.")
-          matches_contract_tags = (
-              ruleset.get("target") == "tag"
-              and ruleset.get("enforcement") == "active"
-              and includes == ["refs/tags/kontrakt/v*"]
-              and not excludes
-          )
-          required_rule_types = {"creation", "update", "deletion"}
-          rule_types = set()
-          for rule in rules:
-              if not isinstance(rule, dict) or not isinstance(rule.get("type"), str):
-                  raise SystemExit("GitHub ruleset detail has an invalid rule.")
-              rule_types.add(rule["type"])
-          print("match" if matches_contract_tags and required_rule_types <= rule_types else "no-match")
-          '
+              gh api "repos/${REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+                --jq '
+                  if .target == "tag"
+                    and .enforcement == "active"
+                    and .conditions.ref_name.include == ["refs/tags/kontrakt/v*"]
+                    and (.conditions.ref_name.exclude // []) == []
+                    and (["creation", "update", "deletion"] - [.rules[]?.type]) == []
+                  then "match"
+                  else "no-match"
+                  end
+                '
             )"
             if [[ "$ruleset_match" == "match" ]]; then
+              echo "Active tag ruleset restricting creation, update and deletion matches refs/tags/kontrakt/v*."
               exit 0
             fi
-            if [[ "$ruleset_match" != "no-match" ]]; then
-              echo "::error::Could not determine whether a GitHub ruleset matches contract tags."
-              exit 1
-            fi
-          done
+          done <<< "$tag_ruleset_ids"
 
           echo "::error::Maintainers must configure an active tag ruleset matching refs/tags/kontrakt/v* with creation, update and deletion restrictions before the first contract release."
           exit 1
@@ -252,13 +92,7 @@ jobs:
           test -f "$notes"
           grep --fixed-strings --line-regexp "# budstikka-kontrakt ${version}" "$notes"
 
-          VERSION="$version" python3 -c '
-          import os
-          from pathlib import Path
-          Path(os.environ["GITHUB_OUTPUT"]).open("a").write(
-              "contract_version=" + os.environ["VERSION"] + "\n"
-          )
-          '
+          printf 'contract_version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
   prepare-and-attest:
     name: Build, verify and attest contract
@@ -332,13 +166,7 @@ jobs:
           set -euo pipefail
 
           version="$(bash scripts/verify-contract-baseline.sh --current-version "$CONTRACT_VERSION")"
-          VERSION="$version" python3 -c '
-          import os
-          from pathlib import Path
-          Path(os.environ["GITHUB_OUTPUT"]).open("a").write(
-              "version=" + os.environ["VERSION"] + "\n"
-          )
-          '
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
       - name: Build, verify compatibility and stage contract
         shell: bash
@@ -499,53 +327,11 @@ jobs:
           tag="kontrakt/v${CONTRACT_VERSION}"
           title="budstikka-kontrakt ${CONTRACT_VERSION}"
           notes="docs/releases/kontrakt/${CONTRACT_VERSION}.md"
-          encoded_tag="$(
-            TAG="$tag" python3 -c '
-          import os
-          from urllib.parse import quote
 
-          print(quote(os.environ["TAG"], safe=""))
-          '
-          )"
-
-          api_exit=0
-          if response="$(gh api --include --silent --method GET "repos/${GITHUB_REPOSITORY}/releases/tags/${encoded_tag}")"; then
-            api_exit=0
-          else
-            api_exit=$?
-          fi
-
-          status="$(
-            RESPONSE="$response" python3 -c '
-          import os
-          import re
-          import sys
-
-          matches = re.findall(r"^HTTP/\S+\s+(\d{3})\b", os.environ["RESPONSE"], re.MULTILINE)
-          if len(matches) != 1:
-              raise SystemExit("Could not determine the GitHub Release API response status.")
-          print(matches[0])
-          '
-          )"
-
-          case "$status" in
-            404)
-              if [[ "$api_exit" -eq 0 ]]; then
-                echo "::error::GitHub Release lookup returned HTTP 404 without an API error."
-                exit 1
-              fi
-              gh release create "$tag" \
-                --verify-tag \
-                --title "$title" \
-                --notes-file "$notes"
-              ;;
-            200)
-              if [[ "$api_exit" -ne 0 ]]; then
-                echo "::error::GitHub Release lookup returned HTTP 200 but gh api failed."
-                exit 1
-              fi
-              release="$(gh release view "$tag" --json name,body,isDraft,isPrerelease)"
-              RELEASE="$release" EXPECTED_TITLE="$title" NOTES="$notes" python3 -c '
+          # A failed lookup (absent release or transient error) falls through to create, which can
+          # never overwrite an existing release: a duplicate create fails and a rerun converges.
+          if release="$(gh release view "$tag" --json name,body,isDraft,isPrerelease)"; then
+            RELEASE="$release" EXPECTED_TITLE="$title" NOTES="$notes" python3 -c '
           import json
           import os
           from pathlib import Path
@@ -573,10 +359,10 @@ jobs:
                   f"expected {expected!r}, got {actual!r}."
               )
           '
-              echo "Existing GitHub Release matches checked-in expectations."
-              ;;
-            *)
-              echo "::error::Could not look up GitHub Release ${tag}: HTTP ${status}."
-              exit 1
-              ;;
-          esac
+            echo "Existing GitHub Release matches checked-in expectations."
+          else
+            gh release create "$tag" \
+              --verify-tag \
+              --title "$title" \
+              --notes-file "$notes"
+          fi

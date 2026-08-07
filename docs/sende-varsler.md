@@ -8,7 +8,9 @@ Bruk `no.nav.syfo:budstikka-kontrakt` når en sykefraværsapp skal sende et vars
 
 Appen trenger minst Kotlin 2.3 og Java 21 og eier sin egen Kafka-producer. NAIS-manifestet må ha
 riktig `kafka.pool`: `nav-dev` i dev og `nav-prod` i prod. Før appen kan sende, må den ha en
-eksplisitt `write` ACL i både `nais/topics/kafka-dev.yaml` og `nais/topics/kafka-prod.yaml`.
+eksplisitt `write` ACL i topic-definisjonene i syfo-budstikka-repoet:
+[`nais/topics/kafka-dev.yaml`](../nais/topics/kafka-dev.yaml) og
+[`nais/topics/kafka-prod.yaml`](../nais/topics/kafka-prod.yaml).
 Kontrakten publiserer ikke `kafka-clients`.
 
 Bruk bare `Budstikka`-fasaden. Den returnerer `EncodedDispatch`, der `topic`, `key`, `value` og
@@ -97,7 +99,10 @@ skjer ikke innenfor denne kontraktversjonen.
 
 Hver ny release må ha et eget, kontrollert release-notat med riktig versjon og migrering. Publisering
 startes bare av en autorisert tagg `kontrakt/vX.Y.Z` fra `main`; workflowen avviser duplikatversjoner og
-publiserer først etter kompatibilitets- og consumer-sjekker.
+publiserer først etter kompatibilitets- og consumer-sjekker. Baseline-sjekken krever i tillegg at hver
+ny versjon er høyere enn den høyeste publiserte kontraktversjonen: En patch på en eldre minor-linje
+(for eksempel `0.2.1` etter at `0.3.0` er publisert) støttes bevisst ikke; rettinger leveres som ny
+versjon på toppen av linjen.
 
 Kompatibilitets- og release-gatene for kontraktendringer stopper med vilje når Nav-speilet er nede
 eller ligger etter release-taggene; vanlige app- og dokumentasjons-PR-er er ikke avhengige av speilet.
