@@ -32,21 +32,21 @@ spec:
       memory: 512Mi
   # Pod count: minimum 2 provides HA, so the application survives rolling deployments and node loss.
   # Maximum 4 leaves capacity to drain delivery/inbox backlog (workers are not partition-bound: they
-  # poll the database with SKIP LOCKED, B27, so N equal instances are safe). No leaderElection:
-  # periodic sweeps coordinate through a Postgres advisory lock (B12/B42).
+  # poll the database with SKIP LOCKED, so N equal instances are safe). No leaderElection:
+  # periodic sweeps coordinate through a Postgres advisory lock.
   replicas:
     min: 2
     max: 4
   prometheus:
     enabled: true
-    path: /internal/metrics # POD_METRICS_PATH; aligns with B57/B48 (metrics, not prometheus)
+    path: /internal/metrics # POD_METRICS_PATH (metrics, not prometheus)
   observability:
     logging:
       destinations:
         - id: loki
     autoInstrumentation:
       enabled: true
-      runtime: java # OTel agent sets W3C traceparent → Tempo (B45/B48)
+      runtime: java # OTel agent sets W3C traceparent → Tempo
   kafka:
     pool: nav-prod # topic: nais/topics/kafka-prod.yaml (team-esyfo.budstikka.v1)
   azure:
@@ -69,10 +69,10 @@ spec:
         diskAutoresize: true
         diskAutoresizeLimit: 20
         # No pointInTimeRecovery: the complete database derives from Kafka (inbox/delivery/dead_letter)
-        # and can be rebuilt with 90-day replay (B26) and idempotent consumption. Daily automatic
+        # and can be rebuilt with 90-day replay and idempotent consumption. Daily automatic
         # backups cover total database loss. Enable it if the RPO requirement tightens.
         # No regional highAvailability: it doubles cost, while a short database failover is not critical
-        # here: Kafka retains messages for 90 days (B26) and consumption is idempotent (retry/replay).
+        # here: Kafka retains messages for 90 days and consumption is idempotent (retry/replay).
         # Enable it if RPO/RTO requirements tighten.
         databases:
           - name: budstikka-db
