@@ -39,7 +39,7 @@ spec:
         - id: loki
     autoInstrumentation:
       enabled: true
-      runtime: java # OTel agent sets W3C traceparent → Tempo (B45/B48)
+      runtime: java # OTel agent sets W3C traceparent → Tempo
   kafka:
     pool: nav-dev
   azure:
