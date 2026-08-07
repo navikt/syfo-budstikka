@@ -50,10 +50,10 @@ class DispatchSerializationTest :
                         ),
                     "ArbeidsgivervarselCreate-NL-with-external-varsling" to
                         ArbeidsgivervarselCreate(
-                            orgnummer = Orgnummer(TEST_ORGNUMMER.value),
+                            orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient =
                                 NarmesteLeder(
-                                    sykmeldt = TEST_SYKMELDT_2,
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
                                     externalVarsling =
                                         NarmesteLederExternalVarsling(
                                             emailTitle = "E-posttittel",
@@ -74,7 +74,7 @@ class DispatchSerializationTest :
                         ),
                     "ArbeidsgivervarselCreate-Altinn-with-external-varsling" to
                         ArbeidsgivervarselCreate(
-                            orgnummer = Orgnummer(TEST_ORGNUMMER.value),
+                            orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient =
                                 AltinnResource(
                                     resource = AltinnResourceId.DIALOGMOETE,
@@ -140,7 +140,7 @@ class DispatchSerializationTest :
                 dispatchJson.encodeToString(
                     envelope(
                         ArbeidsgivervarselCreate(
-                            orgnummer = TEST_ORGNUMMER,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient =
                                 AltinnResource(
                                     AltinnResourceId.DIALOGMOETE,
@@ -156,10 +156,10 @@ class DispatchSerializationTest :
                 dispatchJson.encodeToString(
                     envelope(
                         ArbeidsgivervarselCreate(
-                            orgnummer = TEST_ORGNUMMER,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient =
                                 NarmesteLeder(
-                                    TEST_SYKMELDT_2,
+                                    SYNTHETIC_SYKMELDT,
                                     NarmesteLederExternalVarsling("Tittel", "E-post"),
                                 ),
                             tag = Tag.DIALOGMOETE,
