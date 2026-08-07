@@ -10,6 +10,8 @@ import java.util.UUID
  * caused the dispatch BEFORE the first send, and reuse the SAME id on every retry. Budstikka then
  * deduplicates a redelivery instead of notifying the person twice. Encoding therefore never generates
  * an id on your behalf; a fresh id on retry would defeat deduplication.
+ *
+ * @property value Random UUID used as the technical id.
  */
 @JvmInline
 value class EventId(
@@ -19,6 +21,7 @@ value class EventId(
     override fun toString(): String = value.toString()
 
     companion object {
+        /** Creates a new EventId to persist with the producer's work before its first send. */
         fun new(): EventId = EventId(UUID.randomUUID())
     }
 }

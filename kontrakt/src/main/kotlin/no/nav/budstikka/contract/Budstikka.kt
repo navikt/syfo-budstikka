@@ -33,7 +33,7 @@ import kotlin.time.Instant
  * (for example whether a `reference` is actually unique) are not checked here.
  */
 object Budstikka {
-    /** The topic that carries this contract. It is the same in every environment. */
+    /** The canonical contract topic producers use in each Kafka pool. */
     const val TOPIC: String = "team-esyfo.budstikka.v1"
 
     /**
@@ -46,6 +46,7 @@ object Budstikka {
      * @param reference your own id for the notification, used to inactivate it later
      *   ([brukervarselInactivate]) and as the varselId on Min side. Must be unique per notification.
      * @param sykmeldt the person who receives the notification.
+     * @param varseltype the type Min side uses to present the notification.
      * @param text the notification text shown to the person.
      * @param link where the notification takes the person; omit for a notification without a target.
      * @param visibleUntil when Min side stops showing the notification; omit to keep it until inactivated.
@@ -87,6 +88,7 @@ object Budstikka {
     /**
      * Closes a Brukervarsel created earlier.
      *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
      * @param reference the reference of the [brukervarselCreate] to close.
      * @param sykmeldt the same person as in the create; it anchors both on one partition.
      */
@@ -110,9 +112,15 @@ object Budstikka {
      * oppgavetype)` to Dine Sykmeldte as an activity notification and does no Nærmeste leder lookup
      * of its own.
      *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this notification, used when it is inactivated later.
      * @param sykmeldt the employee the notification is about; also the partition anchor.
      * @param orgnummer the organisation the employment belongs to.
      * @param oppgavetype required by Dine Sykmeldte to group and deduplicate the notification.
+     * @param text the activity notification text.
+     * @param link target for the activity notification; omit when it has no target.
+     * @param visibleUntil when Dine Sykmeldte stops showing the notification; omit to keep it visible.
+     * @param sendingWindow when the notification may leave Budstikka.
      */
     fun dineSykmeldteVarselCreate(
         eventId: EventId,
@@ -144,6 +152,8 @@ object Budstikka {
     /**
      * Closes a Dine Sykmeldte varsel created earlier with [dineSykmeldteVarselCreate].
      *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference the reference of the create notification to close.
      * @param sykmeldt the same employee as in the create; the contract never carries a leader's
      *   personident.
      */
@@ -163,7 +173,11 @@ object Budstikka {
      * Reservasjon, central print otherwise. A Brev cannot be inactivated once sent, so there is
      * no matching inactivate function.
      *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this document dispatch.
+     * @param sykmeldt the person receiving the document and the partition anchor.
      * @param journalpostId the journalpost you have already created for the document.
+     * @param distributionType distribution priority for the document.
      * @param tvingSentralPrint forces central print (dokdist's `tvingKanal: PRINT`) so the letter
      *   goes on paper even when the person could receive it digitally. This is the exception, not
      *   the default — in esyfovarsel only the aktivitetsplikt re-notification does it.
@@ -191,10 +205,12 @@ object Budstikka {
      * Makes a microfrontend visible for the Sykmeldt on Min side. This is a visibility switch, not a
      * notification: turn it off again with [microfrontendDisable].
      *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
      * @param reference your own id for this enable/disable pair, used for correlation and bookkeeping
      *   in the envelope. It is not what identifies the microfrontend downstream: Min side matches on
      *   `(sykmeldt, microfrontendId)`, and unlike [brukervarselInactivate] these two functions do not
      *   use reference-based inactivate matching. Required all the same, so every dispatch is traceable.
+     * @param sykmeldt the person for whom Min side makes the microfrontend visible.
      * @param microfrontendId the id Min side knows the microfrontend by.
      * @param visibleUntil when Min side hides it automatically; omit to keep it until disabled.
      */
@@ -218,9 +234,11 @@ object Budstikka {
     /**
      * Hides a microfrontend previously made visible with [microfrontendEnable].
      *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
      * @param reference your own id for this enable/disable pair, used for correlation and bookkeeping
      *   in the envelope. It does not have to match the reference of the [microfrontendEnable] it hides:
      *   Min side matches on `(sykmeldt, microfrontendId)`, not on reference.
+     * @param sykmeldt the person for whom Min side hides the microfrontend.
      * @param microfrontendId the same id as in the enable; it is what Min side hides.
      */
     fun microfrontendDisable(

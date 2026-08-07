@@ -1,5 +1,8 @@
 # Overordnet flyt — syfo-budstikka
 
+Produsenter finner fasade, retry og versjonering i [sende-varsler.md](sende-varsler.md). Dette
+dokumentet eier Budstikkas interne flyt.
+
 ## Flytoversikt
 
 Budstikka er en tredelt pipeline: **Kafka-consumer → Inbox → Decision → Delivery**.

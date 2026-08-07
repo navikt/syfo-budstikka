@@ -118,7 +118,7 @@ below is historical source text; do not normalise it during routine work.
   (feil ved bygg, ikke drift). Runtime = defense-in-depth: logg + metrikk `ugyldig_kombinasjon`, ingen `FAILED`/alert.
   Kafka-offset committes alltid etter inbox-skriving; terminal DB-status blokkerer aldri partisjonen.
 
-## Kontrakt/kanal-DTO-beslutninger (se docs/kontrakt.md)
+## Kontrakt/kanal-DTO-beslutninger (se `kontrakt/src/main/kotlin/no/nav/budstikka/contract/` og docs/sende-varsler.md)
 
 - B22: <a id="b22"></a> Kontraktstruktur — felles konvolutt (eventId, referanse) + sealed `DispatchContent` med diskriminator. Operasjon
   (OPPRETT/FERDIGSTILL) kodes inn i sealed-typen (ingen separat handling-enum), så B21 håndheves av kompilatoren.
@@ -186,7 +186,7 @@ below is historical source text; do not normalise it during routine work.
   Datainnhenting er BETINGET på hendelsestype (start enkelt; evt. `Databehov`-deklarasjon per `Kanalhandler` senere).
   Fallgruve unngått bevisst: stopp på TRE steg — ikke N tynne pass-through-lag.
 
-## Arbeidsgivervarsel-beslutninger (se docs/kontrakt.md)
+## Arbeidsgivervarsel-beslutninger
 
 - B29: <a id="b29"></a> AG-INNHOLD/E-POST — budstikka eier IKKE e-postmal/ramme; plattformen nedstrøms (notifikasjon-produsent-api for
   AG, min-side-varsler for brukervarsel) eier branding/innpakning. Research 2026-07: esyfovarsel har INGEN delt
@@ -240,7 +240,7 @@ below is historical source text; do not normalise it during routine work.
   Inaktiver-mekanismen (B19–B21) må slå opp lagret meldingstype/sti ved AG-lukking, ikke bare kanal. Med B33 er
   ARBEIDSGIVERVARSEL ferdig-grillet (rest = Inaktiver-typing, felles åpent punkt).
 
-## Inaktiver-beslutninger (se docs/ferdigstill.md + kontrakt.md)
+## Inaktiver-beslutninger (se docs/ferdigstill.md + `kontrakt/src/main/kotlin/no/nav/budstikka/contract/`)
 
 - B38: <a id="b38"></a> INAKTIVER-TYPING = typet variant PR. LUKKBAR KANAL (`BrukervarselInactivate`, `LedervarselInactivate`,
   `DittSykefravaerInactivate`, `ArbeidsgivervarselInactivate`) — IKKE felles thin variant med generisk

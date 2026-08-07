@@ -1,0 +1,201 @@
+name: Publish contract
+
+on:
+  push:
+    tags:
+      - "kontrakt/v*"
+
+permissions: {}
+
+concurrency:
+  group: publish-kontrakt
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      contract_version: ${{ steps.version.outputs.contract_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require tag creation, update and deletion restrictions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/require-contract-tag-ruleset.sh
+
+      - id: version
+        name: Validate SemVer, main ancestry and release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^kontrakt/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Expected an exact kontrakt/vX.Y.Z tag without leading zeroes; got $tag"
+            exit 1
+          fi
+
+          version="${tag#kontrakt/v}"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
+            {
+              echo "::error::The tagged commit is not reachable from origin/main."
+              exit 1
+            }
+
+          notes="docs/releases/kontrakt/${version}.md"
+          test -f "$notes"
+          grep --fixed-strings --line-regexp "# budstikka-kontrakt ${version}" "$notes"
+
+          printf 'contract_version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  prepare-and-attest:
+    name: Build, verify and attest contract
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Preflight immutable package version
+        shell: bash
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/preflight-contract-version.sh
+
+      - id: previous-contract
+        name: Resolve authoritative contract baseline
+        shell: bash
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+        run: |
+          set -euo pipefail
+
+          version="$(bash scripts/verify-contract-baseline.sh --current-version "$CONTRACT_VERSION")"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build, verify compatibility and stage contract
+        shell: bash
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+          PREVIOUS_CONTRACT_VERSION: ${{ steps.previous-contract.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          version="$CONTRACT_VERSION"
+          previous_version="$PREVIOUS_CONTRACT_VERSION"
+          case "$previous_version" in
+            first-release)
+            echo "No authoritative contract release tag exists: validating the explicit first-release path."
+              ./gradlew --no-daemon \
+                -PcontractVersion="$version" \
+                :kontrakt:build \
+                :kontrakt:checkStagedConsumer
+              ;;
+            *)
+              ./gradlew --no-daemon \
+                -PcontractVersion="$version" \
+                -PpreviousContractVersion="$previous_version" \
+                :kontrakt:build \
+                :kontrakt:checkStagedConsumer
+              ;;
+          esac
+
+      - name: Verify staged subjects match publication inputs before attestation
+        shell: bash
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+        run: bash scripts/verify-staged-contract-subjects.sh
+
+      - name: Attest staged publication
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: |
+            kontrakt/build/staging-maven-repository/no/nav/syfo/budstikka-kontrakt/${{ needs.validate.outputs.contract_version }}/budstikka-kontrakt-${{ needs.validate.outputs.contract_version }}.jar
+            kontrakt/build/staging-maven-repository/no/nav/syfo/budstikka-kontrakt/${{ needs.validate.outputs.contract_version }}/budstikka-kontrakt-${{ needs.validate.outputs.contract_version }}-sources.jar
+            kontrakt/build/staging-maven-repository/no/nav/syfo/budstikka-kontrakt/${{ needs.validate.outputs.contract_version }}/budstikka-kontrakt-${{ needs.validate.outputs.contract_version }}.pom
+            kontrakt/build/staging-maven-repository/no/nav/syfo/budstikka-kontrakt/${{ needs.validate.outputs.contract_version }}/budstikka-kontrakt-${{ needs.validate.outputs.contract_version }}.module
+
+      - name: Publish attested contract to GitHub Packages
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew --no-daemon -PcontractVersion="$CONTRACT_VERSION" :kontrakt:publishContractPublicationToGithubPackagesRepository
+
+      - name: Verify staged subjects match publication inputs after publication
+        shell: bash
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+        run: bash scripts/verify-staged-contract-subjects.sh
+
+  verify-mirror:
+    name: Resolve published contract through Nav mirror
+    needs: [validate, prepare-and-attest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Resolve exact published version through Nav mirror
+        env:
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+        run: |
+          ./gradlew --no-daemon \
+            --gradle-user-home "$RUNNER_TEMP/contract-mirror-gradle-home" \
+            --project-cache-dir "$RUNNER_TEMP/contract-mirror-project-cache" \
+            -p kontrakt/consumer-fixture \
+            check \
+            -PcontractRepository=https://github-package-registry-mirror.gc.nav.no/cached/maven-release \
+            -PcontractVersion="$CONTRACT_VERSION" \
+            -PconsumerBuildDirectory="$RUNNER_TEMP/contract-mirror-consumer-build"
+
+  create-release:
+    name: Create GitHub Release
+    needs: [validate, verify-mirror]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Create release from checked-in notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
+        run: bash scripts/create-contract-release.sh

@@ -10,7 +10,7 @@ legacy decision handling live in [`docs/agents/domain.md`](agents/domain.md).
   references
 - `docs/glossary.md` - domain vocabulary
 - `docs/adr/` - architecture decisions
-- `docs/kontrakt.md` - channel DTOs and the published Kafka contract
+- `docs/sende-varsler.md` - producer guide and published contract
 - `docs/datamodell.md` - inbox and delivery
 - `docs/ferdigstill.md` - closing and inactivation
 - `docs/flyt.md` - end-to-end flow

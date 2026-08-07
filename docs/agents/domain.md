@@ -55,7 +55,7 @@ implementation work.
 3. Read the relevant ADR before work that needs or could contradict its
    durable rationale.
 4. Read only the relevant maintained topic document:
-   `docs/kontrakt.md`, `docs/flyt.md`, `docs/datamodell.md`,
+   `docs/sende-varsler.md`, `docs/flyt.md`, `docs/datamodell.md`,
    `docs/ferdigstill.md`, `docs/migrering.md`, `docs/teknologi.md`,
    `docs/teststrategi.md`, or `docs/helsesjekk.md`.
 5. Look up a named legacy `Bnn` entry directly. Never load the whole register

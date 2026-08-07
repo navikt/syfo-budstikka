@@ -27,7 +27,7 @@ class EncodedDispatch internal constructor(
     val eventId: EventId,
     val headers: Map<String, String>,
 ) {
-    /** [headers] as the UTF-8 bytes Kafka expects, so the Produsent does not have to pick an encoding. */
+    /** Returns [headers] as the UTF-8 bytes Kafka expects, so the Produsent does not have to pick an encoding. */
     fun headerBytes(): Map<String, ByteArray> = headers.mapValues { (_, value) -> value.toByteArray(Charsets.UTF_8) }
 
     /**
