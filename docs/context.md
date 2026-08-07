@@ -14,7 +14,6 @@ legacy decision handling live in [`docs/agents/domain.md`](agents/domain.md).
 - `docs/datamodell.md` - inbox and delivery
 - `docs/flyt.md` - internal flow and FERDIGSTILL handling
 - `docs/migrering.md` - cutover strategy and the **operational channel map** from esyfovarsel
-- `docs/teknologi.md` - technology choices
 - `docs/teststrategi.md` - local test and e2e strategy
 - `docs/helsesjekk.md` - health checks
 - `docs/dead-letter-replay.md` - manual dead-letter replay procedure

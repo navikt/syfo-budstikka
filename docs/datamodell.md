@@ -146,6 +146,16 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 > [ADR 0014](adr/0014-inbox-hold-for-sendevindu.md), så indeksen hører til det arbeidet.
 > Kolonnen finnes fra starten (ADR 0008).
 
+## Id-generering
+
+- `delivery.id` genereres av databasen: Postgres 18 `uuidv7()` (tidssortert) som
+  kolonne-default i Flyway-migreringen, markert `.databaseGenerated()` i Exposed slik at
+  id-en leses tilbake i stedet for å sendes inn (ikke `.autoGenerate()`, som lager en
+  klient-side v4). Tidssortering gir B-tree-lokalitet og støtter alders-basert
+  retensjons-`DELETE`.
+- `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
+  budstikkas database.
+
 ## Observability-koblinger
 
 - Primær korrelasjon er `eventId`.
