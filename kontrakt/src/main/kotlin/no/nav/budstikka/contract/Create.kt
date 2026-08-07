@@ -102,7 +102,7 @@ data class ArbeidsgivervarselCreate(
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
     override fun toString(): String =
         "ArbeidsgivervarselCreate(tag=$tag, meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
-            "hasSakstilknytning=${sakstilknytning != null})"
+            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null})"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
@@ -133,14 +133,8 @@ data class AltinnResource(
     val externalVarsling: AltinnExternalVarsling? = null,
 ) : ArbeidsgiverRecipient
 
-/**
- * A document distributed to the Sykmeldt through dokumentdistribusjon. By default dokdist picks
- * the channel itself (digital mailbox for persons without Reservasjon, print otherwise);
- * [tvingSentralPrint] forces paper. This variant has no inactivation operation.
- */
-@InternalBudstikkaWire
-
 /** External notification texts required by the Altinn-resource delivery path. */
+@InternalBudstikkaWire
 @Serializable
 data class AltinnExternalVarsling(
     val emailTitle: String,
@@ -149,12 +143,26 @@ data class AltinnExternalVarsling(
 )
 
 /** External notification texts required by the Nærmeste leder email delivery path. */
+@InternalBudstikkaWire
 @Serializable
 data class NarmesteLederExternalVarsling(
     val emailTitle: String,
     val emailText: String,
 )
 
+@OptIn(InternalBudstikkaWire::class)
+private fun ArbeidsgiverRecipient.hasExternalVarsling(): Boolean =
+    when (this) {
+        is AltinnResource -> externalVarsling != null
+        is NarmesteLeder -> externalVarsling != null
+    }
+
+/**
+ * A document distributed to the Sykmeldt through dokumentdistribusjon. By default dokdist picks
+ * the channel itself (digital mailbox for persons without Reservasjon, print otherwise);
+ * [tvingSentralPrint] forces paper. This variant has no inactivation operation.
+ */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("BrevCreate")
 data class BrevCreate(
