@@ -21,14 +21,31 @@ interface InboxMessageRepository {
      * blocking each other. Also picks up CLAIMED rows when their lease expires. Rows remain invisible
      * to other pollers until lease expiry or effectuation.
      *
-     * A row claimed [maxAttempts] times without a terminal state becomes FAILED instead of being
-     * reclaimed forever.
+     * Claiming does NOT spend an attempt: a claimed row that is never processed (batch abort, spent
+     * lease budget, crash) must not approach the poison gate. [beginAttempt] spends the attempt.
+     * A row that started processing [maxAttempts] times without a terminal state becomes FAILED
+     * instead of being reclaimed forever.
      */
     suspend fun claim(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
     ): List<InboxMessage>
+
+    /**
+     * Authorises one processing attempt for a claimed row and spends it, atomically. Returns `false`
+     * when the row is no longer CLAIMED (a peer terminated it) or has already spent [maxAttempts];
+     * the caller must then skip the message and leave it to the poison gate.
+     *
+     * `attempt` counts durable authorisations to START processing, not proven external effects.
+     * Callers therefore invoke this BEFORE the first fallible, message-specific work, so a crash,
+     * timeout or exception mid-processing still spends an attempt. The guard lives in the same
+     * `UPDATE` as the increment, so a read-then-update race cannot exceed [maxAttempts].
+     */
+    suspend fun beginAttempt(
+        eventId: UUID,
+        maxAttempts: Int,
+    ): Boolean
 
     /**
      * Terminal transitions for the decision worker. They do NOT open their own transaction: they run

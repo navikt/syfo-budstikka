@@ -65,8 +65,14 @@ class DeliveryWorker(
     private suspend fun dispatchToHandler(delivery: ClaimedDelivery) {
         val handler = handlers[delivery.channel]
         if (handler == null) {
-            // Leave row CLAIMED for lease reclaim instead of forcing terminal failure.
+            // Leave row CLAIMED for lease reclaim instead of forcing terminal failure. A missing
+            // handler is a configuration error, not poison data, so it must not spend an attempt.
             logger.error("No handler for claimed channel; leaving row for lease reclaim")
+            return
+        }
+        if (!repository.beginAttempt(delivery.id, config.maxAttempts)) {
+            // A peer terminated the row, or its attempts are spent and the poison gate owns it.
+            logger.warn("Skipping delivery because the row is no longer claimable or has spent its attempts")
             return
         }
         when (val outcome = handler.handle(delivery)) {

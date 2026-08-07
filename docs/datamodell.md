@@ -87,7 +87,10 @@ kan jobbe parallelt uten dobbelt-claim:
    - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
 3. Sorter deterministisk (`received_at`/`created_at`, deretter ID) og `LIMIT batchSize`.
 4. Oppdater de valgte radene i samme transaksjon: `state = CLAIMED`,
-   `next_attempt_time = now + lease`, `attempt = attempt + 1`.
+   `next_attempt_time = now + lease`. Claim rører ikke `attempt`: forsøket spanderes
+   først av `beginAttempt` (atomisk, gatet `UPDATE`) rett før første feilbare arbeid,
+   slik at en claimet rad som aldri behandles (bunke-abort, oppbrukt lease-budsjett,
+   krasj) beholder budsjettet sitt og ikke kan poison-`FAILED`-es urørt (ADR 0004).
 
 ### Transaksjonsgrenser
 
@@ -111,9 +114,10 @@ WAIT    -> CLAIMED (sendevindu åpnet: next_attempt_time passert)
 ```
 
 - Claim bruker `FOR UPDATE SKIP LOCKED` og lease via `next_attempt_time`.
-- `attempt` økes ved claim, men **ikke** når en `WAIT`-rad vekkes: venting er en planlagt
-  utsettelse, ikke et feilforsøk, og skal ikke forbruke attempt-budsjettet (ADR 0014). Ellers
-  kunne gjentatte sendevindu-hold poison-`FAILED`-e en legitimt ventende melding.
+- `attempt` teller behandlingsstarter (`beginAttempt`), ikke claims. Et sendevindu-hold
+  (`WAIT`) leverer det spanderte forsøket tilbake (`attempt = 0`): venting er en planlagt
+  utsettelse, ikke et feilforsøk, og skal ikke forbruke attempt-budsjettet (ADR 0014).
+  Ellers kunne gjentatte sendevindu-hold poison-`FAILED`-e en legitimt ventende melding.
 - Ventårsaken lagres i `wait_reason` (ikke `error_message`, som er forbeholdt reelle feil).
   `wait_reason` nullstilles ved terminal overgang og ved poison-`FAILED`.
 - Terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) er compare-and-set fra `CLAIMED`:
@@ -132,7 +136,8 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
 - `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
-- `attempt` økes ved claim.
+- `attempt` spanderes av `beginAttempt` rett før handleren kalles, ikke ved claim.
+  Manglende handler er en konfigurasjonsfeil og brenner ikke et forsøk.
 
 ## Indekser
 

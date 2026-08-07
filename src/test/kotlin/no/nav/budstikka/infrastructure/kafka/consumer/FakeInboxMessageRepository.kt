@@ -27,6 +27,11 @@ class FakeInboxMessageRepository(
         return polledMessages
     }
 
+    override suspend fun beginAttempt(
+        eventId: UUID,
+        maxAttempts: Int,
+    ): Boolean = true
+
     override fun markProcessedInTransaction(eventId: UUID): Boolean = true
 
     override fun markDroppedInTransaction(

@@ -84,7 +84,8 @@ class DeliveryRepositoryIntegrationTest :
             claimed.shouldHaveSize(1)
             claimed.single().channel shouldBe Channel.MICROFRONTEND
             rowForReference("micro-ref")[DeliveryTable.state] shouldBe "CLAIMED"
-            rowForReference("micro-ref")[DeliveryTable.attempt] shouldBe 1
+            // Claiming reserves the row but does not spend a delivery attempt (#157).
+            rowForReference("micro-ref")[DeliveryTable.attempt] shouldBe 0
             rowForReference("micro-ref")[DeliveryTable.nextAttemptTime] shouldNotBe null
             rowForReference("bruker-ref")[DeliveryTable.state] shouldBe "READY"
             rowForReference("bruker-ref")[DeliveryTable.attempt] shouldBe 0
@@ -105,7 +106,37 @@ class DeliveryRepositoryIntegrationTest :
 
             reclaimed.shouldHaveSize(1)
             reclaimed.single().id shouldBe deliveryId
+            // Reclaiming an expired lease does not spend an attempt either (#157).
+            rowForReference("micro-ref")[DeliveryTable.attempt] shouldBe 0
+        }
+
+        test("beginAttempt spends one attempt and refuses once the budget is gone") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft("micro-ref", microfrontendDraft())
+            val deliveryId =
+                repository
+                    .claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                    .single()
+                    .id
+
+            repository.beginAttempt(deliveryId, maxAttempts = 2) shouldBe true
+            rowForReference("micro-ref")[DeliveryTable.attempt] shouldBe 1
+            repository.beginAttempt(deliveryId, maxAttempts = 2) shouldBe true
+            repository.beginAttempt(deliveryId, maxAttempts = 2) shouldBe false
             rowForReference("micro-ref")[DeliveryTable.attempt] shouldBe 2
+        }
+
+        test("beginAttempt refuses a row that is no longer CLAIMED") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft("micro-ref", microfrontendDraft())
+            val deliveryId =
+                repository
+                    .claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                    .single()
+                    .id
+            repository.markSent(deliveryId) shouldBe true
+
+            repository.beginAttempt(deliveryId, maxAttempts = 10) shouldBe false
         }
 
         test("markSent transitions a CLAIMED row to SENT") {
@@ -161,6 +192,8 @@ class DeliveryRepositoryIntegrationTest :
                 val claimed =
                     repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts, channels = channels)
                 claimed.shouldHaveSize(1)
+                // A real round spends an attempt before sending; claiming alone must not (#157).
+                repository.beginAttempt(claimed.single().id, maxAttempts) shouldBe true
                 expireLease(claimed.single().id)
             }
 

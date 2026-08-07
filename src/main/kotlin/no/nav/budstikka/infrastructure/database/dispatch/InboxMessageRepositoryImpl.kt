@@ -56,13 +56,12 @@ class InboxMessageRepositoryImpl(
         return database.transact {
             val now = Clock.System.now()
             failPoisonRows(now, maxAttempts)
-            val claimedRows =
+            val claimed =
                 InboxMessageTable
                     .select(
                         InboxMessageTable.eventId,
                         InboxMessageTable.reference,
                         InboxMessageTable.content,
-                        InboxMessageTable.state,
                     ).where {
                         (InboxMessageTable.state eq InboxMessageState.RECEIVED.name) or
                             claimExpired(now, maxAttempts) or waitExpired(now)
@@ -72,53 +71,43 @@ class InboxMessageRepositoryImpl(
                     ).limit(limit)
                     .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate(ForUpdateOption.PostgreSQL.MODE.SKIP_LOCKED))
                     .map { row ->
-                        ClaimedRow(
-                            wasWaiting = row[InboxMessageTable.state] == InboxMessageState.WAIT.name,
-                            message =
-                                InboxMessage(
-                                    eventId = row[InboxMessageTable.eventId],
-                                    reference = row[InboxMessageTable.reference],
-                                    content = row[InboxMessageTable.content],
-                                ),
+                        InboxMessage(
+                            eventId = row[InboxMessageTable.eventId],
+                            reference = row[InboxMessageTable.reference],
+                            content = row[InboxMessageTable.content],
                         )
                     }
-            markClaimed(claimedRows, now, lease)
-            claimedRows.map { it.message }
+            if (claimed.isNotEmpty()) {
+                InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.eventId } }) {
+                    it[state] = InboxMessageState.CLAIMED.name
+                    it[nextAttemptTime] = now + lease
+                }
+            }
+            claimed
         }
     }
 
     /**
-     * Marks the claimed rows CLAIMED with a fresh [lease]. Waking a WAIT row is a scheduled resume
-     * (the sending window opened), not a failed attempt, so it must NOT consume the attempt budget
-     * or repeated holds could fail a legitimately waiting message. Fresh RECEIVED rows and expired
-     * CLAIMED rows still increment `attempt`.
+     * Spends one processing attempt, guarded in the same statement so concurrent replicas cannot
+     * push `attempt` past [maxAttempts]. Claiming deliberately does not touch `attempt`: a row that
+     * is claimed but never processed (batch abort, spent lease budget, crash) must keep its budget,
+     * and waking a WAIT row is a scheduled resume, not a new failure.
      */
-    private fun markClaimed(
-        rows: List<ClaimedRow>,
-        now: Instant,
-        lease: Duration,
-    ) {
-        val wakingWaitIds = rows.filter { it.wasWaiting }.map { it.message.eventId }
-        val attemptingIds = rows.filterNot { it.wasWaiting }.map { it.message.eventId }
-        if (attemptingIds.isNotEmpty()) {
-            InboxMessageTable.update({ InboxMessageTable.eventId inList attemptingIds }) {
-                it[state] = InboxMessageState.CLAIMED.name
-                it[nextAttemptTime] = now + lease
+    override suspend fun beginAttempt(
+        eventId: UUID,
+        maxAttempts: Int,
+    ): Boolean {
+        require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
+        return database.transact {
+            InboxMessageTable.update({
+                (InboxMessageTable.eventId eq eventId) and
+                    (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+                    (InboxMessageTable.attempt less maxAttempts)
+            }) {
                 it[attempt] = attempt + 1
-            }
-        }
-        if (wakingWaitIds.isNotEmpty()) {
-            InboxMessageTable.update({ InboxMessageTable.eventId inList wakingWaitIds }) {
-                it[state] = InboxMessageState.CLAIMED.name
-                it[nextAttemptTime] = now + lease
-            }
+            } > 0
         }
     }
-
-    private data class ClaimedRow(
-        val wasWaiting: Boolean,
-        val message: InboxMessage,
-    )
 
     private fun waitExpired(now: Instant): Op<Boolean> =
         (InboxMessageTable.state eq InboxMessageState.WAIT.name) and
@@ -133,9 +122,12 @@ class InboxMessageRepositoryImpl(
             (InboxMessageTable.attempt less maxAttempts)
 
     /**
-     * Expired CLAIMED rows claimed [maxAttempts] times without
-     * reaching terminal status become FAILED. Runs in the same transaction as claim, so a
-     * deterministic failing row stops being reclaimed and cannot block the queue head (`receivedAt ASC`).
+     * Expired CLAIMED rows that already spent [maxAttempts] processing attempts become FAILED. Runs
+     * in the same transaction as claim, so a deterministic failing row stops being reclaimed and
+     * cannot block the queue head (`receivedAt ASC`).
+     *
+     * Because `attempt` is spent by [beginAttempt] and not by claiming, a row that was claimed but
+     * never processed keeps its budget and is not terminated here.
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
      * distinct rows without blocking each other.
@@ -194,6 +186,10 @@ class InboxMessageRepositoryImpl(
             it[InboxMessageTable.state] = InboxMessageState.WAIT.name
             it[InboxMessageTable.waitReason] = reason
             it[InboxMessageTable.nextAttemptTime] = nextRetry
+            // Reaching a hold decision is a successful evaluation, not a failure. The attempt spent
+            // by beginAttempt is handed back, so repeated sending-window holds can never push a
+            // legitimately waiting message into the poison gate.
+            it[attempt] = 0
         } > 0
 
     private fun terminate(

@@ -32,6 +32,21 @@ interface DeliveryRepository {
         channels: Set<Channel>,
     ): List<ClaimedDelivery>
 
+    /**
+     * Authorises one delivery attempt for a claimed row and spends it, atomically. Returns `false`
+     * when the row is no longer CLAIMED (a peer terminated it) or has already spent [maxAttempts];
+     * the caller must then skip the row and leave it to the poison gate.
+     *
+     * `attempt` counts durable authorisations to START a delivery, not proven external sends.
+     * Callers therefore invoke this BEFORE handing the row to a channel handler, so a crash or
+     * timeout mid-send still spends an attempt. The guard lives in the same `UPDATE` as the
+     * increment, so a read-then-update race cannot exceed [maxAttempts].
+     */
+    suspend fun beginAttempt(
+        deliveryId: UUID,
+        maxAttempts: Int,
+    ): Boolean
+
     suspend fun markSent(deliveryId: UUID): Boolean
 
     suspend fun markFailed(
