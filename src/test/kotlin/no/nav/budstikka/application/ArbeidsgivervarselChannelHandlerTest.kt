@@ -14,15 +14,15 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.application.port.NarmesteLederRelasjon
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgiverRecipient
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.NarmesteLederExternalVarsling
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.AltinnResource
-import no.nav.budstikka.domain.dispatch.AltinnResourceId
-import no.nav.budstikka.domain.dispatch.ArbeidsgiverRecipient
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.NarmesteLeder
-import no.nav.budstikka.domain.dispatch.NarmesteLederExternalVarsling
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Tag
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
@@ -168,7 +168,7 @@ private fun create(recipient: ArbeidsgiverRecipient = AltinnResource(AltinnResou
         "https://nav.no/lenke",
     )
 
-private fun delivery(payload: no.nav.budstikka.domain.dispatch.DispatchContent) =
+private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
     ClaimedDelivery(
         id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
@@ -181,15 +181,15 @@ private class FakeNarmesteLederLookup(
     private val relation: NarmesteLederRelasjon?,
 ) : NarmesteLederLookup {
     override suspend fun findActive(
-        sykmeldt: no.nav.budstikka.domain.dispatch.PersonIdentifier,
-        orgnummer: no.nav.budstikka.domain.dispatch.Orgnummer,
+        sykmeldt: no.nav.budstikka.contract.PersonIdentifier,
+        orgnummer: no.nav.budstikka.contract.Orgnummer,
     ) = relation
 }
 
 private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
     override suspend fun findActive(
-        sykmeldt: no.nav.budstikka.domain.dispatch.PersonIdentifier,
-        orgnummer: no.nav.budstikka.domain.dispatch.Orgnummer,
+        sykmeldt: no.nav.budstikka.contract.PersonIdentifier,
+        orgnummer: no.nav.budstikka.contract.Orgnummer,
     ): NarmesteLederRelasjon? = error("narmesteleder-register unavailable")
 }
 

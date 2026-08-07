@@ -14,10 +14,10 @@ import no.nav.budstikka.application.port.AltinnExternalVarsling
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
-import no.nav.budstikka.domain.dispatch.AltinnResourceId
-import no.nav.budstikka.domain.dispatch.ArbeidsgiverMeldingstype
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Tag
+import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
 

@@ -1,7 +1,7 @@
 package no.nav.budstikka.application.port
 
-import no.nav.budstikka.domain.dispatch.Orgnummer
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.Orgnummer
+import no.nav.budstikka.contract.PersonIdentifier
 
 fun interface NarmesteLederLookup {
     /**

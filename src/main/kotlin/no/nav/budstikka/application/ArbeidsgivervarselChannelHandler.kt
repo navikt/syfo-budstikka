@@ -10,11 +10,11 @@ import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.NarmesteLederExternalVarsling
 import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.NarmesteLederMissingReason
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.AltinnResource
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselInactivate
-import no.nav.budstikka.domain.dispatch.NarmesteLeder as NarmesteLederRecipient
+import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
  * Sends ARBEIDSGIVERVARSEL through an [AltinnResource] or a Nærmeste leder path. The latter resolves
