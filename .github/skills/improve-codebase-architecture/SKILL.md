@@ -32,7 +32,7 @@ Bruk dyp-modul-vokabularet presist: en **modul** skjuler en **implementasjon** b
 
 ### 1. Utforsk
 
-Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les glossaret når domenespråket er relevant, og bare topic-dokumentene og ADR-ene som berører området. Les `docs/context.md` kun hvis du trenger orientering eller overordnet status.
+Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les glossaret når domenespråket er relevant, og bare topic-dokumentene og ADR-ene som berører området.
 
 Gå så gjennom kodebasen organisk — ikke følg rigide heuristikker. Noter hvor du opplever friksjon. I et Ktor-backend ser fordypningsmuligheter typisk slik ut:
 
@@ -90,8 +90,7 @@ Når den valgte fordypningen er gjennomgrillet:
 
 - Skriv task-scope til issue/plan. Etter valgt dokumentert løp skriver
   `/domain-modeling` nye begreper og kvalifiserende beslutninger; vedlikeholdt
-  detalj går til relevant topic-dokument. Oppdater `docs/context.md` bare når
-  orientering eller overordnet status endres.
+  detalj går til relevant topic-dokument.
 - Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i den aktive
   oppgaven (evt. videre til `/to-issues` for plukkbare snitt).
 - Definer hva som beviser at fordypningen lyktes (tester gjennom ett

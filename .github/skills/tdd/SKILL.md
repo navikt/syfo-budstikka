@@ -45,8 +45,7 @@ RIKTIG (vertikalt):
 
 Les `docs/glossary.md` når testnavn og grensesnittvokabular trenger domenespråk,
 og bare ADR-ene som binder området du rører. Følger du en plan eller oppgavebrief
-fra `@grillmester`, hold deg til atferdene der. Les `docs/context.md` bare ved
-behov for repository-orientering eller overordnet status.
+fra `@grillmester`, hold deg til atferdene der.
 
 Før du skriver kode:
 

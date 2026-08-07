@@ -8,9 +8,8 @@ description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, 
 En disiplin for vanskelige feil. Hopp over faser kun når du eksplisitt kan begrunne det.
 
 Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare
-topic-dokumentene og ADR-ene som berører symptomet, glossaret når domenespråk er
-relevant, og `docs/context.md` kun ved behov for repository-orientering eller
-overordnet status. For ikke-trivielle fikser bruker du aktiv oppgave eller
+topic-dokumentene og ADR-ene som berører symptomet, og glossaret når domenespråk
+er relevant. For ikke-trivielle fikser bruker du aktiv oppgave eller
 oppgavebrief som avgrensning; oppgavelokal `.grill/` brukes bare når den
 kallende arbeidsflyten har valgt det.
 

@@ -76,5 +76,5 @@ spec:
       value: https://digdir-krr-proxy.intern.dev.nav.no/rest/v1/person
     - name: KRR_SCOPE
       value: api://dev-gcp.team-rocket.digdir-krr-proxy/.default
-  # DEFERRED (area 5: remaining Auth & ACL, not yet grilled in docs/context.md): tokenx inbound and outbound
+  # DEFERRED (remaining Auth & ACL): tokenx inbound and outbound
   # to narmesteleder/notifikasjon-produsent-api. Add when those channels are wired.
