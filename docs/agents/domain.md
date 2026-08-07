@@ -56,8 +56,8 @@ implementation work.
    durable rationale.
 4. Read only the relevant maintained topic document:
    `docs/sende-varsler.md`, `docs/flyt.md`, `docs/datamodell.md`,
-   `docs/ferdigstill.md`, `docs/migrering.md`, `docs/teknologi.md`,
-   `docs/teststrategi.md`, or `docs/helsesjekk.md`.
+   `docs/migrering.md`, `docs/teststrategi.md`, `docs/helsesjekk.md`, or
+   `docs/dead-letter-replay.md`.
 5. Look up a named legacy `Bnn` entry directly. Never load the whole register
    as background context.
 6. Read `docs/context.md` only for repository orientation or overall status.

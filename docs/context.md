@@ -12,8 +12,7 @@ legacy decision handling live in [`docs/agents/domain.md`](agents/domain.md).
 - `docs/adr/` - architecture decisions
 - `docs/sende-varsler.md` - producer guide and published contract
 - `docs/datamodell.md` - inbox and delivery
-- `docs/ferdigstill.md` - closing and inactivation
-- `docs/flyt.md` - end-to-end flow
+- `docs/flyt.md` - internal flow and FERDIGSTILL handling
 - `docs/migrering.md` - cutover strategy and the **operational channel map** from esyfovarsel
 - `docs/teknologi.md` - technology choices
 - `docs/teststrategi.md` - local test and e2e strategy

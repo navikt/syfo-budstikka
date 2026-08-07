@@ -76,6 +76,28 @@ erDiagram
 
 ## Worker-flyt og state-overganger
 
+### Claim-algoritmen (ADR 0004)
+
+Samme claim-mekanisme brukes i `inbox_message` og `delivery`, slik at flere podder
+kan jobbe parallelt uten dobbelt-claim:
+
+1. Les kandidater med `FOR UPDATE SKIP LOCKED`.
+2. Velg både nye rader og utløpte claims:
+   - inbox: `state=RECEIVED` eller `state=CLAIMED and next_attempt_time <= now`
+   - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
+3. Sorter deterministisk (`received_at`/`created_at`, deretter ID) og `LIMIT batchSize`.
+4. Oppdater de valgte radene i samme transaksjon: `state = CLAIMED`,
+   `next_attempt_time = now + lease`, `attempt = attempt + 1`.
+
+### Transaksjonsgrenser
+
+- **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
+  `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
+- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
+  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)`
+  av delivery-rader bare hvis CAS lykkes. `DeliveryRepository.saveInTransaction`
+  bruker `batchInsert(draft)` for 0..N rader for samme inbox-melding.
+
 ### `inbox_message.state`
 
 ```text
@@ -107,7 +129,8 @@ READY -> CLAIMED -> SENT
 CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 ```
 
-- Delivery-worker claimer bare kanaler den har `ChannelHandler` for.
+- Delivery-worker claimer bare kanaler den har `ChannelHandler` for
+  (claim filtrerer på `handlers.keys`).
 - `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
 - `attempt` økes ved claim.
 
