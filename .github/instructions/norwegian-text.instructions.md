@@ -1,11 +1,14 @@
 ---
-description: "Bruk når du skriver eller endrer norsk markdown i dette repoet: README, docs/ (ADR/glossar/kontekst), .grill/-artefakter (PLAN.md, VERIFICATION.md), PR-beskrivelser, commit-meldinger og description-felt i instruksjonsfiler."
-applyTo: "**/*.md"
+description: "Applies automatically to Norwegian README text; /klarsprak reads this file explicitly before editing other confirmed Norwegian text."
+applyTo: "README.md"
 ---
 
 # Norsk tekstkvalitet (lean)
 
-Disse reglene gjelder all norsk markdown-tekst i dette Ktor-backend-repoet (no.nav.syfo): README, arkitekturbeslutninger i `docs/adr/`, `.grill/`-artefakter, PR-tekst og commit-meldinger. Hold tekst om kode like presis som koden selv.
+`docs/agents/language-policy.md` decides which artifacts are Norwegian. This
+file is injected automatically for `README.md` only. For other confirmed
+Norwegian text — ADRs, `.grill/` artifacts, PR and commit text — `/klarsprak`
+reads this file explicitly before applying the rules below.
 
 ## AI-markører å unngå
 
@@ -22,7 +25,8 @@ Skriv heller konkret hva som skjer, hvem som gjør det, og hva leseren skal gjø
 Start med konklusjon eller beslutning. Bakgrunn og begrunnelse kommer etterpå.
 Målet er forventningsstyring: leseren skal forstå utfallet tidlig, ikke bygges opp mot det.
 
-I en ADR: skriv beslutningen i første setning, så konteksten og konsekvensene.
+I en ADR: følg `docs/agents/domain.md`, få fram beslutningen tidlig og ikke legg
+til struktur eller metadata som språkvasken ikke trenger.
 I en PR-beskrivelse: skriv hva endringen gjør for konsumenten (endepunkt, Kafka-topic, migrering) før implementasjonsdetaljer.
 
 ## Unngå substantivsyke

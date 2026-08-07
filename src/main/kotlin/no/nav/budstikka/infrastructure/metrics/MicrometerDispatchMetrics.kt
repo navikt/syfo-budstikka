@@ -7,7 +7,7 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DropReason
 
 /**
- * Micrometer adapter for [DispatchMetrics] (ADR 0007). Counts domain events in the shared registry;
+ * Micrometer adapter for [DispatchMetrics]. Counts domain events in the shared registry;
  * names follow the Prometheus convention (Micrometer dot names → `snake_case`, counters gain `_total`):
  *
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
@@ -16,8 +16,8 @@ import no.nav.budstikka.domain.decision.DropReason
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
  *
  * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. Counting
- * happens at the replica's decision/delivery; in a lease race (ADR 0004), a loser may count an
- * outcome without writing a row. That is accepted observability noise, not an accounting source.
+ * happens before the final state transition is guaranteed, so these metrics are observability
+ * signals rather than an accounting source.
  */
 class MicrometerDispatchMetrics(
     private val registry: MeterRegistry,
@@ -26,6 +26,7 @@ class MicrometerDispatchMetrics(
     private val inboxEmptyPolls = counter(INBOX_MESSAGE_EMPTY_POLLS)
     private val inboxProcessed = counter(INBOX_MESSAGE_PROCESSED)
     private val inboxFailed = counter(INBOX_MESSAGE_FAILED)
+    private val inboxOutsideSendingWindow = counter(INBOX_OUTSIDE_SENDING_WINDOW)
     private val deliveryClaimed = counter(DELIVERY_CLAIMED)
     private val deliveryEmptyPolls = counter(DELIVERY_EMPTY_POLLS)
 
@@ -43,6 +44,8 @@ class MicrometerDispatchMetrics(
             .increment()
 
     override fun inboxFailed() = inboxFailed.increment()
+
+    override fun inboxOutsideSendingWindow(reason: String) = inboxOutsideSendingWindow.increment()
 
     override fun deliveryClaimed(count: Int) = deliveryClaimed.increment(count.toDouble())
 
@@ -75,6 +78,8 @@ class MicrometerDispatchMetrics(
         const val INBOX_MESSAGE_PROCESSED = "inbox.message.processed"
         const val INBOX_MESSAGE_DROPPED = "inbox.message.dropped"
         const val INBOX_MESSAGE_FAILED = "inbox.message.failed"
+        const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
+
         const val DELIVERY_CLAIMED = "delivery.claimed"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
         const val DELIVERY = "delivery"

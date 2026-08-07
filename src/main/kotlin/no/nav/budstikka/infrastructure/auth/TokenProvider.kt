@@ -1,10 +1,7 @@
 package no.nav.budstikka.infrastructure.auth
 
 /**
- * Reusable outgoing-token seam (#48): channel clients (PdlClient and others) get a
- * machine-to-machine bearer token here instead of managing token exchange themselves.
- *
- * `target` is the intended audience for the downstream API, in Entra ID scope form
+ * Supplies machine-to-machine bearer tokens. `target` is an Entra ID scope in the form
  * `api://<cluster>.<namespace>.<app>/.default`.
  */
 interface TokenProvider {

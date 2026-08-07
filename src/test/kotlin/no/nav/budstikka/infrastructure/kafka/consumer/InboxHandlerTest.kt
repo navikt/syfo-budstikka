@@ -6,6 +6,7 @@ import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -21,7 +22,7 @@ class InboxHandlerTest :
                 with(inboxRepository.savedEvents.single()) {
                     this.eventId shouldBe UUID.fromString(eventId)
                     reference shouldBe "ref-1"
-                    content.partitionKey shouldBe "12345678901"
+                    content.partitionKey shouldBe TEST_SYKMELDT.value
                 }
                 deadLetterRepository.savedDeadLetters.size shouldBe 0
             }
@@ -62,7 +63,7 @@ class InboxHandlerTest :
         test("envelope without reference is dead-lettered as UNPARSEABLE_PAYLOAD") {
             with(createTestContext()) {
                 val payload =
-                    """{"content":{"type":"BrukervarselCreate","personIdentifier":"12345678901","varseltype":"BESKJED","text":"Hei"}}"""
+                    """{"content":{"type":"BrukervarselCreate","personIdentifier":"${TEST_SYKMELDT.value}","varseltype":"BESKJED","text":"Hei"}}"""
                 handler.handle(testRecord(value = payload, eventId = UUID.randomUUID().toString()))
 
                 inboxRepository.savedEvents.size shouldBe 0
@@ -70,9 +71,9 @@ class InboxHandlerTest :
             }
         }
 
-        test("a parse failure never leaks payload content (fnr) to the log (B46/B58 PII)") {
+        test("a parse failure never leaks payload content (fnr) to the log") {
             with(createTestContext()) {
-                val fnr = "31129956715"
+                val fnr = TEST_SYKMELDT.value
                 // Structurally broken JSON whose decode error echoes the raw input (incl. the fnr).
                 val leakyPayload = """{"reference":"r","content":{"personIdentifier":"$fnr" """
 
@@ -204,7 +205,7 @@ private fun validRecord(
             "reference": "$reference",
             "content": {
                 "type": "BrukervarselCreate",
-                "personIdentifier": "12345678901",
+                "personIdentifier": "${TEST_SYKMELDT.value}",
                 "varseltype": "BESKJED",
                 "text": "Hei"
             }

@@ -1,110 +1,145 @@
 ---
 name: to-issues
-description: "Bruk når en plan, et design, en PRD eller `.grill/PLAN.md` skal brytes ned i selvstendig plukkbare GitHub-issues på navikt/syfo-budstikka. Typisk etter @grillmester sin plan-fase, eller når noen sier 'lag issues', 'splitt opp i tickets', 'bryt ned arbeidet', 'lag epic + sub-issues'."
+description: Use only after the user explicitly selects To Issues to break an approved plan or specification into independently useful GitHub issues with native blocking edges.
 ---
 
-# to-issues
+# To Issues
 
-Bryt en plan ned i selvstendig plukkbare issues via **tracer-bullet** vertikale snitt. Hvert issue er et tynt snitt som går helt gjennom alle lag i tjenesten, ikke et horisontalt snitt av ett lag.
+Break a plan, spec, or conversation into **GitHub issues** — tracer-bullet
+vertical slices that remain understandable and useful on their own.
 
-Dette er broa mellom plan-fasen og implementeringen i @grillmester sin faseløkke: input er som regel `.grill/PLAN.md` (+ `docs/context.md` og `docs/adr/`), output er issues på `navikt/syfo-budstikka` som er klare for plukking.
+Start only after the user has explicitly selected `/to-issues` in the current
+conversation. Relevance or a prior recommendation is not selection.
 
-## Arbeidsflyt
+Read the repository's issue-tracker adapter before tracker use. Stop before
+publishing when it does not establish the required operations, labels, or
+authorization boundary.
 
-### 1. Hent kontekst
+## Process
 
-Jobb fra det som allerede er i samtalen. Prioritert kilderekkefølge:
+### 1. Gather context
 
-- `.grill/PLAN.md` — den vedtatte planen fra plan-fasen
-- `docs/context.md` — valgt tilnærming og rammer fra design-fasen
-- `docs/adr/` — beslutninger som binder issue-innholdet (respekter dem; ikke reåpne avgjorte valg)
-- `docs/glossary.md` — domenespråk som issue-titler og -beskrivelser skal bruke
+Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
 
-Hvis brukeren oppgir en issue-referanse (nummer, URL) som argument, hent issuet fra GitHub og les body + kommentarer. Det blir parent-issue for snittene.
+### 2. Explore the codebase (optional)
 
-### 2. Utforsk kodebasen (ved behov)
+If you have not already explored the codebase, do so to understand the current
+state of the code. Issue titles and descriptions should use the project's
+domain glossary vocabulary and respect ADRs in the area you're touching.
 
-Har du ikke allerede kartlagt koden, gjør det nå for å forstå utgangspunktet. Issue-titler og -beskrivelser skal bruke domenespråket fra `docs/glossary.md` og respektere ADR-ene i området du rører.
+Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
-Se etter **prefaktorering** som gjør implementeringen enklere: "gjør endringen lett, så gjør den lette endringen." Prefaktorering blir egne issues som plukkes først.
+### 3. Draft vertical slices
 
-### 3. Tegn vertikale snitt
+Break the work into **tracer bullet** issues.
 
-Bryt planen i **tracer-bullet**-issues. Et snitt i denne Ktor-backenden kutter typisk gjennom:
+<vertical-slice-rules>
 
-```
-Flyway-migrasjon  →  repository/spørring  →  domene/service
-                  →  Ktor-route ELLER Kafka-konsument  →  auth (TokenX/Azure AD)
-                  →  test (`./gradlew test`)  →  NAIS-config (topic/accessPolicy ved behov)
-```
+- Each slice cuts a narrow but COMPLETE path through every layer (schema, API, UI, tests) — vertical, NOT a horizontal slice of one layer
+- A completed slice is demoable or verifiable on its own
+- Each slice is sized to fit in a single fresh context window
+- Any prefactoring should be done first
 
-<vertikalt-snitt-regler>
+</vertical-slice-rules>
 
-- Hvert snitt leverer en smal, men KOMPLETT vei gjennom alle berørte lag
-- Et fullført snitt er demonstrerbart eller verifiserbart for seg selv (et kall som returnerer riktig svar, en melding som konsumeres idempotent, en rad som havner i Postgres)
-- Prefaktorering gjøres først, som egne snitt
-- Bind hvert snitt til relevant ADR der det finnes en beslutning som styrer det
+Give each issue its **blocking edges** — the other issues that must complete
+before it can start. An issue with no blockers can start immediately.
 
-</vertikalt-snitt-regler>
+**Wide refactors are the exception to vertical slicing.** A **wide refactor** is
+one mechanical change — rename a column, retype a shared symbol — whose **blast
+radius** fans across the whole codebase, so a single edit breaks thousands of
+call sites at once and no vertical slice can land green. Don't force it into a
+tracer bullet; sequence it as **expand–contract**. First expand: add the new
+form beside the old so nothing breaks. Then migrate the call sites over in
+batches sized by blast radius (per package, per directory), each batch its own
+issue blocked by the expand, keeping CI green batch to batch because the old
+form still exists. Finally contract: delete the old form once no caller
+remains, in an issue blocked by every migrate batch. When even the batches
+can't stay green alone, keep the sequence but let them share an integration
+branch that all block a final integrate-and-verify issue — green is promised
+only there.
 
-Eksempel — én feature, tre snitt:
+### 4. Quiz the user
 
-1. **Persistér mottatt budstikke-hendelse** — Flyway-migrasjon + repository + idempotent insert + test. Ingen route ennå.
-2. **Eksponer hendelse via autentisert endepunkt** — Ktor-route med TokenX-validering + service som leser fra repository + StatusPages-feilkontrakt + test. Blokkert av 1.
-3. **Konsumer Kafka-hendelse inn i samme lager** — konsument + idempotens/replay-håndtering + NAIS topic/accessPolicy + test. Blokkert av 1.
+Present the proposed breakdown as a numbered list. For each issue, show:
 
-### 4. Kvalitetssjekk snittene mot brukeren
+- **Title**: plain-language outcome, understandable without opening the issue
+- **Blocked by**: which other issues (if any) must complete first
+- **In short**: who or what benefits, what changes, and why it matters
+- **Implementation brief**: the decisive technical context, proof, and scope
 
-Presenter nedbrytningen som en nummerert liste. For hvert snitt, vis:
+Ask the user:
 
-- **Tittel** — kort, beskrivende, på domenespråket
-- **Blokkert av** — hvilke andre snitt (om noen) må fullføres først
-- **Dekker** — hvilke deler av planen / brukerhistorier dette løser
+- Does the granularity feel right? (too coarse / too fine)
+- Are the blocking edges correct — does each issue only depend on issues that genuinely gate it?
+- Should any issues be merged or split further?
 
-Spør brukeren:
+Iterate until the user approves the breakdown. Approval of its shape is not
+authorization to mutate the tracker: present the exact issues, metadata, and
+relationships and obtain explicit authorization for those writes.
 
-- Føles granulariteten riktig? (for grov / for fin)
-- Stemmer avhengighetene?
-- Skal noen snitt slås sammen eller splittes videre?
+### 5. Publish the issues to GitHub
 
-Iterer til brukeren godkjenner nedbrytningen.
+After authorization, publish one issue per slice in dependency order
+(blockers first) so later relationships can reference real identifiers. Use the
+tracker's native parent and blocking relationships. Apply only labels and issue
+types established by the adapter; never approximate a missing relationship or
+label in prose.
 
-### 5. Publiser issues til GitHub
+Read the created issues, project state, and native relationships back after
+writing. Report a
+partial failure instead of silently continuing with a malformed graph.
 
-For hvert godkjent snitt, opprett et issue på `navikt/syfo-budstikka` med malen under. Publiser i avhengighetsrekkefølge (blokkerere først) så du kan referere reelle issue-nummer i "Blokkert av".
+Work the **frontier**: any issue whose blockers are all done. For a purely
+linear chain that means top to bottom.
 
-- Sett **issue-type** (`Feature`/`Task`/`Bug`/`Story`), og for store kilder: opprett epic først, koble snittene som **sub-issues** og koble **avhengigheter** native. Selve issue-mekanikken (typer, sub-issues, avhengigheter, ferdigmelding, PR-kobling) eies av `/issue-management` — kall den.
-- Legg issuet inn i prosjektboardet hvis konfigurert — se `references/prosjektboard.md`
-- Disse issuene regnes som klare for plukking; publiser med riktig triage-label med mindre noe annet er sagt
+Do NOT close or otherwise modify a parent issue unless that mutation was
+included in the authorized set.
 
-<issue-mal>
-## Parent
+Use a functional title that names the observable change rather than the
+implementation mechanism. Start the body for humans who do not know the code:
 
-Referanse til parent-issue (utelat hvis kilden ikke var et eksisterende issue).
-For sub-issues: `Del av epic: #EPIC_NR`.
+<issue-template>
+## In short
 
-## Hva som skal bygges
+<one or two sentences: who or what benefits, what changes, and why it matters>
 
-Kort beskrivelse av dette vertikale snittet. Beskriv ende-til-ende-oppførsel, ikke lag-for-lag-implementering.
+## What to build
 
-Unngå konkrete filstier og kodesnutter — de blir utdaterte fort. Unntak: hvis et design/prototype har produsert en snutt som koder en beslutning mer presist enn prosa (datakontrakt, Kafka-meldingsskjema, Flyway-DDL, feilkontrakt), inline kun de beslutningsbærende bitene og noter hvor de kommer fra.
+<the end-to-end behaviour this issue makes work, not a layer-by-layer walkthrough>
 
-Pek på styrende ADR der det finnes: `Følger docs/adr/NNNN-...`.
+## Acceptance criteria
 
-## Akseptansekriterier
+- [ ] Criterion 1
+- [ ] Criterion 2
 
-- [ ] Ende-til-ende-oppførselen virker (f.eks. kall returnerer forventet svar / melding konsumeres idempotent)
-- [ ] `./gradlew test` grønn, inkl. ny test som dekker snittet
-- [ ] Auth på plass der relevant (TokenX/Azure AD), ingen PII i logger
-- [ ] NAIS-config oppdatert hvis snittet trenger topic/accessPolicy/secret
+## Implementation context and proof
 
-## Blokkert av
+<relevant current state, constraints, risks, test seams, and evidence>
 
-- Referanse til blokkerende issue (`#NNN`), ellers "Ingen – kan startes umiddelbart"
-</issue-mal>
+## Out of scope
 
-Ikke lukk eller endre parent-issuet.
+<the nearest tempting work that this issue deliberately does not include>
 
-## Etter publisering
+</issue-template>
 
-Issuene er nå input til implementeringsfasen. Når et snitt plukkes, kjører @grillmester normal faseløkke på det (implementer → verifiser → server), og lukker issuet via `Closes #NNN` i PR-en. Bruk `/grill-with-docs` hvis et snitt viser seg å trenge mer design før det kan implementeres.
+Use a user story only when a real actor and value become clearer in that form.
+Do not force technical work into “As a …” prose. Put the technical brief after
+the human-readable opening. Preserve the evidence, constraints, test seams,
+and non-goals an implementer or agent needs; remove only detail that would go
+stale or prescribe an unchosen implementation.
+
+Present tracker metadata alongside the draft: issue type, labels, project and
+initial status, parent, blockers, and assignee when applicable. Store parent,
+blocking, and project state in native metadata rather than body prose.
+
+Keep parent and blocking state in native tracker relationships, not duplicated
+body sections. Add dependency prose only when a non-obvious rationale will
+help the implementer; it never carries graph state.
+
+Avoid speculative paths, exhaustive file inventories, and snippets that merely
+prescribe an implementation. Retain verified current anchors such as a symbol,
+path, failing test, query, or command when they are evidence or the clearest
+test seam. If a prototype produced a snippet that encodes a decision more
+precisely than prose can (state machine, reducer, schema, type shape), inline
+only its decision-rich parts and identify it as prototype output.

@@ -19,6 +19,7 @@ kafka = "4.3.1"
 testcontainers = "1.21.4"
 tmsVarselJavaBuilder = "2.2.0"
 tmsMikrofrontendSelector = "3.0.0"
+japicmp = "0.4.6"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -27,11 +28,13 @@ ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
 flyway = { id = "org.flywaydb.flyway", version.ref = "flyway" }
 test-logger = { id = "com.adarshr.test-logger", version.ref = "testLogger" }
+japicmp = { id = "me.champeau.gradle.japicmp", version.ref = "japicmp" }
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-slf4j = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
@@ -61,3 +64,5 @@ tms-varsel-java-builder = { module = "no.nav.tms.varsel:java-builder", version.r
 tms-mikrofrontend-selector-builder = { module = "no.nav.tms.mikrofrontend.selector:builder", version.ref = "tmsMikrofrontendSelector" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
+ktor-server-test = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

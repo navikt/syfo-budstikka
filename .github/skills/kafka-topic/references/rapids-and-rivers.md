@@ -115,7 +115,7 @@ class SykmeldingRiverTest {
               "@id": "550e8400-e29b-41d4-a716-446655440000",
               "@created_at": "2026-01-01T08:00:00",
               "sykmeldingId": "s1",
-              "fnr": "00000000000",
+              "fnr": "<SYNTHETIC_FNR>",
               "fom": "2026-01-01",
               "tom": "2026-03-31"
             }
@@ -128,7 +128,7 @@ class SykmeldingRiverTest {
 }
 ```
 
-Kjør `./gradlew test` og loggfør resultatet i `.grill/VERIFICATION.md`.
+Kjør `./gradlew test` og returner resultatet til den aktive oppgaven.
 
 ## Feilhåndtering i Rivers
 

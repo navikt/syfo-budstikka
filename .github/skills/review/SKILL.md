@@ -1,33 +1,38 @@
 ---
 name: review
-description: "Brukes når du skal gå gjennom DIN EGEN diff før du ber om kryssmodell-review (grill-inspektor) eller åpner PR: en uforpliktet endring, en branch mot main, eller diffen siden et fast punkt skal granskes for korrekthet, regresjon, kanttilfeller og scope. Trigget når du nettopp har skrevet ferdig kode i implementer-fasen, eller når noen sier 'selvreview', 'gå gjennom egen diff', 'review før PR', 'review siden X'."
+description: "Brukes når den aktive oppgavens diff skal gjennom en selvreview før fersk grill-inspektor-review eller PR: ucommittede endringer, en branch mot main, eller diffen siden et fast punkt granskes for korrekthet, regresjon, kanttilfeller og avgrensning. Trigget etter implementering, eller når noen sier 'selvreview', 'gå gjennom egen diff', 'review før PR', 'review siden X'."
 ---
 
-# Selvreview — gå gjennom egen diff før andre øyne
+# Selvreview — gå gjennom oppgavediffen før andre øyne
 
-Disiplinen for å granske **din egen** endring før du bruker en dyrere ressurs på den. Dette er ikke en agent — det er det du gjør inline, på din egen diff, i **verifiser**-fasen til @grillmester, FØR du eventuelt kaller `grill-inspektor` (kryssmodell-review) eller åpner PR.
+Gransk den aktive oppgavens endring i verifiseringsfasen før PR og eventuell
+`grill-inspektor`-review. Den aktive skriveren retter funn; orkestratoren
+rapporterer en avgrenset korreksjon tilbake til skriveren.
 
-Poenget: kryssmodell-review (GPT-5.5, annen familie) er opt-in og kostbar. Ikke bruk den på funn du selv kunne tatt. Selvreview er det billige passet som rydder bort det åpenbare, så de friske øynene bruker budsjettet sitt på blindsonene dine — ikke på slurv.
+## Les diffen, ikke minnet
 
-## Kjerneproblemet: du er partisk på egen kode
+Spor endret atferd fra teksten og kallflyten, ikke fra det du husker at du ville
+oppnå. Et grønt testpass beviser bare at testene du skrev passerer; selvreview
+leter etter det de ikke dekker.
 
-Du skrev koden. Du «vet» hva den gjør, så du leser intensjonen din, ikke teksten på skjermen. Selvreview virker bare hvis du bryter den partiskheten bevisst:
+## 1. Fest avgrensningen og hent hele diffen
 
-- **Les diffen som en motstander**, ikke som forfatter. Anta at hver linje skjuler en feil til den motbeviser seg selv.
-- **Les teksten, ikke minnet.** Hvert kall til ekstern tjeneste, hver null-håndtering, hver tilstandsendring leses som om en fremmed skrev den.
-- **Et grønt testpass beviser ikke korrekthet** — bare at testene du tenkte på, passerer. Selvreview leter etter det testene ikke dekker.
-
-## 1. Fest punktet og hent diffen
-
-Fast punkt er det brukeren oppga — commit-SHA, branch, tag, `main`, `HEAD~5`. Mangler det, spør. Verifiser at det resolver, og at diffen ikke er tom, FØR du går videre:
+Start med `git status --short`. For ucommittet arbeid bruker du oppgavebriefens
+filavgrensning, `git diff` for sporede filer og full tekst for nye usporede filer.
+For en branch bruker du fastpunktet brukeren oppga — commit-SHA, branch, tag,
+`main`, `HEAD~5` — og tar med eventuell arbeidskatalogdiff i tillegg. Verifiser
+at fastpunktet resolver og at den samlede oppgavediffen ikke er tom:
 
 ```bash
 git rev-parse <fast-punkt>                 # resolver referansen?
 git diff <fast-punkt>...HEAD --stat        # tre-prikk = mot merge-base
 git log <fast-punkt>..HEAD --oneline       # commits i scopet
+git status --short                         # ucommittede og usporede filer
 ```
 
-Bruk **tre-prikk** (`...HEAD`) så du sammenligner mot felles forfar, ikke mot en branch som har drevet videre. Hold deg til ett diff-scope gjennom hele reviewen.
+Bruk **tre-prikk** (`...HEAD`) så du sammenligner mot felles forfar, ikke mot en
+branch som har drevet videre. En vanlig `git diff` utelater usporede filer; les
+dem i fulltekst. Hold deg til én oppgaveavgrensning gjennom hele reviewen.
 
 ## 2. Seks akser — hold dem adskilt
 
@@ -43,10 +48,14 @@ Hva ELLERS treffer den endrede koden? Følg kallere oppover: endret du en delt f
 Tom liste, `null`, manglende felt, samtidighet, retry, timeout. NAV/Ktor-spesifikt — se sjekklisten under.
 
 ### D. Scope (diff-disproporsjon)
-Er det noe i diffen som oppgaven IKKE ba om? Refaktorering snikinnført i en feilretting, urelatert formattering, en «mens jeg var her»-endring. Hver hunk skal kunne spores til et krav i `PLAN.md`/`context.md`. Det motsatte også: ba oppgaven om noe som ikke er i diffen?
+Er det noe i diffen som oppgaven IKKE ba om? Refaktorering snikinnført i en feilretting, urelatert formattering, en «mens jeg var her»-endring. Hver hunk skal kunne spores til oppgaven/issuet eller den aktive planen. Det motsatte også: ba oppgaven om noe som ikke er i diffen?
 
 ### E. Krav-dekning (mot spec)
-Sammenlign diffen mot `docs/context.md` (krav) og `.grill/PLAN.md` (ferdig-når-kriterier). For hvert krav: innfridd / delvis / mangler. For hver ADR i `docs/adr/` som rører området: følger koden beslutningen, eller avviker den stille? Et stille ADR-avvik er en blocker, ikke en detalj.
+Sammenlign diffen mot oppgaven/issuet, den aktive planen eller oppgavebriefen og
+relevant vedlikeholdt dokumentasjon. For hvert krav: innfridd / delvis /
+mangler. Følg repository-policyens statustolkning for relevante ADR-er. Et
+stille avvik fra et akseptert valg er en blocker; et foreslått valg binder bare
+når den aktive oppgaven uttrykkelig bygger på det.
 
 ### F. Standard-dekning (mot repoets konvensjoner)
 Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feilkontrakt via StatusPages, DI-mønster, navngiving, pakkestruktur under `no.nav.syfo`? Hopp over alt verktøy håndhever (formattering, import-orden) — det fanges av gatene, ikke av øynene dine.
@@ -65,16 +74,26 @@ Følger koden måten dette repoet skriver kode på — Ktor-route-struktur, feil
 
 Selvreview produserer en handling, ikke en rapport til arkivet:
 
-1. **Funn du kan fikse nå → fiks dem inline.** Det er hele poenget med å ta dem selv.
-2. **Kjør de deterministiske gatene på nytt** etter fiks — `./gradlew test` (og `build`/lint der det finnes). Hardt pass/fail, med ferskt bevis i samme melding. Ingen «ser bra ut» uten kommando + output + exit-kode.
-3. **Funn du bevisst lar stå** (utenfor scope, egen oppgave) → noter dem kort i `.grill/STATE.md` så de ikke forsvinner.
-4. **Bindende beslutninger** som dukker opp under reviewen (valgt mekanisme, ny datakategori) → fang som ADR i `docs/adr/`, ikke i en kommentar.
+1. **Funn innenfor oppgaven:** Er du den aktive skriveren, rett dem før du
+   returnerer. Er du orkestratoren etter Kokk, ikke rediger kode; send den
+   minste avgrensede korreksjonen tilbake til Kokk.
+2. **Kjør de deterministiske gatene på nytt** etter retting — `./gradlew test`
+   (og `build`/lint der det finnes). Hardt pass/fail, med ferskt bevis i samme
+   melding. Ingen «ser bra ut» uten kommando + output + exit-kode.
+3. **Funn du bevisst lar stå** (utenfor scope, egen oppgave) → noter dem kort i
+   den aktive oppgaven så de ikke forsvinner.
+4. **Beslutningskandidater** som dukker opp under reviewen → rapporter dem.
+   Når en kandidat passerer ADR-gaten, anbefal dokumentert løp og vent på
+   brukerens valg før `/domain-modeling` skriver.
 
-Først NÅ er diffen klar for det dyre passet: kall `grill-inspektor` for kryssmodell-review (anbefalt-på ved R3/R4 — auth, PII, schema, API-kontrakt, Kafka, deploy; opt-in ellers). Den er read-only (`tools: [read, search]` — kan ikke skrive filer), verifiserer uavhengig mot KRAV og BESLUTNINGER og **returnerer** verdiktet; `@grillmester` skriver det til `.grill/REVIEW.md` (de deterministiske gatene eier `.grill/VERIFICATION.md`). Selvreview erstatter den aldri — den gjør den verdt pengene.
+Når stegene er fullført, rapporter at diffen er klar for eventuell
+`grill-inspektor`-review. Grillmester håndterer risikovurderingen,
+brukerens valg og reviewflyten.
 
 ## Flytkobling
 
-- **Fase i faseløkka:** verifiser (fase 5), steg før den opt-in kryssmodell-reviewen.
-- **Leser:** `docs/context.md`, `.grill/PLAN.md`, `docs/adr/`, `.grill/STATE.md`.
-- **Komplementerer:** `grill-inspektor` (agenten gjør kryssmodell-passet; denne skillen er din egen disiplin før det).
-- **Relaterte skills:** `/security-review` (PII/auth/accessPolicy-dybde ved R3/R4), `/kotlin-ktor` (route-/auth-/feilkontrakt-konvensjoner du måler akse F mot), `/flyway-migration` (bakoverkompatibel migrering), `/postgresql-review` (N+1, pool, indeks), `/kafka-topic` (idempotens, commit-semantikk), `/diagnosing-bugs` (når et funn er en faktisk bug som må root-cause-es).
+- **Fase i faseløkka:** verifiser (fase 5), før eventuell inspektørreview.
+- **Leser:** oppgaven/issuet, aktiv plan eller oppgavebrief og kildene som
+  repository-policyen gjør relevante. Les oppgavelokal `.grill/` bare når den
+  kallende arbeidsflyten har valgt den.
+- **Dybde:** bruk relevant domeneskill når et funn krever spesialisert review.

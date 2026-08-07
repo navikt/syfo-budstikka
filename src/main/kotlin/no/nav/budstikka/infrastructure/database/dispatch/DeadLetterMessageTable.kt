@@ -9,7 +9,7 @@ object DeadLetterMessageTable : Table("dead_letter_message") {
     val id = javaUUID("id").databaseGenerated()
     val payload = text("payload")
 
-    // Best-effort correlation (ADR 0008): set when the header was valid, null otherwise.
+    // Best-effort correlation: null when the header was missing or invalid.
     val eventId = javaUUID("event_id").nullable()
     val topic = text("topic")
     val partition = integer("partition")

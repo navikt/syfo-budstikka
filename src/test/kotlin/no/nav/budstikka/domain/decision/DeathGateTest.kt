@@ -3,29 +3,26 @@ package no.nav.budstikka.domain.decision
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import no.nav.budstikka.domain.dispatch.AltinnResource
-import no.nav.budstikka.domain.dispatch.AltinnResourceId
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.Tag
-import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.DittSykefravaerCreate
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.MicrofrontendDisable
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.Oppgavetype
+import no.nav.budstikka.contract.Tag
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.deadLookupFor
 
-/**
- * The death gate in isolation: it self-selects on [gatedPerson] and looks up PDL only when the event can
- * be gated. [DecisionProcessTest] covers the chain effects (short-circuit, e2e).
- */
 class DeathGateTest :
     FunSpec({
         fun envelope(content: DispatchContent) = Dispatch(reference = "ref-1", content = content)
@@ -67,8 +64,14 @@ class DeathGateTest :
             gate.decide(MicrofrontendDisable(TEST_SYKMELDT, "mf-1")).shouldBeInstanceOf<Decision.Processed>()
         }
 
-        test("Ledervarsel is not gated on the Sykmeldt's death; future Recipient is Nærmeste leder") {
-            val content = LedervarselCreate(sykmeldt = TEST_SYKMELDT, orgnummer = TEST_ORGNUMMER, text = "text")
+        test("leader notification is not gated on the employee's death (recipient is the leader)") {
+            val content =
+                LedervarselCreate(
+                    sykmeldt = TEST_SYKMELDT,
+                    orgnummer = TEST_ORGNUMMER,
+                    oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
+                    text = "text",
+                )
             DeathGate(deadLookupFor(TEST_SYKMELDT))
                 .decide(content)
                 .shouldBeInstanceOf<Decision.Processed>()

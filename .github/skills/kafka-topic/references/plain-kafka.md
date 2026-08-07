@@ -77,7 +77,7 @@ Du kan også lese disse via Ktor `environment.config` hvis de er speilet inn i `
 
 - Bruk Testcontainers `KafkaContainer` for integrasjonstester — ikke embedded Kafka (avviklet).
 - Unit-test prosesseringslogikken separat fra Kafka-klienten: injiser en `ConsumerRecord` (eller bare payloaden) direkte i `prosesser(...)` uten å starte en consumer.
-- Kjør `./gradlew test` og loggfør resultatet i `.grill/VERIFICATION.md`.
+- Kjør `./gradlew test` og returner resultatet til den aktive oppgaven.
 
 ```kotlin
 @Test

@@ -5,9 +5,9 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -16,16 +16,11 @@ import org.slf4j.MDC
 import java.util.UUID
 
 /**
- * Parses the full [Dispatch] at ingest and persists a hydrated, deduplicated inbox row (ADR 0008).
- * Deduplicates on `event_id` (PK, ON CONFLICT DO NOTHING) from the Kafka header, deliberately after
- * parsing rather than before (deviation from ADR 0008 point 3; see ADR note).
+ * Parses [Dispatch] at ingest and persists a hydrated inbox row deduplicated by the event ID header.
  *
- * Failure taxonomy: syntactically invalid input (missing/invalid header, empty or unparseable payload)
- * is dead-lettered and its offset committed; transient failure (database unavailable) is rethrown
- * without commit for re-poll.
- *
- * PII: a parse failure can include fnr in its exception message (kotlinx echoes raw JSON), so never
- * log the message or throwable: log only the failure code.
+ * Invalid input is dead-lettered; transient persistence failures are rethrown for re-poll. Parsing
+ * failures may echo the payload in exception messages, so this handler never logs them or their
+ * throwables.
  */
 class InboxMessageHandler(
     private val inboxMessageRepository: InboxMessageRepository,
@@ -55,7 +50,7 @@ class InboxMessageHandler(
             return
         }
         deadLetterRepository.saveBatch(deadLetters)
-        // DL can lack eventId: correlate by Kafka coordinates, not MDC. Never log payload (B58).
+        // A dead letter can lack eventId; correlate by Kafka coordinates and never log its payload.
         deadLetters.forEach { deadLetter ->
             logger.warn(
                 "Poison inbox message dead-lettered {} {} {} {}",
@@ -72,7 +67,6 @@ class InboxMessageHandler(
             return
         }
         inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
-        // eventId in MDC so the Loki line for consumption correlates with the rest of the flow (B45).
         validEvents.forEach { record ->
             MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(
@@ -103,8 +97,8 @@ class InboxMessageHandler(
     private fun ConsumerRecord<String, String?>.toInboxCandidate(): InboxCandidate {
         val eventId =
             when (val result = readEventId()) {
-                is EventId.Valid -> result.value
-                is EventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(result.reason, eventId = null))
+                is ParsedEventId.Valid -> result.value
+                is ParsedEventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(result.reason, eventId = null))
             }
 
         val payload = value()
@@ -151,24 +145,30 @@ internal sealed interface ParseResult {
     data object Failure : ParseResult
 }
 
-internal sealed interface EventId {
+/**
+ * The outcome of reading the eventId header off a record. Deliberately not named `EventId`: that name
+ * belongs to the public contract type [no.nav.budstikka.contract.EventId], and a same-package
+ * technical twin would shadow it for every reader of this package. This one is a parse result and
+ * carries a raw [UUID], never the contract type.
+ */
+internal sealed interface ParsedEventId {
     data class Valid(
         val value: UUID,
-    ) : EventId
+    ) : ParsedEventId
 
     data class Invalid(
         val reason: DeadLetter,
-    ) : EventId
+    ) : ParsedEventId
 }
 
-internal fun ConsumerRecord<*, *>.readEventId(): EventId {
+internal fun ConsumerRecord<*, *>.readEventId(): ParsedEventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()
-            ?: return EventId.Invalid(DeadLetter.MissingEventId)
+            ?: return ParsedEventId.Invalid(DeadLetter.MissingEventId)
     return try {
-        EventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
+        ParsedEventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
     } catch (_: IllegalArgumentException) {
-        EventId.Invalid(DeadLetter.InvalidEventId)
+        ParsedEventId.Invalid(DeadLetter.InvalidEventId)
     }
 }
 

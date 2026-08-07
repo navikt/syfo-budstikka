@@ -8,8 +8,8 @@ description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstik
 Flytt innkommende issues (og eksterne PR-er) på `navikt/syfo-budstikka` gjennom en liten tilstandsmaskin: **klassifiser → verifiser → grill ved behov → skriv en arbeidsklar brief**. Fokuset her er **vurdering og klargjøring**, ikke oppretting.
 
 Dette komplementerer to nabo-skills — ikke dupliser dem:
-- `/to-issues` bryter en *ferdig plan* (`.grill/PLAN.md`) i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
-- `/issue-management` eier selve oppretting-, type-, label- og board-mekanikken (issue-typer, sub-issues, avhengigheter, prosjektboard, ferdigmelding). Slå opp der — `issue-management/references/issue-types.md` for type/label og `issue-management/references/projects.md` for board — når du faktisk setter en rolle eller status. Gjenta ikke mekanikken her.
+- `/to-issues` bryter en *ferdig plan* i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
+- `/issue-management` eier selve GitHub-mekanikken etter at saken er formet. Repository-, label- og project-fakta kommer fra `docs/agents/issue-tracker.md`; gjenta ikke mekanikken her.
 
 En **PR er et issue med kode**: samme roller, samme tilstander. Der noe avviker for en PR er det merket "for en PR" under. En bar `#42` slås opp som issue eller PR.
 
@@ -22,7 +22,6 @@ Hver kommentar du poster under triage **må** starte med:
 ## Referansedokumenter
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md) — hvordan skrive en durabel, arbeidsklar brief
-- [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) — hvordan `.out-of-scope/`-kunnskapsbasen virker
 
 ## Roller
 
@@ -69,8 +68,15 @@ Inkluder eksterne PR-er i bøttene og merk hver linje `[PR]` eller `[issue]`. Di
 ### 1. Hent kontekst
 Les hele saken (body, kommentarer, labels, forfatter, datoer; for en PR også diffen). Parse tidligere triage-notater så du ikke spør om det som allerede er løst. Utforsk kodebasen:
 
-- Les `docs/context.md` for mental modell av modulene, `docs/adr/` for bindende beslutninger i området, og `docs/glossary.md` for å bruke riktig domenespråk.
-- Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg 5). **(b) tidligere avvist** — les `.out-of-scope/*.md` og flagg det som ligner.
+- Følg repository-policyen for dokumentasjon og last bare kilder som er
+  relevante for saken.
+- Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon
+  av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og
+  rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg
+  5). **(b) tidligere avvist** — søk etter konseptet i lukkede GitHub-issues og
+  `wontfix`-saker. Les lukkediskusjonen og behandle saken som tidligere avvist
+  bare når begrunnelsen faktisk sier det; en levert eller duplisert sak er
+  tidligere arbeid, ikke en avvisning.
 
 ### 2. Anbefal
 Si din kategori- og tilstands-anbefaling med begrunnelse, pluss en kort kodebase-oppsummering relevant for saken — inkludert om den allerede er implementert. Vent på retning.
@@ -82,16 +88,23 @@ Før noen grilling: sjekk at påstanden holder.
 - Rapporter: bekreftet (med kodevei), feilet, eller utilstrekkelig detalj (et sterkt `needs-info`-signal). En bekreftet verifisering gir en mye sterkere brief.
 
 ### 4. Grill (ved behov)
-Trenger saken kjøtt på beina, kjør `/grill-with-docs` sammen med `/domain-modeling` — grill den i form ett spørsmål av gangen, skjerp domenebegreper og oppdater `docs/glossary.md`/`docs/adr/` løpende. Er det en reell, vanskelig-å-reversere arkitekturbeslutning, utløs `/nav-architecture-review` så den festes som ADR.
+Trenger saken kjøtt på beina, kjør `/grilling` og grill den i form ett spørsmål
+av gangen. Når avklarte begreper eller varige beslutninger bør dokumenteres,
+anbefal dokumentert løp, forklar hvorfor og vent på brukerens valg. Bruk
+`/nav-architecture-review` for NAV-spesifikke funn; etter valgt dokumentert løp
+brukes `/domain-modeling` til å oppdatere glossaret eller skrive en
+kvalifiserende ADR under repository-policyen.
 
 ### 5. Bruk utfallet
 - `ready-for-agent` — post en arbeidsklar brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Saken regnes nå som plukkbar i @grillmester sin faseløkke.
 - `ready-for-human` — samme struktur som en agent-brief, men noter *hvorfor* den ikke kan delegeres.
 - `needs-info` — post triage-notat (mal under).
 - `wontfix` — lukk, med kommentar avhengig av *hvorfor*:
-  - **Allerede implementert** — endringen finnes alt. Pek på hvor den lever i koden. Skriv **ikke** til `.out-of-scope/` (den basen er for *avviste*, ikke bygde, ønsker).
+  - **Allerede implementert** — endringen finnes alt. Pek på hvor den lever i koden.
   - **Avvist (bug)** — høflig forklaring, så lukk.
-  - **Avvist (enhancement)** — skriv til `.out-of-scope/`, lenk til den fra en kommentar, så lukk ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+  - **Avvist (enhancement)** — skriv en selvstendig begrunnelse i
+    lukkekommentaren, så lukk. Det lukkede issuet er historikken; opprett ikke
+    et eget beslutningsarkiv i repoet.
 - `needs-triage` — sett rollen. Valgfri kommentar hvis det er delvis fremgang.
 
 ## Rask tilstandsoverstyring

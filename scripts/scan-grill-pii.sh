@@ -25,16 +25,23 @@ rule_regex=(
 
 # scan_file <visningsetikett> <fil-på-disk>
 scan_file() {
-  local label="$1" file="$2" i name pat lines
+  local label="$1" file="$2" i name pat lines normalized
+  # Kanonisk syntetisk personident i eksempler er BARE NULLER (jf. «tydelig syntetiske verdier»
+  # i docs/sende-varsler.md og README-quickstarten). Bare-nuller er ugyldig som fnr/d-nr og
+  # utvetydig ikke-PII, så den nulles ut før skanning; alle andre 11-sifrede sekvenser flagges
+  # fortsatt — også om de står på samme linje som den syntetiske verdien.
+  normalized="$(mktemp)"
+  sed 's/00000000000/SYNTETISK-PERSONIDENT/g' "$file" > "$normalized" 2>/dev/null || cp "$file" "$normalized"
   for i in "${!rule_names[@]}"; do
     name="${rule_names[$i]}"; pat="${rule_regex[$i]}"
     # -I hopper binærfiler, -n gir linjenr; vi beholder KUN linjenrene (kaster innholdet).
-    lines="$(grep -InE -e "$pat" "$file" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
+    lines="$(grep -InE -e "$pat" "$normalized" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
     if [ -n "$lines" ]; then
       echo "PII-mistanke ($name) i $label — linje(r): $lines"
       hits=1
     fi
   done
+  rm -f "$normalized"
 }
 
 # 1) Arbeidstre-skann av .grill/ (gitignorert, men behandles som offentlig).

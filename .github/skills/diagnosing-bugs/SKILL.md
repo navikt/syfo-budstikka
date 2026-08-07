@@ -1,13 +1,18 @@
 ---
 name: diagnosing-bugs
-description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (se /grill-with-docs)."
+description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (bruk /grilling og velg dokumentert løp ved behov)."
 ---
 
 # Diagnosing Bugs
 
 En disiplin for vanskelige feil. Hopp over faser kun når du eksplisitt kan begrunne det.
 
-Les `docs/context.md` (hvis den finnes) for en skarp mental modell av de relevante modulene, og sjekk `docs/adr/` for beslutninger i området du rører. For ikke-trivielle fikser sporer du arbeidet i `.grill/` (`STATE.md` leses først) på linje med @grillmester sin faseløkke.
+Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare
+topic-dokumentene og ADR-ene som berører symptomet, glossaret når domenespråk er
+relevant, og `docs/context.md` kun ved behov for repository-orientering eller
+overordnet status. For ikke-trivielle fikser bruker du aktiv oppgave eller
+oppgavebrief som avgrensning; oppgavelokal `.grill/` brukes bare når den
+kallende arbeidsflyten har valgt det.
 
 Er symptomet et **runtime-/plattformproblem** (appen kjører, men feiler i drift) — start i symptom-tabellen nederst og følg det diagnostiske treet i `/nav-troubleshoot` (som eier trærne), deretter tilbake hit for fikse-disiplinen.
 
@@ -133,7 +138,7 @@ Finnes en korrekt søm:
 4. Se den passere.
 5. Kjør fase 1-loopen mot det opprinnelige (u-minimerte) scenarioet.
 
-Pass/fail avgjøres deterministisk og utenfor modellen: `./gradlew test` (og lint/build der relevant). Ingen "ser riktig ut"-påstand uten ferskt bevis — kommando + output + exit-kode i samme melding.
+Pass/fail avgjøres deterministisk med `./gradlew test` (og lint/build der relevant). Ingen "ser riktig ut"-påstand uten ferskt bevis — kommando + output + exit-kode i samme melding.
 
 ## Fase 6 — Opprydding + post-mortem
 
@@ -144,9 +149,15 @@ Kreves før du erklærer ferdig:
 - [ ] All `[DEBUG-...]`-instrumentering fjernet (`grep -rn "DEBUG-" src/`)
 - [ ] Throwaway-harness slettet (eller flyttet til en tydelig merket debug-lokasjon)
 - [ ] Hypotesen som viste seg riktig er skrevet i commit/PR-melding — så neste debugger lærer
-- [ ] Ferskt grønt bevis for kvalitetsgatene noteres i `.grill/VERIFICATION.md` (kobler til @grillmester sin verifiser-fase)
+- [ ] Ferskt grønt bevis for kvalitetsgatene returneres til @grillmester sin verifiser-fase
 
-**Spør så: hva ville forhindret denne feilen?** Involverer svaret arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling), løft funnet til en ADR i `docs/adr/` og ta det videre via `/grill-with-docs` eller `/nav-architecture-review`. Gi anbefalingen **etter** at fiksen er inne, ikke før — du vet mer nå enn da du startet.
+**Spør så: hva ville forhindret denne feilen?** Involverer svaret
+arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling),
+ta funnet videre via `/grilling`. Bruk `/nav-architecture-review` for
+NAV-spesifikke konsekvenser. Når varige begreper eller beslutninger bør
+dokumenteres, anbefal dokumentert løp og vent på brukerens valg før
+`/domain-modeling` skriver. Gi anbefalingen **etter** at fiksen er inne, ikke
+før — du vet mer nå enn da du startet.
 
 ## Symptom-oversikt — runtime/plattform
 
@@ -166,6 +177,7 @@ Diagnose-trærne er NAV-/Ktor-spesifikke. Generisk Kubernetes-/Kafka-/SQL-kunnsk
 
 ## Relaterte skills
 
-- `/grill-with-docs` — stresstest design + ADR/glossar (når feilen avdekker et designhull)
+- `/grilling` — stresstest design når feilen avdekker et designhull; anbefal
+  dokumentert løp ved behov
 - `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (mekanismene bak auth-diagnose)
-- `/nav-architecture-review` — utløs ADR for arkitekturendringer som ville forhindret feilen
+- `/nav-architecture-review` — review NAV-konsekvenser ved arkitekturendringer som ville forhindret feilen

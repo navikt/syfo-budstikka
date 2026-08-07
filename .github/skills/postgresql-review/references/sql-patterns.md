@@ -1,8 +1,8 @@
 # SQL-mønstre — NAV-spesifikk tuning
 
-Denne referansen dekker kun NAV-spesifikke innstillinger. Se [SKILL.md](../SKILL.md) for prinsipper og sjekkliste.
+Denne referansen dekker kun NAV-spesifikke innstillinger.
 
-Generisk SQL-optimalisering (EXPLAIN ANALYZE, indeksvalg, N+1, SELECT *, JSONB-operatorer, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) er utenfor scope for denne skillen — modellen kan dette selv. Se PostgreSQL-dokumentasjonen, eller teamets egen best-practice hvis det finnes.
+Generisk SQL-optimalisering (EXPLAIN ANALYZE, indeksvalg, N+1, SELECT *, JSONB-operatorer, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) er utenfor scope for denne skillen. Se PostgreSQL-dokumentasjonen eller teamets etablerte praksis.
 
 ## Tilkoblingspool — HikariCP i NAIS-containere
 
@@ -23,17 +23,16 @@ spec:
 ```
 
 ```kotlin
-// Pool-verdiene er dokumentert i SKILL.md; det referansen viser er ENV-WIRINGEN:
+// Eksemplet viser ENV-wiringen; dimensjoner poolen fra verifisert kapasitet:
 HikariConfig().apply {
-    jdbcUrl  = System.getenv("DB_JDBC_URL")   // injisert av gcp.sqlInstances envVarPrefix: DB
-    username = System.getenv("DB_USERNAME")
-    password = System.getenv("DB_PASSWORD")
-    // maximumPoolSize / minimumIdle / connectionTimeout / idleTimeout / maxLifetime
-    // / transactionIsolation — se SKILL.md for verdier og begrunnelser
+    setJdbcUrl(System.getenv("DB_JDBC_URL"))   // injisert av gcp.sqlInstances envVarPrefix: DB
+    setUsername(System.getenv("DB_USERNAME"))
+    setPassword(System.getenv("DB_PASSWORD"))
+    // Sett pool-, timeout- og isolation-verdier fra verifisert kapasitet og SLO-er
 }
 ```
 
-**Dimensjonering:** `replicas.max × maximumPoolSize ≤ max_connections` (full forklaring i SKILL.md). `max_connections` settes etter Cloud SQL-tier — shared-core ligger under 100, så kjør `SHOW max_connections;` før du regner, og husk at migrerings-/admin-connections og andre apper på samme instans teller med.
+**Dimensjonering:** `replicas.max × maximumPoolSize ≤ max_connections`. `max_connections` settes etter Cloud SQL-tier — shared-core ligger under 100, så kjør `SHOW max_connections;` før du regner, og husk at migrerings-/admin-connections og andre apper på samme instans teller med.
 
 **Eksplisitt `READ_COMMITTED`:** Matcher PostgreSQL-default og unngår overraskelser ved driver-oppgraderinger.
 

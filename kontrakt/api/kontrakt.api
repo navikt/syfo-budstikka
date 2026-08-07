@@ -1,0 +1,212 @@
+public final class no/nav/budstikka/contract/BrevFallback {
+	public static final field Companion Lno/nav/budstikka/contract/BrevFallback$Companion;
+	public fun <init> (Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;)V
+	public synthetic fun <init> (Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lno/nav/budstikka/contract/DistributionType;
+	public final fun copy (Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;)Lno/nav/budstikka/contract/BrevFallback;
+	public static synthetic fun copy$default (Lno/nav/budstikka/contract/BrevFallback;Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;ILjava/lang/Object;)Lno/nav/budstikka/contract/BrevFallback;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDistributionType ()Lno/nav/budstikka/contract/DistributionType;
+	public final fun getJournalpostId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class no/nav/budstikka/contract/BrevFallback$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lno/nav/budstikka/contract/BrevFallback$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lno/nav/budstikka/contract/BrevFallback;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lno/nav/budstikka/contract/BrevFallback;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/BrevFallback$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/Budstikka {
+	public static final field INSTANCE Lno/nav/budstikka/contract/Budstikka;
+	public static final field TOPIC Ljava/lang/String;
+	public final fun brevCreate-4vcwzOA (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;Z)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun brevCreate-4vcwzOA$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;ZILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun brukervarselCreate-C96fjD0 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Varseltype;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lno/nav/budstikka/contract/ExternalNotification;Lno/nav/budstikka/contract/BrevFallback;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun brukervarselCreate-C96fjD0$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Varseltype;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lno/nav/budstikka/contract/ExternalNotification;Lno/nav/budstikka/contract/BrevFallback;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun brukervarselInactivate-RXgLQ54 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun dineSykmeldteVarselCreate-YUKc_Hc (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Oppgavetype;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun dineSykmeldteVarselCreate-YUKc_Hc$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Oppgavetype;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun dineSykmeldteVarselInactivate-RXgLQ54 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun microfrontendDisable-e17jnzM (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun microfrontendEnable-2km0Dko (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun microfrontendEnable-2km0Dko$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+}
+
+public final class no/nav/budstikka/contract/DistributionType : java/lang/Enum {
+	public static final field IMPORTANT Lno/nav/budstikka/contract/DistributionType;
+	public static final field OTHER Lno/nav/budstikka/contract/DistributionType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/DistributionType;
+	public static fun values ()[Lno/nav/budstikka/contract/DistributionType;
+}
+
+public final class no/nav/budstikka/contract/EncodedDispatch {
+	public final fun getEventId-Wc4LPyE ()Ljava/util/UUID;
+	public final fun getHeaders ()Ljava/util/Map;
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getTopic ()Ljava/lang/String;
+	public final fun getValue ()Ljava/lang/String;
+	public final fun headerBytes ()Ljava/util/Map;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class no/nav/budstikka/contract/EventId {
+	public static final field Companion Lno/nav/budstikka/contract/EventId$Companion;
+	public static final synthetic fun box-impl (Ljava/util/UUID;)Lno/nav/budstikka/contract/EventId;
+	public static fun constructor-impl (Ljava/util/UUID;)Ljava/util/UUID;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/util/UUID;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/util/UUID;Ljava/util/UUID;)Z
+	public final fun getValue ()Ljava/util/UUID;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/util/UUID;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/util/UUID;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/util/UUID;
+}
+
+public final class no/nav/budstikka/contract/EventId$Companion {
+	public final fun new-Wc4LPyE ()Ljava/util/UUID;
+}
+
+public final class no/nav/budstikka/contract/ExternalChannel : java/lang/Enum {
+	public static final field EMAIL Lno/nav/budstikka/contract/ExternalChannel;
+	public static final field SMS Lno/nav/budstikka/contract/ExternalChannel;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/ExternalChannel;
+	public static fun values ()[Lno/nav/budstikka/contract/ExternalChannel;
+}
+
+public final class no/nav/budstikka/contract/ExternalNotification {
+	public static final field Companion Lno/nav/budstikka/contract/ExternalNotification$Companion;
+	public final fun component1 ()Ljava/util/Set;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getChannels ()Ljava/util/Set;
+	public final fun getEmailText ()Ljava/lang/String;
+	public final fun getEmailTitle ()Ljava/lang/String;
+	public final fun getSmsText ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class no/nav/budstikka/contract/ExternalNotification$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lno/nav/budstikka/contract/ExternalNotification$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lno/nav/budstikka/contract/ExternalNotification;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lno/nav/budstikka/contract/ExternalNotification;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/ExternalNotification$Companion {
+	public final fun emailOnly (Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/ExternalNotification;
+	public static synthetic fun emailOnly$default (Lno/nav/budstikka/contract/ExternalNotification$Companion;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lno/nav/budstikka/contract/ExternalNotification;
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+	public final fun smsAndEmail (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/ExternalNotification;
+	public static synthetic fun smsAndEmail$default (Lno/nav/budstikka/contract/ExternalNotification$Companion;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lno/nav/budstikka/contract/ExternalNotification;
+	public final fun smsOnly (Ljava/lang/String;)Lno/nav/budstikka/contract/ExternalNotification;
+	public static synthetic fun smsOnly$default (Lno/nav/budstikka/contract/ExternalNotification$Companion;Ljava/lang/String;ILjava/lang/Object;)Lno/nav/budstikka/contract/ExternalNotification;
+}
+
+public final class no/nav/budstikka/contract/Oppgavetype : java/lang/Enum {
+	public static final field DIALOGMOTE_INNKALLING Lno/nav/budstikka/contract/Oppgavetype;
+	public static final field OPPFOLGINGSPLAN_PAAMINNELSE Lno/nav/budstikka/contract/Oppgavetype;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/Oppgavetype;
+	public static fun values ()[Lno/nav/budstikka/contract/Oppgavetype;
+}
+
+public final class no/nav/budstikka/contract/Orgnummer {
+	public static final field Companion Lno/nav/budstikka/contract/Orgnummer$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lno/nav/budstikka/contract/Orgnummer;
+	public static fun constructor-impl (Ljava/lang/String;)Ljava/lang/String;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final synthetic class no/nav/budstikka/contract/Orgnummer$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lno/nav/budstikka/contract/Orgnummer$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize-tl-coho (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/String;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize-J-vqe00 (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/String;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/Orgnummer$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/PersonIdentifier {
+	public static final field Companion Lno/nav/budstikka/contract/PersonIdentifier$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lno/nav/budstikka/contract/PersonIdentifier;
+	public static fun constructor-impl (Ljava/lang/String;)Ljava/lang/String;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final synthetic class no/nav/budstikka/contract/PersonIdentifier$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lno/nav/budstikka/contract/PersonIdentifier$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize-nrz_VTQ (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/String;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize-dha5998 (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/String;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/PersonIdentifier$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/SendingWindow : java/lang/Enum {
+	public static final field BUDSTIKKA_OPENING_HOURS Lno/nav/budstikka/contract/SendingWindow;
+	public static final field ONGOING Lno/nav/budstikka/contract/SendingWindow;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/SendingWindow;
+	public static fun values ()[Lno/nav/budstikka/contract/SendingWindow;
+}
+
+public final class no/nav/budstikka/contract/Varseltype : java/lang/Enum {
+	public static final field BESKJED Lno/nav/budstikka/contract/Varseltype;
+	public static final field OPPGAVE Lno/nav/budstikka/contract/Varseltype;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/Varseltype;
+	public static fun values ()[Lno/nav/budstikka/contract/Varseltype;
+}
+

@@ -4,14 +4,17 @@ import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import java.util.UUID
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 class FakeInboxMessageRepository(
     private val polledMessages: List<InboxMessage> = emptyList(),
+    private val calls: MutableList<String> = mutableListOf(),
 ) : InboxMessageRepository {
     val savedEvents = mutableListOf<InboxMessage>()
     val pollLimits = mutableListOf<Int>()
 
     override suspend fun saveBatch(messages: List<InboxMessage>) {
+        calls += "save"
         savedEvents += messages
     }
 
@@ -40,4 +43,12 @@ class FakeInboxMessageRepository(
         eventId: UUID,
         reason: String,
     ): Boolean = true
+
+    override fun markOutsideSendingWindowInTransaction(
+        eventId: UUID,
+        reason: String,
+        nextRetry: Instant,
+    ): Boolean = true
+
+    fun calls(): List<String> = calls
 }

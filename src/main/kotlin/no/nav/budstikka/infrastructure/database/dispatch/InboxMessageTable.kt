@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
@@ -20,6 +20,7 @@ object InboxMessageTable : Table("inbox_message") {
     val receivedAt = timestamp("received_at").defaultExpression(CurrentTimestamp)
     val processedAt = timestamp("processed_at").nullable()
     val errorMessage = text("error_message").nullable()
+    val waitReason = text("wait_reason").nullable()
 
     override val primaryKey = PrimaryKey(eventId)
 

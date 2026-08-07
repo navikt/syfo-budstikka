@@ -7,16 +7,24 @@ description: "Bruk når brukeren vil forbedre arkitekturen, finne refaktorerings
 
 Avdekk arkitektonisk friksjon i dette repoet og foreslå **fordypningsmuligheter** — refaktoreringer som gjør grunne moduler dype. Målet er testbarhet og at både mennesker og AI lett kan navigere koden.
 
-**Rolle:** dette _finner_ kandidater (oppdagelse). Designe grensesnittet på en valgt kandidat = `/codebase-design`; avhøre valget = `/grill-with-docs`; formalisere et tungt valg som ADR = `/nav-architecture-review`.
+**Rolle:** dette _finner_ kandidater (oppdagelse). Design grensesnittet på en
+valgt kandidat inline med to genuint ulike alternativer og avhør valget med
+`/grilling`. Når varige begreper eller beslutninger bør dokumenteres, anbefal
+det dokumenterte løpet og vent på brukerens valg. Bruk
+`/nav-architecture-review` for NAV-review og `/domain-modeling` etter valgt
+dokumentert løp.
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
 
-- `docs/glossary.md` gir navn til gode sømmer i domenet; `docs/context.md` gir den valgte tilnærmingen; ADR-er i `docs/adr/` er besluttede valg du **ikke** skal re-litigere uten grunn.
-- Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i grilling (`/grill-with-docs`), plan (`.grill/PLAN.md`) og verifisering (`.grill/VERIFICATION.md`).
+- `docs/glossary.md` gir navn til gode sømmer i domenet; relevante
+  topic-dokumenter beskriver vedlikeholdt detalj. Tolk ADR-status via
+  `docs/agents/domain.md`, og ikke re-litiger bindende valg uten grunn.
+- Dette er @grillmester sin oppdagelsesfase: funn herfra mates inn i naturlig
+  grilling (`/grilling`), aktiv plan og verifisering.
 
 ## Vokabular
 
-Dette bruker dyp-modul-vokabularet som `/codebase-design` eier — **modul**, **grensesnitt**, **implementasjon**, **dybde** (dyp/grunn), **søm** (seam, ikke «boundary»), **adapter**, **lokalitet**, **leverage**. Bruk ordene presist; ikke drift til «komponent», «service», «lag» eller «API». Full definisjon av hvert: `/codebase-design`.
+Bruk dyp-modul-vokabularet presist: en **modul** skjuler en **implementasjon** bak et lite **grensesnitt**; **dybde** er mengden kompleksitet grensesnittet skjuler. En **søm** er stedet modulen kan skilles fra en **adapter**. **Lokalitet** holder relatert kunnskap samlet, og **leverage** er hvor mye kompleksitet ett grensesnitt bærer. Ikke drift til «komponent», «service», «lag» eller «API» når disse mer presise ordene passer.
 
 **Slettetesten** (det operative verktøyet for oppdagelse): ville det å slette modulen *konsentrere* kompleksitet (bra — den var grunn) eller bare flytte den (da var den ekte)? Et «ja, konsentrerer» er signalet du jakter på.
 
@@ -24,7 +32,7 @@ Dette bruker dyp-modul-vokabularet som `/codebase-design` eier — **modul**, **
 
 ### 1. Utforsk
 
-Les `docs/context.md`, `docs/glossary.md` og relevante ADR-er i `docs/adr/` **først**.
+Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les glossaret når domenespråket er relevant, og bare topic-dokumentene og ADR-ene som berører området. Les `docs/context.md` kun hvis du trenger orientering eller overordnet status.
 
 Gå så gjennom kodebasen organisk — ikke følg rigide heuristikker. Noter hvor du opplever friksjon. I et Ktor-backend ser fordypningsmuligheter typisk slik ut:
 
@@ -53,19 +61,39 @@ Se [HTML-REPORT.md](HTML-REPORT.md) for fullt HTML-stillas, diagrammønstre og s
 
 ### 3. Grilling-løkke
 
-Når brukeren har valgt en kandidat, kjør `/grill-with-docs` for å gå ned beslutningstreet sammen med dem — begrensninger, avhengigheter, formen på den fordypede modulen, hva som ligger bak sømmen, hvilke tester som overlever. Dette er @grillmester fase 1–2.
+Når brukeren har valgt en kandidat, kjør `/grilling` for å gå ned
+beslutningstreet sammen med dem — begrensninger, avhengigheter, formen på den
+fordypede modulen, hva som ligger bak sømmen, hvilke tester som overlever. Dette
+er @grillmester fase 1–2.
 
-Sideeffekter skjer **løpende** mens beslutninger faller på plass:
+Når avklarte begreper eller kvalifiserende, varige beslutninger bør skrives til
+`docs/`, anbefal `/grill-with-docs`, forklar hvorfor og vent på brukerens valg.
+Før dokumentert løp er valgt, behold resultatene i samtalen og den aktive
+oppgaven. Bruk oppgavelokal `.grill/` bare når den kallende arbeidsflyten
+eksplisitt har valgt det.
+
+Etter at dokumentert løp er valgt, skjer dokumentasjon **løpende** mens
+beslutninger faller på plass:
 
 - **Navngir du en fordypet modul etter et konsept som ikke står i `docs/glossary.md`?** Legg termen til der (bruk `/domain-modeling`). Opprett fila lazy hvis den mangler.
 - **Skjerper du en uklar term underveis?** Oppdater `docs/glossary.md` med en gang.
-- **Forkaster brukeren kandidaten av en bærende grunn?** Tilby en ADR: _"Vil du at jeg skriver dette som ADR i `docs/adr/` så fremtidige arkitektur-review ikke foreslår det på nytt?"_ Tilby kun når grunnen faktisk trengs av en fremtidig utforsker — hopp over flyktige ("ikke verdt det nå") og selvinnlysende grunner. Utløs via `/nav-architecture-review` ved reell arkitekturbeslutning.
-- **Vil du utforske alternative grensesnitt for den fordypede modulen?** Kjør `/codebase-design` (design-it-twice — alternativene lages sekvensielt inline, aldri over parallelle agenter).
+- **Forkaster brukeren kandidaten av en bærende grunn?** Vurder ADR bare når
+  valget er vanskelig å reversere, overraskende uten kontekst og resultatet av
+  en reell avveining. Hopp over flyktige ("ikke verdt det nå") og
+  selvinnlysende grunner. Bruk `/nav-architecture-review` hvis NAV-spesifikke
+  konsekvenser må vurderes, og `/domain-modeling` for selve ADR-en.
+- **Vil du utforske alternative grensesnitt for den fordypede modulen?** Design to genuint ulike alternativer sekvensielt inline før du sammenligner dem. Bruk subagenter bare til kompakt, read-only divergent utforsking, aldri til parallell skriving.
 
 ### 4. Koble til faseløkka
 
 Når den valgte fordypningen er gjennomgrillet:
 
-- Skriv den valgte tilnærmingen til `docs/context.md` og besluttede valg til `docs/adr/`.
-- Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i `.grill/PLAN.md` (plan-fasen; evt. videre til `/to-issues` for plukkbare snitt).
-- Definer hva som beviser at fordypningen lyktes (tester gjennom ett grensesnitt, søm bekreftet av to adaptere) i `.grill/VERIFICATION.md`.
+- Skriv task-scope til issue/plan. Etter valgt dokumentert løp skriver
+  `/domain-modeling` nye begreper og kvalifiserende beslutninger; vedlikeholdt
+  detalj går til relevant topic-dokument. Oppdater `docs/context.md` bare når
+  orientering eller overordnet status endres.
+- Bryt fordypningen ned i en trygg, inkrementell refaktoreringsplan i den aktive
+  oppgaven (evt. videre til `/to-issues` for plukkbare snitt).
+- Definer hva som beviser at fordypningen lyktes (tester gjennom ett
+  grensesnitt, søm bekreftet av to adaptere), og returner det til den kallende
+  arbeidsflyten.

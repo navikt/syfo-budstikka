@@ -19,15 +19,15 @@ val mockServer = MockOAuth2Server().apply { start() }
 val discoveryUrl = mockServer.wellKnownUrl("tokenx").toString()
 
 // Utsted et test-token med ønskede claims
-val token = mockServer.issueToken(
+val serializedJwt = mockServer.issueToken(
     issuerId = "tokenx",
     subject = "test-subject",
-    claims = mapOf("pid" to "00000000000", "acr" to "Level4"),
+    claims = mapOf("pid" to "<SYNTHETIC_FNR>", "acr" to "Level4"),
 ).serialize()
 
 // Bruk token-et som Bearer i Ktor testHost-kall
 client.get("/api/sykmeldinger") {
-    header(HttpHeaders.Authorization, "Bearer $token")
+    header(HttpHeaders.Authorization, "Bearer $serializedJwt")
 }
 
 mockServer.shutdown()
@@ -53,6 +53,9 @@ Pek appens `TOKEN_X_WELL_KNOWN_URL` / `AZURE_APP_WELL_KNOWN_URL` mot `http://moc
 
 ## Testdata (fnr)
 
-Bruk kun `00000000000` eller [Skatteetatens syntetiske serie](https://www.skatteetaten.no/skjema/testdata/). Merk tydelig i testen at dette er syntetisk. Aldri ekte fødselsnumre.
+Bruk `<SYNTHETIC_FNR>` som plassholder i maler. Erstatt den med en verdi fra
+[Skatteetatens syntetiske serie](https://www.skatteetaten.no/skjema/testdata/)
+når kjørbar kode krever gyldig format, og merk tydelig at testdataene er
+syntetiske. Aldri bruk ekte fødselsnumre.
 
 Plassholdere `<versjon>` og `<GENERATED_JWK>` fylles inn ved oppsett.

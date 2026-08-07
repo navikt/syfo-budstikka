@@ -9,14 +9,14 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
+import no.nav.budstikka.contract.Brukervarsel
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.Brukervarsel
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Varseltype
 import java.util.UUID
 
 class BrukervarselChannelHandlerTest :

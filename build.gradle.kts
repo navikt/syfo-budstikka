@@ -45,10 +45,17 @@ kotlin {
             .get()
             .toInt(),
     )
+    compilerOptions {
+        // Budstikka is the consuming side of its own contract: it decodes the envelope, routes the raw
+        // content types and reads the eventId header. That is exactly what :kontrakt gates behind
+        // @InternalBudstikkaWire, so this application opts in once, here, instead of sprinkling @OptIn
+        // across the source. A Produsent gets no such line and is therefore held to the Budstikka facade.
+        optIn.add("no.nav.budstikka.contract.InternalBudstikkaWire")
+    }
 }
 
 // The container image is built with plain Jib (the Ktor plugin activates JibPlugin), not Ktor's
-// docker{} tasks; see ADR 0010. Explicitly setting the Chainguard base (JRE 25) in from.image removes
+// docker{} tasks. Explicitly setting the Chainguard base (JRE 25) in from.image avoids
 // the Ktor plugin's JRE validation and setupJibLocal path (a Task.project deprecation remains in
 // the Jib plugin's own tasks: upstream, not our code).
 //
@@ -84,6 +91,9 @@ listOf("jib", "jibDockerBuild", "jibBuildTar").forEach { jibTask ->
 }
 
 dependencies {
+    // The wire contract and its producer API. The app is a consumer of its own published contract:
+    // there is exactly one contract model, in :kontrakt.
+    implementation(project(":kontrakt"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.slf4j)
     implementation(libs.kotlinx.serialization.json)
@@ -117,6 +127,8 @@ dependencies {
     testImplementation(libs.testcontainers.kafka)
     testImplementation(libs.exposed.migration.core)
     testImplementation(libs.exposed.migration.jdbc)
+    testImplementation(libs.ktor.server.test)
+    testImplementation(libs.kotlin.test)
 }
 
 tasks {

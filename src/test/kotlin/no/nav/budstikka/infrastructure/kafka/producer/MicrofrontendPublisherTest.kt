@@ -3,8 +3,8 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
+import no.nav.budstikka.contract.MicrofrontendDisable
+import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import kotlin.time.Instant
 

@@ -1,6 +1,12 @@
 # NAV Threat Model — STRIDE, DFD, trusseltabell, DPIA, auditlogg, Datatilsynet
 
-Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i `no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon, DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting. Resultatet av modelleringen forankres i `docs/adr/` (beslutninger) og `.grill/VERIFICATION.md` (bevis).
+Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i
+`no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon,
+DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting.
+Vedlikehold modellen i relevant topic-dokument når det inngår i den godkjente
+endringen, og returner verifikasjonsbevis til den aktive oppgaven. Når
+modelleringen avdekker et varig valg som passerer ADR-gaten, anbefal dokumentert
+løp og vent på brukerens valg før `/domain-modeling` registrerer det.
 
 ## DFD først
 
@@ -174,7 +180,8 @@ CEF:0|<application>|auditLog|1.0|<operation>|Sporingslogg|<severity>|end=<epoch-
 ```
 
 - **Severity**: `INFO` for standard visning/endring, `WARN` for sensitive tilfeller (fortrolig/strengt fortrolig, egen ansatt).
-- **Subject-ID (`duid`)**: Personen dataene handler om (fnr/aktør). I kildekode-eksempler skal dette være `00000000000` eller tydelig syntetisk testdata.
+- **Subject-ID (`duid`)**: Personen dataene handler om (fnr/aktør). Bruk en
+  navngitt syntetisk testident i kildekode-eksempler.
 - **Actor-ID (`suid`)**: NAV-ansatt som utfører handlingen (UPN/e-post).
 
 Separat logger-konfigurasjon (`auditLogger`) med egen appender i `logback.xml` — ikke blandet med applikasjonslogg.

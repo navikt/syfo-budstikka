@@ -10,7 +10,7 @@ jobs:
   build:
     name: Build, lint and test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write # OIDC for nais/login and nais/deploy
@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # Deterministic gate 1: agent model pins on allowlist (hard fail).
       - name: Validate agent model pins
@@ -29,9 +30,48 @@ jobs:
           java-version: "25" # should match the config in libs.versions.toml file
           cache: gradle
 
+      - id: contract-paths
+        name: Detect contract-relevant changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: bash scripts/detect-contract-changes.sh
+
       # Deterministic gate 2: compilation + ktlint + full test suite (E2E excluded, ADR 0006).
       - name: Build, lint and test
         run: ./gradlew build --no-daemon
+
+      - id: previous-contract
+        name: Resolve latest published contract baseline
+        if: ${{ steps.contract-paths.outputs.run_contract_gates == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(bash scripts/verify-contract-baseline.sh)"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      # A published baseline is mandatory when authoritative release tags exist. The isolated consumer
+      # deliberately proves resolution without the runner's Gradle cache.
+      - name: Verify contract compatibility and standalone consumer
+        if: ${{ steps.contract-paths.outputs.run_contract_gates == 'true' }}
+        shell: bash
+        env:
+          PREVIOUS_CONTRACT_VERSION: ${{ steps.previous-contract.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          previous_version="$PREVIOUS_CONTRACT_VERSION"
+          if [[ "$previous_version" == "first-release" ]]; then
+            echo "No authoritative contract release tag exists: using the explicit first-release compatibility path."
+            ./gradlew :kontrakt:checkLocalConsumer --no-daemon
+          else
+            ./gradlew \
+              -PpreviousContractVersion="$previous_version" \
+              :kontrakt:checkPublishedContractCompatibility \
+              :kontrakt:checkLocalConsumer \
+              --no-daemon
+          fi
 
       - name: Login GAR (Google Artifact Registry)
         id: login

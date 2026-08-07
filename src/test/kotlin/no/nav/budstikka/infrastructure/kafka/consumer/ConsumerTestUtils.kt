@@ -1,6 +1,6 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
-import no.nav.budstikka.domain.dispatch.DispatchHeader
+import no.nav.budstikka.contract.DispatchHeader
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType

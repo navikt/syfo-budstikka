@@ -2,8 +2,8 @@ package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.MicrofrontendPublisher
+import no.nav.budstikka.contract.Microfrontend
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.Microfrontend
 
 class MicrofrontendChannelHandler(
     private val publisher: MicrofrontendPublisher,

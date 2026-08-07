@@ -1,5 +1,8 @@
 # Overordnet flyt — syfo-budstikka
 
+Produsenter finner fasade, retry og versjonering i [sende-varsler.md](sende-varsler.md). Dette
+dokumentet eier Budstikkas interne flyt.
+
 ## Flytoversikt
 
 Budstikka er en tredelt pipeline: **Kafka-consumer → Inbox → Decision → Delivery**.
@@ -52,32 +55,10 @@ flowchart TB
     DWORK --> CH2
 ```
 
-## Claim og lease
+## Claim, lease og transaksjonsgrenser
 
-Samme claim-mekanisme brukes i `inbox_message` og `delivery`:
-
-1. Les kandidater med `FOR UPDATE SKIP LOCKED`.
-2. Velg både nye rader og utløpte claims:
-   - inbox: `state=RECEIVED` eller `state=CLAIMED and next_attempt_time <= now`
-   - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
-3. Sorter deterministisk (`received_at/created_at`, deretter ID) og `LIMIT batchSize`.
-4. Oppdater de valgte radene i samme transaksjon:
-   - `state = CLAIMED`
-   - `next_attempt_time = now + lease`
-   - `attempt = attempt + 1`
-
-Dette gjør at flere podder kan jobbe parallelt uten dobbelt-claim.
-
-## Batch insert og transaksjonsgrense
-
-- **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
-  `batchInsert(ignore = true)`. Dedup skjer på `event_id` (PK), hentet fra Kafka-headeren
-  `DispatchHeader.EVENT_ID` (ADR 0008 / B61 — eventId ligger ikke i payloaden).
-- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
-  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)` av
-  delivery-rader bare hvis CAS lykkes.
-- **Delivery-skriving:** `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for
-  0..N rader for samme inbox-melding.
+Claim/lease-algoritmen (ADR 0004), transaksjonsgrensene og alle
+tilstandsoverganger eies av [datamodell.md](datamodell.md).
 
 ## Decision pattern (fetch, then decide)
 
@@ -100,3 +81,71 @@ Kanal velges og brukes i to ulike maps:
 
 Delivery-claim filtrerer på `handlers.keys`, så workeren henter bare kanaler som er registrert i
 map-et. Nye kanaler legges til ved å registrere en `ChannelHandler` i dette map-et.
+
+## FERDIGSTILL-flyt
+
+Hvordan budstikka lukker/inaktiverer et tidligere sendt varsel, uten domenekunnskap
+(ADR 0001). FERDIGSTILL er en **egen hendelse** på samme kontrakt og topic som OPPRETT,
+og går gjennom **samme flyt og samme delivery-maskineri**. En lukking er bare en
+`delivery`-rad med `operation=INAKTIVER` — den plukkes via claim/lease og er idempotent
+(egen `delivery.id`) på lik linje med en utsending.
+
+### Targeting og matching
+
+- Inactivate-hendelsene er bevisst **thin**: `reference` + typet nøkkel
+  (`PersonIdentifier`/`Orgnummer`); kanal er implisitt i typen. Den typede nøkkelen
+  bevarer PII-maskering og gjør ulovlige `(kanal, nøkkel)`-par urepresenterbare.
+- Matching: budstikka slår opp åpen OPPRETT-leveranse på `(reference, recipient_id, kanal)`,
+  der `recipient_id` = OPPRETTs partisjonsanker (id-en konsumenten kjenner ved create):
+  sykmeldt-fnr for BRUKERVARSEL/LEDERVARSEL/DITT_SYKEFRAVAER (sykmeldt, ikke NL-fnr),
+  orgnr for ARBEIDSGIVERVARSEL. Resolvert NL-fnr / `ekstern_respons_id` bor i payload/egne
+  kolonner og deltar aldri i matching.
+- Vil en produsent lukke flere kanaler, sender den én FERDIGSTILL per kanal. Budstikka
+  bestemmer aldri scope eller fan-out selv.
+
+### Lukkeoperasjon avledes fra lagret rad
+
+FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Beslutningen finner
+matchende OPPRETT-leveranse, fryser lukkeparametrene (`meldingstype`, sti NL/Altinn,
+`ekstern_respons_id`, `grupperingsid`) på INAKTIVER-leveransen, og kanalhandleren
+dispatcher på disse lagrede tekniske attributtene — aldri på domenetype. Migreringens
+klebrige eierskap (se [migrering.md](migrering.md)) gjør at budstikka kun mottar
+FERDIGSTILL for OPPRETT den selv laget, så lagret rad finnes alltid.
+
+Dette er designretningen; selve oppslaget er ikke implementert i runtime ennå —
+`*Inactivate` mappes i dag til nye `DeliveryDraft`-rader direkte.
+
+### Kantsituasjoner
+
+| Situasjon | Handling |
+| --- | --- |
+| OPPRETT funnet, `SENT` | Normal: skriv `delivery(operation=INAKTIVER)` → outbox lukker på kanalen |
+| OPPRETT funnet, fortsatt `READY` (ikke sendt) | Dagens modell har ingen egen `CANCELLED`-state. OPPRETT og FERDIGSTILL håndteres som egne delivery-rader i samme claim/lease-flyt. |
+| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. (Partisjonsordning gjør «OPPRETT kommer senere» usannsynlig når begge faktisk sendes) |
+
+### Lukkbarhet per kanal
+
+| Kanal                     | Kan lukkes? | Mekanisme (INAKTIVER) |
+|---------------------------| --- | --- |
+| Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
+| Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
+| Ditt Sykefravær           | Ja | Lukk/erstatt-melding |
+| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` |
+| Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
+| Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
+
+### Ugyldige kombinasjoner
+
+- Ulovlige kombinasjoner (f.eks. FERDIGSTILL + BREV) gjøres **urepresenterbare** i
+  den typede kontrakten (sealed types) → produsent får feil ved bygg/validering,
+  ikke i drift.
+- Runtime er **defense-in-depth**: skulle en ugyldig kombinasjon likevel nå inbox
+  (schema-drift, gammel produsent) → inbox `PROCESSED`, ingen delivery-rad,
+  logg + metrikk `ugyldig_kombinasjon`. Ingen alert-storm, ingen `FAILED`.
+
+### Kafka-semantikk
+
+Konsumenten skriver hendelsen til inbox og **committer offset umiddelbart**. All
+validering/forretningslogikk skjer senere i beslutnings-workeren på DB-raden, frakoblet
+Kafka. En terminal DB-status (`FAILED`/`DROPPED`/«ugyldig») **blokkerer aldri partisjonen**
+og gir ingen redelivery-loop.

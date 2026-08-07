@@ -194,6 +194,87 @@ class InboxDispatchRepositoryIntegrationTest :
             }
         }
 
+        test("markOutsideSendingWindowInTransaction holds a CLAIMED row as WAIT with wait_reason, not error_message") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000050")
+            val reason = "Closed Sunday"
+            val nextRetry = Clock.System.now() + 30.minutes
+            repository.saveBatch(listOf(inboxMessage(eventId)))
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+            repository.beginAttempt(eventId, maxAttempts = 10) shouldBe true
+
+            fixture.database.transact {
+                repository.markOutsideSendingWindowInTransaction(eventId, reason, nextRetry)
+            } shouldBe true
+
+            fixture.database.transact {
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "WAIT"
+                row[InboxMessageTable.waitReason] shouldBe reason
+                row[InboxMessageTable.errorMessage] shouldBe null
+                row[InboxMessageTable.nextAttemptTime] shouldNotBe null
+                row[InboxMessageTable.processedAt] shouldBe null
+                // Reaching a hold decision is a successful evaluation, so the attempt spent by
+                // beginAttempt is handed back.
+                row[InboxMessageTable.attempt] shouldBe 0
+            }
+        }
+
+        test("claim reclaims a WAIT row after next_attempt_time without consuming the attempt budget") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000051")
+            repository.saveBatch(listOf(inboxMessage(eventId)))
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+            repository.beginAttempt(eventId, maxAttempts = 10) shouldBe true
+            fixture.database.transact {
+                repository.markOutsideSendingWindowInTransaction(eventId, "Closed Sunday", Clock.System.now() + 30.minutes)
+            }
+            // Sending window opens: next_attempt_time is now in the past.
+            expireLease(eventId)
+
+            val reclaimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10)
+
+            reclaimed.shouldHaveSize(1)
+            reclaimed.single().eventId shouldBe eventId
+            fixture.database.transact {
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "CLAIMED"
+                // Waking from WAIT is a scheduled resume with a fresh budget: the hold handed the
+                // spent attempt back, and neither the wake nor the claim consumes one.
+                row[InboxMessageTable.attempt] shouldBe 0
+                row[InboxMessageTable.waitReason] shouldBe "Closed Sunday"
+            }
+        }
+
+        test("a repeatedly held WAIT row never poison-FAILs from waiting") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000052")
+            val maxAttempts = 2
+            repository.saveBatch(listOf(inboxMessage(eventId)))
+            repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).shouldHaveSize(1)
+
+            // Spend, hold and wake more times than maxAttempts; every hold must hand the spent
+            // attempt back, so beginAttempt keeps authorising new processing starts.
+            repeat(maxAttempts + 2) {
+                repository.beginAttempt(eventId, maxAttempts) shouldBe true
+                fixture.database.transact {
+                    repository.markOutsideSendingWindowInTransaction(
+                        eventId,
+                        "Closed Sunday",
+                        Clock.System.now() + 30.minutes,
+                    )
+                }
+                expireLease(eventId)
+                repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).shouldHaveSize(1)
+            }
+
+            fixture.database.transact {
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "CLAIMED"
+                row[InboxMessageTable.attempt] shouldBe 0
+            }
+        }
+
         test("claim fails a poison row that reached maxAttempts instead of reclaiming it") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000030")

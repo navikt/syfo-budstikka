@@ -4,13 +4,14 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import no.nav.budstikka.domain.dispatch.BrevFallback
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.contract.BrevFallback
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.Oppgavetype
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
@@ -50,13 +51,14 @@ class DecisionProcessTest :
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldHaveSize 1
         }
 
-        test("Ledervarsel is not gated on the Sykmeldt's death; future Recipient is Nærmeste leder") {
+        test("Ledervarsel to a leader is not gated on the employee's death") {
             val decision =
                 processWith(deadLookupFor(TEST_SYKMELDT)).process(
                     event(
                         LedervarselCreate(
                             TEST_SYKMELDT,
                             TEST_ORGNUMMER,
+                            Oppgavetype.DIALOGMOTE_INNKALLING,
                             "text",
                         ),
                     ),

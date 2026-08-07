@@ -163,13 +163,14 @@ Se `references/promql-logql.md` for komplette PromQL- og LogQL-eksempler.
 
 Se `references/alerting.md` for Prometheus-regler og NAIS `Alert`-ressurs med Slack-ruting.
 
-## Beslutninger som skal til grilling
+## Beslutningskandidater
 
-Disse er arkitekturbeslutninger, ikke rutinearbeid — løft dem i grill-fasen og dokumenter i `docs/adr/` (se `grill-with-docs`/`domain-modeling`):
-- Nye labels som kan øke kardinaliteten vesentlig
-- Endring av produksjonsterskler for varsler
-- Nye dashboards, mapper eller varslingskanaler som påvirker teamets arbeidsflyt
-- Hva som faktisk skal måles og lagres når domenedata kan være sensitivt
+Grill ikke-rutinemessige valg med `/grilling`: labels som kan øke
+kardinaliteten vesentlig, produksjonsterskler, varslingskanaler som påvirker
+teamets arbeidsflyt, og lagring av sensitive domenedata. Legg
+observability-detalj som følger av den godkjente endringen i relevant
+topic-dokument. Når et varig valg passerer ADR-gaten, anbefal dokumentert løp
+og vent på brukerens valg før `/domain-modeling` registrerer det.
 
 ## Sjekkliste
 

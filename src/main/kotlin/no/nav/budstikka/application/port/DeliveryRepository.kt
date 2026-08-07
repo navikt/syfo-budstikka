@@ -1,8 +1,8 @@
 package no.nav.budstikka.application.port
 
+import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.domain.dispatch.DispatchContent
 import java.util.UUID
 import kotlin.time.Duration
 
@@ -17,8 +17,7 @@ data class ClaimedDelivery(
 /**
  * Writes frozen [DeliveryDraft] values as `delivery` rows. One inbox event yields 0..N deliveries.
  * Does NOT open its own transaction: it runs inside [TransactionRunner.transaction] together with
- * the inbox state transition, so the decision worker (#56) effectuates one message all or nothing.
- * Database defaults populate `id`/`state`/`attempt` (uuidv7 / 'READY' / 0).
+ * the inbox state transition, so one message is persisted all or nothing.
  */
 interface DeliveryRepository {
     fun saveInTransaction(

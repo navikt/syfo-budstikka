@@ -2,18 +2,19 @@ package no.nav.budstikka.domain.decision
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.dispatch.ArbeidsgivervarselCreate
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.DittSykefravaerCreate
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.MicrofrontendDisable
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.NarmesteLeder
-import no.nav.budstikka.domain.dispatch.Tag
-import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.DittSykefravaerCreate
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.MicrofrontendDisable
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.Oppgavetype
+import no.nav.budstikka.contract.Tag
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 
@@ -67,7 +68,7 @@ class DispatchDraftMappingTest :
                 ),
                 Case(
                     "Ledervarsel",
-                    LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, "text"),
+                    LedervarselCreate(TEST_SYKMELDT, TEST_ORGNUMMER, Oppgavetype.DIALOGMOTE_INNKALLING, "text"),
                     Channel.LEDERVARSEL,
                     Operation.CREATE,
                     Recipient.Person(TEST_SYKMELDT),

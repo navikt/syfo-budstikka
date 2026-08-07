@@ -10,20 +10,15 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.PdlConfig
 import sharedJson
 
 /**
- * Real PDL adapter (B22 anti-corruption) for the death gate: issues GraphQL query `hentPerson` and
- * determines death from the `doedsfall` list. Domeneblind: translates only the PDL response to
- * [DeathLookup].
- *
- * Auth: obtains a machine-to-machine bearer token from [tokenProvider] (Texas, #48) for the PDL
- * scope ([PdlConfig.scope]) and reuses the shared outgoing [httpClient]. The token is a secret and
- * is never logged.
+ * Looks up `doedsfall` through PDL and exposes only the result needed by [DeathLookup]. Authentication
+ * uses a machine-to-machine token for [PdlConfig.scope].
  */
 class PdlClient(
     private val httpClient: HttpClient,
@@ -31,11 +26,11 @@ class PdlClient(
     private val tokenProvider: TokenProvider,
 ) : DeathLookup {
     override suspend fun isDead(ident: PersonIdentifier): Boolean {
-        val token = tokenProvider.token(config.scope)
+        val accessToken = tokenProvider.token(config.scope)
         val response =
             httpClient.post(config.url) {
                 contentType(ContentType.Application.Json)
-                bearerAuth(token)
+                bearerAuth(accessToken)
                 header(BEHANDLINGSNUMMER_HEADER, config.behandlingsnummer)
                 setBody(sharedJson.encodeToString(personQuery(ident.value)))
             }

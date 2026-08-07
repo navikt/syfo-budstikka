@@ -6,10 +6,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.port.DocumentDistributor
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.domain.foundation.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
@@ -25,11 +25,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Full BREV path for #21: Kafka → inbox → decision → delivery → BREV handler → dokdist port.
- * Dokdist and PDL are replaced with fakes through the test harness, while the app boots with real DB, Kafka,
- * consumers, and workers.
- */
 @Tags("E2E")
 class BrevDistributionE2ESpec :
     FunSpec({

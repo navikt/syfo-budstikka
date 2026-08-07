@@ -9,11 +9,11 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.MicrofrontendPublisher
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.Microfrontend
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.Microfrontend
-import no.nav.budstikka.domain.dispatch.Varseltype
 import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import no.nav.budstikka.fakes.microfrontendEnable
 import java.util.UUID

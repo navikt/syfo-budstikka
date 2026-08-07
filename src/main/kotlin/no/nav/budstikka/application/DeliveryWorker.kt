@@ -11,12 +11,6 @@ import no.nav.budstikka.domain.decision.Channel
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
-/**
- * Outbox worker claims `delivery` rows for channels with a [ChannelHandler] (FOR UPDATE SKIP LOCKED
- * plus lease, ADR 0004: several replicas concurrently) and dispatches every row to the appropriate
- * handler. The worker depends only on [handlers], not concrete publishers, so a new channel is one
- * handler plus registration.
- */
 class DeliveryWorker(
     private val repository: DeliveryRepository,
     private val handlers: Map<Channel, ChannelHandler>,

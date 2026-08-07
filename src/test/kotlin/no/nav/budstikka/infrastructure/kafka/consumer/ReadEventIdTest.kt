@@ -12,21 +12,21 @@ class ReadEventIdTest :
 
             testRecord(value = "{}", eventId = id.toString())
                 .readEventId()
-                .shouldBeInstanceOf<EventId.Valid>()
+                .shouldBeInstanceOf<ParsedEventId.Valid>()
                 .value shouldBe id
         }
 
         test("missing header returns Invalid(MISSING_EVENT_ID)") {
             testRecord(value = "{}", eventId = null)
                 .readEventId()
-                .shouldBeInstanceOf<EventId.Invalid>()
+                .shouldBeInstanceOf<ParsedEventId.Invalid>()
                 .reason shouldBe DeadLetter.MissingEventId
         }
 
         test("header that is not a UUID returns Invalid(INVALID_EVENT_ID)") {
             testRecord(value = "{}", eventId = "ikke-en-uuid")
                 .readEventId()
-                .shouldBeInstanceOf<EventId.Invalid>()
+                .shouldBeInstanceOf<ParsedEventId.Invalid>()
                 .reason shouldBe DeadLetter.InvalidEventId
         }
     })

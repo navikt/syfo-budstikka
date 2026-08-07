@@ -1,13 +1,10 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.Dispatch
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.domain.foundation.ReservationLookup
 
-/**
- * B7/B8, ADR 0009: controls `ekstern varsling` and BrevFallback for a Brukervarsel CREATE based on
- * the Recipient's Reservasjon status (KRR, [ReservationLookup]).
- */
+/** Removes external varsling and adds any reserve Brev when KRR says the person cannot be notified. */
 internal class ReservationGate(
     private val reservationLookup: ReservationLookup,
 ) : DecisionRule {

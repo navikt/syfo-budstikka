@@ -1,78 +1,55 @@
 ---
 name: handoff
-description: "Bruk når en økt nærmer seg slutten eller kontekstvinduet blir trangt (vindu-trykk-checkpoint), arbeidet ikke er ferdig, og en fersk tråd skal overta uten å miste tråden. Eller når noen sier 'lag en handoff', 'oppsummer tilstanden', 'vi fortsetter i morgen', 'ny chat', 'jeg mister konteksten'. IKKE for å designe nytt (se /grill-with-docs) eller for sluttverifisering (se /tdd, /diagnosing-bugs)."
+description: Create a compact temporary handoff so a fresh GitHub Copilot session can continue the current work.
+argument-hint: "What will the next session be used for?"
+disable-model-invocation: true
 ---
 
-# handoff
+# Handoff
 
-Komprimer tilstanden i den pågående økta til `.grill/STATE.md` slik at en fersk tråd kan plukke opp arbeidet uten å lese hele samtalen på nytt. Dette er **disk-som-minne**: konteksten lever på disk i `.grill/`, ikke i et chat-vindu som forsvinner.
+Create a handoff only at a real session seam or context-pressure boundary.
+Use a short, bounded task brief for same-flow agent delegation instead.
 
-## Når du skriver (vindu-trykk-checkpoint)
+1. Create a private directory under the user's OS temporary directory, for
+   example with `mktemp -d` on Unix-like systems. Do not write the handoff to
+   the repository or directly to a predictable shared temporary path.
+2. Record the goal, current state, next actions, blockers, and suggested
+   skills. If the user supplied arguments, use them to focus the next session.
+3. Reference existing specs, plans, ADRs, context documents, issues, commits,
+   diffs, and pull requests by canonical path or URL. Do not duplicate their
+   contents; durable team state belongs in those artifacts.
+4. Use separate `Verified now` and `Unverified or pending` sections. Include
+   the command, path, or link that supports each important verified claim;
+   put assumptions, stale reports, and unfinished checks in the latter.
+5. Redact secrets and personally identifiable or sensitive information,
+   including tokens, passwords, names, national identity numbers, and health
+   information.
 
-Lag eller oppdater handoff når **minst én** holder:
+When inside a Git worktree with an existing `HEAD`, capture fresh output for
+the canonical repository path, branch or detached state, full commit ID, and
+complete status including untracked paths:
 
-- En fase drar ut eller du nærmer deg en fase-grense, og arbeidet er ikke ferdig — **skriv før du blir tvunget**, ikke når det allerede er for sent å oppsummere godt. Du kan ikke måle vindu-prosenten din, så ikke vent på et tall; fase-grensen og «drar dette ut?» er triggeren.
-- Brukeren signaliserer pause / trådbytte / ny chat.
-- En @grillmester-fase er fullført og neste fase skal kjøres i en fersk tråd (design → plan → implementer → verifiser).
-
-Venter du til vinduet er fullt, har modellen allerede mistet detaljene du trenger for en god handoff. Sjekkpunktet er hele poenget.
-
-## Kontrakt
-
-1. **Skriv til `.grill/STATE.md`** — én fil, fast plass. Ikke til OS-temp, ikke et tilfeldig navn. Neste tråd leser `STATE.md` først (samme konvensjon som `/diagnosing-bugs`).
-2. **Ikke dupliser det som allerede ligger i artefakter.** `docs/context.md` (mental modell), `docs/adr/` (beslutninger), `.grill/PLAN.md` (planen), `.grill/VERIFICATION.md` (ferskt grønt bevis), GitHub-issues, commits og diff bærer sin egen tilstand. **Referér dem med sti/URL** — ikke kopier innholdet inn.
-3. **STATE.md er flyktig og overskrivbar.** Den fanger _hvor vi er akkurat nå_. Varige beslutninger hører hjemme i ADR, ikke her — oppstår en ny vanskelig-reversibel beslutning, løft den til `docs/adr/` via `/nav-architecture-review` og referér den.
-4. **Redaksjon (NAV) — håndhevet av gate, ikke bare oppfordring.** Aldri fnr, tokens, passord, navn eller særlige kategorier i `STATE.md`. Logg ID-er/correlation (`callId`, `Nav-Call-Id`), branch-navn, issue-nummer, filstier — ikke personopplysninger eller hemmeligheter. `.grill/` er gitignorert (`.gitignore`), men behandles som om den var offentlig (defense-in-depth). Dette håndheves av pre-commit-gaten `scripts/scan-grill-pii.sh` (aktiveres med `git config core.hooksPath .githooks`), som skanner `.grill/` og alt som stages, og blokkerer commit ved mistanke om PII/hemmelighet.
-5. **Handlingsrettet, ikke referat.** Neste tråd skal kunne ta neste steg fra første avsnitt. Kutt prosa om hva som ble diskutert; behold hva som ble besluttet og hva som gjenstår.
-6. **Hold den liten og kuratert — readback er hele gevinsten.** `STATE.md` leses tilbake inn i en fersk tråd, så den skal være et lite, rent delsett — ikke en voksende logg. Tommelfingerregel: får den ikke plass på ~ett skjermbilde, komprimer. **Marker superseding ved å slette:** når en ny beslutning erstatter en tidligere, fjern den gamle linja — ikke la begge stå. En foreldet oppføring ved siden av sin revisjon er en «confident-wrong» distraktor som skader den ferske tråden mer enn fravær gjør. Mål det du faktisk leser tilbake, ikke bare at fila ble skrevet.
-
-## STATE.md-mal
-
-```markdown
-# STATE — <kort tittel> (<dato>)
-
-## Hvor vi er
-<1–3 setninger: hvilken @grillmester-fase, hvilken branch, hva som er gjort så langt.>
-Branch: <navn>  ·  Issue/PR: <#nr / URL>
-
-## Beslutninger tatt i denne økta
-- <beslutning> → ADR `docs/adr/NNNN-...md` (hvis vanskelig å reversere)
-- <lettere valg som ikke fortjener ADR, men neste tråd må vite>
-
-## Hva gjenstår
-- [ ] <konkret oppgave>
-- [ ] <konkret oppgave>
-
-## Neste steg (start her)
-1. <første konkrete handling den ferske tråden bør gjøre>
-2. <...>
-
-## Kontekst som ikke ligger andre steder
-- <fallgruver, blindveier vi allerede har utelukket, halvferdige greier i arbeidstreet>
-- Uncommitted endringer: <ja/nei — hva> (`git status`)
-
-## Referanser (ikke duplisert her)
-- Mental modell: `docs/context.md`
-- Plan: `.grill/PLAN.md`
-- Beslutninger: `docs/adr/`
-- Verifikasjon: `.grill/VERIFICATION.md`
-- Issue/PR: <URL>
-
-## Foreslåtte skills for neste tråd
-- `/<skill>` — <hvorfor akkurat nå>
+```bash
+set -euo pipefail
+repository_root=$(git rev-parse --show-toplevel)
+(cd "$repository_root" && pwd -P)
+git -C "$repository_root" symbolic-ref --quiet --short HEAD || printf '%s\n' DETACHED
+git -C "$repository_root" rev-parse HEAD
+git -C "$repository_root" status --short --branch --untracked-files=all
 ```
 
-## Foreslåtte skills (alltid med)
+Tell the receiving session to use that repository path, rerun the commands,
+and compare the branch, commit, and status before continuing. Stop and resolve
+the discrepancy with the user when the state has drifted. If no Git worktree
+or `HEAD` exists, record the canonical working directory and relevant artifact
+paths instead.
 
-Avslutt alltid `STATE.md` med en seksjon som peker neste tråd til riktig skill for neste steg. Velg ut fra hvor i faseløkka arbeidet står:
+This preflight verifies repository identity and the shape of the working tree,
+not byte-for-byte equality of uncommitted content. Treat claims about modified
+or untracked content and previous test results as unverified after the handoff:
+reread the complete current diff and rerun the relevant checks before relying
+on them.
 
-- `/grill-with-docs` — designet er ikke ferdig stresstestet (fase 1–2).
-- `/codebase-design` eller `/api-design` — modul-/endepunktsform skal avklares.
-- `/tdd` — implementasjon gjenstår, test-først.
-- `/diagnosing-bugs` — en feil er åpen og må jaktes systematisk.
-- `/nav-architecture-review` — en arkitekturbeslutning venter på ADR.
-- `/security-review`, `/postgresql-review`, `/kafka-topic`, `/nais-manifest`, `/flyway-migration` — når neste steg treffer det respektive området.
-
-## Etter skriving
-
-Bekreft kort til brukeren: sti til `STATE.md`, og at en fersk tråd kan starte med "les `.grill/STATE.md`". Ikke gjenta innholdet i chatten — det er nå på disk.
+After writing the document, reopen it from its canonical path and confirm that
+it is readable and non-empty. Then print that absolute path so the user can
+give it to the receiving session.

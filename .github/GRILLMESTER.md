@@ -1,34 +1,52 @@
-# Grillmester — Copilot-agentoppsett for syfo-budstikka
+# Grillmester — GitHub Copilot CLI setup
 
-Et høykvalitets GitHub Copilot-oppsett for dette repoet, reframet Copilot-native (`.agent.md` / `.instructions.md` / `SKILL.md`). Denne fila er **menneske-vendt**: rasjonale, status og proveniens. Den autoritative kjøre-konfigurasjonen bor i filene den peker til — Copilot laster `copilot-instructions.md` (always-on), agentene i `.github/agents/` og skillene i `.github/skills/`. Ikke dupliser detaljer hit; pek.
+This document is the human-facing map of the repository's agent setup. The
+checked-in agent profiles, skills, and instructions are the operative
+contracts; this page does not duplicate their full workflows.
 
-## Hva oppsettet er (pekere)
-- **Agenter** — `.github/agents/`: `@grillmester` (Opus 4.8, orkestrator + inline implementør, faseløkke grill → design → plan → implementer → verifiser → server) og `grill-inspektor` (GPT-5.5, opt-in read-only kryssmodell-reviewer). Detaljene står i agent-filene.
-- **Skills** — `.github/skills/` (~33 stk: design/utforsking, implementering/kvalitet, backend-domene (Ktor/NAV), tverrgående/flyt). De auto-oppdages på `description`-feltet; ingen katalog gjentas her — `ls .github/skills/` er fasiten.
-- **Instruksjoner** — `.github/instructions/`: always-on (`security`, `copilot-review`, `bevisst-ai-bruk`) + path-scopede (`kotlin`, `github-actions`, `docker`, `norwegian-text`).
-- **Modell-gate** — `scripts/validate-agent-models.sh` (CI, `.github/workflows/build.yml`) validerer at hver agents `model:`-pin står på allowlist, feiler hardt og skriver `.grill/MODELL-STATUS.md`. Degradering oppdages her, aldri av modellen selv.
+## Components
 
-## Designprinsipper (hvorfor det er bygd slik)
-1. **Skriveren er inline** på sterk modell — koding parallelliseres ikke (implisitte beslutninger kolliderer).
-2. **Subagenter = kontekst-verktøy**, kun til read-only utforsking, kryssmodell-verify + opt-in divergent design-utforsking (design-it-twice). Aldri parallell skriving av kode.
-3. **Sterke modeller, ingen svak tier.** Kostnadskontroll skjer via opt-in på de dyre stegene (kryssmodell-review), ikke ved å svekke modellen.
-4. **Kvalitetsgater er deterministiske og utenfor modellen** — `./gradlew test`, lint, build + `scripts/validate-agent-models.sh`. Positivt bevis, ikke «ser riktig ut».
-5. **Disk er minne** (`.grill/`), ikke samtalen.
-6. **Kontrakter, ikke forbud** i alle instruksjoner.
+- **Grillmester** (`.github/agents/grillmester.agent.md`) owns clarification,
+  design, risk, routing, checkpoints, verification, and delivery synthesis.
+- **Kokk** (`.github/agents/kokk.agent.md`) implements one bounded vertical
+  slice from a concise task brief and returns evidence.
+- **Grill-inspektor** (`.github/agents/grill-inspektor.agent.md`) performs an
+  independent read-only review when selected or required by risk.
+- **Skills** (`.github/skills/`) provide progressively disclosed workflows and
+  domain knowledge. Their descriptions are the discovery surface.
+- **Instructions** (`.github/instructions/` and
+  `.github/copilot-instructions.md`) hold repository and path-specific policy.
 
-## Durable vs transient: `docs/` og `.grill/`
-- **`docs/`** — committet, discoverable: `docs/adr/NNNN-*.md` (bindende beslutninger), `docs/glossary.md` (domenespråk), `docs/context.md` (valgt tilnærming og status i design/plan).
-- **`.grill/`** — gitignorert, transient arbeidsminne per oppgave (`STATE.md`, `PLAN.md`, `VERIFICATION.md`, `REVIEW.md`, `DECISIONS.md`, `MODELL-STATUS.md`). Durabel verdi graduerer til `docs/`; `.grill/` overlever ikke oppgaven. Mekanikken (når den leses/skrives) eies av agent-fila.
+## Workflow shape
 
-Følg `.github/instructions/context-usage.instructions.md` for når `docs/context.md`
-skal brukes, og når ADR er riktig kilde i kodekommentarer.
+Grillmester uses a seven-phase loop: grill, design, plan, implement, verify,
+deliver, and verify in the environment. R0/R1 work with locked requirements and
+no durable decision or red signal uses a fast path to one Kokk slice plus
+deterministic verification. More complex work retains the full loop.
 
-## Status og empirisk verifisering (gjenstår)
-Eksperimentell testbenk, brukt lokalt via **Copilot CLI** — ikke cloud agent på github.com (den ignorerer uansett `model:` og agent-delegering). GitHub-dokumentasjonen bekrefter at CLI støtter det oppsettet hviler på; det som gjenstår er en lokal røyktest:
-- **`model:`-pinning i CLI:** Copilot CLI aksepterer modell-display-navn/vendor-suffiks i agent-frontmatter. Modell-gaten validerer at pinnen står på allowlist, ikke at runtime faktisk bruker den.
-- **Lokal subagent-delegering:** fase 5 kryssmodell-review forutsetter at `@grillmester` kaller `grill-inspektor` (annen modellfamilie). Copilot CLI støtter custom agents + `/agent`-delegering lokalt, med eget kontekstvindu og per-agent `model:`; `tools:`-allowlisten som låser `grill-inspektor` read-only gjelder også der. De deterministiske gatene bærer kvalitet uansett.
+Implementation delegation uses a concise human-readable task brief, not a
+baseline digest, manifest, generated patch artifact, or global state protocol.
+Inspector receives the task criteria, task-scoped diff, deterministic evidence,
+and only named relevant decisions. When Kokk implemented the change, its brief
+and result are also supplied as provenance. The current-diff verdict and waiver
+rules live once in `.github/copilot-instructions.md`.
 
-På plass (committet): `.github/CODEOWNERS`, `.github/dependabot.yml`, `.github/PULL_REQUEST_TEMPLATE.md`. Gjenstår: **fase 6–7 deploy** (krever `.nais/nais.yaml` + deploy-workflow når tjenesten er reell) og branch protection (GitHub-innstilling).
+## Context and documentation
 
-## Proveniens
-Bygd ved å adaptere hovmesters backend-skills (Ktor-tunet) + etablerte flyt-mønstre for design/implementering/review (oversatt og NAV/Ktor-tilpasset) + research-funn (context-rot, sterk-modell-inline, deterministiske gater, disk-som-minne, kontrakter-ikke-forbud). Eksperimentell testbenk — meningen er å bevise mønstrene her før de evt. graderes inn i hovmester.
+- Task and pull request acceptance criteria own requirements.
+- `docs/agents/domain.md` owns local documentation paths, form, narrow loading,
+  legacy decision handling, and link policy. `/domain-modeling` applies the
+  portable ADR gate and durable-write workflow under that policy.
+- `.grill/` is optional task-local scratch space. It is not a required
+  cross-task state system.
+- `/handoff` is for a real session seam, not agent-to-agent delegation.
+
+## Runtime verification
+
+Runtime claims come from current agent frontmatter, Copilot discovery, the
+repository gates, and an authenticated bounded pilot. Historical setup prose
+does not prove which configuration the runtime applied.
+
+Sources, reviewed revisions, and local adaptations are recorded in
+`docs/agents/provenance.md`. The repository files remain the only runtime
+dependency.

@@ -10,33 +10,23 @@ import no.nav.budstikka.application.DeliveryWorker
 import no.nav.budstikka.application.EffectuateDecision
 import no.nav.budstikka.application.InboxMessageWorker
 import no.nav.budstikka.application.LeaseBudgetDrainer
+import no.nav.budstikka.application.LedervarselChannelHandler
 import no.nav.budstikka.application.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
-import no.nav.budstikka.domain.decision.ReservationGate
-import no.nav.budstikka.domain.foundation.DeathLookup
-import no.nav.budstikka.domain.foundation.ReservationLookup
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 
 fun DependencyRegistry.workerModule() {
-    // B55: DeathGate BEFORE ReservationGate, so a dead Recipient short-circuits to Dropped before
-    // the Reservasjon/BrevFallback transformation (ADR 0009).
-    provide<List<DecisionRule>> {
-        listOf(
-            DeathGate(resolve<DeathLookup>()),
-            ReservationGate(resolve<ReservationLookup>()),
-        )
-    }
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
     provide<EffectuateDecision> {
         EffectuateDecision(
@@ -48,6 +38,7 @@ fun DependencyRegistry.workerModule() {
     provide<Map<Channel, ChannelHandler>> {
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
+            Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
         )

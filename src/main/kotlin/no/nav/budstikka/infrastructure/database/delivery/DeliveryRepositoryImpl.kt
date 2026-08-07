@@ -130,8 +130,8 @@ class DeliveryRepositoryImpl(
     }
 
     /**
-     * Terminal gate for poison rows (#71): expired CLAIMED rows that already spent [maxAttempts]
-     * delivery attempts become FAILED. Runs in the same transaction as claim (limited to the
+     * Expired CLAIMED rows that already spent [maxAttempts] delivery attempts become FAILED. Runs in
+     * the same transaction as claim (limited to the
      * [channelNames] handled by this worker), so a deterministic failing row stops being reclaimed
      * and cannot block the queue head (`createdAt ASC`).
      *
@@ -139,7 +139,7 @@ class DeliveryRepositoryImpl(
      * never handed to a handler keeps its budget and is not terminated here.
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
-     * disjoint rows without blocking each other (ADR 0004, no leader).
+     * distinct rows without blocking each other.
      */
     private fun failPoisonRows(
         now: Instant,
