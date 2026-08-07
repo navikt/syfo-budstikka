@@ -3,12 +3,12 @@ package no.nav.budstikka.infrastructure.client
 import io.ktor.client.HttpClient
 import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -31,18 +31,20 @@ class NarmesteLederClient(
     ): NarmesteLederRelasjon? {
         val accessToken = tokenProvider.token(config.scope)
         val response =
-            httpClient.get("${config.url}/internal/narmesteleder") {
-                parameter("orgnummer", orgnummer.value)
+            httpClient.post("${config.url}/api/v1/internal/narmesteleder") {
+                contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
-                header(SYKMELDT_FNR_HEADER, sykmeldt.value)
+                setBody(
+                    sharedJson.encodeToString(
+                        NarmesteLederRequest(sykmeldtFnr = sykmeldt.value, orgnummer = orgnummer.value),
+                    ),
+                )
             }
         return parseActive(response.status, response.bodyAsText())
     }
 
     companion object {
-        private const val SYKMELDT_FNR_HEADER = "Sykmeldt-Fnr"
-
         internal fun parseActive(
             status: HttpStatusCode,
             responseBody: String,
@@ -64,6 +66,12 @@ class NarmesteLederClient(
         }
     }
 }
+
+@Serializable
+internal data class NarmesteLederRequest(
+    val sykmeldtFnr: String,
+    val orgnummer: String,
+)
 
 @Serializable
 internal data class NarmesteLederResponse(
