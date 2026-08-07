@@ -91,11 +91,18 @@ class ContractPrivacyTest :
                     DittSykefravaerInactivate(reference = SYNTHETIC_REFERENCE, sykmeldt = SYNTHETIC_SYKMELDT),
                     ArbeidsgivervarselCreate(
                         orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
+                        recipient =
+                            NarmesteLeder(
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                externalVarsling =
+                                    NarmesteLederExternalVarsling(
+                                        emailTitle = SYNTHETIC_EMAIL_TITLE,
+                                        emailText = SYNTHETIC_EMAIL_TEXT,
+                                    ),
+                            ),
                         tag = Tag.DIALOGMOETE,
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
-                        externalVarsling = externalVarsling,
                         sakstilknytning = sakstilknytning,
                     ),
                     ArbeidsgivervarselInactivate(reference = SYNTHETIC_REFERENCE, orgnummer = SYNTHETIC_ORGNUMMER),

@@ -48,8 +48,12 @@ spec:
   accessPolicy:
     outbound:
       rules:
+        - application: notifikasjon-produsent-api
+          namespace: fager
         - application: digdir-krr-proxy
           namespace: team-rocket
+        - application: esyfo-narmesteleder
+          namespace: team-esyfo
       external:
         - host: pdl-api.dev-fss-pub.nais.io
         - host: dokdistfordeling-q1.dev-fss-pub.nais.io
@@ -76,5 +80,12 @@ spec:
       value: https://digdir-krr-proxy.intern.dev.nav.no/rest/v1/person
     - name: KRR_SCOPE
       value: api://dev-gcp.team-rocket.digdir-krr-proxy/.default
-  # DEFERRED (area 5: remaining Auth & ACL, not yet grilled in docs/context.md): tokenx inbound and outbound
-  # to narmesteleder/notifikasjon-produsent-api. Add when those channels are wired.
+    - name: ARBEIDSGIVER_NOTIFIKASJON_URL
+      value: http://notifikasjon-produsent-api.fager/api/graphql
+    - name: ARBEIDSGIVER_NOTIFIKASJON_SCOPE
+      value: api://dev-gcp.fager.notifikasjon-produsent-api/.default
+    - name: NARMESTELEDER_URL
+      value: http://esyfo-narmesteleder.team-esyfo
+    - name: NARMESTELEDER_SCOPE
+      value: api://dev-gcp.team-esyfo.esyfo-narmesteleder/.default
+  # DEFERRED (area 5: remaining Auth & ACL, not yet grilled in docs/context.md): tokenx inbound.

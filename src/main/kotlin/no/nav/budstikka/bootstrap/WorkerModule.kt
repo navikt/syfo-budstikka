@@ -3,6 +3,7 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.BrevChannelHandler
 import no.nav.budstikka.application.BrukervarselChannelHandler
 import no.nav.budstikka.application.ChannelHandler
@@ -12,6 +13,7 @@ import no.nav.budstikka.application.InboxMessageWorker
 import no.nav.budstikka.application.LeaseBudgetDrainer
 import no.nav.budstikka.application.LedervarselChannelHandler
 import no.nav.budstikka.application.MicrofrontendChannelHandler
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.DocumentDistributor
@@ -19,6 +21,7 @@ import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
+import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DecisionProcess
@@ -41,6 +44,12 @@ fun DependencyRegistry.workerModule() {
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
+            Channel.ARBEIDSGIVERVARSEL to
+                ArbeidsgivervarselChannelHandler(
+                    publisher = resolve<ArbeidsgiverNotificationPublisher>(),
+                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
+                    metrics = resolve<DispatchMetrics>(),
+                ),
         )
     }
     provide<List<BackgroundLoop>> {

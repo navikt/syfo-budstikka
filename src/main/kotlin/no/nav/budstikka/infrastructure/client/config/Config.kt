@@ -43,6 +43,24 @@ fun ApplicationConfig.toDocumentDistributorConfig() =
         }
     }
 
+data class ArbeidsgiverNotifikasjonConfig(
+    val url: String,
+    val scope: String,
+)
+
+fun ApplicationConfig.toArbeidsgiverNotifikasjonConfig() =
+    with(configFor("arbeidsgiverNotifikasjon")) {
+        ArbeidsgiverNotifikasjonConfig(
+            url = this("url"),
+            scope = this("scope"),
+        ).validate { config ->
+            buildList {
+                if (config.url.isBlank()) add("arbeidsgiverNotifikasjon.url must be set (ARBEIDSGIVER_NOTIFIKASJON_URL)")
+                if (config.scope.isBlank()) add("arbeidsgiverNotifikasjon.scope must be set (ARBEIDSGIVER_NOTIFIKASJON_SCOPE)")
+            }
+        }
+    }
+
 data class KrrConfig(
     val url: String,
     val scope: String,
@@ -57,6 +75,24 @@ fun ApplicationConfig.toKrrConfig() =
             buildList {
                 if (config.url.isBlank()) add("krr.url must be set (KRR_URL)")
                 if (config.scope.isBlank()) add("krr.scope must be set (KRR_SCOPE)")
+            }
+        }
+    }
+
+data class NarmesteLederConfig(
+    val url: String,
+    val scope: String,
+)
+
+fun ApplicationConfig.toNarmesteLederConfig() =
+    with(configFor("narmesteLeder")) {
+        NarmesteLederConfig(
+            url = this("url"),
+            scope = this("scope"),
+        ).validate { config ->
+            buildList {
+                if (config.url.isBlank()) add("narmesteLeder.url must be set (NARMESTELEDER_URL)")
+                if (config.scope.isBlank()) add("narmesteLeder.scope must be set (NARMESTELEDER_SCOPE)")
             }
         }
     }

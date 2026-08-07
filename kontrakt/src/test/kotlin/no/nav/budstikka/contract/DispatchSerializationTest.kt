@@ -38,7 +38,7 @@ class DispatchSerializationTest :
                             personIdentifier = SYNTHETIC_SYKMELDT,
                             text = "Nytt på Ditt sykefravær",
                         ),
-                    "ArbeidsgivervarselCreate-NL" to
+                    "ArbeidsgivervarselCreate-NL-without-external-varsling" to
                         ArbeidsgivervarselCreate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
@@ -48,10 +48,43 @@ class DispatchSerializationTest :
                             meldingstype = ArbeidsgiverMeldingstype.OPPGAVE,
                             sakstilknytning = Sakstilknytning(sakId = "sak-1"),
                         ),
-                    "ArbeidsgivervarselCreate-Altinn" to
+                    "ArbeidsgivervarselCreate-NL-with-external-varsling" to
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                NarmesteLeder(
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    externalVarsling =
+                                        NarmesteLederExternalVarsling(
+                                            emailTitle = "E-posttittel",
+                                            emailText = "E-posttekst",
+                                        ),
+                                ),
+                            tag = Tag.DIALOGMOETE,
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                        ),
+                    "ArbeidsgivervarselCreate-Altinn-without-external-varsling" to
                         ArbeidsgivervarselCreate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = AltinnResource(resource = AltinnResourceId.DIALOGMOETE),
+                            tag = Tag.OPPFOELGING,
+                            text = "Oppfølging",
+                            link = "https://nav.no/ag",
+                        ),
+                    "ArbeidsgivervarselCreate-Altinn-with-external-varsling" to
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                AltinnResource(
+                                    resource = AltinnResourceId.DIALOGMOETE,
+                                    externalVarsling =
+                                        AltinnExternalVarsling(
+                                            emailTitle = "E-posttittel",
+                                            emailText = "E-posttekst",
+                                            smsText = "SMS-tekst",
+                                        ),
+                                ),
                             tag = Tag.OPPFOELGING,
                             text = "Oppfølging",
                             link = "https://nav.no/ag",
@@ -100,6 +133,47 @@ class DispatchSerializationTest :
                     ),
                 ),
             ) shouldContain "\"type\":\"BrevCreate\""
+        }
+
+        test("ArbeidsgiverRecipient wire form retains recipient type and external varsling fields") {
+            val altinnPayload =
+                dispatchJson.encodeToString(
+                    envelope(
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                AltinnResource(
+                                    AltinnResourceId.DIALOGMOETE,
+                                    AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                ),
+                            tag = Tag.DIALOGMOETE,
+                            text = "Tekst",
+                            link = "https://nav.no",
+                        ),
+                    ),
+                )
+            val narmesteLederPayload =
+                dispatchJson.encodeToString(
+                    envelope(
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                NarmesteLeder(
+                                    SYNTHETIC_SYKMELDT,
+                                    NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                ),
+                            tag = Tag.DIALOGMOETE,
+                            text = "Tekst",
+                            link = "https://nav.no",
+                        ),
+                    ),
+                )
+
+            altinnPayload shouldContain "\"mottaker\":{\"type\":\"AltinnRessurs\""
+            altinnPayload shouldContain "\"externalVarsling\":{\"emailTitle\":\"Tittel\",\"emailText\":\"E-post\",\"smsText\":\"SMS\"}"
+            narmesteLederPayload shouldContain "\"mottaker\":{\"type\":\"NarmesteLeder\""
+            narmesteLederPayload shouldContain "\"externalVarsling\":{\"emailTitle\":\"Tittel\",\"emailText\":\"E-post\"}"
+            narmesteLederPayload shouldNotContain "\"smsText\""
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {
