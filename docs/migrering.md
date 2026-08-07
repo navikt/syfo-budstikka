@@ -50,6 +50,12 @@ Kanalinventar og kanalspesifikke detaljer eies av
    produsenten kan dokumentere at ingen slike prosesser er åpne.
 6. En rollback påvirker bare nye prosesser. Eksisterende flagg beholdes, slik
    at de fortsatt rutes til systemet som opprettet dem.
+7. En flyt der alle leveranser utløper av seg selv og aldri ferdigstilles kan
+   i stedet flippes hardt per type, uten flagg: nye opprettelser går til
+   budstikka, og eksisterende leveranser får utløpe i esyfovarsel.
+8. Flytt flyter uten lukking først, slik at leveransekjeden bevises med lav
+   risiko. Flyter som deler en tilstandsmaskin over flere oppfølgingshendelser
+   flyttes sist, alltid på prosessgrense.
 
 ## Åpen produktbeslutning: møtebehov
 
