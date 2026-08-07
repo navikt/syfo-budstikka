@@ -7,6 +7,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import no.nav.budstikka.application.port.NarmesteLederRelasjon
 import no.nav.budstikka.domain.dispatch.Orgnummer
@@ -71,17 +72,19 @@ class NarmesteLederClientTest :
             relation.narmesteLederFnr shouldBe PersonIdentifier("22222222222")
         }
 
-        test("findActive calls the internal lookup endpoint with required query, header, and token") {
+        test("findActive posts the required body and token to the internal lookup endpoint") {
             val tokenProvider = RecordingNarmesteLederTokenProvider("tok-42")
+            var capturedMethod: String? = null
             var capturedUrl: String? = null
             var capturedAuth: String? = null
-            var capturedSykmeldtFnr: String? = null
+            var capturedBody: String? = null
             val httpClient =
                 HttpClient(
                     MockEngine { request ->
+                        capturedMethod = request.method.value
                         capturedUrl = request.url.toString()
                         capturedAuth = request.headers[HttpHeaders.Authorization]
-                        capturedSykmeldtFnr = request.headers["Sykmeldt-Fnr"]
+                        capturedBody = (request.body as TextContent).text
                         respond(
                             content = """{"narmesteLeder":null}""",
                             status = HttpStatusCode.OK,
@@ -96,8 +99,9 @@ class NarmesteLederClientTest :
             ) shouldBe null
 
             tokenProvider.requestedTarget shouldBe config.scope
-            capturedUrl shouldBe "${config.url}/internal/narmesteleder?orgnummer=123456789"
+            capturedMethod shouldBe "POST"
+            capturedUrl shouldBe "${config.url}/api/v1/internal/narmesteleder"
             capturedAuth shouldBe "Bearer tok-42"
-            capturedSykmeldtFnr shouldBe "11111111111"
+            capturedBody shouldBe """{"sykmeldtFnr":"11111111111","orgnummer":"123456789"}"""
         }
     })

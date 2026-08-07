@@ -139,8 +139,8 @@ Merk:
 
 **B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
 — aldri NL-fnr. Kanalhandleren slår opp aktiv leder i `esyfo-narmesteleder`
-(team-esyfo) over det interne M2M-endepunktet `GET /internal/narmesteleder`
-(Azure AD client credentials, `Sykmeldt-Fnr`-header og `orgnummer`-parameter) ved
+(team-esyfo) over det interne M2M-endepunktet `POST /internal/narmesteleder`
+(Azure AD client credentials, JSON-body `{sykmeldtFnr, orgnummer}`) ved
 sendetidspunkt. `SendingWindowGate` kan utsette leveransen i dager, så oppslag ved
 sending gir korrekt leder etter et lederbytte og unngår å persistere lederens
 fødselsnummer i `delivery`-payloaden. `LedervarselCreate` partisjoneres på
