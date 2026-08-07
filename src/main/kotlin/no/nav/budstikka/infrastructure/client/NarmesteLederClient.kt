@@ -31,13 +31,16 @@ class NarmesteLederClient(
     ): NarmesteLederRelasjon? {
         val accessToken = tokenProvider.token(config.scope)
         val response =
-            httpClient.post("${config.url}/api/v1/internal/narmesteleder") {
+            httpClient.post("${config.url}/internal/api/v1/lookup") {
                 contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
                 setBody(
                     sharedJson.encodeToString(
-                        NarmesteLederRequest(sykmeldtFnr = sykmeldt.value, orgnummer = orgnummer.value),
+                        NarmesteLederRequest(
+                            employeeNationalIdentificationNumber = sykmeldt.value,
+                            organizationNumber = orgnummer.value,
+                        ),
                     ),
                 )
             }
@@ -57,10 +60,10 @@ class NarmesteLederClient(
                     // Do not retain the cause: its message can echo the body, including fnr and email addresses.
                     error("Narmeste leder register returned an invalid response with status ${status.value}")
                 }
-            return response.narmesteLeder?.let { relation ->
+            return response.lineManager?.let { relation ->
                 NarmesteLederRelasjon(
-                    narmesteLederFnr = PersonIdentifier(relation.fnr),
-                    epostadresser = relation.epostadresser,
+                    narmesteLederFnr = PersonIdentifier(relation.nationalIdentificationNumber),
+                    epostadresser = relation.emailAddresses,
                 )
             }
         }
@@ -69,17 +72,17 @@ class NarmesteLederClient(
 
 @Serializable
 internal data class NarmesteLederRequest(
-    val sykmeldtFnr: String,
-    val orgnummer: String,
+    val employeeNationalIdentificationNumber: String,
+    val organizationNumber: String,
 )
 
 @Serializable
 internal data class NarmesteLederResponse(
-    val narmesteLeder: NarmesteLederResponseRelation? = null,
+    val lineManager: NarmesteLederResponseRelation?,
 )
 
 @Serializable
 internal data class NarmesteLederResponseRelation(
-    val fnr: String,
-    val epostadresser: List<String>,
+    val nationalIdentificationNumber: String,
+    val emailAddresses: List<String>,
 )

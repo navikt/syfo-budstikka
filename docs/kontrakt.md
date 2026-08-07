@@ -132,7 +132,7 @@ Viktige valg:
   SMS finnes ikke for nærmeste leder: nedstrøms `EksterntVarselInput` godtar kun
   én variant, og denne stien bruker e-post.
   Oppslag og feilhåndtering for nærmeste leder er beskrevet under
-  «Ledervarsel-resolusjon (B24)». Manglende aktiv leder gir et terminalt utfall.
+  «Nærmeste leder-resolusjon i arbeidsgiverkanalen (B24)». Manglende aktiv leder gir et terminalt utfall.
   Når det finnes en aktiv leder uten e-postadresse og konsumenten har bedt om
   ekstern varsling, gir også det et terminalt utfall for hele leveransen,
   inkludert in-app-varselet. Varselet degraderes ikke til kun in-app, slik
@@ -166,6 +166,27 @@ Merk:
 **Budstikka slår ikke opp nærmeste leder.** Produsenten sender `(sykmeldt, orgnummer, oppgavetype)`, og
 budstikka videresender dette som in-app-hendelse til Dine Sykmeldte. Kontrakten tar aldri imot fnr til
 nærmeste leder, verken i create eller inactivate. Partisjonsnøkkel = `sykmeldt` (stabilt anker).
+
+## Nærmeste leder-resolusjon i arbeidsgiverkanalen (B24)
+
+Dette gjelder **kun** `ArbeidsgivervarselCreate` med `NarmesteLeder`-mottaker —
+ikke LEDERVARSEL-kanalen over.
+
+**Budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
+— aldri NL-fnr. Kanalhandleren slår opp aktiv leder i `esyfo-narmesteleder`
+(team-esyfo) over det interne M2M-endepunktet `POST /internal/api/v1/lookup`
+(Azure AD client credentials, JSON-body
+`{employeeNationalIdentificationNumber, organizationNumber}`).
+
+Responsen er `{lineManager}`. Feltet er påkrevd, men `null` når ingen aktiv
+relasjon finnes — og bare da er utfallet terminalt. Mangler nøkkelen helt, er det
+kontraktbrudd og gir en feil, ikke et stille bortfall av varselet.
+
+Oppslaget skjer ved sendetidspunkt, ikke ved mottak: `SendingWindowGate` kan
+utsette leveransen i dager, så oppslag ved sending gir korrekt leder etter et
+lederbytte og unngår å persistere lederens fødselsnummer i `delivery`-payloaden.
+For NL-stien er `sykmeldt` kun oppslagsanker sammen med `orgnummer`. Dette
+eliminerer dagens dobbeltoppslag i esyfovarsel.
 
 ## Ledervarsel-kanal: rent in-app
 
