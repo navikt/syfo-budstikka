@@ -1,0 +1,41 @@
+name: Brukerhistorie
+description: Beskriv en forbedring for en tydelig bruker eller aktør
+type: Story
+projects: ["navikt/157"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skriv en enkel overskrift som sier hva brukeren skal kunne gjøre eller forstå.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Kort fortalt
+      description: Hva blir enklere eller bedre for brukeren, og hvorfor?
+    validations:
+      required: true
+  - type: textarea
+    id: user-story
+    attributes:
+      label: Brukerhistorie
+      description: Bruk formen bare når rolle, behov og verdi faktisk blir tydeligere av den.
+      placeholder: Som arbeidsgiver ønsker jeg å forstå hvorfor Nav ber om en plan, slik at jeg vet hva jeg skal gjøre videre.
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Akseptansekriterier
+      description: Hva må brukeren kunne se eller gjøre for at historien er ferdig?
+      placeholder: |
+        - [ ] Kriterium 1
+        - [ ] Kriterium 2
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Faglig og teknisk kontekst
+      description: Relevant nåsituasjon, føringer, risiko, bevis eller lenker som utvikler og agent trenger. Valgfritt når historien og kriteriene er selvforklarende.
+    validations:
+      required: false

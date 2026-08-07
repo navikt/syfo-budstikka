@@ -22,7 +22,7 @@ provenance.
 |---|---|---|
 | [`navikt/hovmester`](https://github.com/navikt/hovmester) | [`48483bf32c2b6f89c31e7d50e25b5fe6fac45ca2`](https://github.com/navikt/hovmester/commit/48483bf32c2b6f89c31e7d50e25b5fe6fac45ca2) | Team source for reusable agent contracts |
 | [`mattpocock/skills`](https://github.com/mattpocock/skills) | [`2ab958093e83e0ec752e6c1c5932da465bf23e0c`](https://github.com/mattpocock/skills/commit/2ab958093e83e0ec752e6c1c5932da465bf23e0c) | MIT-licensed input for the original core |
-| [`mattpocock/skills` planning workflows](https://github.com/mattpocock/skills/tree/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering) | [`8b36d4fb2635b3c21998dcd8144439c9e5ba7302`](https://github.com/mattpocock/skills/commit/8b36d4fb2635b3c21998dcd8144439c9e5ba7302) | MIT-licensed input for Wayfinder, to-spec, and to-tickets |
+| [`mattpocock/skills` planning workflows](https://github.com/mattpocock/skills/tree/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering) | [`8b36d4fb2635b3c21998dcd8144439c9e5ba7302`](https://github.com/mattpocock/skills/commit/8b36d4fb2635b3c21998dcd8144439c9e5ba7302) | MIT-licensed input for Wayfinder, to-spec, and upstream to-tickets |
 | [`navikt/copilot`](https://github.com/navikt/copilot) | [`6bd76a064a5615ba8a4bef1e27017368c562012e`](https://github.com/navikt/copilot/commit/6bd76a064a5615ba8a4bef1e27017368c562012e) | MIT-licensed secondary input |
 
 `mattpocock/skills` and `navikt/copilot` are MIT licensed. The complete Matt
@@ -75,8 +75,18 @@ repository-local files are the operative versions.
 | `.github/skills/create-a-skill/references/copilot-cli-validation.md` | [GitHub Copilot CLI skills reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#skills-reference) | Local, progressively disclosed validation checklist for the repository's only target runtime |
 | `.github/skills/wayfinder/SKILL.md` | [`skills/engineering/wayfinder/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/wayfinder/SKILL.md) | Complete upstream workflow retained; adapted at the tracker adapter, explicit-choice and write-authorization boundaries, durable-documentation, planning-only, callable Researcher, serialized ticket-resolution pilot, claim lifecycle, audit-preserving closure, and optional handoff seams |
 | `.github/skills/to-spec/SKILL.md` | [`skills/engineering/to-spec/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/to-spec/SKILL.md) | Adapted to a concise optional engineering specification, explicit-choice gate, repository adapter, and explicit publish boundary; exhaustive user-story prose is intentionally not retained |
-| `.github/skills/to-tickets/SKILL.md` | [`skills/engineering/to-tickets/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/to-tickets/SKILL.md) | Retains tracer-bullet, blocking-edge, review, wide-refactor, and issue-template behavior; adds an explicit-choice gate and replaces tracker bootstrap and local-file fallback with the repository adapter and explicit publish boundary |
+| `.github/skills/to-issues/SKILL.md` | [`skills/engineering/to-tickets/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/to-tickets/SKILL.md) | Retains tracer-bullet, blocking-edge, review, wide-refactor, and issue-template behavior; uses the exact GitHub artifact name locally, adds a human-first opening and explicit-choice gate, and replaces tracker bootstrap and local-file fallback with the repository adapter and explicit publish boundary |
 | `.github/skills/issue-management/SKILL.md` | Hovmester `dist/skills/issue-management/SKILL.md` at `48483bf` | Reduced to portable GitHub mechanics; shaping belongs to the caller, native relationships replace hand-written REST recipes, and epic closure always remains a human-authorized action |
+
+## Adapted repository forms
+
+The issue forms use Hovmester's repository form set as a structural input, but
+the local forms are deliberately smaller and are not synchronized copies.
+
+| Local path | Source at Hovmester `48483bf` | Local handling |
+|---|---|---|
+| `.github/ISSUE_TEMPLATE/{bug,feature,story,task,epic}.yml` | `dist/issue-templates/{bug,feature,story,task,epic}.yml` | Adapted into layered NAV issue forms: functional title and short plain-language opening first, then acceptance criteria and the technical context or evidence needed by implementers; uses native issue types and Team eSyfo project 157, while native graph state stays out of body checklists |
+| `.github/ISSUE_TEMPLATE/config.yml` | `dist/issue-templates/config.yml` | Retains blank issues as an escape hatch without adding external contact links |
 
 The upstream `agents/openai.yaml` files are OpenAI interface metadata, not
 GitHub Copilot CLI runtime dependencies, and are deliberately not imported.

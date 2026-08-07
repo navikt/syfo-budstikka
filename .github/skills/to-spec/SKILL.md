@@ -27,16 +27,15 @@ or a material user-owned choice is unresolved.
 ## 2. Draft the specification
 
 Prefer the highest existing test seam and the fewest seams that can prove the
-outcome. Write only what implementation and review need:
+outcome. Give the issue a functional, plain-language title. Start with the
+change and its value so a product lead or designer can understand the work
+without reading technical detail. Write only what implementation and review
+need:
 
 ```markdown
-## Problem
+## In short
 
-<the problem from the affected user's or system's perspective>
-
-## Outcome
-
-<observable result>
+<one or two sentences: who or what benefits, what changes, and why it matters>
 
 ## Acceptance criteria
 
@@ -45,6 +44,10 @@ outcome. Write only what implementation and review need:
 ## Locked decisions
 
 - <decision and the constraint it creates>
+
+## Implementation context
+
+- <relevant current state, technical boundary, risk, or integration seam>
 
 ## Proof
 
@@ -60,10 +63,12 @@ outcome. Write only what implementation and review need:
 ```
 
 Include user stories only when they clarify genuinely different actors or
-behaviors. Avoid file inventories, repeated decision rationale, speculative
-future work, and exhaustive implementation prose. Inline a small schema, type,
-or state-machine fragment only when it carries a decision more precisely than
-prose.
+behaviors; never force technical work into “As a …” prose. Put implementation
+context after the human-readable opening, but retain the evidence, constraints,
+risks, integration seams, and proof an implementer or agent needs. Avoid file
+inventories, repeated decision rationale, speculative future work, and
+exhaustive implementation prose. Inline a small schema, type, or state-machine
+fragment only when it carries a decision more precisely than prose.
 
 ## 3. Confirm and publish
 
@@ -71,5 +76,5 @@ Present the complete draft and proposed tracker metadata. Publish only after
 explicit human authorization. Apply only labels and relationships defined by
 the tracker adapter, then read the published issue back and verify it.
 
-A specification does not imply ticket decomposition. Recommend `/to-tickets`
+A specification does not imply issue decomposition. Recommend `/to-issues`
 only when several independently deliverable slices need durable tracking.

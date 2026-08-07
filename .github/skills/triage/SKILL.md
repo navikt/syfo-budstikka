@@ -1,6 +1,6 @@
 ---
 name: triage
-description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstikka skal vurderes og klargjøres: klassifiser, verifiser påstanden, avklar, prioriter, gjør AFK-klar. Triggere: 'triage', 'gå gjennom innboksen', 'se på #42', 'er denne buggen ekte'. Ikke for å bryte en ferdig plan i issues (se /to-tickets)."
+description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstikka skal vurderes og klargjøres: klassifiser, verifiser påstanden, avklar, prioriter, gjør AFK-klar. Triggere: 'triage', 'gå gjennom innboksen', 'se på #42', 'er denne buggen ekte'. Ikke for å bryte en ferdig plan i issues (se /to-issues)."
 ---
 
 # triage
@@ -8,7 +8,7 @@ description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstik
 Flytt innkommende issues (og eksterne PR-er) på `navikt/syfo-budstikka` gjennom en liten tilstandsmaskin: **klassifiser → verifiser → grill ved behov → skriv en arbeidsklar brief**. Fokuset her er **vurdering og klargjøring**, ikke oppretting.
 
 Dette komplementerer to nabo-skills — ikke dupliser dem:
-- `/to-tickets` bryter en *ferdig plan* i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
+- `/to-issues` bryter en *ferdig plan* i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
 - `/issue-management` eier selve GitHub-mekanikken etter at saken er formet. Repository-, label- og project-fakta kommer fra `docs/agents/issue-tracker.md`; gjenta ikke mekanikken her.
 
 En **PR er et issue med kode**: samme roller, samme tilstander. Der noe avviker for en PR er det merket "for en PR" under. En bar `#42` slås opp som issue eller PR.

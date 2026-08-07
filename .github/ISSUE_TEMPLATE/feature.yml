@@ -1,0 +1,35 @@
+name: Forbedring
+description: Foreslå ny funksjonalitet eller en bedre brukeropplevelse
+type: Feature
+projects: ["navikt/157"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skriv en enkel, funksjonell overskrift som beskriver forbedringen.
+        Start med verdien, ikke den tekniske løsningen.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Kort fortalt
+      description: Hvem eller hva får det bedre, hva endres, og hvorfor er det nyttig?
+      placeholder: Teamet kan se hvilke varsler som venter, slik at problemer oppdages før de påvirker brukerne.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Akseptansekriterier
+      description: Hva må være observerbart for at forbedringen er ferdig?
+      placeholder: |
+        - [ ] Kriterium 1
+        - [ ] Kriterium 2
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Faglig og teknisk kontekst
+      description: Relevant nåsituasjon, føringer, risiko, bevis eller lenker som utvikler og agent trenger. Valgfritt når akseptansekriteriene er selvforklarende.
+    validations:
+      required: false

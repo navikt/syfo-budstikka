@@ -1,0 +1,39 @@
+name: Feil
+description: Meld noe som ikke virker som forventet
+type: Bug
+projects: ["navikt/157"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skriv en enkel, funksjonell overskrift som forteller hva som er galt.
+        En leser skal forstå problemet uten å kjenne koden.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Kort fortalt
+      description: Hvem eller hva påvirkes, hva går galt, og hvorfor betyr det noe?
+      placeholder: Arbeidsgiveren får ikke åpnet varselet og kommer derfor ikke videre til oppfølgingsplanen.
+    validations:
+      required: true
+  - type: textarea
+    id: observed-and-expected
+    attributes:
+      label: Hva skjer, og hva burde skje?
+      description: Beskriv forskjellen mellom dagens og ønsket oppførsel.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Slik kan vi se feilen
+      description: Steg, eksempel, skjermbilde eller annen observasjon. Fyll inn det du kjenner.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Teknisk kontekst og bevis
+      description: Miljø, tidspunkt, logger uten personopplysninger, testresultater, lenker eller tekniske føringer som kan hjelpe feilsøkingen.
+    validations:
+      required: false

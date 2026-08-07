@@ -92,7 +92,7 @@ value, explain why, and wait for the user's choice:
   or because of context pressure. It is not the Kokk delegation mechanism.
 
 At the plan boundary, recommend `/to-spec` only when a durable engineering
-specification adds value, and `/to-tickets` only when several independently
+specification adds value, and `/to-issues` only when several independently
 deliverable slices need tracker entries. Never chain either transition
 automatically; one clear slice needs neither.
 

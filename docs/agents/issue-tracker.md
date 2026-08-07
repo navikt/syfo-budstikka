@@ -10,6 +10,36 @@ delivery and review records, not the request surface.
 - Link delivery with `Closes #NNN` or `Relates to #NNN` as appropriate.
 - Creating, editing, assigning, labelling, commenting on, or closing an issue
   or pull request requires explicit human authorization.
+- Adding an issue to a project or changing a project field is a separate
+  tracker mutation and must be included in that authorization.
+
+## Human-readable issue contract
+
+Issues serve product leads, designers, developers, and implementation agents.
+Use progressive detail: the title and opening provide functional orientation;
+the remaining issue provides enough evidence and technical context to act
+without rediscovering the task.
+
+- Use a functional title that names the observable change or problem. Do not
+  lead with a filename, component, technology, or implementation mechanism
+  unless that mechanism is itself the outcome.
+- Start the body with `## Kort fortalt`: one or two plain-language sentences
+  that say who or what benefits, what changes, and why it matters.
+- Use a user story only when a real actor and value are clearer as “Som …
+  ønsker jeg … slik at …”. Do not force chores, refactors, or platform work
+  into that form.
+- Put acceptance criteria next. Follow with the current-state evidence,
+  constraints, risks, test seams, and technical context needed to make the
+  issue independently actionable. Prefer precise links or small examples over
+  a speculative implementation walkthrough.
+- Keep implementation walkthroughs, file inventories, decision history, and
+  native parent or dependency state out of the opening.
+
+The forms in `.github/ISSUE_TEMPLATE/` are the manual entry point for this
+contract. Programmatic creation follows the same layered structure; it does
+not submit a form or treat the form as project configuration. The localized
+heading `Kort fortalt` takes precedence over generic skill examples such as
+`In short`.
 
 Run `gh` from this clone so it resolves the repository from `origin`.
 
@@ -106,5 +136,106 @@ to create repository labels.
 
 ## Projects
 
-No GitHub Project mapping is configured for this repository. Do not add issues
-to a project or invent project fields or statuses.
+The team board is [Team eSyfo](https://github.com/orgs/navikt/projects/157):
+
+- owner: `navikt`
+- project number: `157`
+
+Resolve project, field, item, and option IDs at runtime. The number and the
+exact semantic names below are configuration; opaque IDs are not.
+
+Manual issues created through this repository's forms use
+`projects: ["navikt/157"]`. GitHub applies that field only to form-driven
+creation and only when the author has the required project access.
+Programmatically created issues must therefore be added to the project
+explicitly and verified.
+
+GitHub forms cannot choose a project field value. The project's enabled `Item
+added to project` workflow owns initial status for that path and must set
+`Backlog`. Smoke-test one issue after changing the forms or project workflow;
+if it lands elsewhere, treat that as a configuration failure. Independently of
+the smoke test, triage must read and verify status before an intake issue
+becomes pickable.
+
+### Status mapping
+
+| Workflow state | Exact `Status` option |
+|---|---|
+| Created for later prioritization | `Backlog` |
+| Approved and independently pickable | `Plukk meg! 🙌` |
+| Work has started | `Jeg jobbes med! ⚒️` |
+| Waiting for team discussion or a team-owned decision | `Til diskusjon` |
+| Closed or otherwise terminal | `Done` |
+
+### Ready for implementation
+
+`Backlog` may contain incomplete intake. Set `Plukk meg! 🙌` only after reading
+the complete issue and verifying that it has:
+
+- a clear goal and scope, including the nearest relevant non-goal;
+- verifiable acceptance criteria;
+- the current-state evidence, constraints, risks, and test seam needed by the
+  implementer, without invented detail;
+- correct native parent and blocking relationships; and
+- confirmed issue type, project membership, and other explicitly chosen
+  tracker metadata.
+
+If one of these is materially missing, keep the issue in `Backlog` or use `Til
+diskusjon` when a team-owned decision is the blocker. State what must be
+clarified; do not manufacture readiness.
+
+For a newly approved set of implementation issues, put open unblocked issues
+in `Plukk meg! 🙌` and blocked issues in `Backlog`, unless the user chose
+another configured state. If implementation starts in the current session,
+set only the issue actually being started to `Jeg jobbes med! ⚒️`; other
+unblocked slices remain pickable. Do not change existing project state merely
+because an issue was inspected or selected.
+
+`Sommer epics 🎯` and `AID-oppdraget` are special planning lanes, not fallback
+statuses. Set them only when the user explicitly chooses one. Never infer
+`Priority`, `Size`, `Estimate`, `Tertial`, `Måleparameter`, or `Tags`; propose
+only a value established by the task and include it in the authorized write
+set.
+
+### Project operations
+
+Prefer semantic GitHub project tools when they expose the complete operation.
+With `gh`, the minimum write path is:
+
+```sh
+gh project item-add 157 --owner navikt --url ISSUE_URL --format json
+gh project field-list 157 --owner navikt --format json
+gh project item-edit --id ITEM_ID --project-id PROJECT_ID \
+  --field-id STATUS_FIELD_ID --single-select-option-id STATUS_OPTION_ID
+```
+
+Capture the item ID returned by `item-add`. For an existing item, query by the
+exact issue URL and paginate until the item is found or the project is
+exhausted; never treat the first 30 or 100 items as the whole board. Match the
+`Status` field and option by the exact configured names above.
+
+After every add or field mutation, read the item back and verify its issue URL,
+project, and field value. A created issue with missing or wrong project state
+is a partial failure: preserve the issue, stop further writes, present the
+smallest repair, and obtain authorization before repairing it.
+
+Closing an issue normally lets the project's enabled built-in workflow set
+`Done`. This is a terminal tracker state, not proof that the issue shipped; the
+issue's closure reason and final comment carry that distinction. Read the
+project item back after closing. If it is not `Done`, report the mismatch and
+propose an explicit authorized status repair rather than assuming the
+automation is enabled.
+
+Wayfinder adds the map to Team eSyfo as `Til diskusjon`. Project 157 currently
+has `Auto-add sub-issues to project` enabled, so attaching native decision
+tickets can also add them to the board. Include that automatic effect in the
+authorized write set, then verify each child before continuing. Because the
+workflow is asynchronous, allow a short bounded read-only retry before treating
+an absent item as a partial failure. Keep writes stopped while polling, and do
+not call `item-add` again when the workflow already added the child.
+
+An unclaimed decision ticket starts in `Backlog`; a ticket claimed for the
+current session uses `Jeg jobbes med! ⚒️`; a ticket waiting for team discussion
+uses `Til diskusjon`; and the enabled close workflow sets terminal tickets to
+`Done`. These items remain decision work, not implementation slices, even when
+the project workflow makes them visible on the board.

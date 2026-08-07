@@ -29,27 +29,41 @@ list of links in prose.
 ## 3. Draft the smallest useful change
 
 Use the repository's issue template when one exists. Otherwise keep the issue
-self-contained and concise:
+self-contained and concise. Give it a functional title that says what changes,
+not which file or mechanism will be touched. Make the opening useful to a
+non-technical teammate:
 
 ```markdown
-## Goal
+## In short
 
-<observable outcome>
+<one or two sentences: who or what benefits, what changes, and why it matters>
 
 ## Acceptance criteria
 
 - [ ] <verifiable result>
+
+## Implementation context and proof
+
+<relevant current state, constraints, risks, test seams, and evidence>
 ```
 
-Add context, non-goals, dependency rationale, rollback, or risk only when the
-issue needs them to be independently actionable. Do not copy an umbrella
-specification, decision history, file inventory, or implementation walkthrough
-into every child issue.
+Retain the context, non-goals, dependency rationale, rollback conditions, risk,
+and evidence needed to make the issue independently actionable for a developer
+or agent. Do not copy an umbrella specification, decision history, file
+inventory, or implementation walkthrough into every child issue.
+Use a user story only when a real actor and value are clearer in that form; it
+is not a required wrapper for technical work.
 Keep parent and dependency graph state in native relationships rather than
 duplicating it in body sections.
 
 Select only issue types, labels, assignees, parents, dependencies, and project
-fields that the adapter establishes.
+fields that the adapter establishes. Present those proposed metadata values
+with the draft; metadata is part of the task contract even when it is not body
+prose.
+
+Before proposing a pickable status, apply the adapter's readiness gate. A thin
+intake issue may remain in backlog; do not compensate for missing evidence or
+scope by inventing technical detail.
 
 ## 4. Confirm and write
 
@@ -64,8 +78,9 @@ issue operations, including:
 - `gh issue edit ISSUE --type TYPE`
 
 Use repository and account context from the adapter. Verify every created or
-changed issue after writing and report partial failure without silently
-substituting a text-only relationship.
+changed issue, project item, field value, and relationship after writing.
+Report partial failure without silently omitting project state or substituting
+a text-only relationship.
 
 ## 5. Maintain lifecycle without taking over delivery
 

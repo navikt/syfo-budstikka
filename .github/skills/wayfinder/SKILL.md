@@ -123,7 +123,10 @@ User invokes with a loose idea.
 
 1. **Name the destination.** Run a `/grilling` session to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first. Use `/domain-modeling` only when durable documentation qualifies under repository policy and the user selects it.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
-3. Present the proposed map, tickets, labels, blocking edges, and initial research-ticket claims. Obtain explicit authorization for that exact set of tracker writes.
+3. Present the proposed map, tickets, labels, blocking edges, project effects,
+   and initial research-ticket claims. Obtain explicit authorization for that
+   exact set of tracker writes, including project changes caused automatically
+   by native sub-issue workflows documented in the adapter.
 4. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
 5. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog — the **Not yet specified** section.
 6. **Fire the research subagents.** Assign each `research` ticket to the authenticated user and verify the claim before work; if that assignment was not in the authorized set from step 3, ask first. Then invoke one internal Researcher agent per claimed ticket through the agent task tool and investigate them in parallel. Each returns a sourced note to the current session. Close a ticket only when its evidence answers the question. Otherwise keep it open and propose an authorized claim release or follow-up. For each answered ticket, present its exact resolution-comment, close, and map-index mutations; perform and verify those tracker writes only after explicit authorization.
@@ -148,5 +151,5 @@ a superseding-decision comment. Any other closed, failed, or partially recorded
 ticket keeps the map incomplete. When no live ticket, unresolved child, or fog
 remains, propose a final map summary and closure. Close the map only after
 explicit authorization, then recommend the lightest useful handoff. A durable specification may use
-`/to-spec`; several independently deliverable slices may use `/to-tickets`.
+`/to-spec`; several independently deliverable slices may use `/to-issues`.
 Neither transition is automatic, and a single clear slice needs neither.
