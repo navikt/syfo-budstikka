@@ -54,7 +54,7 @@ jobs:
             changed_files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
             while IFS= read -r path; do
               case "$path" in
-                kontrakt/* | \
+                kontrakt/* | build-logic/* | \
                 build.gradle.kts | settings.gradle.kts | gradle.properties | gradlew | gradlew.bat | \
                 gradle/wrapper/* | gradle/libs.versions.toml | \
                 scripts/verify-contract-baseline.sh | \

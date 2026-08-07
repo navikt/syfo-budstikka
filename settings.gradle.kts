@@ -1,4 +1,6 @@
 pluginManagement {
+    // Convention plugins for :kontrakt's publishing and verification machinery (build-logic/).
+    includeBuild("build-logic")
     repositories {
         mavenCentral()
         gradlePluginPortal()
