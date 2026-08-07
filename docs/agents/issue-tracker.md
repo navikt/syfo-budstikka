@@ -37,9 +37,13 @@ without rediscovering the task.
 
 The forms in `.github/ISSUE_TEMPLATE/` are the manual entry point for this
 contract. Programmatic creation follows the same layered structure; it does
-not submit a form or treat the form as project configuration. The localized
-heading `Kort fortalt` takes precedence over generic skill examples such as
-`In short`.
+not submit a form or treat the form as project configuration. Write
+programmatic issue bodies in Norwegian and reuse the matching form's headings:
+`Kort fortalt`, then the form's acceptance and context labels, for example
+`Akseptansekriterier` or `Ferdig når`, and `Teknisk kontekst og bevis`. These
+localized headings take precedence over generic skill examples such as
+`In short` and `Acceptance criteria`. Write sections without a form
+counterpart, such as `Utenfor scope`, in Norwegian as well.
 
 Run `gh` from this clone so it resolves the repository from `origin`.
 
@@ -198,6 +202,11 @@ only a value established by the task and include it in the authorized write
 set.
 
 ### Project operations
+
+`gh project` commands require the `project` token scope. If `gh auth status`
+does not list it, stop before the first project call and ask the user to run
+`gh auth refresh -s project` or to explicitly skip project linking; a missing
+scope is a decision stop, not a silent skip.
 
 Prefer semantic GitHub project tools when they expose the complete operation.
 With `gh`, the minimum write path is:
