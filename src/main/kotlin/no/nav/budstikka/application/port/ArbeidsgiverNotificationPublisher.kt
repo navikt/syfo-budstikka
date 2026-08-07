@@ -1,9 +1,9 @@
 package no.nav.budstikka.application.port
 
-import no.nav.budstikka.domain.dispatch.AltinnResourceId
-import no.nav.budstikka.domain.dispatch.ArbeidsgiverMeldingstype
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Tag
+import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Tag
 
 data class ArbeidsgiverNotificationRequest(
     val virksomhetsnummer: String,
