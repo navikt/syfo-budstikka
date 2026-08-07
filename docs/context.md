@@ -12,11 +12,9 @@ legacy decision handling live in [`docs/agents/domain.md`](agents/domain.md).
 - `docs/adr/` - architecture decisions
 - `docs/sende-varsler.md` - producer guide and published contract
 - `docs/datamodell.md` - inbox and delivery
-- `docs/ferdigstill.md` - closing and inactivation
-- `docs/flyt.md` - end-to-end flow
+- `docs/flyt.md` - internal flow and FERDIGSTILL handling
 - `docs/migrering.md` - cutover plan from esyfovarsel
 - `docs/esyfovarsel-kanalkart.md` - operational legacy channel map
-- `docs/teknologi.md` - technology choices
 - `docs/teststrategi.md` - local test and e2e strategy
 - `docs/helsesjekk.md` - health checks
 - `docs/dead-letter-replay.md` - manual dead-letter replay procedure
@@ -34,15 +32,12 @@ idempotens, innebygd retry og feilhåndtering, bedre logging med trace-id/tracin
 [GitHub-sakene](https://github.com/navikt/syfo-budstikka/issues) er den levende arbeidskøen. Ikke bruk denne indeksen
 som oppgaveplan.
 
-Domeneblindhet (B1/ADR 0001) er den røde tråden: budstikka forgrener aldri på domenetype.
+Domeneblindhet (ADR 0001) er den røde tråden: budstikka forgrener aldri på domenetype.
 
-### Sendevindu (issue #171/#27)
+### Sendevindu
 
-Dispatch kan gates til budstikkas sendevindu: åpent **mandag–lørdag 09–20** (`Europe/Oslo`), stengt søndager og norske
-røde dager (påske via Meeus/Jones/Butcher, Kr. himmelfart, pinse, 1. mai, 17. mai, 1.–2. juledag) samt julaften
-(24.12). Nyttårsaften (31.12) er **ikke** stengt. Gaten gjelder kun hendelser merket
-`SendingWindow.BUDSTIKKA_OPENING_HOURS`. Logikken er en generisk `openingHours { }`-komposisjon i
-`domain/foundation/calendar/`, konfigurert i `BudstikkaSendingWindowLookup` og anvendt av `SendingWindowGate`.
-Ventende opprettelser holdes på inbox (`WAIT` på
-`inbox_message`). Direkte FERDIGSTILL-kansellering av en ventende OPPRETT er
-planlagt i #26; inbox-hold er besluttet i ADR 0014.
+Dispatch merket `SendingWindow.BUDSTIKKA_OPENING_HOURS` kan gates til budstikkas
+sendevindu; ventende opprettelser holdes på inbox (`WAIT` på `inbox_message`,
+ADR 0014). Åpningstider og helligdagslogikk eies av koden
+(`domain/foundation/calendar/`, `BudstikkaSendingWindowLookup`). Direkte
+FERDIGSTILL-kansellering av en ventende OPPRETT er planlagt i #26.

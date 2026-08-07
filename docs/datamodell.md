@@ -68,13 +68,35 @@ erDiagram
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
 - Melding som ikke kan behandles ved inntak (manglende/ugyldig header, tom payload, korrupt
   JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
-  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon (B21)
+  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon
   dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
-- **Retensjon (B42 + ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
-  ved alder > ~100 dager (≥ 90d replay-vindu, B26, + buffer); DL bærer rå payload m/fnr og
+- **Retensjon (ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
+  ved alder > ~100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
   må ha samme slette-disiplin.
 
 ## Worker-flyt og state-overganger
+
+### Claim-algoritmen (ADR 0004)
+
+Samme claim-mekanisme brukes i `inbox_message` og `delivery`, slik at flere podder
+kan jobbe parallelt uten dobbelt-claim:
+
+1. Les kandidater med `FOR UPDATE SKIP LOCKED`.
+2. Velg både nye rader og utløpte claims:
+   - inbox: `state=RECEIVED` eller `state=CLAIMED and next_attempt_time <= now`
+   - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
+3. Sorter deterministisk (`received_at`/`created_at`, deretter ID) og `LIMIT batchSize`.
+4. Oppdater de valgte radene i samme transaksjon: `state = CLAIMED`,
+   `next_attempt_time = now + lease`, `attempt = attempt + 1`.
+
+### Transaksjonsgrenser
+
+- **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
+  `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
+- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
+  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)`
+  av delivery-rader bare hvis CAS lykkes. `DeliveryRepository.saveInTransaction`
+  bruker `batchInsert(draft)` for 0..N rader for samme inbox-melding.
 
 ### `inbox_message.state`
 
@@ -107,7 +129,8 @@ READY -> CLAIMED -> SENT
 CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 ```
 
-- Delivery-worker claimer bare kanaler den har `ChannelHandler` for.
+- Delivery-worker claimer bare kanaler den har `ChannelHandler` for
+  (claim filtrerer på `handlers.keys`).
 - `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
 - `attempt` økes ved claim.
 
@@ -122,6 +145,16 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 > Hold-plasseringen er avgjort til inbox-hold i
 > [ADR 0014](adr/0014-inbox-hold-for-sendevindu.md), så indeksen hører til det arbeidet.
 > Kolonnen finnes fra starten (ADR 0008).
+
+## Id-generering
+
+- `delivery.id` genereres av databasen: Postgres 18 `uuidv7()` (tidssortert) som
+  kolonne-default i Flyway-migreringen, markert `.databaseGenerated()` i Exposed slik at
+  id-en leses tilbake i stedet for å sendes inn (ikke `.autoGenerate()`, som lager en
+  klient-side v4). Tidssortering gir B-tree-lokalitet og støtter alders-basert
+  retensjons-`DELETE`.
+- `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
+  budstikkas database.
 
 ## Observability-koblinger
 

@@ -60,6 +60,14 @@ Se [producerguiden](docs/sende-varsler.md) for støttede funksjoner, retry og ve
 Budstikka konsumerer kontrakten fra Kafka, lagrer meldingen og sender den videre til riktig kanal.
 Den interne flyten eies av [docs/flyt.md](docs/flyt.md).
 
+Øvrig vedlikeholdt dokumentasjon:
+
+- [Datamodell](docs/datamodell.md) — inbox, delivery, dead letter, claim/lease og tilstander
+- [Migrering](docs/migrering.md) — kildefestet cutover-plan fra esyfovarsel
+- [Teststrategi](docs/teststrategi.md) — delt testsubstrat, e2e og lokal kjøring
+- [Helsesjekk](docs/helsesjekk.md) — liveness-kontrakten for Kafka-consumeren
+- [Dead-letter-replay](docs/dead-letter-replay.md) — manuell replay-prosedyre
+
 ## Kjøre lokalt
 
 Forutsetninger: [mise](https://mise.jdx.dev/) og en container-runtime (Docker eller podman).
