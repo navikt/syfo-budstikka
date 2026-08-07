@@ -9,7 +9,7 @@ Flytt innkommende issues (og eksterne PR-er) på `navikt/syfo-budstikka` gjennom
 
 Dette komplementerer to nabo-skills — ikke dupliser dem:
 - `/to-issues` bryter en *ferdig plan* i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
-- `/issue-management` eier selve oppretting-, type-, label- og board-mekanikken (issue-typer, sub-issues, avhengigheter, prosjektboard, ferdigmelding). Slå opp der — `issue-management/references/issue-types.md` for type/label og `issue-management/references/projects.md` for board — når du faktisk setter en rolle eller status. Gjenta ikke mekanikken her.
+- `/issue-management` eier selve GitHub-mekanikken etter at saken er formet. Repository-, label- og project-fakta kommer fra `docs/agents/issue-tracker.md`; gjenta ikke mekanikken her.
 
 En **PR er et issue med kode**: samme roller, samme tilstander. Der noe avviker for en PR er det merket "for en PR" under. En bar `#42` slås opp som issue eller PR.
 
