@@ -18,8 +18,7 @@ Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke
   `.grill/`-fil når den kallende arbeidsflyten eksplisitt har valgt det.
 - Vedlikeholdte rammer for datahåndtering som følger av en godkjent endring →
   relevant topic-dokument. Nye domenebegreper er kandidater for dokumentert løp;
-  vent på brukerens valg før glossaret oppdateres. Oppdater `docs/context.md`
-  bare ved endret orientering eller overordnet status.
+  vent på brukerens valg før glossaret oppdateres.
 
 ## PII-klassifisering i NAV
 

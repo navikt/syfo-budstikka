@@ -17,7 +17,7 @@ but must not define competing local paths, ADR formats, or linking rules.
   temporary working state.
 - KDoc explains a public contract or non-obvious invariant. An ordinary code
   comment explains a local why that the code cannot express. Neither contains
-  decision history, ADR links, or `Bnn` references.
+  decision history or ADR links.
 - Git history owns removed history. Do not replace deleted prose with an
   archive, register, or index.
 
@@ -32,9 +32,6 @@ answer. Do not copy the explanation into more places.
   only the portable fallback when a repository has no local format.
 - This is a single-context service. A context map requires a separate
   architectural decision.
-- `docs/decisions.md` is a frozen lookup for existing `B1`–`B63` references.
-  Do not add entries or new references. Report incorrect entries as cleanup
-  findings until the register is retired.
 
 ## Before writing domain documentation
 
@@ -58,9 +55,8 @@ implementation work.
    `docs/sende-varsler.md`, `docs/flyt.md`, `docs/datamodell.md`,
    `docs/migrering.md`, `docs/teststrategi.md`, `docs/helsesjekk.md`, or
    `docs/dead-letter-replay.md`.
-5. Look up a named legacy `Bnn` entry directly. Never load the whole register
-   as background context.
-6. Read `docs/context.md` only for repository orientation or overall status.
+5. Read the active issue for task scope and unresolved choices. The open
+   GitHub issues are the living work queue and own overall status.
 
 Code and tests still establish what the system does. A `besluttet` ADR records
 accepted intent. The legacy `Akseptert` status in ADR 0001 means the same until
