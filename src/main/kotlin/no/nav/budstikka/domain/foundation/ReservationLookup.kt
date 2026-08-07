@@ -1,6 +1,6 @@
 package no.nav.budstikka.domain.foundation
 
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
+import no.nav.budstikka.contract.PersonIdentifier
 
 fun interface ReservationLookup {
     /**

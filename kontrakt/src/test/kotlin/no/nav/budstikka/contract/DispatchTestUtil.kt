@@ -1,4 +1,7 @@
-package no.nav.budstikka.domain.dispatch
+// Helpers for the wire-level tests; they take and return the raw envelope by definition.
+@file:OptIn(InternalBudstikkaWire::class)
+
+package no.nav.budstikka.contract
 
 fun envelope(content: DispatchContent) =
     Dispatch(

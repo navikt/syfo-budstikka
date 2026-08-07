@@ -1,6 +1,6 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.domain.dispatch.Dispatch
+import no.nav.budstikka.contract.Dispatch
 
 /**
  * Resolves any required input and binds it into a pure [ResolvedRule]. [DecisionProcess] resolves

@@ -11,18 +11,18 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DistributionRequest
 import no.nav.budstikka.application.port.DistributionResponse
 import no.nav.budstikka.application.port.DocumentDistributor
+import no.nav.budstikka.contract.BrevCreate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.BrevCreate
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.MicrofrontendEnable
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
 import java.util.UUID
 import no.nav.budstikka.application.port.DistributionType as PortDistributionType
-import no.nav.budstikka.domain.dispatch.DistributionType as BrevDistributionType
+import no.nav.budstikka.contract.DistributionType as BrevDistributionType
 
 class BrevChannelHandlerTest :
     FunSpec({
-        test("distributes BrevCreate with central print and returns Sent") {
+        test("distributes BrevCreate on the ordinary dokdist route by default and returns Sent") {
             val distributor = RecordingDocumentDistributor(DistributionResponse.Ok(orderId = "order-1"))
             val handler = BrevChannelHandler(distributor)
             val payload =
@@ -40,8 +40,23 @@ class BrevChannelHandlerTest :
                     journalpostId = "jp-1",
                     distributionType = PortDistributionType.VIKTIG,
                     eventId = INBOX_EVENT_ID,
-                    forceCentralPrint = true,
+                    forceCentralPrint = false,
                 )
+        }
+
+        test("tvingSentralPrint on the payload forces central print") {
+            val distributor = RecordingDocumentDistributor(DistributionResponse.Ok(orderId = "order-1"))
+            val handler = BrevChannelHandler(distributor)
+            val payload =
+                BrevCreate(
+                    personIdentifier = PersonIdentifier("12345678901"),
+                    journalpostId = "jp-1",
+                    tvingSentralPrint = true,
+                )
+
+            handler.handle(delivery(payload))
+
+            distributor.requests.single().forceCentralPrint shouldBe true
         }
 
         test("maps OTHER distribution type to ANNET") {

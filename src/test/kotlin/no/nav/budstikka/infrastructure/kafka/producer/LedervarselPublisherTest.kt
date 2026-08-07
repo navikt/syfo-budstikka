@@ -5,9 +5,9 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import no.nav.budstikka.domain.dispatch.LedervarselCreate
-import no.nav.budstikka.domain.dispatch.LedervarselInactivate
-import no.nav.budstikka.domain.dispatch.Oppgavetype
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.LedervarselInactivate
+import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.MutableClock
@@ -77,6 +77,30 @@ class LedervarselPublisherTest :
                 opprett["lenke"].shouldBeNull()
                 opprett["utlopstidspunkt"].shouldBeNull()
                 opprett["timestamp"]!!.jsonPrimitive.content shouldBe "2026-07-17T08:30:00Z"
+            }
+        }
+
+        test("forwards Oppgavetype.wireValue unchanged for OPPFOLGINGSPLAN_PAAMINNELSE") {
+            with(PublisherFixture()) {
+                ledervarselPublisher(topic, recording, MutableClock(now)).publish(
+                    reference = reference,
+                    ledervarsel =
+                        LedervarselCreate(
+                            sykmeldt = TEST_SYKMELDT,
+                            orgnummer = TEST_ORGNUMMER,
+                            oppgavetype = Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE,
+                            text = "Påminnelse om oppfølgingsplan",
+                        ),
+                )
+
+                val opprett =
+                    recording.published
+                        .single()
+                        .value
+                        .parseJson()["opprettHendelse"]!!
+                        .jsonObject
+                opprett["oppgavetype"]!!.jsonPrimitive.content shouldBe
+                    Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE.wireValue
             }
         }
 

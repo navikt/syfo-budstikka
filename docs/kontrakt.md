@@ -4,11 +4,34 @@ Denne siden beskriver **faktisk implementert kontrakt i kode nå**.
 
 Kilde i kode:
 
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/Dispatch.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/Create.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/Inactivate.kt`
-- `src/main/kotlin/no/nav/budstikka/domain/dispatch/CommonTypes.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/Budstikka.kt` (produsent-API)
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/EventId.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/EncodedDispatch.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/InternalBudstikkaWire.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/Dispatch.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/Create.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/Inactivate.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/CommonTypes.kt`
+- `kontrakt/src/main/kotlin/no/nav/budstikka/contract/Identifiers.kt` (`PersonIdentifier`, `Orgnummer`, `DispatchHeader`)
 - `src/main/kotlin/no/nav/budstikka/domain/decision/DispatchDraftMapping.kt`
+
+## Produsent-API vs. rå wire
+
+Kontrakten har to lag, og de skal ikke blandes:
+
+- **Produsent-API**: en produsent bruker kun `Budstikka.<variant>(...)` (f.eks. `Budstikka.brukervarselCreate(...)`).
+  Kallet tar imot en `EventId` produsenten selv har opprettet og lagret sammen med eget arbeid FØR første
+  sending, og gjenbruker samme `EventId` ved retry — budstikka dedupliserer da en redelivery i stedet for å
+  varsle personen to ganger. Kallet returnerer en `EncodedDispatch` med ferdig `topic`, `key`, `value` og
+  `headers`, klar til å legges på en `ProducerRecord`.
+- **Konsumentens rå wire**: `Dispatch`, `DispatchContent`, `dispatchJson` og `DispatchHeader`, samt de
+  serialiserbare DTO-ene, er budstikkas egen dekode- og rutingmaskineri — ikke en del av produsent-API-et.
+  De krever `@OptIn(InternalBudstikkaWire::class)` og skal ikke settes sammen manuelt av en produsent:
+  gjør man det likevel, mister man garantien om at topic, key, headers og payload alltid stemmer overens.
+
+Enkelte rå varianter (f.eks. `DittSykefravaerCreate`, `ArbeidsgivervarselCreate`) finnes i wire-modellen for
+dekoding og fremtidig evolusjon, men er **ikke sendbare** før de også er lagt til som funksjon på
+`Budstikka`-fasaden: budstikka ville akseptert dem på topic uten å levere dem videre.
 
 ## Konvolutt
 
@@ -28,11 +51,11 @@ sealed interface DispatchContent {
 - `reference`: kobling på tvers av hendelser (create/ferdigstill).
 - `partitionKey`: Kafka-record key (beregnes per variant).
 
-> **`eventId` er IKKE i konvolutten (ADR 0008 / B61, #125).** Den leveres KUN som Kafka-header
+> **`eventId` er ikke i konvolutten.** Den leveres kun som Kafka-header
 > (`DispatchHeader.EVENT_ID`) og er der eneste og autoritative kilde. eventId er en teknisk id
 > (dedup og korrelasjon), ikke domenedata. Blokka over speiler `Dispatch.kt`.
 
-## Viktige kontraktprinsipper (B22/B23)
+## Viktige kontraktprinsipper
 
 - Kontrakten er **sealed og typet**: operation ligger i typen (`*Create`, `*Inactivate`, `MicrofrontendEnable/Disable`),
   ikke i et løst enum-felt.
@@ -52,9 +75,8 @@ sealed interface DispatchContent {
 
 - Headeren bærer `eventId` (unik per hendelse, dedup/korrelasjon).
 - Konsumenten bruker headeren for dedup uten å avhenge av payload-skjemaet.
-- **ADR 0008 / B61:** headeren er den ENESTE og AUTORITATIVE kilden for eventId — den er obligatorisk
-  (manglende/ugyldig → dead-letter), og eventId finnes ikke i payloaden. (Tidligere B54: headeren speilet
-  `Dispatch.eventId` og payloaden var autoritativ — reversert.)
+- Headeren er den eneste og autoritative kilden for eventId. Den er obligatorisk
+  (manglende eller ugyldig verdi sendes til dead-letter), og eventId finnes ikke i payloaden.
 
 ## Serialisering
 
@@ -82,7 +104,10 @@ Det betyr:
 
 - `Varseltype`: `BESKJED`, `OPPGAVE`
 - `ExternalChannel`: `SMS`, `EMAIL`
-- `ExternalVarsling(channels, smsText, emailTitle, emailText)`
+- `ExternalNotification`: konstruktøren er privat. Bruk `ExternalNotification.smsAndEmail(smsText, emailTitle, emailText)`,
+  `ExternalNotification.smsOnly(smsText)` eller `ExternalNotification.emailOnly(emailTitle, emailText)`. Tekstfeltene er valgfrie.
+  Wire-feltet heter fortsatt `externalVarsling` (property-navnet er ikke endret); typen har ingen
+  klassediskriminator på wire, så Kotlin-navnebyttet endrer ikke JSON-formen.
 - `DistributionType`: `IMPORTANT`, `OTHER`
 - `BrevFallback(journalpostId, distributionType)`
 - `SendingWindow`: `ONGOING`, `BUDSTIKKA_OPENING_HOURS`
@@ -91,8 +116,9 @@ Det betyr:
 - `ArbeidsgiverMeldingstype`: `BESKJED`, `OPPGAVE`
 - `AltinnExternalVarsling(emailTitle, emailText, smsText)`
 - `NarmesteLederExternalVarsling(emailTitle, emailText)`
-- `Oppgavetype` (LEDERVARSEL, ADR 0015): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Representativ verdi nå: `DIALOGMOTE_INNKALLING`; resten additivt ved onboarding.
-- `Sakstilknytning(sakId)`
+- `Oppgavetype` (LEDERVARSEL): lukket enum, case-navn = budstikkas domeneord + `wireValue` = dinesykmeldtes streng. Verdier nå: `DIALOGMOTE_INNKALLING`, `OPPFOLGINGSPLAN_PAAMINNELSE`; resten additivt ved onboarding.
+- `Sakstilknytning(sakId)` — B31: produsenten eier sak-livsløpet; budstikka mapper bare
+  `sakId` → `grupperingsid` nedstrøms og oppretter aldri sak selv (lukkestatus via B39)
 
 Viktige valg:
 
@@ -135,27 +161,19 @@ Merk:
 - `MicrofrontendDisable` har `@SerialName("MicrofrontendDisable")` (med k i type-navnet).
 - Inactivate-typene bruker `@SerialName("referanse")` på feltet `reference` for wire-kompatibilitet.
 
-## Ledervarsel-resolusjon (B24)
+## Ledervarsel: ingen NL-oppslag i dag
 
-**B24: budstikka resolver nærmeste leder selv.** Kontrakten bærer `(sykmeldt, orgnummer)`
-— aldri NL-fnr. Kanalhandleren slår opp aktiv leder i `esyfo-narmesteleder`
-(team-esyfo) over det interne M2M-endepunktet `POST /internal/narmesteleder`
-(Azure AD client credentials, JSON-body `{sykmeldtFnr, orgnummer}`) ved
-sendetidspunkt. `SendingWindowGate` kan utsette leveransen i dager, så oppslag ved
-sending gir korrekt leder etter et lederbytte og unngår å persistere lederens
-fødselsnummer i `delivery`-payloaden. `LedervarselCreate` partisjoneres på
-`sykmeldt`, mens `ArbeidsgivervarselCreate` partisjoneres på `orgnummer` for begge
-mottakerstiene (se tabellen over). For NL-stien er `sykmeldt` kun oppslagsanker mot
-`esyfo-narmesteleder` sammen med `orgnummer`. Dette eliminerer dagens
-dobbeltoppslag i esyfovarsel.
+**Budstikka slår ikke opp nærmeste leder.** Produsenten sender `(sykmeldt, orgnummer, oppgavetype)`, og
+budstikka videresender dette som in-app-hendelse til Dine Sykmeldte. Kontrakten tar aldri imot fnr til
+nærmeste leder, verken i create eller inactivate. Partisjonsnøkkel = `sykmeldt` (stabilt anker).
 
-## Ledervarsel-kanal: rent in-app (ADR 0016)
+## Ledervarsel-kanal: rent in-app
 
 LEDERVARSEL leveres til `team-esyfo.dinesykmeldte-hendelser-v2` og vises som et
 **in-app aktivitetsvarsel** i Dine Sykmeldte-oversikten (`dinesykmeldte-backend`
 gjør kun et DB-insert). Kanalen har **ingen ekstern bærer** (SMS/e-post).
 
-- `LedervarselCreate` bærer `oppgavetype: Oppgavetype` (påkrevd, ADR 0015) —
+- `LedervarselCreate` bærer `oppgavetype: Oppgavetype` (påkrevd) —
   konsumentens PK `(id, oppgavetype)` + UI-gruppering.
 - `LedervarselCreate` har **ikke** `externalVarsling` (falsk affordance, fjernet i v1).
 - `sendingWindow` beholdes; default = `ONGOING` (LØPENDE), som ren in-app.
@@ -163,6 +181,30 @@ gjør kun et DB-insert). Kanalen har **ingen ekstern bærer** (SMS/e-post).
   `NarmesteLeder(sykmeldt, externalVarsling?)`-mottaker (B6: flere kanaler →
   flere hendelser; B32).
 - Wire: `DineSykmeldteHendelse` (JSON), Kafka-key = `reference` (ikke fnr).
+
+### Navngiving i produsent-API-et
+
+Fasadefunksjonene heter `dineSykmeldteVarselCreate`/`dineSykmeldteVarselInactivate` —
+de navngir **kanalen**, ikke mottakeren. «Ledervarsel» ville lest som «varsel til leder»
+og blitt tvetydig den dagen Arbeidsgivervarsel-kanalen også når lederen. Internt i
+budstikka og på wire beholder varianten det etablerte domenenavnet `LedervarselCreate`;
+wire-navn er kompatibilitetskritiske og endres ikke. Samme akse gjelder de andre
+fasadefunksjonene: `brukervarsel*` er Min sides produktnavn (ikke «alle kanaler til
+sykmeldt»), `dittSykefravaer*` og `arbeidsgivernotifikasjon*` navngir kanal/produkt når
+de blir sendbare.
+
+## Brev: ordinær dokdist-løype som default, tvungen print som opt-in
+
+`brevCreate` bestiller dokumentdistribusjon der dokdist selv velger kanal: digital
+postkasse (Digipost/e-Boks) for personer uten Reservasjon, print ellers. Feltet
+`tvingSentralPrint` (default `false`) tvinger sentral print (`tvingKanal: PRINT`) —
+brevet går da på papir uansett. Defaulten speiler esyfovarsel, der 7 av 8
+dokdist-kallsteder går ordinær løype (inkludert tre varseltyper med brev som eneste
+kanal uten KRR-sjekk); bare aktivitetsplikt-renotifiseringen tvinger print. Lærdommen
+derfra: metoden het `sendBrevTilFysiskPrint` selv om den *ikke* tvang print, så her er
+kanalvalget et eksplisitt felt navngitt etter dokdists eget begrep — ikke skjult i et
+metodenavn. `brevFallback` på `brukervarselCreate` bruker samme kanal med ordinær løype
+og gjelder bare når personen ikke kan varsles digitalt.
 
 ## Mapping til delivery-draft (faktisk kode)
 
@@ -196,7 +238,7 @@ Avgrensninger:
 - Microfrontend bruker eget enable/disable-par (`MicrofrontendEnable` / `MicrofrontendDisable`) utenfor reference-basert
   inactivate-matching.
 
-**Lukkeoperasjon fra lagret create-rad (B39):**
+**Lukkeoperasjon fra lagret create-rad:**
 
 - Inactivate-eventet er tynt og bærer ikke alle tekniske lukkedetaljer.
 - Riktig lukkeoperasjon må avledes fra tidligere create-rad.

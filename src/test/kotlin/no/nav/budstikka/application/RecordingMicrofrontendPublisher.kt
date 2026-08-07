@@ -1,7 +1,7 @@
 package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.MicrofrontendPublisher
-import no.nav.budstikka.domain.dispatch.Microfrontend
+import no.nav.budstikka.contract.Microfrontend
 
 internal class RecordingMicrofrontendPublisher : MicrofrontendPublisher {
     val published = mutableListOf<Microfrontend>()

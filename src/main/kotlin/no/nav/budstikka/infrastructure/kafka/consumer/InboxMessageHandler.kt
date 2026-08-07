@@ -5,9 +5,9 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.domain.dispatch.Dispatch
-import no.nav.budstikka.domain.dispatch.DispatchHeader
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -97,8 +97,8 @@ class InboxMessageHandler(
     private fun ConsumerRecord<String, String?>.toInboxCandidate(): InboxCandidate {
         val eventId =
             when (val result = readEventId()) {
-                is EventId.Valid -> result.value
-                is EventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(result.reason, eventId = null))
+                is ParsedEventId.Valid -> result.value
+                is ParsedEventId.Invalid -> return InboxCandidate.DeadLetter(toDeadLetter(result.reason, eventId = null))
             }
 
         val payload = value()
@@ -145,24 +145,30 @@ internal sealed interface ParseResult {
     data object Failure : ParseResult
 }
 
-internal sealed interface EventId {
+/**
+ * The outcome of reading the eventId header off a record. Deliberately not named `EventId`: that name
+ * belongs to the public contract type [no.nav.budstikka.contract.EventId], and a same-package
+ * technical twin would shadow it for every reader of this package. This one is a parse result and
+ * carries a raw [UUID], never the contract type.
+ */
+internal sealed interface ParsedEventId {
     data class Valid(
         val value: UUID,
-    ) : EventId
+    ) : ParsedEventId
 
     data class Invalid(
         val reason: DeadLetter,
-    ) : EventId
+    ) : ParsedEventId
 }
 
-internal fun ConsumerRecord<*, *>.readEventId(): EventId {
+internal fun ConsumerRecord<*, *>.readEventId(): ParsedEventId {
     val raw =
         headers().lastHeader(DispatchHeader.EVENT_ID)?.value()
-            ?: return EventId.Invalid(DeadLetter.MissingEventId)
+            ?: return ParsedEventId.Invalid(DeadLetter.MissingEventId)
     return try {
-        EventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
+        ParsedEventId.Valid(UUID.fromString(String(raw, Charsets.UTF_8)))
     } catch (_: IllegalArgumentException) {
-        EventId.Invalid(DeadLetter.InvalidEventId)
+        ParsedEventId.Invalid(DeadLetter.InvalidEventId)
     }
 }
 

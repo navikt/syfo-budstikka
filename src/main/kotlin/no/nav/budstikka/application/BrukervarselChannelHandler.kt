@@ -2,8 +2,8 @@ package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
+import no.nav.budstikka.contract.Brukervarsel
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.dispatch.Brukervarsel
 
 class BrukervarselChannelHandler(
     private val publisher: MinSideBrukervarselPublisher,

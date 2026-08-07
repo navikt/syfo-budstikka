@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
-import no.nav.budstikka.domain.dispatch.DispatchContent
-import no.nav.budstikka.domain.dispatch.dispatchJson
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp

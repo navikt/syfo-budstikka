@@ -1,4 +1,4 @@
-package no.nav.budstikka.domain.dispatch
+package no.nav.budstikka.contract
 
 import kotlinx.serialization.Serializable
 
@@ -22,6 +22,8 @@ value class Orgnummer(
 
 private const val MASKED = "***"
 
+/** Kafka header name in the published Dispatch contract. */
+@InternalBudstikkaWire
 object DispatchHeader {
     /**
      * Mandatory event identifier and deduplication key. A missing or invalid value is dead-lettered.

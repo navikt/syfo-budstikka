@@ -1,9 +1,10 @@
-package no.nav.budstikka.domain.dispatch
+package no.nav.budstikka.contract
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
+@InternalBudstikkaWire
 @Serializable
 @SerialName("BrukervarselCreate")
 data class BrukervarselCreate(
@@ -12,7 +13,7 @@ data class BrukervarselCreate(
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val externalVarsling: ExternalVarsling? = null,
+    val externalVarsling: ExternalNotification? = null,
     val brevFallback: BrevFallback? = null,
     var sendingWindow: SendingWindow? = null,
 ) : DispatchContent,
@@ -22,12 +23,22 @@ data class BrukervarselCreate(
     }
 
     override val partitionKey: String get() = personIdentifier.value
+
+    /**
+     * Omits free text and identifiers. Only technical, non-identifying values are printed.
+     */
+    override fun toString(): String =
+        "BrukervarselCreate(varseltype=$varseltype, sendingWindow=$sendingWindow, " +
+            "hasLink=${link != null}, hasExternalVarsling=${externalVarsling != null}, " +
+            "hasBrevFallback=${brevFallback != null})"
 }
 
 /**
- * Activity notification in Dine Sykmeldte, partitioned by [sykmeldt]. External notification to the
- * leader is a separate [ArbeidsgivervarselCreate] with [NarmesteLeder] as recipient.
+ * In-app activity notification in Dine Sykmeldte, partitioned by [sykmeldt]. Budstikka does not
+ * resolve a leader for this variant; external notification to a leader is a separate
+ * [ArbeidsgivervarselCreate] with [NarmesteLeder] as recipient.
  */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("LedervarselCreate")
 data class LedervarselCreate(
@@ -45,8 +56,13 @@ data class LedervarselCreate(
     }
 
     override val partitionKey: String get() = sykmeldt.value
+
+    /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
+    override fun toString(): String = "LedervarselCreate(oppgavetype=$oppgavetype, sendingWindow=$sendingWindow, hasLink=${link != null})"
 }
 
+/** Ditt Sykefravær notification. The downstream contract has only the INFO variant. */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("DittSykefravaerCreate")
 data class DittSykefravaerCreate(
@@ -56,8 +72,13 @@ data class DittSykefravaerCreate(
     val visibleUntil: Instant? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = personIdentifier.value
+
+    /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
+    override fun toString(): String = "DittSykefravaerCreate(hasLink=${link != null})"
 }
 
+/** Notification for Min side Arbeidsgiver or Altinn. */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("ArbeidsgivervarselCreate")
 data class ArbeidsgivervarselCreate(
@@ -77,12 +98,25 @@ data class ArbeidsgivervarselCreate(
     }
 
     override val partitionKey: String get() = orgnummer.value
+
+    /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
+    override fun toString(): String =
+        "ArbeidsgivervarselCreate(tag=$tag, meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
+            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null})"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
+@InternalBudstikkaWire
 @Serializable
 sealed interface ArbeidsgiverRecipient
 
+/**
+ * Personal Arbeidsgivervarsel path. No adapter delivers this variant yet; resolving Nærmeste leder
+ * from [sykmeldt] is future work, not current behaviour.
+ *
+ * The generated `toString` is safe because [PersonIdentifier] masks itself.
+ */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
@@ -90,6 +124,8 @@ data class NarmesteLeder(
     val externalVarsling: NarmesteLederExternalVarsling? = null,
 ) : ArbeidsgiverRecipient
 
+/** Everyone with the selected Altinn role at the organisation. */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
@@ -112,12 +148,28 @@ data class NarmesteLederExternalVarsling(
     val emailText: String,
 )
 
+private fun ArbeidsgiverRecipient.hasExternalVarsling(): Boolean =
+    when (this) {
+        is AltinnResource -> externalVarsling != null
+        is NarmesteLeder -> externalVarsling != null
+    }
+
+/**
+ * A document distributed to the Sykmeldt through dokumentdistribusjon. By default dokdist picks
+ * the channel itself (digital mailbox for persons without Reservasjon, print otherwise);
+ * [tvingSentralPrint] forces paper. This variant has no inactivation operation.
+ */
+@InternalBudstikkaWire
 @Serializable
 @SerialName("BrevCreate")
 data class BrevCreate(
     val personIdentifier: PersonIdentifier,
     val journalpostId: String,
     val distributionType: DistributionType = DistributionType.IMPORTANT,
+    val tvingSentralPrint: Boolean = false,
 ) : DispatchContent {
     override val partitionKey: String get() = personIdentifier.value
+
+    /** Omits [journalpostId] because it identifies a document about a person. */
+    override fun toString(): String = "BrevCreate(distributionType=$distributionType, tvingSentralPrint=$tvingSentralPrint)"
 }

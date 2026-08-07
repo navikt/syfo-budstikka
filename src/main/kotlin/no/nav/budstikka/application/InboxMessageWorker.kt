@@ -7,9 +7,9 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
-import no.nav.budstikka.domain.dispatch.Dispatch
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import java.util.UUID

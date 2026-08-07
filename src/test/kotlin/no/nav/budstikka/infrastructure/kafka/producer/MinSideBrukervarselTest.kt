@@ -3,10 +3,10 @@ package no.nav.budstikka.infrastructure.kafka.producer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.maps.shouldContainAll
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.domain.dispatch.BrukervarselCreate
-import no.nav.budstikka.domain.dispatch.BrukervarselInactivate
-import no.nav.budstikka.domain.dispatch.PersonIdentifier
-import no.nav.budstikka.domain.dispatch.Varseltype
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Varseltype
 
 class MinSideBrukervarselTest :
     FunSpec({
