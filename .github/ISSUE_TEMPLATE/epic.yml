@@ -1,0 +1,48 @@
+name: Større initiativ
+description: Beskriv et mål som krever flere selvstendige issues
+type: Epic
+projects: ["navikt/157"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skriv en enkel overskrift som beskriver målet. Deloppgaver og avhengigheter
+        kobles senere med GitHubs egne relasjoner; ikke vedlikehold samme liste her.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Kort fortalt
+      description: Hvem eller hva får det bedre, hva skal initiativet oppnå, og hvorfor er det viktig?
+    validations:
+      required: true
+  - type: textarea
+    id: destination
+    attributes:
+      label: Mål
+      description: Hvordan ser den observerbare tilstanden ut når initiativet har lykkes?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Omfang
+      description: Hva er innenfor, og hvilke viktige ting er uttrykkelig utenfor?
+    validations:
+      required: true
+  - type: textarea
+    id: completion
+    attributes:
+      label: Ferdig når
+      description: Hvilke kriterier viser at initiativet kan avsluttes?
+      placeholder: |
+        - [ ] Kriterium 1
+        - [ ] Kriterium 2
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Faglige og tekniske føringer
+      description: Premisser, risiko, beslutninger eller systemgrenser som gjelder for hele initiativet. Detaljer som bare gjelder én leveranse hører hjemme i den deloppgaven.
+    validations:
+      required: false

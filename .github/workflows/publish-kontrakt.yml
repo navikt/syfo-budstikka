@@ -21,53 +21,16 @@ jobs:
     outputs:
       contract_version: ${{ steps.version.outputs.contract_version }}
     steps:
-      - name: Require tag creation, update and deletion restrictions
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          # Authenticated lookup: gh api fails the step (closed) on any HTTP, network or parse
-          # error, and the installation token avoids the shared-runner unauthenticated rate limit.
-          tag_ruleset_ids="$(
-            gh api --paginate "repos/${REPOSITORY}/rulesets?includes_parents=true&per_page=100" \
-              --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id'
-          )"
-
-          while IFS= read -r ruleset_id; do
-            [[ -n "$ruleset_id" ]] || continue
-            if [[ ! "$ruleset_id" =~ ^[0-9]+$ ]]; then
-              echo "::error::GitHub ruleset list returned an invalid ruleset ID."
-              exit 1
-            fi
-            ruleset_match="$(
-              gh api "repos/${REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
-                --jq '
-                  if .target == "tag"
-                    and .enforcement == "active"
-                    and .conditions.ref_name.include == ["refs/tags/kontrakt/v*"]
-                    and (.conditions.ref_name.exclude // []) == []
-                    and (["creation", "update", "deletion"] - [.rules[]?.type]) == []
-                  then "match"
-                  else "no-match"
-                  end
-                '
-            )"
-            if [[ "$ruleset_match" == "match" ]]; then
-              echo "Active tag ruleset restricting creation, update and deletion matches refs/tags/kontrakt/v*."
-              exit 0
-            fi
-          done <<< "$tag_ruleset_ids"
-
-          echo "::error::Maintainers must configure an active tag ruleset matching refs/tags/kontrakt/v* with creation, update and deletion restrictions before the first contract release."
-          exit 1
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Require tag creation, update and deletion restrictions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/require-contract-tag-ruleset.sh
 
       - id: version
         name: Validate SemVer, main ancestry and release notes
@@ -121,41 +84,7 @@ jobs:
         env:
           CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          version="$CONTRACT_VERSION"
-          package_url="https://maven.pkg.github.com/navikt/syfo-budstikka/no/nav/syfo/budstikka-kontrakt/${version}/budstikka-kontrakt-${version}.pom"
-          curl_config="$(mktemp)"
-          chmod 600 "$curl_config"
-          trap 'rm -f "$curl_config"' EXIT
-          printf 'user = "x-access-token:%s"\n' "$GITHUB_TOKEN" | dd of="$curl_config" status=none
-          unset GITHUB_TOKEN
-
-          status="$(
-            curl \
-              --silent \
-              --show-error \
-              --location \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --output /dev/null \
-              --write-out "%{http_code}" \
-              --config "$curl_config" \
-              "$package_url"
-          )"
-          case "$status" in
-            404)
-              ;;
-            200)
-              echo "::error::Immutable contract version ${version} already exists in GitHub Packages."
-              exit 1
-              ;;
-            *)
-              echo "::error::Could not preflight ${package_url}: HTTP ${status}."
-              exit 1
-              ;;
-          esac
+        run: bash scripts/preflight-contract-version.sh
 
       - id: previous-contract
         name: Resolve authoritative contract baseline
@@ -199,33 +128,7 @@ jobs:
         shell: bash
         env:
           CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
-        run: |
-          set -euo pipefail
-
-          version="$CONTRACT_VERSION"
-          staging_directory="kontrakt/build/staging-maven-repository/no/nav/syfo/budstikka-kontrakt/${version}"
-
-          compare() {
-            local publication_input="$1"
-            local staged_subject="$2"
-
-            test -f "$publication_input"
-            test -f "$staged_subject"
-            cmp --silent "$publication_input" "$staged_subject" ||
-              {
-                echo "::error::Staged attestation subject differs from publication input: ${staged_subject}."
-                exit 1
-              }
-          }
-
-          compare "kontrakt/build/libs/kontrakt-${version}.jar" \
-            "${staging_directory}/budstikka-kontrakt-${version}.jar"
-          compare "kontrakt/build/libs/kontrakt-${version}-sources.jar" \
-            "${staging_directory}/budstikka-kontrakt-${version}-sources.jar"
-          compare "kontrakt/build/publications/contract/pom-default.xml" \
-            "${staging_directory}/budstikka-kontrakt-${version}.pom"
-          compare "kontrakt/build/publications/contract/module.json" \
-            "${staging_directory}/budstikka-kontrakt-${version}.module"
+        run: bash scripts/verify-staged-contract-subjects.sh
 
       - name: Attest staged publication
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
@@ -246,33 +149,7 @@ jobs:
         shell: bash
         env:
           CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
-        run: |
-          set -euo pipefail
-
-          version="$CONTRACT_VERSION"
-          staging_directory="kontrakt/build/staging-maven-repository/no/nav/syfo/budstikka-kontrakt/${version}"
-
-          compare() {
-            local publication_input="$1"
-            local staged_subject="$2"
-
-            test -f "$publication_input"
-            test -f "$staged_subject"
-            cmp --silent "$publication_input" "$staged_subject" ||
-              {
-                echo "::error::Staged attestation subject differs from publication input: ${staged_subject}."
-                exit 1
-              }
-          }
-
-          compare "kontrakt/build/libs/kontrakt-${version}.jar" \
-            "${staging_directory}/budstikka-kontrakt-${version}.jar"
-          compare "kontrakt/build/libs/kontrakt-${version}-sources.jar" \
-            "${staging_directory}/budstikka-kontrakt-${version}-sources.jar"
-          compare "kontrakt/build/publications/contract/pom-default.xml" \
-            "${staging_directory}/budstikka-kontrakt-${version}.pom"
-          compare "kontrakt/build/publications/contract/module.json" \
-            "${staging_directory}/budstikka-kontrakt-${version}.module"
+        run: bash scripts/verify-staged-contract-subjects.sh
 
   verify-mirror:
     name: Resolve published contract through Nav mirror
@@ -321,48 +198,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CONTRACT_VERSION: ${{ needs.validate.outputs.contract_version }}
-        run: |
-          set -euo pipefail
-
-          tag="kontrakt/v${CONTRACT_VERSION}"
-          title="budstikka-kontrakt ${CONTRACT_VERSION}"
-          notes="docs/releases/kontrakt/${CONTRACT_VERSION}.md"
-
-          # A failed lookup (absent release or transient error) falls through to create, which can
-          # never overwrite an existing release: a duplicate create fails and a rerun converges.
-          if release="$(gh release view "$tag" --json name,body,isDraft,isPrerelease)"; then
-            RELEASE="$release" EXPECTED_TITLE="$title" NOTES="$notes" python3 -c '
-          import json
-          import os
-          from pathlib import Path
-
-          try:
-              release = json.loads(os.environ["RELEASE"])
-          except json.JSONDecodeError as error:
-              raise SystemExit(f"Could not parse existing GitHub Release: {error}")
-
-          expected = {
-              "name": os.environ["EXPECTED_TITLE"],
-              "body": Path(os.environ["NOTES"]).read_text(encoding="utf-8").rstrip("\n"),
-              "isDraft": False,
-              "isPrerelease": False,
-          }
-          actual = {
-              "name": release.get("name"),
-              "body": release.get("body", "").rstrip("\n"),
-              "isDraft": release.get("isDraft"),
-              "isPrerelease": release.get("isPrerelease"),
-          }
-          if actual != expected:
-              raise SystemExit(
-                  "Existing GitHub Release does not match checked-in expectations: "
-                  f"expected {expected!r}, got {actual!r}."
-              )
-          '
-            echo "Existing GitHub Release matches checked-in expectations."
-          else
-            gh release create "$tag" \
-              --verify-tag \
-              --title "$title" \
-              --notes-file "$notes"
-          fi
+        run: bash scripts/create-contract-release.sh

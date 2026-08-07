@@ -1,0 +1,34 @@
+name: Oppgave
+description: Beskriv vedlikehold eller teknisk arbeid på en forståelig måte
+type: Task
+projects: ["navikt/157"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skriv en funksjonell overskrift. Forklar først hvilken effekt oppgaven har,
+        selv når selve arbeidet er teknisk.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Kort fortalt
+      description: Hva blir tryggere, enklere eller mulig når oppgaven er gjort, og hvorfor trengs det?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Ferdig når
+      description: Hvilke observerbare eller verifiserbare kriterier viser at oppgaven er løst?
+      placeholder: |
+        - [ ] Kriterium 1
+        - [ ] Kriterium 2
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Teknisk kontekst og bevis
+      description: Relevant nåsituasjon, føringer, risiko, testgrunnlag, bevis eller lenker som gjør oppgaven selvstendig gjennomførbar.
+    validations:
+      required: true

@@ -11,15 +11,18 @@ review concrete upstream diffs before porting them.
 
 ## Verified sources
 
-Each revision below was resolved against the GitHub API on 2026-07-30. The
-Matt Pocock and Hovmester pins were rechecked on 2026-07-31 and remained their
-respective `main` heads. Record only revisions verified this way; an
-unresolvable revision is not provenance.
+The original revisions below were resolved against the GitHub API on
+2026-07-30 and rechecked on 2026-07-31. The planning-workflow revision was
+resolved separately on 2026-08-06 so adopting current Wayfinder material does
+not pretend that every earlier import was re-reviewed against a newer head.
+Record only revisions verified this way; an unresolvable revision is not
+provenance.
 
 | Source | Revision | Role |
 |---|---|---|
 | [`navikt/hovmester`](https://github.com/navikt/hovmester) | [`48483bf32c2b6f89c31e7d50e25b5fe6fac45ca2`](https://github.com/navikt/hovmester/commit/48483bf32c2b6f89c31e7d50e25b5fe6fac45ca2) | Team source for reusable agent contracts |
-| [`mattpocock/skills`](https://github.com/mattpocock/skills) | [`2ab958093e83e0ec752e6c1c5932da465bf23e0c`](https://github.com/mattpocock/skills/commit/2ab958093e83e0ec752e6c1c5932da465bf23e0c) | MIT-licensed input |
+| [`mattpocock/skills`](https://github.com/mattpocock/skills) | [`2ab958093e83e0ec752e6c1c5932da465bf23e0c`](https://github.com/mattpocock/skills/commit/2ab958093e83e0ec752e6c1c5932da465bf23e0c) | MIT-licensed input for the original core |
+| [`mattpocock/skills` planning workflows](https://github.com/mattpocock/skills/tree/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering) | [`8b36d4fb2635b3c21998dcd8144439c9e5ba7302`](https://github.com/mattpocock/skills/commit/8b36d4fb2635b3c21998dcd8144439c9e5ba7302) | MIT-licensed input for Wayfinder, to-spec, and upstream to-tickets |
 | [`navikt/copilot`](https://github.com/navikt/copilot) | [`6bd76a064a5615ba8a4bef1e27017368c562012e`](https://github.com/navikt/copilot/commit/6bd76a064a5615ba8a4bef1e27017368c562012e) | MIT-licensed secondary input |
 
 `mattpocock/skills` and `navikt/copilot` are MIT licensed. The complete Matt
@@ -32,30 +35,30 @@ internal team ownership instead.
 
 ## Locally adapted workflow agents
 
-The following repository agents were reviewed against the pinned Hovmester
-revision. They preserve the useful role boundaries while keeping the existing
-Grillmester phase loop and repository policy. The local files are the operative
-contracts.
+The four delivery agents below were reviewed against the pinned Hovmester
+revision. Researcher is the local runtime adapter for Wayfinder's upstream
+research role. The local files are the operative contracts.
 
-| Local path | Hovmester path at the pinned revision | Local handling |
+| Local path | Source | Local handling |
 |---|---|---|
 | `.github/agents/barista.agent.md` | `dist/agents/barista.agent.md` | Adapted as a compact English solo-first entry point: it owns ordinary implementation, routes unresolved decisions and high risk to user-selected Grillmester, and invokes only an explicitly selected Grill-inspektor review |
 | `.github/agents/grillmester.agent.md` | `dist/agents/hovmester.agent.md` | Adapted to preserve Grillmester's phase loop, natural grilling, R0/R1 fast path, phase anchor, and end-to-end ownership while delegating one Kokk slice at a time |
 | `.github/agents/kokk.agent.md` | `dist/agents/kokk.agent.md` | Adapted to one concise task brief, one vertical slice, five explicit completion statuses, and a commit-free handoff to the orchestrator |
 | `.github/agents/grill-inspektor.agent.md` | `dist/agents/inspektor-claude.agent.md` | Adapted to a compact independent review contract with explicit `view`, `grep`, and `glob` tools, no write or shell boundary, and no mandatory positive section |
+| `.github/agents/researcher.agent.md` | [`skills/engineering/research/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/research/SKILL.md) | Replaces upstream file-writing background research with an internal read, search, and web-only Copilot agent that returns one sourced note for a claimed Wayfinder ticket |
 
 The capability declarations follow GitHub's documented
 [custom-agent tool names and aliases](https://docs.github.com/en/copilot/reference/custom-agents-configuration#tools).
 A bounded repository pilot on 2026-08-03 exercised Kokk's read, search, and
 command paths and Inspector's read-only paths.
 `scripts/validate-agent-models.sh` pins the declared capability and reachability
-boundaries for all four roles so they cannot drift silently.
+boundaries for all five roles so they cannot drift silently.
 
 ## Imported and adapted skill core
 
-The following paths were reviewed against the pinned Matt Pocock revision and,
-where shown, the pinned Hovmester revision. They were rechecked on 2026-07-31.
-The repository-local files are the operative versions.
+The following paths were reviewed against the exact revision linked by their
+source entry and, where shown, the pinned Hovmester revision. The
+repository-local files are the operative versions.
 
 | Local path | Upstream path at the pinned revision | Local handling |
 |---|---|---|
@@ -70,9 +73,30 @@ The repository-local files are the operative versions.
 | `.github/skills/create-a-skill/references/principles.md` | `skills/productivity/writing-great-skills/SKILL.md` | Matt's English principles adapted into progressively disclosed authoring reference |
 | `.github/skills/create-a-skill/references/glossary.md` | `skills/productivity/writing-great-skills/GLOSSARY.md` | Complete term set retained in English and condensed for the local actionable skill |
 | `.github/skills/create-a-skill/references/copilot-cli-validation.md` | [GitHub Copilot CLI skills reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#skills-reference) | Local, progressively disclosed validation checklist for the repository's only target runtime |
+| `.github/skills/wayfinder/SKILL.md` | [`skills/engineering/wayfinder/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/wayfinder/SKILL.md) | Complete upstream workflow retained; adapted at the tracker adapter, explicit-choice and write-authorization boundaries, durable-documentation, planning-only, callable Researcher, serialized ticket-resolution pilot, claim lifecycle, audit-preserving closure, and optional handoff seams |
+| `.github/skills/to-spec/SKILL.md` | [`skills/engineering/to-spec/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/to-spec/SKILL.md) | Adapted to a concise optional engineering specification, explicit-choice gate, repository adapter, and explicit publish boundary; exhaustive user-story prose is intentionally not retained |
+| `.github/skills/to-issues/SKILL.md` | [`skills/engineering/to-tickets/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/to-tickets/SKILL.md) | Retains tracer-bullet, blocking-edge, review, wide-refactor, and issue-template behavior; uses the exact GitHub artifact name locally, adds a human-first opening and explicit-choice gate, and replaces tracker bootstrap and local-file fallback with the repository adapter and explicit publish boundary |
+| `.github/skills/issue-management/SKILL.md` | Hovmester `dist/skills/issue-management/SKILL.md` at `48483bf` | Reduced to portable GitHub mechanics; shaping belongs to the caller, native relationships replace hand-written REST recipes, and epic closure always remains a human-authorized action |
+
+## Adapted repository forms
+
+The issue forms use Hovmester's repository form set as a structural input, but
+the local forms are deliberately smaller and are not synchronized copies.
+
+| Local path | Source at Hovmester `48483bf` | Local handling |
+|---|---|---|
+| `.github/ISSUE_TEMPLATE/{bug,feature,story,task,epic}.yml` | `dist/issue-templates/{bug,feature,story,task,epic}.yml` | Adapted into layered NAV issue forms: functional title and short plain-language opening first, then acceptance criteria and the technical context or evidence needed by implementers; uses native issue types and Team eSyfo project 157, while native graph state stays out of body checklists |
+| `.github/ISSUE_TEMPLATE/config.yml` | `dist/issue-templates/config.yml` | Retains blank issues as an escape hatch without adding external contact links |
 
 The upstream `agents/openai.yaml` files are OpenAI interface metadata, not
 GitHub Copilot CLI runtime dependencies, and are deliberately not imported.
+
+Wayfinder was first imported byte-for-byte: the local blob matched upstream
+`e4984ed327e12ba65303f4b5de2eb75c01e99c16` before the recorded adaptations
+were applied. The first pilot uses an explicit-choice contract rather than
+upstream's `disable-model-invocation`: forward-testing showed that the current
+custom-agent runtime discovers a manual-only skill but cannot invoke it after
+the user accepts Grillmester's recommendation.
 
 ## Reviewed upstream proposals
 

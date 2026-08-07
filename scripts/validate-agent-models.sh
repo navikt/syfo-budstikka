@@ -10,9 +10,10 @@ fail=0
 
 declare -A EXPECTED_MODELS=(
   [barista]="gpt-5.6-terra"
-  [grillmester]="claude-opus-5"
+  [grillmester]="gpt-5.6-sol"
   [kokk]="gpt-5.6-terra"
   [grill-inspektor]="claude-opus-5"
+  [researcher]="gpt-5.6-terra"
 )
 
 declare -A EXPECTED_TOOLS=(
@@ -20,6 +21,7 @@ declare -A EXPECTED_TOOLS=(
   [grillmester]=$'agent\nask_user\nedit\nexecute\nread\nsearch\nskill\nweb'
   [kokk]=$'edit\nexecute\nread\nsearch\nskill'
   [grill-inspektor]=$'glob\ngrep\nview'
+  [researcher]=$'read\nsearch\nweb'
 )
 
 declare -A EXPECTED_USER_INVOCABLE=(
@@ -27,6 +29,7 @@ declare -A EXPECTED_USER_INVOCABLE=(
   [grillmester]="true"
   [kokk]="false"
   [grill-inspektor]="false"
+  [researcher]="false"
 )
 
 declare -A EXPECTED_MODEL_INVOCATION_DISABLED=(
@@ -34,6 +37,7 @@ declare -A EXPECTED_MODEL_INVOCATION_DISABLED=(
   [grillmester]="true"
   [kokk]="false"
   [grill-inspektor]="false"
+  [researcher]="false"
 )
 
 frontmatter_for() {
@@ -41,7 +45,7 @@ frontmatter_for() {
     END { if (!found) exit 1 }' "$1"
 }
 
-for role in barista grillmester kokk grill-inspektor; do
+for role in barista grillmester kokk grill-inspektor researcher; do
   f="$AGENT_DIR/${role}.agent.md"
   if [ ! -f "$f" ]; then
     echo "MISSING: $f"; fail=1; continue
