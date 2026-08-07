@@ -68,10 +68,10 @@ erDiagram
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
 - Melding som ikke kan behandles ved inntak (manglende/ugyldig header, tom payload, korrupt
   JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
-  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon (B21)
+  `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon
   dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
-- **Retensjon (B42 + ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
-  ved alder > ~100 dager (≥ 90d replay-vindu, B26, + buffer); DL bærer rå payload m/fnr og
+- **Retensjon (ADR 0008):** `inbox_message` og `dead_letter_message` slettes hardt
+  ved alder > ~100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
   må ha samme slette-disiplin.
 
 ## Worker-flyt og state-overganger

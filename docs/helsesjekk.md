@@ -30,12 +30,6 @@ is_alive:       er lastPoll fersk?  → 200 : 503
 - **Aldri koble liveness til at brokeren er tilgjengelig.** Et kortvarig Kafka-avbrudd ville da restarte alle poder samtidig og gjøre et blaff om til et utfall.
 - **Aldri koble liveness til consumer-lag.** Lag hører til metrikker og alarmer. Å restarte en pod som ligger etter, gjør laget verre.
 
-## Implementasjonsnotater (for når en consumer kommer)
-
-- Tilstandsholderen bruker `AtomicReference<Instant>`: consumer-coroutinen skriver, HTTP-handleren leser. Ingen lås trengs.
-- Injiser en `Clock` slik at terskelen kan enhetstestes med en fake klokke (Kotest, uten Testcontainers).
-- Hold liveness-tilstanden som en ren enhet uten I/O, og koble den inn i `is_alive`-ruten.
-
 ## Antimønstre å unngå
 
 - Ping mot brokeren i `is_ready` eller `is_alive`.
