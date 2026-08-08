@@ -24,6 +24,11 @@ jobs:
       - name: Validate agent model pins
         run: bash scripts/validate-agent-models.sh .github/agents
 
+      # Deterministic gate: the agent corpus stays English, skill names stay
+      # valid invocation ids, and no reference points at a retired skill.
+      - name: Validate agent corpus
+        run: bash scripts/validate-agent-corpus.sh
+
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin

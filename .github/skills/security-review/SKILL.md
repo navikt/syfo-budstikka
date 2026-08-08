@@ -1,168 +1,168 @@
 ---
 name: security-review
-description: "Sikkerhetsgjennomgang av Ktor-backend i no.nav.syfo: PII/FNR/helseopplysninger i logger, secrets, CEF-auditlogg, accessPolicy i NAIS-manifestet, JWT-validering (TokenX/Azure AD), eksterne integrasjoner, DPIA og eskalering til sikkerhetschampion. Brukes før commit/push/PR med sikkerhetsrelevans, eller når noen sier /security-review."
+description: "Security review of a Ktor backend in no.nav.budstikka: PII/FNR/health data in logs, secrets, CEF audit log, accessPolicy in the NAIS manifest, JWT validation (TokenX/Azure AD), external integrations, DPIA and escalation to the security champion. Used before commit/push/PR with security relevance, or when someone says 'security review' / 'sikkerhetsgjennomgang', or /security-review."
 ---
 
-# Sikkerhetsgjennomgang — NAV-kontekst
+# Security review — NAV context
 
-NAV-spesifikk sikkerhetssjekk før commit, push og PR i dette repoet. Generiske OWASP-mønstre (SQLi, XSS, CSRF, injection) forutsettes kjent — dette dokumentet fokuserer på NAV-konteksten: PII-klassifisering, accessPolicy som sikkerhetsmekanisme, og eskalering til sikkerhetschampion. For JWT-validering, claims og auth-oppsett i koden, se `/auth-overview`.
+NAV-specific security check before commit, push and PR in this repository. Generic OWASP patterns (SQLi, XSS, CSRF, injection) are assumed known — this document focuses on the NAV context: PII classification, accessPolicy as a security mechanism, and escalation to the security champion. For JWT validation, claims and auth setup in the code, see `/auth-overview`.
 
-## Flytkobling
+## Flow coupling
 
-Denne skillen brukes typisk i **verifiser**-fasen av @grillmester sin faseløkke, og før PR. Når gjennomgangen avdekker varig verdi:
+This skill is typically used in the **verifiser** (verify) phase of @grillmester's phase loop, and before PR. When the review uncovers lasting value:
 
-- En kandidat som passerer ADR-gaten → anbefal dokumentert løp og vent på
-  brukerens valg før `/domain-modeling` skriver.
-- Returner reviewfunn og deterministiske verktøybevis (trivy/zizmor-output,
-  exit-koder) til den aktive oppgaven. Skriv dem bare til en oppgavelokal
-  `.grill/`-fil når den kallende arbeidsflyten eksplisitt har valgt det.
-- Vedlikeholdte rammer for datahåndtering som følger av en godkjent endring →
-  relevant topic-dokument. Nye domenebegreper er kandidater for dokumentert løp;
-  vent på brukerens valg før glossaret oppdateres.
+- A candidate that passes the ADR gate → recommend the documented route and wait
+  for the user's choice before `/domain-modeling` writes.
+- Return review findings and deterministic tool evidence (trivy/zizmor output,
+  exit codes) to the active task. Write them to a task-local `.grill/` file only
+  when the calling workflow has explicitly chosen that.
+- Maintained data-handling frames that follow from an approved change → the
+  relevant topic document. New domain concepts are candidates for the documented
+  route; wait for the user's choice before the glossary is updated.
 
-## PII-klassifisering i NAV
+## PII classification in NAV
 
-NAV behandler personopplysninger med fire beskyttelsesnivåer. Feil klassifisering er den vanligste rotårsaken til alvorlige avvik.
+NAV processes personal data at four protection levels. Incorrect classification is the most common root cause of serious deviations.
 
-| Nivå | Typiske data | Behandling |
+| Level | Typical data | Handling |
 |------|--------------|------------|
-| **Strengt fortrolig** | Helseopplysninger, diagnoser, sykmeldinger, voldsutsatte/kode 6, barnevernsdata | Kryptering i ro og transit, streng tilgangsstyring, CEF-auditlogg ved visning (WARN), dedikert DPIA |
-| **Fortrolig** | Fødselsnummer (fnr), D-nummer, kode 7, sensitive ytelsesdata | Aldri i standardlogger, CEF-auditlogg ved visning, tilgangsstyring per sak/bruker |
-| **Intern** | Navn, adresse, telefon, e-post, ikke-sensitiv ytelsesstatus | Dataminimering, tilgang per tjenstlig behov, retention dokumentert |
-| **Åpen** | Offentlig statistikk, anonymiserte aggregater | Normal tilgang; verifiser at anonymiseringen tåler koblingsangrep |
+| **Strengt fortrolig** (strictly confidential) | Health data, diagnoses, sykmeldinger, people exposed to violence/kode 6, child welfare data | Encryption at rest and in transit, strict access control, CEF audit log on display (WARN), dedicated DPIA |
+| **Fortrolig** (confidential) | National identity number (`fnr`), D-number, kode 7, sensitive benefits data | Never in standard logs, CEF audit log on display, access control per case/user |
+| **Intern** (internal) | Name, address, phone, email, non-sensitive benefit status | Data minimization, access on a need-to-know basis, retention documented |
+| **Åpen** (open) | Public statistics, anonymized aggregates | Normal access; verify that the anonymization withstands linkage attacks |
 
-`syfo`-domenet håndterer sykefravær og sykmeldinger — faktumet "en bruker er sykmeldt" er **strengt fortrolig** (implisitt helseinformasjon). Behandle fnr, sykmeldinger og diagnoser deretter.
+The `syfo` domain handles sykefravær and sykmeldinger — the fact that "a user is sykmeldt" is **strengt fortrolig** (implicit health information). Treat `fnr`, sykmeldinger and diagnoses accordingly.
 
-**Placeholder i kode og dokumentasjon**: Bruk aldri ekte fnr. Bruk en tydelig
-navngitt syntetisk testident fra test-fixturet eller Skatteetatens offisielle
-testserie, markert eksplisitt som syntetisk. Se
-`references/nav-threat-model.md` for DPIA-prosess og audit-krav.
+**Placeholder in code and documentation**: Never use a real `fnr`. Use a clearly
+named synthetic test identity from the test fixture or Skatteetaten's official
+test series, explicitly marked as synthetic. See
+`references/nav-threat-model.md` for the DPIA process and audit requirements.
 
-### PII i logger
+### PII in logs
 
-Repoet logger via Logback (`src/main/resources/logback.xml`). Bruk strukturerte felter, aldri PII i meldingsteksten:
+This repository logs via Logback (`src/main/resources/logback.xml`). Use structured fields, never PII in the message text:
 
 ```kotlin
-// OK — korrelasjons-ID og tema, ingen PII
-log.info("Behandler sak", kv("callId", MDC.get("callId")), kv("tema", sak.tema))
+// OK — correlation ID and tema, no PII
+log.info("Processing case", kv("callId", MDC.get("callId")), kv("tema", sak.tema))
 
-// Aldri — FNR, navn, diagnose eller ytelsesdata i standardlogg
-log.info("Behandler sak for ${bruker.fnr}")
+// Never — FNR, name, diagnosis or benefits data in the standard log
+log.info("Processing case for ${bruker.fnr}")
 ```
 
-`Nav-Call-Id` settes ved inngang via Ktor `CallId`-pluginen og legges i MDC, slik at hver logglinje korrelerer på tvers av tjenester (se `/kotlin-ktor`). Visning av personopplysninger til NAV-ansatte skal logges i **CEF-format** til auditlog (egen `auditLogger`, ikke standardloggen). Se `references/nav-threat-model.md` for format og hva som skal logges når.
+`Nav-Call-Id` is propagated on outbound calls that carry it (see `/kotlin-ktor`); worker and consumer log lines correlate through `MdcKeys` + `MDCContext`. Note that `callIdMdc` is not installed, so an incoming callId does not reach MDC by itself. Display of personal data to NAV employees must be logged in **CEF format** to the audit log (a dedicated `auditLogger`, not the standard log). See `references/nav-threat-model.md` for the format and what to log when.
 
-## accessPolicy som first-line defense
+## accessPolicy as first-line defense
 
-`accessPolicy` i NAIS-manifestet (`.nais/`-yaml eller tilsvarende) er første forsvarslinje — ikke en tilleggsmekanisme. Default deny på NAIS-plattformen betyr at glemt regel = brutt tilgang, ikke åpen tilgang. Men feil regel = eksponert tjeneste.
+`accessPolicy` in the NAIS manifest (`.nais/` yaml or equivalent) is the first line of defense — not an additional mechanism. Default deny on the NAIS platform means that a forgotten rule = broken access, not open access. But a wrong rule = an exposed service.
 
 ```yaml
 spec:
   accessPolicy:
     inbound:
       rules:
-        - application: min-frontend         # eksplisitt navngitt caller
+        - application: min-frontend         # explicitly named caller
     outbound:
       rules:
         - application: pdl-api
           namespace: pdl
           cluster: prod-gcp
       external:
-        - host: api.ekstern-tjeneste.no     # kun når strengt nødvendig
+        - host: api.ekstern-tjeneste.no     # only when strictly necessary
 ```
 
-**Kritiske vurderinger ved gjennomgang:**
+**Critical considerations during review:**
 
-- **Ingen åpen inbound**: `inbound.rules` må være eksplisitt liste. Fravær av rules = ingen tilgang (OK for intern batch/job), men åpne wildcards eller mange generelle rules krever begrunnelse.
-- **Inbound vs. auth-kode speiler hverandre**: Hver app i `inbound.rules` skal være validert i auth-koden (`azp`-sjekk mot `AZURE_APP_PRE_AUTHORIZED_APPS` i `authenticate("azureAd")`-grenen). Diff avvik — enten død kode eller manglende nettverksregel.
-- **Outbound er et sikkerhetstiltak, ikke bare ruting**: Begrenset outbound = begrenset blast radius hvis appen kompromitteres. Outbound `external` må ha tydelig formål og eier.
-- **Cluster/namespace stemmer med miljøet**: `prod-gcp` vs `dev-gcp` — feil cluster i outbound = tjeneste fungerer ikke i prod, men blir ofte oppdaget sent.
+- **No open inbound**: `inbound.rules` must be an explicit list. Absence of rules = no access (fine for internal batch/job), but open wildcards or many general rules require justification.
+- **Inbound and auth code mirror each other**: Every app in `inbound.rules` must be validated in the auth code (`azp` check against `AZURE_APP_PRE_AUTHORIZED_APPS` in the `authenticate("azureAd")` branch). Diff the discrepancies — either dead code or a missing network rule.
+- **Outbound is a security measure, not just routing**: Restricted outbound = limited blast radius if the app is compromised. Outbound `external` must have a clear purpose and owner.
+- **Cluster/namespace match the environment**: `prod-gcp` vs `dev-gcp` — the wrong cluster in outbound = the service does not work in prod, but this is often discovered late.
 
-## Sikkerhetschampion-rolle og eskalering
+## Security champion role and escalation
 
-Hvert team har en sikkerhetschampion (eller kan eskalere til plattformens sikkerhetsfunksjon). Denne rollen eies av teamet, ikke av `security-review`-skillen.
+Every team has a security champion (or can escalate to the platform's security function). This role is owned by the team, not by the `security-review` skill.
 
-**Når skillen håndterer det (ingen eskalering):**
+**When the skill handles it (no escalation):**
 
-- Parameteriserte spørringer, input-validering, standard OWASP-mønstre.
-- CEF-auditlogg ved visning av personopplysninger (mønster er etablert).
-- accessPolicy-oppsett for standard inbound/outbound.
-- Trivy/zizmor-funn med kjente fixes.
+- Parameterized queries, input validation, standard OWASP patterns.
+- CEF audit log on display of personal data. This repository has no audit logger today (`grep -rn 'auditLogger\|CEF' src/` is empty) because it is a worker/consumer with no endpoint that shows personal data to a NAV employee. Adding such an endpoint requires adding CEF audit logging in the same change.
+- accessPolicy setup for standard inbound/outbound.
+- Trivy/zizmor findings with known fixes.
 
-**Når du eskalerer til sikkerhetschampion (eller `#appsec`):**
+**When you escalate to the security champion (or `#appsec`):**
 
-- **Ny klasse data**: Første gang teamet behandler helseopplysninger, barnevernsdata eller kode 6/7.
-- **DPIA-behov**: Ny behandling med personopplysninger eller vesentlig endring i eksisterende behandling. Se `references/nav-threat-model.md`.
-- **Ny integrasjon med eksternt domene**: `outbound.external` mot leverandør/tredjepart.
-- **Endring i autentiseringsmekanisme**: Bytte mellom Azure AD/TokenX/ID-porten/Maskinporten, eller ny RBAC-modell.
-- **Mistanke om hendelse**: Lekket secret, uautorisert tilgang, avvikende bruksmønster — ikke vent, eskaler umiddelbart.
-- **Compliance-vurdering utenfor standardmønster**: Tilsynssaker, Datatilsynet-henvendelser, svar på revisjon.
+- **A new class of data**: The first time the team processes health data, child welfare data or kode 6/7.
+- **DPIA need**: New processing involving personal data, or a substantial change to existing processing. See `references/nav-threat-model.md`.
+- **New integration with an external domain**: `outbound.external` towards a vendor/third party.
+- **Change of authentication mechanism**: Switching between Azure AD/TokenX/ID-porten/Maskinporten, or a new RBAC model.
+- **Suspected incident**: Leaked secret, unauthorized access, anomalous usage pattern — do not wait, escalate immediately.
+- **Compliance assessment outside the standard pattern**: Supervisory cases, Datatilsynet enquiries, responses to audits.
 
-**Hastegrad:**
+**Urgency:**
 
-- **Akutt (ring/ping umiddelbart)**: Aktiv hendelse, eksponert secret i git-historikk, mistanke om databehandlingsbrudd.
-- **Samme dag**: Ny ekstern integrasjon i prod, endret autentiseringsflyt, nye datakategorier.
-- **Planlagt (Slack/issue)**: DPIA-forberedelse, arkitekturgjennomgang, trusselmodellering.
+- **Acute (call/ping immediately)**: Active incident, exposed secret in git history, suspected personal data breach.
+- **Same day**: New external integration in prod, changed authentication flow, new data categories.
+- **Planned (Slack/issue)**: DPIA preparation, architecture review, threat modeling.
 
-Kontaktkanaler (prosess, ikke personer): Teamets interne sikkerhetschampion-kanal; NAVs `#appsec` for generelle spørsmål; `#auditlogging-arcsight` for auditlogg; plattformens sikkerhetsfunksjon for hendelser.
+Contact channels (process, not people): The team's internal security champion channel; NAV's `#appsec` for general questions; `#auditlogging-arcsight` for the audit log; the platform's security function for incidents.
 
-## Automatiserte skanninger
+## Automated scans
 
 ```bash
-# Sårbarheter og hemmeligheter i repoet
+# Vulnerabilities and secrets in the repository
 trivy repo .
 
-# HIGH/CRITICAL CVE-er i container-image
+# HIGH/CRITICAL CVEs in the container image
 trivy image <image-name> --severity HIGH,CRITICAL
 
 # GitHub Actions workflows
 zizmor .github/workflows/
 
-# Hemmeligheter i git-historikk
+# Secrets in git history
 git log -p --all -S 'password' -- '*.kt' '*.kts' '*.yaml' | head -100
 git log -p --all -S 'secret' -- '*.kt' '*.kts' '*.yaml' | head -100
 ```
 
-Returner bevis (kommando + output + exit-kode) til den kallende arbeidsflyten —
-ingen «ser trygt ut»-påstander uten ferskt bevis.
+Return evidence (command + output + exit code) to the calling workflow — no
+"looks safe" claims without fresh evidence.
 
-## Hemmeligheter
+## Secrets
 
 ```kotlin
-// OK — fra miljø (NAIS injiserer via Console-secret)
+// OK — from the environment (NAIS injects via a Console secret)
 val dbPassword = System.getenv("DB_PASSWORD")
-    ?: error("DB_PASSWORD mangler")
+    ?: error("DB_PASSWORD missing")
 
-// Aldri — hardkodet
+// Never — hardcoded
 val dbPassword = "supersecret123"
 ```
 
-Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk også at de ikke havner i `application.yaml`, `gradle.properties` eller version catalog. Kopier aldri prod-secrets lokalt.
+Secrets are created in NAIS Console and injected via `envFrom`/`filesFrom`. Also check that they do not end up in `application.conf`, `gradle.properties` or the version catalog. Never copy prod secrets locally.
 
-## Sjekkliste (NAV-fokus)
+## Checklist (NAV focus)
 
-- [ ] PII-klassifisering er avklart for all data tjenesten behandler (strengt fortrolig/fortrolig/intern/åpen) og vedlikeholdt i relevant topic-dokument
-- [ ] Ingen FNR, navn, helse- eller sensitive ytelsesdata i standardlogger
-- [ ] CEF-auditlogg dekker visning av personopplysninger til NAV-ansatte
-- [ ] `accessPolicy.inbound` er eksplisitt og speiler auth-kodens validering
-- [ ] `accessPolicy.outbound` begrenset til nødvendige tjenester/hoster med cluster/namespace korrekt
-- [ ] Secrets kun fra NAIS Console, ingen hardkodede verdier eller prod-secrets lokalt
-- [ ] `Nav-Call-Id` propageres (CallId-plugin → MDC) for korrelasjon på tvers av tjenester
-- [ ] Behandlingsgrunnlag, retention og sletting er dokumentert for persondata
-- [ ] Parameteriserte spørringer, input validert, tilgangskontroll sjekker eierskap (ikke bare gyldig token)
-- [ ] `trivy repo .` uten HIGH/CRITICAL, `zizmor` OK, ingen committede secrets
-- [ ] Eskalering til sikkerhetschampion er vurdert for nye datakategorier, integrasjoner eller auth-endringer
-- [ ] DPIA-behov vurdert (se `references/nav-threat-model.md`) før ny behandling av personopplysninger
+- [ ] PII classification is settled for all data the service processes (strengt fortrolig/fortrolig/intern/åpen) and maintained in the relevant topic document
+- [ ] No FNR, names, health data or sensitive benefits data in standard logs
+- [ ] CEF audit log covers display of personal data to NAV employees
+- [ ] `accessPolicy.inbound` is explicit and mirrors the auth code's validation
+- [ ] `accessPolicy.outbound` limited to the necessary services/hosts with correct cluster/namespace
+- [ ] Secrets only from NAIS Console, no hardcoded values or prod secrets locally
+- [ ] `Nav-Call-Id` is set explicitly on outbound calls that carry it (`callIdMdc` is not installed — do not assume MDC correlation)
+- [ ] Legal basis for processing, retention and deletion are documented for personal data
+- [ ] Parameterized queries, input validated, access control checks ownership (not just a valid token)
+- [ ] `trivy repo .` with no HIGH/CRITICAL, `zizmor` OK, no committed secrets
+- [ ] Escalation to the security champion has been considered for new data categories, integrations or auth changes
+- [ ] DPIA need assessed (see `references/nav-threat-model.md`) before new processing of personal data
 
-## Referanser
+## References
 
-| Ressurs | Bruksområde |
+| Resource | Use |
 |---------|-------------|
-| [sikkerhet.nav.no](https://sikkerhet.nav.no) | NAVs Golden Path for sikkerhet |
-| `security.instructions.md` | Alltid-på (`applyTo: "**"`) sikkerhetsgrenser — supplerer denne on-demand-skillen |
-| `/auth-overview` | JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar |
-| `/kotlin-ktor` | CallId/MDC, StatusPages/ApiError-feilkontrakt |
-| `/postgresql-review` | Migreringer som legger til/endrer PII-kolonner — vurder klassifisering og behandlingsgrunnlag |
-| `references/nav-threat-model.md` | Dyp trusselmodellering (STRIDE i NAV-kontekst), DPIA-prosess, audit-logging-krav, Datatilsynet-varsling |
-| `references/gdpr-privacy.md` | NAV-spesifikk PII-kategorisering og pekere til DPIA/CEF/retention |
-| `references/api-security.md` | NAV-signal: Nav-Call-Id, Nav-Consumer-Id, accessPolicy som primærmekanisme |
+| [sikkerhet.nav.no](https://sikkerhet.nav.no) | NAV's Golden Path for security |
+| `security.instructions.md` | Always-on (`applyTo: "**"`) security boundaries — complements this on-demand skill |
+| `/auth-overview` | JWT validation, TokenX/Azure AD, `pid`/NAVident/`azp` claim, Texas sidecar |
+| `/kotlin-ktor` | CallId/MDC, outbound HTTP client, DI wiring |
+| `/postgresql-review` | Migrations that add/change PII columns — assess classification and legal basis for processing |
+| `references/nav-threat-model.md` | Deep threat modeling (STRIDE in a NAV context), DPIA process, audit logging requirements, Datatilsynet notification |
+| `references/gdpr-privacy.md` | NAV-specific PII categorization and pointers to DPIA/CEF/retention |
+| `references/api-security.md` | NAV signal: Nav-Call-Id, Nav-Consumer-Id, accessPolicy as the primary mechanism |

@@ -1,39 +1,39 @@
-# Skrive en arbeidsklar brief
+# Writing a work-ready brief
 
-En brief er en strukturert kommentar som postes på et issue eller en PR når det flyttes til `ready-for-agent` (eller `ready-for-human`). Den er den autoritative spesifikasjonen arbeidet gjøres mot. Original body og diskusjon er kontekst — briefen er kontrakten.
+A brief is a structured comment posted on an issue or a PR when it moves to `ready-for-agent` (or `ready-for-human`). It is the authoritative specification the work is done against. The original body and the discussion are context — the brief is the contract.
 
-Briefen sier **hva som skal gjøres**: for et issue er det å bygge endringen fra ingenting; for en PR er det hva som gjenstår *på den eksisterende diffen* — fullføre, tette hull, adressere review-punkter. Samme prinsipper, PR-eksempelet under viser forskjellen.
+The brief states **what is to be done**: for an issue that means building the change from nothing; for a PR it means what remains *on the existing diff* — finishing it, closing gaps, addressing review points. Same principles; the PR example below shows the difference.
 
-## Prinsipper
+## Principles
 
-### Durabilitet over presisjon
-Saken kan ligge i `ready-for-agent` i dager eller uker, og kodebasen endrer seg imens. Skriv briefen så den holder seg nyttig selv om filer flyttes eller refaktoreres.
+### Durability over precision
+The item may sit in `ready-for-agent` for days or weeks, and the codebase changes in the meantime. Write the brief so it stays useful even if files are moved or refactored.
 
-- **Gjør:** beskriv grensesnitt, typer, og atferdskontrakter. Navngi konkrete typer, funksjonssignaturer eller config-former agenten skal lete etter eller endre (f.eks. en `data class`, en repository-metode, et Kafka-meldingsskjema, en Flyway-DDL).
-- **Ikke gjør:** referer filstier eller linjenumre — de blir utdaterte. Ikke anta at dagens implementasjonsstruktur består.
+- **Do:** describe interfaces, types, and behavior contracts. Name the concrete types, function signatures or config shapes the agent should look for or change (e.g. a `data class`, a repository method, a Kafka message schema, a Flyway DDL).
+- **Do not:** reference file paths or line numbers — they go stale. Do not assume today's implementation structure survives.
 
-### Atferd, ikke prosedyre
-Beskriv **hva** systemet skal gjøre, ikke **hvordan** det implementeres. Agenten utforsker kodebasen på nytt og tar egne implementasjonsvalg.
+### Behavior, not procedure
+Describe **what** the system should do, not **how** it is implemented. The agent explores the codebase afresh and makes its own implementation choices.
 
-- **Bra:** "Endepunktet `GET /api/v1/budstikke/{id}` skal validere TokenX-token og returnere 404 via StatusPages-feilkontrakten når raden ikke finnes."
-- **Dårlig:** "Åpne `BudstikkeRoute.kt` og legg til en `if` på linje 42."
+- **Good:** "The endpoint `GET /api/v1/budstikke/{id}` must validate the TokenX token and return 404 via the StatusPages error contract when the row does not exist."
+- **Bad:** "Open `BudstikkeRoute.kt` and add an `if` at line 42."
 
-### Komplette akseptansekriterier
-Agenten må vite når den er ferdig. Hvert kriterium skal være selvstendig verifiserbart. For dette Ktor-repoet inkluderer det typisk:
+### Complete acceptance criteria
+The agent must know when it is done. Every criterion must be independently verifiable. For this Ktor repository that typically includes:
 
-- Ende-til-ende-oppførselen virker (kall returnerer forventet svar / melding konsumeres idempotent / rad havner i Postgres).
-- `./gradlew test` er grønn, inkl. ny test som dekker endringen.
-- Auth på plass der relevant (TokenX/Azure AD), ingen PII i logger.
-- NAIS-config oppdatert hvis endringen trenger topic/accessPolicy/secret.
+- The end-to-end behavior works (the call returns the expected response / the message is consumed idempotently / the row lands in Postgres).
+- `./gradlew test` is green, incl. a new test covering the change.
+- Auth in place where relevant (TokenX/Azure AD), no PII in the logs.
+- NAIS config updated if the change needs a topic/accessPolicy/secret.
 
-### Eksplisitte scope-grenser
-Si hva som er **utenfor** scope. Det hindrer agenten i å gullplette eller anta nærliggende features.
+### Explicit scope boundaries
+State what is **out of** scope. That keeps the agent from gold-plating or assuming adjacent features.
 
-Beskriv oppgaverelevante begrensninger i ønsket oppførsel eller
-akseptansekriteriene, slik at briefen kan forstås alene. Følg
-`docs/agents/domain.md`; ikke legg inn et generelt felt for beslutningslenker.
+Describe task-relevant constraints in the desired behavior or in the acceptance
+criteria, so the brief can be understood on its own. Follow
+`docs/agents/domain.md`; do not add a general field for decision links.
 
-## Mal
+## Template
 
 ```markdown
 > *Generert av AI under triage.*
@@ -67,7 +67,7 @@ og feilkontrakt.
 - Nærliggende feature som virker relatert men er separat
 ```
 
-## Eksempel — bug
+## Example — bug
 
 ```markdown
 > *Generert av AI under triage.*
@@ -101,9 +101,9 @@ av samme nøkkel skal være en no-op, ingen ny rad, ingen feil.
 - Idempotens for andre konsumenter
 ```
 
-## Eksempel — PR
+## Example — PR
 
-For en PR beskriver "Dagens oppførsel" tilstanden på diffen, og briefen ber agenten fullføre/fikse heller enn å bygge fra bunnen.
+For a PR, "Dagens oppførsel" describes the state of the diff, and the brief asks the agent to finish/fix rather than to build from scratch.
 
 ```markdown
 > *Generert av AI under triage.*
@@ -131,7 +131,7 @@ og statuskodene er uendret. Eksisterende oppførsel uten flagget er urørt.
 - Endre den allerede definerte JSON-formen for suksess
 ```
 
-## Dårlig brief (gjør ikke dette)
+## Bad brief (do not do this)
 
 ```markdown
 ## Brief
@@ -141,4 +141,4 @@ Funksjonen rundt linje 150 har problemet.
 **Filer å endre:** BudstikkeRoute.kt (linje 150)
 ```
 
-Dårlig fordi: ingen kategori, vag beskrivelse, referer filstier/linjenumre som blir utdaterte, ingen akseptansekriterier, ingen scope-grenser, ingen dagens-vs-ønsket-oppførsel.
+Bad because: no category, a vague description, references to file paths/line numbers that go stale, no acceptance criteria, no scope boundaries, no current-vs-desired behavior.

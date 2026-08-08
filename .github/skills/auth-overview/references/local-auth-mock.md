@@ -1,31 +1,31 @@
-# Lokal auth-mocking for Ktor-tester
+# Local auth mocking for Ktor tests
 
-Slik kjører du token-validering lokalt og i JUnit/Ktor-tester uten ekte ID-porten/Azure/TokenX. Bruk `mock-oauth2-server` som OIDC-utsteder.
+How to run token validation locally and in JUnit/Ktor tests without a real ID-porten/Azure/TokenX. Use `mock-oauth2-server` as the OIDC issuer.
 
-## JVM-tester (primær for dette repoet)
+## JVM tests (primary for this repository)
 
-Bruk `no.nav.security:mock-oauth2-server` direkte fra testene — ingen Docker nødvendig.
+Use `no.nav.security:mock-oauth2-server` directly from the tests — no Docker needed.
 
 ```kotlin
 // build.gradle.kts
-testImplementation("no.nav.security:mock-oauth2-server:<versjon>")
+testImplementation("no.nav.security:mock-oauth2-server:<version>")
 ```
 
 ```kotlin
-// I testen
+// In the test
 val mockServer = MockOAuth2Server().apply { start() }
 
-// Pek token-validation-konfigurasjonen mot mock-utstederen
+// Point the token-validation configuration at the mock issuer
 val discoveryUrl = mockServer.wellKnownUrl("tokenx").toString()
 
-// Utsted et test-token med ønskede claims
+// Issue a test token with the desired claims
 val serializedJwt = mockServer.issueToken(
     issuerId = "tokenx",
     subject = "test-subject",
     claims = mapOf("pid" to "<SYNTHETIC_FNR>", "acr" to "Level4"),
 ).serialize()
 
-// Bruk token-et som Bearer i Ktor testHost-kall
+// Use the token as Bearer in a Ktor testHost call
 client.get("/api/sykmeldinger") {
     header(HttpHeaders.Authorization, "Bearer $serializedJwt")
 }
@@ -33,9 +33,9 @@ client.get("/api/sykmeldinger") {
 mockServer.shutdown()
 ```
 
-I `application.yaml` for testprofil settes `discoveryurl` og `accepted_audience` mot mock-serveren.
+In `application.yaml` for the test profile, point `discoveryurl` and `accepted_audience` at the mock server.
 
-## Lokal kjøring med Docker (valgfritt)
+## Running locally with Docker (optional)
 
 ```yaml
 services:
@@ -49,13 +49,13 @@ services:
           "tokenProvider": { "keyProvider": { "initialKeys": "<GENERATED_JWK>" } }
         }
 ```
-Pek appens `TOKEN_X_WELL_KNOWN_URL` / `AZURE_APP_WELL_KNOWN_URL` mot `http://mock-oauth2:8080/<issuer>/.well-known/openid-configuration`.
+Point the app's `TOKEN_X_WELL_KNOWN_URL` / `AZURE_APP_WELL_KNOWN_URL` at `http://mock-oauth2:8080/<issuer>/.well-known/openid-configuration`.
 
-## Testdata (fnr)
+## Test data (national identity numbers)
 
-Bruk `<SYNTHETIC_FNR>` som plassholder i maler. Erstatt den med en verdi fra
-[Skatteetatens syntetiske serie](https://www.skatteetaten.no/skjema/testdata/)
-når kjørbar kode krever gyldig format, og merk tydelig at testdataene er
-syntetiske. Aldri bruk ekte fødselsnumre.
+Use `<SYNTHETIC_FNR>` as the placeholder in templates. Replace it with a value from
+[Skatteetaten's synthetic series](https://www.skatteetaten.no/skjema/testdata/)
+when runnable code requires a valid format, and mark clearly that the test data is
+synthetic. Never use real national identity numbers.
 
-Plassholdere `<versjon>` og `<GENERATED_JWK>` fylles inn ved oppsett.
+The placeholders `<version>` and `<GENERATED_JWK>` are filled in during setup.

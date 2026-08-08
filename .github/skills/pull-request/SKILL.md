@@ -1,57 +1,63 @@
 ---
 name: pull-request
-description: "Bruk når en endring i navikt/syfo-budstikka skal opprettes eller oppdateres som pull request: «opprett PR», «oppdater PR», eller /pull-request etter grønt vertikalt snitt."
+description: "Use when a change in this repository is to be created or updated as a pull request. Triggers: 'create a PR' / 'opprett PR' / 'lag en PR', 'update the PR' / 'oppdater PR-en', 'open a pull request' / 'åpne en pull request', or /pull-request after a green vertical slice."
 ---
 
 # Pull request
 
-Pakk endringen i en PR som kan reviewes uten gjetting: tydelig tittel, riktig issue-kobling, ferskt verifiseringsbevis og eksplisitt risiko.
+Package the change in a PR that can be reviewed without guesswork: a clear title, the right issue link, fresh verification evidence and explicit risk.
 
-## Kontrakt for PR-en
+## Contract for the PR
 
-1. **Tittel følger semantisk format:** `type(scope): kort beskrivelse`.
-   - **Ferdig når:** tittelen beskriver endringen presist på én linje.
+1. **The title follows the semantic format:** `type(scope): short description`.
+   - Scopes in use in this repository: `kafka`, `db`, `nais`, `deps`, `auth`,
+     `config`, `build`, `kontrakt`, `observability`, `logging`, and for the agent
+     corpus `skills`, `agents`, `instructions`. Reuse an existing scope when one
+     fits; the vocabulary is descriptive, not closed — `git log --oneline` is the
+     source of truth. Omit the scope rather than inventing a one-off.
+   - **Done when:** the title describes the change precisely on one line.
 
-2. **Body følger repoets mal:** `.github/PULL_REQUEST_TEMPLATE.md`.
-   - Fyll ut: Beskrivelse, Endringer, Issue, Verifikasjon, Sjekkliste.
-   - **Ferdig når:** alle relevante seksjoner er utfylt uten plassholdertekst.
+2. **The body follows the repository template:** `.github/PULL_REQUEST_TEMPLATE.md`.
+   - Fill in: Beskrivelse, Endringer, Issue, Verifikasjon, Sjekkliste.
+   - The template and its sections are Norwegian; use `/klarsprak` for the prose.
+   - **Done when:** all relevant sections are filled in with no placeholder text.
 
-3. **Issue-kobling er eksplisitt.**
-   - Fullført arbeid: `Closes #NNN`
-   - Delvis arbeid: `Relates to #NNN`
-   - Epic-kobling ved behov: `Del av epic: #MMM`
-   - **Ferdig når:** koblingen matcher faktisk scope.
+3. **The issue link is explicit.**
+   - Completed work: `Closes #NNN`
+   - Partial work: `Relates to #NNN`
+   - Epic link when needed: `Del av epic: #MMM`
+   - **Done when:** the link matches the actual scope.
 
-4. **Verifikasjon er fersk og deterministisk.**
-   - Bruk normalt `./gradlew build`.
-   - Lim inn kommando + exit-kode i Verifikasjon-seksjonen.
-   - **Ferdig når:** reviewer ser grønn gate direkte i PR-body.
+4. **Verification is fresh and deterministic.**
+   - Normally use `./gradlew build`.
+   - Paste the command + exit code into the Verifikasjon section.
+   - **Done when:** the reviewer sees a green gate directly in the PR body.
 
-5. **Risiko og reviewer-fokus er tydelig.**
-   - Kall ut endringer i auth, PII/logg, Flyway, Kafka, API-kontrakt, NAIS `accessPolicy`/secrets/deploy.
-   - Beskriv oppgaverelevante begrensninger kort; følg lenkereglene i
-     `docs/agents/domain.md` for eventuelle dokumentlenker.
-   - **Ferdig når:** reviewer vet hva som må kontrolleres nøye.
+5. **Risk and reviewer focus are clear.**
+   - Call out changes to auth, PII/logging, Flyway, Kafka, the API contract, NAIS `accessPolicy`/secrets/deploy.
+   - Describe task-relevant constraints briefly; follow the link rules in
+     `docs/agents/domain.md` for any document links.
+   - **Done when:** the reviewer knows what needs careful checking.
 
-6. **Ingen sensitive data eksponeres.**
-   - Ingen fnr, tokens, credentials eller annen PII i diff eller loggeksempler.
-   - **Ferdig når:** PR-tekst og diff er fri for sensitive data.
+6. **No sensitive data is exposed.**
+   - No national identity numbers, tokens, credentials or other PII in the diff or log examples.
+   - **Done when:** the PR text and diff are free of sensitive data.
 
-## Opprett eller oppdater med gh CLI
+## Create or update with the gh CLI
 
 ```bash
 gh pr create \
   --repo navikt/syfo-budstikka \
-  --title "type(scope): beskrivelse" \
-  --body-file <fil-med-body>
+  --title "type(scope): short description" \
+  --body-file <file-with-body>
 ```
 
 ```bash
-gh pr edit <nummer> --repo navikt/syfo-budstikka --title "..." --body-file <fil>
+gh pr edit <number> --repo navikt/syfo-budstikka --title "..." --body-file <file>
 ```
 
-## Etter opprettelse
+## After creation
 
-- Hold PR-body oppdatert hvis scope eller verifikasjon endres.
-- Adresser review i nye commits på samme branch.
-- Squash-merge når checks og godkjenninger er grønne.
+- Keep the PR body updated if scope or verification changes.
+- Address review feedback in new commits on the same branch.
+- Squash-merge when checks and approvals are green.

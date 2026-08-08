@@ -1,15 +1,15 @@
-# SQL-mønstre — NAV-spesifikk tuning
+# SQL patterns — NAV-specific tuning
 
-Denne referansen dekker kun NAV-spesifikke innstillinger.
+This reference covers only NAV-specific settings.
 
-Generisk SQL-optimalisering (EXPLAIN ANALYZE, indeksvalg, N+1, SELECT *, JSONB-operatorer, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) er utenfor scope for denne skillen. Se PostgreSQL-dokumentasjonen eller teamets etablerte praksis.
+Generic SQL optimisation (EXPLAIN ANALYZE, index choice, N+1, SELECT *, JSONB operators, window functions, upsert/ON CONFLICT, advisory locks, range partitioning) is out of scope for this skill. See the PostgreSQL documentation or the team's established practice.
 
-## Tilkoblingspool — HikariCP i NAIS-containere
+## Connection pool — HikariCP in NAIS containers
 
-NAV-default er Cloud SQL via `gcp.sqlInstances` i NAIS-manifestet. Pool-størrelsen må dimensjoneres etter `replicas.max` og Cloud SQL sin `max_connections`, ikke JVM-defaults.
+The NAV default is Cloud SQL via `gcp.sqlInstances` in the NAIS manifest. The pool size must be sized against `replicas.max` and Cloud SQL's `max_connections`, not JVM defaults.
 
 ```yaml
-# NAIS — Cloud SQL-instans (injiserer DB_JDBC_URL, DB_USERNAME, DB_PASSWORD som env)
+# NAIS — Cloud SQL instance (injects DB_JDBC_URL, DB_USERNAME, DB_PASSWORD as env)
 spec:
   replicas:
     min: 2
@@ -23,17 +23,17 @@ spec:
 ```
 
 ```kotlin
-// Eksemplet viser ENV-wiringen; dimensjoner poolen fra verifisert kapasitet:
+// The example shows the ENV wiring; size the pool from verified capacity:
 HikariConfig().apply {
-    setJdbcUrl(System.getenv("DB_JDBC_URL"))   // injisert av gcp.sqlInstances envVarPrefix: DB
+    setJdbcUrl(System.getenv("DB_JDBC_URL"))   // injected by gcp.sqlInstances envVarPrefix: DB
     setUsername(System.getenv("DB_USERNAME"))
     setPassword(System.getenv("DB_PASSWORD"))
-    // Sett pool-, timeout- og isolation-verdier fra verifisert kapasitet og SLO-er
+    // Set pool, timeout and isolation values from verified capacity and SLOs
 }
 ```
 
-**Dimensjonering:** `replicas.max × maximumPoolSize ≤ max_connections`. `max_connections` settes etter Cloud SQL-tier — shared-core ligger under 100, så kjør `SHOW max_connections;` før du regner, og husk at migrerings-/admin-connections og andre apper på samme instans teller med.
+**Sizing:** `replicas.max × maximumPoolSize ≤ max_connections`. `max_connections` is set according to the Cloud SQL tier — shared-core is below 100, so run `SHOW max_connections;` before you do the maths, and remember that migration/admin connections and other apps on the same instance count towards it.
 
-**Eksplisitt `READ_COMMITTED`:** Matcher PostgreSQL-default og unngår overraskelser ved driver-oppgraderinger.
+**Explicit `READ_COMMITTED`:** Matches the PostgreSQL default and avoids surprises on driver upgrades.
 
-> **⚠️ Spør først** før `maximumPoolSize > 5` — det er nesten alltid symptom på langsomme spørringer eller manglende indekser, ikke pool-mangel.
+> **⚠️ Ask first** before `maximumPoolSize > 5` — it is nearly always a symptom of slow queries or missing indexes, not of a pool shortage.

@@ -12,9 +12,8 @@ The existing workflows are the pattern reference — read them before writing on
   the finding is accepted).
 - Explicit least-privilege `permissions` per workflow/job, `timeout-minutes`
   on every job, `concurrency` on deploys. Never `permissions: write-all`.
-- Images are built with Jib via `nais/login` (ADR 0010) — not
-  `nais/docker-build-push`. Every environment deploys the image from the
-  single build job.
+- Images are built with Jib via `nais/login` — not `nais/docker-build-push`.
+  Every environment deploys the image from the single build job.
 - Never `pull_request_target` with checkout of the PR branch, and never log
   secrets in workflow output.
 - Lint with `actionlint` and `zizmor` before pushing.
