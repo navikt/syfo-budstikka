@@ -101,7 +101,7 @@ See the section [Audit logging requirements](#audit-logging-requirements-for-sen
 **NAV context:** The largest residual risk for NAV apps. Leakage can happen via logs, error messages, browser cache, URLs, or uncontrolled outbound.
 
 - [ ] No PII (fnr, name, diagnosis, sykmelding, benefits data) in the standard log. See SKILL.md for classification.
-- [ ] Error messages to the client are generic; details are logged with a correlation ID, not returned (Ktor `StatusPages` + a shared error contract, see `/kotlin-ktor`).
+- [ ] Error messages to the client are generic; details are logged with a correlation ID, not returned to the caller.
 - [ ] Personal data never in the URL path or query (it ends up in access logs, browser history, referer headers). Use the body or a header.
 - [ ] `accessPolicy.outbound` limits where the app can send data — limit exfiltration surfaces.
 - [ ] Cache-Control: `no-store` on responses containing personal data.
@@ -252,5 +252,5 @@ All breaches must be documented internally — including those that do not trigg
 - `gdpr-privacy.md` — NAV-specific PII categorization, retention, data minimization.
 - `api-security.md` — Nav-Call-Id, Nav-Consumer-Id, accessPolicy as the primary mechanism.
 - `/auth-overview` — JWT validation, TokenX/Azure AD, `pid`/NAVident/`azp` claim, Texas sidecar.
-- `/kotlin-ktor` — StatusPages/ApiError error contract, CallId/MDC.
+- `/kotlin-ktor` — CallId/MDC, outbound HTTP client, DI wiring.
 - [sikkerhet.nav.no](https://sikkerhet.nav.no) — NAV's Golden Path, authoritative security guidance.

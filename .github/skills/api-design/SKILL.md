@@ -1,6 +1,6 @@
 ---
 name: api-design
-description: "Use when this backend's HTTP API contract changes shape rather than its implementation: versioning a route, breaking an existing contract, deprecating an endpoint, finding and notifying consuming teams, or publishing the API in Nav's API catalogue. Triggers: 'breaking change' / 'brytende endring', 'version the API' / 'versjonere API-et', 'who calls this endpoint' / 'hvem kaller dette endepunktet', 'deprecate the route' / 'deprekere ruta'. Route code and the error payload live in /kotlin-ktor, token validation in /auth-overview, accessPolicy in /nais-manifest."
+description: "Use when this backend's HTTP API contract changes shape rather than its implementation: versioning a route, breaking an existing contract, deprecating an endpoint, finding and notifying consuming teams, or publishing the API in Nav's API catalogue. Triggers: 'breaking change' / 'brytende endring', 'version the API' / 'versjonere API-et', 'who calls this endpoint' / 'hvem kaller dette endepunktet', 'deprecate the route' / 'deprekere ruta'. Route code lives in /kotlin-ktor, token validation in /auth-overview, accessPolicy in /nais-manifest."
 ---
 
 # API design — contract changes
@@ -56,15 +56,15 @@ Use `/architecture-review` for the cross-team and platform consequences.
 ### What counts as breaking
 
 - Removing or renaming a field, endpoint or route prefix; tightening validation.
-- Changing the shape of the error contract: renaming or removing an `ErrorType`
-  value, or changing the `ApiError` fields (`status`, `type`, `message`, `path`,
-  `timestamp`). Consumers parse error responses too. Implementation:
-  `/kotlin-ktor` → `references/error-handling.md`.
+- Changing the shape of the error response contract: renaming or removing a
+  field, or narrowing the set of error codes a consumer may already branch on.
+  Consumers parse error responses too, so the error body is part of the
+  contract just as much as the success body.
 
 ### What is safe
 
 - Adding a response field, an optional request field, or a new endpoint.
-- Adding a new `ErrorType` value — provided consumers deserialize error
+- Adding a new error code value — provided consumers deserialize error
   responses defensively.
 
 Safe changes still get documented; they just do not need a coordinated release.

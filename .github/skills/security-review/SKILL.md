@@ -161,7 +161,7 @@ Secrets are created in NAIS Console and injected via `envFrom`/`filesFrom`. Also
 | [sikkerhet.nav.no](https://sikkerhet.nav.no) | NAV's Golden Path for security |
 | `security.instructions.md` | Always-on (`applyTo: "**"`) security boundaries — complements this on-demand skill |
 | `/auth-overview` | JWT validation, TokenX/Azure AD, `pid`/NAVident/`azp` claim, Texas sidecar |
-| `/kotlin-ktor` | CallId/MDC, StatusPages/ApiError error contract |
+| `/kotlin-ktor` | CallId/MDC, outbound HTTP client, DI wiring |
 | `/postgresql-review` | Migrations that add/change PII columns — assess classification and legal basis for processing |
 | `references/nav-threat-model.md` | Deep threat modeling (STRIDE in a NAV context), DPIA process, audit logging requirements, Datatilsynet notification |
 | `references/gdpr-privacy.md` | NAV-specific PII categorization and pointers to DPIA/CEF/retention |

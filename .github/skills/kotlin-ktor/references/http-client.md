@@ -1,11 +1,11 @@
 # Outgoing HttpClient — calls to a downstream service
 
-Concrete setup for when this Ktor backend (`no.nav.budstikka`) calls another service itself. Token exchange (TokenX OBO / Azure AD M2M) is owned by `/auth-overview` — here we cover client setup, timeout/retry, tracing and the error contract.
+Concrete setup for when this Ktor backend (`no.nav.budstikka`) calls another service itself. Token exchange (TokenX OBO / Azure AD M2M) is owned by `/auth-overview` — here we cover client setup, timeout/retry, tracing and downstream error mapping.
 
 ## Client with timeout, retry and logging
 
 ```kotlin
-// Dependencies via ktorLibs.client.* (engine + ContentNegotiation) — not hand-written versions
+// Engine + ContentNegotiation come from the version catalogue — do not hand-write versions
 val httpClient = HttpClient(CIO) {
     expectSuccess = false                        // we map the status ourselves (see below)
     install(ContentNegotiation) { json() }
@@ -34,19 +34,16 @@ suspend fun hentNoe(callId: String): Noe {
 }
 ```
 
-## Translate downstream errors into the error contract BEFORE StatusPages
+## Map the downstream status at the client boundary
 
-A non-2xx response from downstream must not leak raw to our client. Map it to the repository's `ApiErrorException` (see `/kotlin-ktor` → references/error-handling.md), so that `StatusPages` yields a uniform `ApiError`:
+An `HttpResponse` must not escape the client — nothing outside `infrastructure/client/` should branch on a downstream status code. The existing clients turn the response into a domain value at the boundary, in one of two shapes:
 
-```kotlin
-suspend fun HttpResponse.toDomainOrThrow(): Noe = when (status.value) {
-    in 200..299 -> body()
-    401, 403    -> throw ApiErrorException.InternalServerErrorException("Tjenesten er midlertidig utilgjengelig")
-    404         -> throw ApiErrorException.NotFoundException("Fant ikke ressursen")
-    in 500..599 -> throw ApiErrorException.InternalServerErrorException("Tjenesten er midlertidig utilgjengelig")
-    else        -> throw ApiErrorException.InternalServerErrorException("Det oppsto en uventet feil")
-}
-```
+- **Enumerate the statuses** when several outcomes are meaningful to the caller, and return a domain result — `DocumentDistributionClient.kt` maps `when (status)` onto `DistributionResponse.Ok` / `NotOk`, so a dead recipient (410) is an ordinary answer rather than a failure.
+- **Check for success** when only 2xx is meaningful — `KrrClient.kt` uses `check(status.isSuccess())`.
+
+Everything unhandled raises, with a message that names the service and the status (`error("KRR responded with status ${status.value}")`) — that string is what an on-call engineer reads first. A malformed success body counts as unhandled.
+
+**Do not retain the exception cause when a body can contain personal data.** `KrrClient.parseIsReserved` catches `SerializationException` and throws a fresh error without the cause on purpose: the parser's message echoes the offending body, which would put a national identity number into a stacktrace.
 
 ## Boundaries
 

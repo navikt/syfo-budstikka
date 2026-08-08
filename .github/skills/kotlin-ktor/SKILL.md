@@ -1,6 +1,6 @@
 ---
 name: kotlin-ktor
-description: "Use for Ktor-specific work in no.nav.budstikka: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validation, and Ktor-related Kafka/Postgres setup — or /kotlin-ktor."
+description: "Use for Ktor-specific work in no.nav.budstikka: routes, plugins, auth, DI/wiring, logging/MDC, the outgoing HttpClient, and Ktor-related Kafka/Postgres setup — or /kotlin-ktor."
 ---
 
 # Ktor — NAV-specific (this repository)
@@ -33,7 +33,7 @@ ktor {
 
 Two catalogs are in use:
 - `ktorLibs` — all Ktor artifacts, pinned via `io.ktor:ktor-version-catalog` in `settings.gradle.kts`. Use e.g. `implementation(ktorLibs.server.auth)`, `ktorLibs.server.contentNegotiation`. Do not write Ktor versions by hand.
-- `libs` — everything else (logback, Koin, db, Kafka, etc.), defined in `gradle/libs.versions.toml`.
+- `libs` — everything else (logback, Exposed, Flyway, Postgres, kafka-clients, Micrometer, etc.), defined in `gradle/libs.versions.toml`.
 
 Add new Ktor plugins via `ktorLibs.*`; add third-party libraries via `libs.*` with the version in `[versions]`/`[libraries]`.
 
@@ -42,9 +42,11 @@ Add new Ktor plugins via `ktorLibs.*`; add third-party libraries via `libs.*` wi
 ```kotlin
 authenticate("azureAd") {
     get("/api/protected") {
-        val principal = call.principal<JWTPrincipal>()
-        val navIdent = principal?.getClaim("NAVident", String::class)
-            ?: throw ApiErrorException.UnauthorizedException("Mangler NAVident")
+        val navIdent = call.principal<JWTPrincipal>()?.getClaim("NAVident", String::class)
+        if (navIdent == null) {
+            call.respond(HttpStatusCode.Unauthorized, "Mangler NAVident")
+            return@get
+        }
     }
 }
 ```
@@ -55,7 +57,7 @@ authenticate("azureAd") {
 
 ## Dependency injection
 
-Detect the existing DI pattern first. If `io.insert-koin` is among the dependencies: use Koin (`install(Koin) { modules(appModule) }`, resolve via `by inject()`). Otherwise **manual constructor injection** in the `Application` module is the default — do not pull in a DI framework unprompted. (This repository has no Koin today.)
+Wiring lives in `bootstrap/DependencyInjection.kt` — read it before adding a dependency. Do not pull in a DI framework unprompted.
 
 ## Logging and tracing
 
@@ -70,17 +72,13 @@ install(CallId) {
 
 NAIS expects structured (JSON) logging to stdout for collection. Never log national identity numbers or special categories of personal data in plain text — use callId/actor references instead.
 
-## Error handling — StatusPages + ApiError
+## HTTP surface
 
-Team standard for structured error responses: a sealed `ApiErrorException` hierarchy + the `StatusPages` plugin that maps to a uniform `ApiError` payload (status, type, message, path, timestamp). See [references/error-handling.md](references/error-handling.md) for the full implementation (`ErrorType` enum, `ApiErrorException` classes, `installStatusPages()`, `determineApiError()`, logging).
-
-## Pagination and input validation
-
-Team-standard `PaginatedResponse<T>` wrapper and route validation with early return (throw `ApiErrorException.BadRequestException`) on invalid parameters. See [references/pagination-and-validation.md](references/pagination-and-validation.md).
+This application is a Kafka consumer/worker. The only routes it serves are `/internal/health/is_alive`, `/internal/health/is_ready` and `/internal/metrics` (`api/InternalApi.kt`), so there is no public HTTP API and no error-response contract, pagination or request validation to follow. If a public API is added, agree its error contract with the consuming team before implementing it — do not assume one already exists.
 
 ## Outgoing HttpClient (calls to a downstream service)
 
-When the backend itself calls a downstream service: use the Ktor `HttpClient` via `ktorLibs.client.*`, with explicit timeout/retry, `Nav-Call-Id` propagation and translation of downstream errors into the repository's error contract. The token for the call is obtained as described in `/auth-overview` (TokenX OBO / Azure AD M2M) — do not duplicate auth here. See [references/http-client.md](references/http-client.md) for the concrete setup (engine, `HttpTimeout`, `HttpRequestRetry`, callId header, `ApiErrorException` mapping; circuit breaker requires Resilience4j — not native in Ktor).
+When the backend itself calls a downstream service: use the Ktor `HttpClient`, with explicit timeout/retry, `Nav-Call-Id` propagation, and translation of the downstream status into a domain-level result at the client boundary. The token for the call is obtained as described in `/auth-overview` (TokenX OBO / Azure AD M2M) — do not duplicate auth here. See [references/http-client.md](references/http-client.md) for the concrete setup (engine, `HttpTimeout`, `HttpRequestRetry`, callId header, status mapping; circuit breaker requires Resilience4j — not native in Ktor).
 
 ## Persistence (Postgres / Flyway)
 

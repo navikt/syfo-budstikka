@@ -59,7 +59,7 @@ ADRs. A silent deviation from an accepted decision is a blocker; a proposed
 decision binds only when the active task explicitly builds on it.
 
 ### F. Standards coverage (against the repository's conventions)
-Does the code follow the way this repository writes code — Ktor route structure, the error contract via StatusPages, the DI pattern, naming, package structure under `no.nav.budstikka`? Skip anything tooling enforces (formatting, import order) — that is caught by the gates, not by your eyes.
+Does the code follow the way this repository writes code — Ktor route structure, the DI pattern, naming, package structure under `no.nav.budstikka`? Skip anything tooling enforces (formatting, import order) — that is caught by the gates, not by your eyes.
 
 ## NAV/Ktor edge cases (axis C, checklist)
 
@@ -67,7 +67,7 @@ Does the code follow the way this repository writes code — Ktor route structur
 - **PII in logs:** Do national identity numbers, names, diagnosis or sykmelding status sneak into a standard log line via string interpolation? Displaying personal data to a NAV employee → CEF audit log, not the standard log. (Details: `/security-review`.)
 - **Kafka:** Empty/`null` record value? Idempotence on redelivery? Manual vs. auto-commit semantics? Poison message — does it end up in a DLQ or loop? Is the offset committed before or after the side effect?
 - **Postgres/Flyway:** New migration — runnable forward AND backward-compatible with running pods (rolling deploy)? A `NOT NULL` column without a default on a non-empty table? An N+1 introduced? Connection closed / returned to the pool? A transaction boundary around multi-step writes?
-- **Ktor HTTP:** Are errors mapped to the right status via StatusPages (no stack trace leaked to the client)? Is `Nav-Call-Id` propagated to outgoing calls? Timeout and retry on external calls? Pagination preserved?
+- **Ktor HTTP:** Are downstream failures handled without leaking a stack trace or personal data to the caller? Is `Nav-Call-Id` propagated to outgoing calls? Timeout and retry on external calls? Pagination preserved?
 - **NAIS:** Is a changed `accessPolicy.inbound` mirrored in the auth code, and vice versa? Is `outbound` pointed at the right cluster/namespace? Is a new env variable actually set in the manifest?
 - **Coroutines:** A blocking call inside a suspend function? Missing `CoroutineScope`/structured concurrency? An exception swallowed in a launch?
 
