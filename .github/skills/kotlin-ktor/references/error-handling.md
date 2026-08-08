@@ -1,6 +1,10 @@
 # Error handling — Ktor StatusPages (complete implementation)
 
-Team standard for a uniform error contract in `no.nav.syfo` Ktor services. Clients always get the same JSON shape, and unexpected errors do not leak a stacktrace.
+Team standard for a uniform error contract in `no.nav.budstikka` Ktor services. Clients always get the same JSON shape, and unexpected errors do not leak a stacktrace.
+
+The `message` field is consumer-facing, so its text is Norwegian Bokmål (see
+`docs/agents/language-policy.md` and `/klarsprak`). Identifiers, `type` values
+and log lines stay English.
 
 ## ApiError and ErrorType
 
@@ -21,19 +25,19 @@ enum class ErrorType { AUTHENTICATION_ERROR, AUTHORIZATION_ERROR, NOT_FOUND, INT
 ```kotlin
 sealed class ApiErrorException(message: String, val type: ErrorType, cause: Throwable?) : RuntimeException(message, cause) {
     abstract fun toApiError(path: String): ApiError
-    class ForbiddenException(val errorMessage: String = "Forbidden", cause: Throwable? = null, type: ErrorType = ErrorType.AUTHORIZATION_ERROR) : ApiErrorException(errorMessage, type, cause) {
+    class ForbiddenException(val errorMessage: String = "Ingen tilgang", cause: Throwable? = null, type: ErrorType = ErrorType.AUTHORIZATION_ERROR) : ApiErrorException(errorMessage, type, cause) {
         override fun toApiError(path: String) = ApiError(HttpStatusCode.Forbidden, type, errorMessage, path)
     }
-    class BadRequestException(val errorMessage: String = "Bad Request", cause: Throwable? = null, type: ErrorType = ErrorType.BAD_REQUEST) : ApiErrorException(errorMessage, type, cause) {
+    class BadRequestException(val errorMessage: String = "Ugyldig forespørsel", cause: Throwable? = null, type: ErrorType = ErrorType.BAD_REQUEST) : ApiErrorException(errorMessage, type, cause) {
         override fun toApiError(path: String) = ApiError(HttpStatusCode.BadRequest, type, errorMessage, path)
     }
-    class NotFoundException(val errorMessage: String = "Not Found", cause: Throwable? = null, type: ErrorType = ErrorType.NOT_FOUND) : ApiErrorException(errorMessage, type, cause) {
+    class NotFoundException(val errorMessage: String = "Fant ikke ressursen", cause: Throwable? = null, type: ErrorType = ErrorType.NOT_FOUND) : ApiErrorException(errorMessage, type, cause) {
         override fun toApiError(path: String) = ApiError(HttpStatusCode.NotFound, type, errorMessage, path)
     }
-    class InternalServerErrorException(val errorMessage: String = "Internal Server Error", cause: Throwable? = null, type: ErrorType = ErrorType.INTERNAL_SERVER_ERROR) : ApiErrorException(errorMessage, type, cause) {
+    class InternalServerErrorException(val errorMessage: String = "Det oppsto en uventet feil", cause: Throwable? = null, type: ErrorType = ErrorType.INTERNAL_SERVER_ERROR) : ApiErrorException(errorMessage, type, cause) {
         override fun toApiError(path: String) = ApiError(HttpStatusCode.InternalServerError, type, errorMessage, path)
     }
-    class UnauthorizedException(val errorMessage: String = "Unauthorized", cause: Throwable? = null, type: ErrorType = ErrorType.AUTHENTICATION_ERROR) : ApiErrorException(errorMessage, type, cause) {
+    class UnauthorizedException(val errorMessage: String = "Ikke autentisert", cause: Throwable? = null, type: ErrorType = ErrorType.AUTHENTICATION_ERROR) : ApiErrorException(errorMessage, type, cause) {
         override fun toApiError(path: String) = ApiError(HttpStatusCode.Unauthorized, type, errorMessage, path)
     }
 }
@@ -60,20 +64,20 @@ fun determineApiError(cause: Throwable, path: String): ApiError = when (cause) {
     is BadRequestException -> cause.toApiError(path)
     is NotFoundException -> cause.toApiError(path)
     is ApiErrorException -> cause.toApiError(path)
-    else -> ApiError(HttpStatusCode.InternalServerError, ErrorType.INTERNAL_SERVER_ERROR, cause.message ?: "Internal server error", path)
+    else -> ApiError(HttpStatusCode.InternalServerError, ErrorType.INTERNAL_SERVER_ERROR, "Det oppsto en uventet feil", path)
 }
 
 fun BadRequestException.toApiError(path: String?): ApiError {
     val rootCause = this.rootCause()
     return if (rootCause is MissingFieldException) {
-        ApiErrorException.BadRequestException("Invalid request body. Missing required field(s): ${rootCause.missingFields.joinToString()}", type = ErrorType.INVALID_FORMAT).toApiError(path ?: "")
+        ApiErrorException.BadRequestException("Ugyldig forespørsel. Mangler påkrevd felt: ${rootCause.missingFields.joinToString()}", type = ErrorType.INVALID_FORMAT).toApiError(path ?: "")
     } else {
-        ApiError(status = HttpStatusCode.BadRequest, type = ErrorType.BAD_REQUEST, message = this.message ?: "Bad request", path = path)
+        ApiError(status = HttpStatusCode.BadRequest, type = ErrorType.BAD_REQUEST, message = this.message ?: "Ugyldig forespørsel", path = path)
     }
 }
 
 fun NotFoundException.toApiError(path: String?): ApiError = ApiError(
-    status = HttpStatusCode.NotFound, type = ErrorType.NOT_FOUND, message = this.message ?: "Not found", path = path,
+    status = HttpStatusCode.NotFound, type = ErrorType.NOT_FOUND, message = this.message ?: "Fant ikke ressursen", path = path,
 )
 
 fun Throwable.rootCause(): Throwable {
@@ -101,7 +105,7 @@ private fun logException(call: ApplicationCall, cause: Throwable) {
 
 ## apiModule() — setup
 
-`installStatusPages()` is registered in an `Application` module. Remember to add the module to `application.yaml` (`ktor.application.modules`) for it to run.
+`installStatusPages()` is registered in an `Application` module. Remember to add the module to `application.conf` (`ktor.application.modules`) for it to run.
 
 ```kotlin
 fun Application.apiModule() {
@@ -118,8 +122,8 @@ fun Application.apiModule() {
 {
   "status": 404,
   "type": "NOT_FOUND",
-  "message": "Vedtak with id 550e8400 does not exist",
-  "path": "/api/v1/vedtak/550e8400",
+  "message": "Fant ingen formidling med referanse 550e8400",
+  "path": "/api/v1/formidlinger/550e8400",
   "timestamp": "2025-01-15T10:30:00Z"
 }
 ```

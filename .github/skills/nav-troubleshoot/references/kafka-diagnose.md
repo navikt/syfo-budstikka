@@ -1,6 +1,6 @@
 # Kafka diagnosis — consumer lag and processing failures
 
-Diagnostic trees for NAIS Kafka consumers in this repository's Ktor backend (`no.nav.syfo`). **Detect the actual stack first** — the app may use plain Apache Kafka clients (Kotlin) or Rapids & Rivers. The diagnosis must match what the code path actually runs.
+Diagnostic trees for NAIS Kafka consumers in this repository's Ktor backend. **Detect the actual stack first** — the app may use plain Apache Kafka clients (Kotlin) or Rapids & Rivers. The diagnosis must match what the code path actually runs.
 
 See `/kafka-topic` for the patterns; this file is for *diagnosing when they do not work*.
 

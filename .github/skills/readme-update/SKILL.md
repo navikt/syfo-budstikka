@@ -5,18 +5,18 @@ description: "Use when this repository's README or repo documentation is to be c
 
 # README update
 
-Use this skill when the README is to be created or updated. The README must mirror what the `no.nav.syfo` backend actually does today — not fill in a generic template and not describe a desired future.
+Use this skill when the README is to be created or updated. The README must mirror what the `no.nav.budstikka` backend actually does today — not fill in a generic template and not describe a desired future.
 
-Focus on what a backend reader needs: what the service does, which APIs it exposes, what it consumes/produces on Kafka, which database it owns, how it authenticates callers, and how other services reach it. Drop frontend-specific devices (environment links for a deployable UI, microfrontend tables, the Nav decorator, Storybook).
+Focus on what a backend reader needs: what the service does, which APIs it exposes, what it consumes/produces on Kafka, which database it owns, how it authenticates callers, and how other services reach it. Drop frontend-specific techniques (environment links for a deployable UI, microfrontend tables, the Nav decorator, Storybook).
 
 ## Step 1: Read the repository first
 
 Read the actual sources before writing a single line of README:
 
 1. **Existing README** — preserve manual content, Slack channels, wiki links and stable operational tips that still hold. The generated Ktor scaffold (links to ktor.io, an empty "Features" table, the `./gradlew run` table) is not manual content — it must be replaced.
-2. **Stack and build** — `build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`. Pull out `group` (`no.nav.syfo`), `mainClass` (typically `io.ktor.server.netty.EngineMain`), the JVM toolchain, the Ktor version from the version catalog, and which modules are actually on the classpath (server-core, netty, auth, content-negotiation, flyway, kafka client, exposed/hikari and so on).
+2. **Stack and build** — `build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`. Pull out `group` (`no.nav.syfo` — note that the Kotlin source package is `no.nav.budstikka`), `mainClass` (typically `io.ktor.server.netty.EngineMain`), the JVM toolchain, the Ktor version from the version catalog, and which modules are actually on the classpath (server-core, netty, auth, content-negotiation, flyway, kafka client, exposed/hikari and so on).
 3. **NAIS manifest** — `.nais/` (or `nais/`, `.nais.yaml`) for environments (`dev-gcp`/`prod-gcp`), `ingresses`, `gcp.sqlInstances` (Postgres), `kafka`, `accessPolicy.inbound`/`outbound`, and `tokenx`/`azure`. The manifest is the source of truth for auth, integrations and environments — do not guess.
-4. **Code** — `src/main/kotlin/` for the Ktor setup: `embeddedServer`/`Application.module()`, `routing { ... }` blocks (endpoints), `install(Authentication)` (TokenX/Azure AD validation), Kafka consumer/producer, and the database layer. Check `src/main/resources/application.yaml` (or `.conf`) for ports, environment variables and feature toggles, and `src/main/resources/db/migration/` for Flyway migrations.
+4. **Code** — `src/main/kotlin/` for the Ktor setup: `embeddedServer`/`Application.module()`, `routing { ... }` blocks (endpoints), `install(Authentication)` (TokenX/Azure AD validation), Kafka consumer/producer, and the database layer. Check `src/main/resources/application.conf` for ports, environment variables and feature toggles, and `src/main/resources/database.migration/` for Flyway migrations.
 5. **CI/CD** — `.github/workflows/` for the workflow name used in the CI badge and the deploy flow.
 6. **Docs** — maintained contracts and reader/operator documentation. Link
    only to what a README reader needs; do not build an ADR catalogue. Follow
@@ -40,7 +40,7 @@ Clarify at least this before you write:
 | Mermaid-diagram | If there are integrations, auth or flow between services | The actual flows: calling service → app (TokenX/Azure), Kafka in/out, Postgres, outgoing API calls. See the Mermaid section |
 | API-oversikt | If the repository exposes an API | Method, path, short description, auth requirement per endpoint |
 | Kafka | If consumer/producer | Topics, direction (in/out), what is read/persisted/published onward |
-| Database | If Postgres/Flyway | What the database owns, briefly about the central tables, that the schema is governed by Flyway migrations in `db/migration/` |
+| Database | If Postgres/Flyway | What the database owns, briefly about the central tables, that the schema is governed by Flyway migrations in `database.migration/` |
 | Autentisering | If `install(Authentication)` or `tokenx`/`azure` in the manifest | Which mechanism (TokenX, Azure AD), which endpoints are protected, who counts as a valid caller (`accessPolicy.inbound`) |
 | Utvikling | Always | Short section at the bottom: a stable local URL (typically `http://localhost:8080`) and where the reader finds fresh commands. Point to `./gradlew tasks` instead of listing specific `./gradlew test`/`build`/`run` |
 | Les mer | If docs exist | Links to the maintained topic and operator documents the reader needs |
@@ -150,7 +150,7 @@ Formål must explain what the backend does and for whom:
 
 ## Database and Flyway
 
-If the repository owns a Postgres database: describe briefly what the database stores and which central tables exist, and state that the schema is governed by Flyway migrations in `src/main/resources/db/migration/`. Do not duplicate the entire schema in the README — point to the migration files as the source.
+If the repository owns a Postgres database: describe briefly what the database stores and which central tables exist, and state that the schema is governed by Flyway migrations in `src/main/resources/database.migration/`. Do not duplicate the entire schema in the README — point to the migration files as the source.
 
 ## Observability
 
@@ -160,7 +160,7 @@ If the repository has Grafana dashboards, link to them. Nav uses `https://grafan
 
 ### Always
 
-- Read actual repository content (`build.gradle.kts`, `.nais/`, `src/main/kotlin/`, `application.yaml`, workflows) before you write the README.
+- Read actual repository content (`build.gradle.kts`, `.nais/`, `src/main/kotlin/`, `application.conf`, workflows) before you write the README.
 - Cross-check the README text against code, manifest and workflows.
 - Preserve manual content that is still correct.
 - Describe auth and integrations with Nav context where they exist: TokenX, Azure AD, `accessPolicy`, Kafka topics, Postgres.

@@ -1,11 +1,11 @@
 ---
 name: nav-troubleshoot
-description: "Use when the Ktor backend fails at RUNTIME on NAIS: pod does not start / CrashLoopBackOff / OOMKilled, 401/403, Kafka consumer lag, DB/HikariCP/Flyway errors at startup, or signals that disagree across Mimir/Loki/Tempo. For designing schema/manifest/auth, see /nais-manifest and /auth-overview."
+description: "Use when the deployed app misbehaves IN PRODUCTION on the NAIS platform — a symptom you investigate with kubectl, Nais Console, Mimir/Loki/Tempo rather than in a local test: pod does not start / CrashLoopBackOff / OOMKilled / ImagePullBackOff, 401/403 from TokenX or Azure AD, Kafka consumer lag, Cloud SQL/HikariCP/Flyway failures at pod startup, a failing nais deploy, or platform signals that disagree. Triggers: 'the pod is crashing in prod' / 'poden krasjer i prod', 'deploy failed' / 'deployen feiler', 'we are getting 403 in dev-gcp' / 'vi får 403 i dev-gcp'. This skill locates the platform cause; /diagnosing-bugs owns bugs reproducible in code and tests, /nais-manifest and /auth-overview own design-time configuration."
 ---
 
 # Nav Troubleshoot — platform diagnostics
 
-Structured diagnostic trees for runtime symptoms on NAIS in this repository. Use this skill when something **fails at runtime** (pod crashes, 401/403, consumer lag, DB timeout) — not when you are designing or changing schema / manifest / auth.
+Structured diagnostic trees for symptoms in a **deployed** environment on NAIS (dev-gcp, prod-gcp). Use this skill when the platform is where the evidence lives — pod events, `kubectl logs`, Nais Console, Mimir/Loki/Tempo — not when you are designing or changing schema / manifest / auth, and not for a bug you can reproduce locally.
 
 The skill routes symptom → the right diagnostic tree. The fix discipline (feedback loop, repro, hypotheses, regression test) lives in `/diagnosing-bugs` — start here to locate the cause, go there to close the bug. Generic Kubernetes/Kafka/SQL knowledge is not duplicated here; bring that from your own repertoire.
 

@@ -1,6 +1,6 @@
 # Observability diagnosis — when metrics, logs and traces do not point the same way
 
-Use this reference when this repository's Ktor backend (`no.nav.syfo`) is running but the symptoms are unclear: a high error rate with no clear stack trace, latency with no clear bottleneck, restarts with no certain root cause, or no correlation between Mimir, Loki and Tempo.
+Use this reference when this repository's Ktor backend is running but the symptoms are unclear: a high error rate with no clear stack trace, latency with no clear bottleneck, restarts with no certain root cause, or no correlation between Mimir, Loki and Tempo.
 
 This is NAV-specific diagnostic help for **Mimir + Loki + Tempo on Nais**. It does not teach Prometheus or Grafana from scratch. It helps you pick the right starting point and avoid common misreadings.
 

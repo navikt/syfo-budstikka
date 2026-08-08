@@ -1,6 +1,6 @@
 # Auth diagnosis — 401 Unauthorized and 403 Forbidden
 
-Diagnostic trees for authentication and authorization failures in this repository's Ktor backend (`no.nav.syfo`). Covers Azure AD, TokenX, ID-porten and Maskinporten via the Texas sidecar (JVM/Kotlin).
+Diagnostic trees for authentication and authorization failures in this repository's Ktor backend. Covers Azure AD, TokenX, ID-porten and Maskinporten via the Texas sidecar (JVM/Kotlin).
 
 See `/auth-overview` for the mechanisms; this file is for *diagnosing when they fail*.
 

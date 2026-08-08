@@ -1,5 +1,5 @@
 ---
-description: "Full Naisjob template (cron batch with Kafka, Azure AD M2M and Postgres) and guidance on when Naisjob is the right choice over Application. Read when creating or changing a batch/cron job in the no.nav.syfo backend."
+description: "Full Naisjob template (cron batch with Kafka, Azure AD M2M and Postgres) and guidance on when Naisjob is the right choice over Application. Read when creating or changing a batch/cron job in this backend."
 ---
 
 # Naisjob — full example

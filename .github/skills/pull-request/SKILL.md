@@ -1,6 +1,6 @@
 ---
 name: pull-request
-description: "Use when a change in this repository is to be created or updated as a pull request: 'create PR', 'update PR', or /pull-request after a green vertical slice."
+description: "Use when a change in this repository is to be created or updated as a pull request. Triggers: 'create a PR' / 'lag en PR', 'update the PR' / 'oppdater PR-en', 'open a pull request' / 'åpne en pull request', or /pull-request after a green vertical slice."
 ---
 
 # Pull request
@@ -10,10 +10,16 @@ Package the change in a PR that can be reviewed without guesswork: a clear title
 ## Contract for the PR
 
 1. **The title follows the semantic format:** `type(scope): short description`.
+   - Scopes in use in this repository: `kafka`, `db`, `nais`, `deps`, `auth`,
+     `config`, `build`, `kontrakt`, `observability`, `logging`, and for the agent
+     corpus `skills`, `agents`, `instructions`. Reuse an existing scope when one
+     fits; the vocabulary is descriptive, not closed — `git log --oneline` is the
+     source of truth. Omit the scope rather than inventing a one-off.
    - **Done when:** the title describes the change precisely on one line.
 
 2. **The body follows the repository template:** `.github/PULL_REQUEST_TEMPLATE.md`.
    - Fill in: Beskrivelse, Endringer, Issue, Verifikasjon, Sjekkliste.
+   - The template and its sections are Norwegian; use `/klarsprak` for the prose.
    - **Done when:** all relevant sections are filled in with no placeholder text.
 
 3. **The issue link is explicit.**

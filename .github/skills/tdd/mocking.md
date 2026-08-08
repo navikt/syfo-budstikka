@@ -2,13 +2,13 @@
 
 Mock only at **system boundaries**:
 
-- External HTTP services (other fagsystemer, TokenX/Azure AD token endpoints, integrations)
+- External HTTP services (other case-processing systems, TokenX/Entra ID token endpoints, integrations)
 - Time and randomness (`Clock`, UUID generation)
 - Rarely: the file system
 
 Do not mock:
 
-- Your own classes/services (`no.nav.syfo.*`)
+- Your own classes/services (`no.nav.budstikka.*`)
 - Internal collaborators
 - The database — prefer a real test Postgres via Testcontainers with the Flyway migrations applied, so the tests catch SQL and schema errors
 - Kafka — prefer a real broker via Testcontainers (`KafkaContainer`) over mocking the producer/consumer
@@ -24,18 +24,17 @@ At system boundaries, build interfaces that are easy to swap out in tests.
 Pass external dependencies in instead of constructing them internally:
 
 ```kotlin
-// Easy to swap out: HttpClient and Clock are injected
-class SoknadService(
-    private val pdlClient: PdlClient,
+// Easy to swap out: the lookup port and Clock are injected
+class DispatchDecider(
+    private val reservationLookup: ReservationLookup,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    fun registrer(soknad: Soknad): RegistrertSoknad =
-        RegistrertSoknad(soknad, mottatt = Instant.now(clock))
+    suspend fun decide(draft: DeliveryDraft): Decision = /* ... */
 }
 
 // Hard to test: constructs the client and reads the environment itself
-class SoknadService {
-    private val pdlClient = PdlClient(System.getenv("PDL_URL"))
+class DispatchDecider {
+    private val krrClient = KrrClient(System.getenv("KRR_URL"))
 }
 ```
 
@@ -44,10 +43,13 @@ class SoknadService {
 Write one function per external operation instead of one generic function with conditional logic:
 
 ```kotlin
-// GOOD: each function is independently mockable / easy to fake
-interface PdlClient {
-    suspend fun hentPerson(ident: String): Person
-    suspend fun hentNavn(ident: String): Navn
+// GOOD: each port is independently fakeable — see application/port/ and domain/foundation/
+fun interface ReservationLookup {
+    suspend fun isReserved(ident: PersonIdentifier): Boolean
+}
+
+fun interface DeathLookup {
+    suspend fun isDead(ident: PersonIdentifier): Boolean
 }
 
 // BAD: mocking requires conditional logic inside the mock

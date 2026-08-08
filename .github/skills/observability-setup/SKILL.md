@@ -1,11 +1,11 @@
 ---
 name: observability-setup
-description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/isalive|isready|prometheus, structured JSON logging with trace_id/callId, correlation ID (Nav-Callid/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
+description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/isalive|isready|prometheus, structured JSON logging with trace_id/callId, correlation ID (Nav-Call-Id/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
 ---
 
 # Observability in this repository
 
-Ktor 3.x on Netty, package `no.nav.syfo`, running in NAIS. Keep the main rules here short — use `references/` for full examples.
+Ktor 3.x on Netty, package `no.nav.budstikka`, running in NAIS. Keep the main rules here short — use `references/` for full examples.
 
 - **Metrics** tell you *what* is happening
 - **Logs** explain *why* it happened
@@ -14,7 +14,7 @@ Ktor 3.x on Netty, package `no.nav.syfo`, running in NAIS. Keep the main rules h
 
 ## Workflow
 
-1. Read the NAIS manifest, `src/main/resources/application.yaml`, `logback.xml` and `build.gradle.kts`/`gradle/libs.versions.toml` for existing observability setup.
+1. Read the NAIS manifest, `src/main/resources/application.conf`, `logback.xml` and `build.gradle.kts`/`gradle/libs.versions.toml` for existing observability setup.
 2. Find the established patterns for `MicrometerMetrics`, `MeterRegistry` injection (Koin), `CallId`/`CallLogging`, MDC fields and health routes.
 3. Verify which endpoints NAIS actually scrapes and probes: `/internal/isalive`, `/internal/isready`, `/internal/prometheus` (or `/internal/metrics`). The paths in the code must match the manifest.
 4. Start with standard metrics (Ktor HTTP server + JVM) and extend with domain metrics that provide operational value.
@@ -61,19 +61,23 @@ Your own labels must cover domain aspects:
 A correlation ID lets you follow a request across services, Kafka messages and logs. The repository already uses `CallId`/`CallLogging` (see the `kotlin-ktor` skill) — build on that, do not set up something in parallel.
 
 ### Headers
-- `Nav-Callid` — NAV convention; read it and propagate it on all outgoing HTTP calls and Kafka headers
+- `Nav-Call-Id` — NAV convention; read it and propagate it on all outgoing HTTP calls and Kafka headers
 - `X-Request-Id` / `X-Correlation-ID` — accept as a fallback for external integrations
 - W3C `traceparent` — set automatically by the OpenTelemetry agent in NAIS
 
+The header name is exact: `Nav-Call-Id`, not `Nav-Callid`. HTTP header names are
+case-insensitive but not hyphen-insensitive, so the two are different headers and
+a mismatch silently breaks correlation. The constant lives in
+`src/main/kotlin/no/nav/budstikka/api/Plugins.kt`:
+
 ```kotlin
+const val NAV_CALL_ID_HEADER = "Nav-Call-Id"
+
 install(CallId) {
-    header(HttpHeaders.XRequestId)
-    retrieveFromHeader("Nav-Callid")
+    retrieve { it.request.headers[NAV_CALL_ID_HEADER] }
     generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("x_request_id")
+    verify { callId: String -> callId.isNotEmpty() }
+    header(NAV_CALL_ID_HEADER)
 }
 ```
 
@@ -102,13 +106,13 @@ One JSON line per log entry on stdout. Fields Loki parses and indexes:
 {
   "@timestamp": "2026-06-29T10:23:45.123Z",
   "level": "INFO",
-  "message": "Task processed",
-  "logger_name": "no.nav.syfo.oppgave.OppgaveService",
+  "message": "Delivery sent",
+  "logger_name": "no.nav.budstikka.application.DeliveryWorker",
   "thread_name": "eventLoopGroupProxy-4-1",
   "trace_id": "2f2f2264a8b6df9f8b3d614f4c9ce111",
   "span_id": "b3d614f4c9ce111a",
   "callId": "abc-123",
-  "event_type": "oppgave_behandlet"
+  "event_type": "delivery_sent"
 }
 ```
 
@@ -162,7 +166,7 @@ route and wait for the user's choice before `/domain-modeling` records it.
 - [ ] `MicrometerMetrics` installed with a shared `PrometheusMeterRegistry` + JVM binders
 - [ ] OpenTelemetry auto-instrumentation considered/enabled in NAIS
 - [ ] Structured JSON logging to stdout with `trace_id`, `span_id`, `callId`
-- [ ] `Nav-Callid` is read via `CallId`, propagated on outgoing calls and put on the MDC
+- [ ] `Nav-Call-Id` is read via `CallId`, propagated on outgoing calls and put on the MDC
 - [ ] Key domain metrics defined with stable `snake_case` names and low-cardinality labels
 - [ ] Dashboards cover request rate, error rate, latency p95/p99, pool usage and Kafka lag
 - [ ] Alerts exist for high error rate, high latency, pod restarts and critical dependencies
@@ -174,9 +178,9 @@ route and wait for the user's choice before `/domain-modeling` records it.
 - Use `snake_case` and unit suffixes for metrics
 - Use low and bounded label values
 - Log structured JSON to stdout (not files)
-- Propagate `Nav-Callid` and put `trace_id`/`callId` in logs via the existing `CallId`/`CallLogging`
+- Propagate `Nav-Call-Id` and put `trace_id`/`callId` in logs via the existing `CallId`/`CallLogging`
 - Follow the existing logging and metrics patterns in the repository
-- Verify health paths, scrape path and tracing setup against the actual NAIS config and `application.yaml`
+- Verify health paths, scrape path and tracing setup against the actual NAIS config and `application.conf`
 
 ### Ask first / grill
 - New labels that could increase cardinality substantially

@@ -1,6 +1,6 @@
 # Code examples — Pagination and input validation
 
-Team standard patterns for `no.nav.syfo` Ktor routes. Validate early and throw `ApiErrorException` — the StatusPages plugin (see `error-handling.md`) produces the right error response.
+Team standard patterns for `no.nav.budstikka` Ktor routes. Validate early and throw `ApiErrorException` — the StatusPages plugin (see `error-handling.md`) produces the right error response.
 
 ## Pagination
 
@@ -19,7 +19,7 @@ data class PaginatedResponse<T>(
 get("/api/v1/vedtak") {
     val side = call.queryParameters["side"]?.toIntOrNull() ?: 0
     val antall = call.queryParameters["antall"]?.toIntOrNull() ?: 20
-    if (antall > 100) throw ApiErrorException.BadRequestException("Max 100 per page")
+    if (antall > 100) throw ApiErrorException.BadRequestException("Maks 100 per side")
     val result = vedtakService.findAll(offset = side * antall, limit = antall)
     call.respond(result)
 }
@@ -47,8 +47,8 @@ data class CreateVedtakRequest(val brukerId: String, val beskrivelse: String? = 
 
 post("/api/v1/vedtak") {
     val request = call.receive<CreateVedtakRequest>()
-    if (request.brukerId.isBlank()) throw ApiErrorException.BadRequestException("brukerId cannot be blank")
-    request.beskrivelse?.let { if (it.length > 500) throw ApiErrorException.BadRequestException("beskrivelse max 500 characters") }
+    if (request.brukerId.isBlank()) throw ApiErrorException.BadRequestException("brukerId kan ikke være tom")
+    request.beskrivelse?.let { if (it.length > 500) throw ApiErrorException.BadRequestException("beskrivelse kan være maks 500 tegn") }
     val vedtak = vedtakService.create(request)
     call.response.header("Location", "/api/v1/vedtak/${vedtak.id}")
     call.respond(HttpStatusCode.Created, vedtak.toDto())

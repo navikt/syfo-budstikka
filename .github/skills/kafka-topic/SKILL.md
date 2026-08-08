@@ -1,6 +1,6 @@
 ---
 name: kafka-topic
-description: "Use when this Ktor backend (no.nav.syfo) is to produce or consume Kafka events — a new or changed consumer/producer, a new topic via Kafkarator, event contract, key strategy, idempotency or DLQ. Triggers: 'listen to a topic', 'publish an event', 'Kafkarator', 'Topic CRD', 'consumer', 'producer', 'Rapids & Rivers', 'River', '@event_name', 'kafka.pool', 'DLQ', 'idempotent consumer'."
+description: "Use when this Ktor backend is to produce or consume Kafka events — a new or changed consumer/producer, a new topic via Kafkarator, event contract, key strategy, idempotency or DLQ. Triggers: 'listen to a topic' / 'lytte på et topic', 'publish an event' / 'publisere en hendelse', 'new topic' / 'nytt topic', plus 'Kafkarator', 'Topic CRD', 'Rapids & Rivers', '@event_name', 'kafka.pool', 'DLQ', 'idempotent consumer'."
 ---
 
 # Kafka — topic, consumer and producer
@@ -198,7 +198,7 @@ How do you change an existing event?
 ```
 
 Breaking event changes are a coordination problem with consuming teams —
-the same discipline as API versioning. Review Nav-wide and
+the same discipline as API versioning, see `/api-design`. Review Nav-wide and
 team consequences with `/architecture-review`. When the decision qualifies,
 recommend the documented route and wait for the user's choice before `/domain-modeling`
 records an ADR.

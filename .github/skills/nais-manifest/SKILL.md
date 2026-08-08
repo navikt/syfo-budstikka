@@ -1,6 +1,6 @@
 ---
 name: nais-manifest
-description: "Use when this Ktor backend (no.nav.syfo) needs a new or changed NAIS manifest — nais.yaml for an Application or a Naisjob: ingress, resources, probes, accessPolicy, Azure AD/TokenX, Kafka or GCP Postgres. Trigger: 'create a nais manifest', 'expose the app', 'add database/Kafka/auth to nais', 'scale up in prod', CPU throttling, OOM kill, batch/cron job. Invoked via /nais-manifest."
+description: "Use when this Ktor backend needs a new or changed NAIS manifest — nais.yaml for an Application or a Naisjob: ingress, resources, probes, accessPolicy, Azure AD/TokenX, Kafka or GCP Postgres. Trigger: 'create a nais manifest', 'expose the app', 'add database/Kafka/auth to nais', 'scale up in prod', CPU throttling, OOM kill, batch/cron job. Invoked via /nais-manifest."
 ---
 
 # NAIS manifest

@@ -25,13 +25,13 @@ Spend disproportionate effort here. **Be aggressive. Be creative. Do not give up
 
 1. **Failing test** at the seam that reaches the bug — unit test, integration test, or Ktor `testApplication { }`:
    ```bash
-   ./gradlew test --tests "no.nav.syfo.<class>.<method>"
+   ./gradlew test --tests "no.nav.budstikka.<package>.<class>"
    ```
    ```kotlin
    testApplication {
        application { module() }
-       val res = client.get("/api/sykmelding/123")
-       assertEquals(HttpStatusCode.OK, res.status) // goes red on exactly this bug
+       val res = client.get("/internal/health/is_ready")
+       res.status shouldBe HttpStatusCode.OK   // goes red on exactly this bug
    }
    ```
 2. **curl / HTTP script** against a running local Ktor server (`./gradlew run`), diffing status/body against known-good.

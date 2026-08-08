@@ -1,6 +1,6 @@
 # Pod diagnosis — CrashLoopBackOff, ImagePullBackOff, Pending
 
-Diagnostic trees and command reference for pod problems on NAIS for this repository's Ktor backend (`no.nav.syfo`, Netty/`io.ktor.server.netty.EngineMain`).
+Diagnostic trees and command reference for pod problems on NAIS for this repository's Ktor backend (Netty/`io.ktor.server.netty.EngineMain`).
 
 ## Step 1: Status
 

@@ -9,7 +9,7 @@ A spike is **throwaway code that answers one question**. It lives in its own
 track, is clearly marked as throwaway, and dies once the answer is found. The
 lesson — not the code — is returned to the conversation or the active task.
 
-This is a backend repository (Ktor / no.nav.syfo). A spike is never about looks, always about **behavior and shape**: how a state evolves, what data a model can actually represent, what an API response looks like, or what a consumer does when the same event arrives twice.
+This is a backend repository (Ktor / no.nav.budstikka). A spike is never about looks, always about **behavior and shape**: how a state evolves, what data a model can actually represent, what an API response looks like, or what a consumer does when the same event arrives twice.
 
 ## When this is the right tool
 
@@ -34,7 +34,7 @@ waste.
 
 ## Rules (apply to all angles)
 
-1. **Throwaway from day one, and clearly marked.** Put the spike close to what it explores (the same package under `no.nav.syfo`), but in its own track that nobody confuses with production — e.g. `src/test/kotlin/no/nav/syfo/spike/` or a `SpikeXxx` file. Never under `main` where it could end up in a deploy.
+1. **Throwaway from day one, and clearly marked.** Put the spike close to what it explores (the same package under `no.nav.budstikka`), but in its own track that nobody confuses with production — e.g. `src/test/kotlin/no/nav/budstikka/spike/` or a `SpikeXxx` file. Never under `main` where it could end up in a deploy.
 2. **Isolate the logic behind a clean interface.** Whatever actually answers the question — the reducer `(state, event) -> state`, the state machine, the set of pure functions, or the `data class`es — must be liftable straight into real code later. No I/O, no `println` for control flow, no DB inside the logic. The runner shell around it is garbage; the core is the only part worth keeping.
 3. **One command to run.** Use Gradle the way the repository already does — a throwaway `fun main()` run via a `JavaExec` task or from the IDE, or a `@Test` that drives the model. The user must never have to remember a path.
 4. **No persistence by default.** State lives in memory. Persistence is what the spike *checks*, never something it rests on. If you must hit a database, use an in-memory `H2`/Testcontainers instance or a local schema named something that shouts `SPIKE — delete me`. Never a shared or real database.

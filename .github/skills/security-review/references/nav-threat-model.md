@@ -1,7 +1,7 @@
 # NAV Threat Model — STRIDE, DFD, threat table, DPIA, audit log, Datatilsynet
 
 Deep reference for threat modeling of NAV applications (here: a Ktor backend in
-`no.nav.syfo`). Used when SKILL.md escalates: a new data category, a new
+`no.nav.budstikka`). Used when SKILL.md escalates: a new data category, a new
 integration, a DPIA need, or a structured security review before going to
 production. Maintain the model in the relevant topic document when it is part of
 the approved change, and return verification evidence to the active task. When
@@ -31,7 +31,7 @@ Start with a simple DFD before you consider STRIDE. The goal is to make data flo
 == Ingress / Wonderwall ==
     |
     v
-(Ktor backend, no.nav.syfo)
+(Ktor backend, no.nav.budstikka)
     | \
     |  \---> {Kafka topic}
     |

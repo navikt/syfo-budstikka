@@ -1,6 +1,6 @@
 # Database diagnosis — Cloud SQL, the HikariCP pool and Flyway
 
-Diagnostic trees for database problems in this repository's Ktor backend (`no.nav.syfo`) with NAIS-provisioned PostgreSQL (Cloud SQL). The connection pool is HikariCP; migrations run with Flyway at startup.
+Diagnostic trees for database problems in this repository's Ktor backend with NAIS-provisioned PostgreSQL (Cloud SQL). The connection pool is HikariCP; migrations run with Flyway at startup.
 
 ## Check the connection
 
@@ -38,6 +38,9 @@ Database connection failure
 │   ├── "relation does not exist" → Flyway has not run; check that migration runs at startup
 │   ├── "Migration failed" → SQL error in one migration file. See the log for the file name.
 │   │   → Fix the SQL, possibly `flyway repair` (developer-assisted only).
+│   ├── "Found more than one migration with version {n}" → two branches each added
+│   │   `V{n}__`, and the merge kept both. Renumber to consecutive, unique versions
+│   │   — never merge two migrations into one file, and never edit an applied one.
 │   └── No → continue
 ├── Pool exhaustion?
 │   ├── "Connection is not available, request timed out"
@@ -63,6 +66,7 @@ Database connection failure
 | `FATAL: too many connections for role` | `replicas × pool` > `max_connections` | Reduce the pool per replica or upgrade the instance |
 | `FATAL: password authentication failed` | Wrong credentials | NAIS generates new secrets on rotation — redeploy the app |
 | `Flyway migration ... failed` | SQL error in a migration | Fix the SQL in `V{nr}__{navn}.sql` |
+| `Found more than one migration with version {n}` | Two branches each added `V{n}__`; the merge kept both numbers | Renumber to unique, consecutive versions — do not merge them into one file |
 | `relation "tabell" does not exist` | Flyway has not run, or wrong schema | Check that Flyway runs at startup and that the schema is correct |
 | `Connection refused: localhost:5432` | Cloud SQL proxy sidecar not up | `kubectl describe pod` — verify that the `cloudsql-proxy` container is Ready |
 

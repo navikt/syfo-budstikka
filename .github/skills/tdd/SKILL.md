@@ -3,7 +3,7 @@ name: tdd
 description: "Use when test-first is explicitly wanted: 'red-green-refactor', 'test first', or a reproduction test before a bug fix. For ordinary test writing, use /integration-tests or /e2e-tests."
 ---
 
-# Test-driven development (Ktor / no.nav.syfo)
+# Test-driven development (Ktor / no.nav.budstikka)
 
 ## Philosophy
 
@@ -89,7 +89,7 @@ Rules:
 Run fast and focused while you work:
 
 ```bash
-./gradlew test --tests "no.nav.syfo.<ClassName>"
+./gradlew test --tests "no.nav.budstikka.<package>.<ClassName>"
 echo "exit: $?"
 ```
 

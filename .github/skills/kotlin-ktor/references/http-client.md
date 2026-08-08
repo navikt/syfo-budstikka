@@ -1,6 +1,6 @@
 # Outgoing HttpClient — calls to a downstream service
 
-Concrete setup for when this Ktor backend (`no.nav.syfo`) calls another service itself. Token exchange (TokenX OBO / Azure AD M2M) is owned by `/auth-overview` — here we cover client setup, timeout/retry, tracing and the error contract.
+Concrete setup for when this Ktor backend (`no.nav.budstikka`) calls another service itself. Token exchange (TokenX OBO / Azure AD M2M) is owned by `/auth-overview` — here we cover client setup, timeout/retry, tracing and the error contract.
 
 ## Client with timeout, retry and logging
 
@@ -41,10 +41,10 @@ A non-2xx response from downstream must not leak raw to our client. Map it to th
 ```kotlin
 suspend fun HttpResponse.toDomainOrThrow(): Noe = when (status.value) {
     in 200..299 -> body()
-    401, 403    -> throw ApiErrorException.InternalServerErrorException("Downstream rejected our token")
-    404         -> throw ApiErrorException.NotFoundException("Resource not found downstream")
-    in 500..599 -> throw ApiErrorException.InternalServerErrorException("Downstream service unavailable")
-    else        -> throw ApiErrorException.InternalServerErrorException("Unexpected response downstream: ${status.value}")
+    401, 403    -> throw ApiErrorException.InternalServerErrorException("Tjenesten er midlertidig utilgjengelig")
+    404         -> throw ApiErrorException.NotFoundException("Fant ikke ressursen")
+    in 500..599 -> throw ApiErrorException.InternalServerErrorException("Tjenesten er midlertidig utilgjengelig")
+    else        -> throw ApiErrorException.InternalServerErrorException("Det oppsto en uventet feil")
 }
 ```
 

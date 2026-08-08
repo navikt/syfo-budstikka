@@ -1,6 +1,6 @@
 ---
 name: postgresql-review
-description: "Use when setting up or changing the DataSource/connection pool in a no.nav.syfo backend, when you see connection errors in the log, when choosing database technology, or when reviewing a schema/migration change in Postgres. Covers HikariCP pooling and sizing against Cloud SQL/replicas, the interplay with Flyway, and coordination of shared schemas."
+description: "Use when setting up or changing the DataSource/connection pool in a Nav backend, when you see connection errors in the log, when choosing database technology, or when reviewing a schema/migration change in Postgres. Covers HikariCP pooling and sizing against Cloud SQL/replicas, the interplay with Flyway, and coordination of shared schemas."
 ---
 
 # PostgreSQL review

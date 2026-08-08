@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: "Security review of a Ktor backend in no.nav.syfo: PII/FNR/health data in logs, secrets, CEF audit log, accessPolicy in the NAIS manifest, JWT validation (TokenX/Azure AD), external integrations, DPIA and escalation to the security champion. Used before commit/push/PR with security relevance, or when someone says /security-review."
+description: "Security review of a Ktor backend in no.nav.budstikka: PII/FNR/health data in logs, secrets, CEF audit log, accessPolicy in the NAIS manifest, JWT validation (TokenX/Azure AD), external integrations, DPIA and escalation to the security champion. Used before commit/push/PR with security relevance, or when someone says /security-review."
 ---
 
 # Security review — NAV context
@@ -137,7 +137,7 @@ val dbPassword = System.getenv("DB_PASSWORD")
 val dbPassword = "supersecret123"
 ```
 
-Secrets are created in NAIS Console and injected via `envFrom`/`filesFrom`. Also check that they do not end up in `application.yaml`, `gradle.properties` or the version catalog. Never copy prod secrets locally.
+Secrets are created in NAIS Console and injected via `envFrom`/`filesFrom`. Also check that they do not end up in `application.conf`, `gradle.properties` or the version catalog. Never copy prod secrets locally.
 
 ## Checklist (NAV focus)
 

@@ -1,34 +1,52 @@
 # Good and bad tests
 
+This repository uses **Kotest** (`FunSpec` with `test("...")` blocks and
+`shouldBe`-style matchers), not JUnit annotations. See
+`src/test/kotlin/no/nav/budstikka/` for the live examples.
+
 ## Good tests
 
-**Integration style**: test through real interfaces, not through mocks of internal parts. In this Ktor backend most good tests enter via the HTTP layer with `testApplication`, or call the domain service directly via its public function.
+**Integration style**: test through real interfaces, not through mocks of internal parts. In this Ktor backend most good tests call the application service or channel handler directly via its public function, or enter through the HTTP layer with `testApplication`/`TestApplication`.
 
 ```kotlin
-// GOOD: tests observable behavior through the HTTP interface
-@Test
-fun `root endpoint responds 200`() = testApplication {
-    application { configureRouting() }
-    assertEquals(HttpStatusCode.OK, client.get("/").status)
-}
+// GOOD: tests observable behavior through the public interface
+class BrukervarselChannelHandlerTest :
+    FunSpec({
+        test("publishes create payload and returns Sent") {
+            val publisher = RecordingMinSideBrukervarselPublisher()
+            val handler = BrukervarselChannelHandler(publisher)
+            val payload =
+                BrukervarselCreate(
+                    personIdentifier = PersonIdentifier("12345678901"),
+                    varseltype = Varseltype.BESKJED,
+                    text = "Hei",
+                )
+
+            val outcome = handler.handle(delivery(payload))
+
+            outcome shouldBe DeliveryOutcome.Sent
+            publisher.published.shouldHaveSize(1)
+        }
+    })
 ```
 
 Characteristics:
 
-- Tests behavior callers care about (status codes, response content, side effects that are visible through the API)
+- Tests behavior callers care about (outcomes, published payloads, side effects that are visible through the port)
 - Uses only the public interface
 - Survives internal refactoring
 - Describes WHAT, not HOW
 - One logical assertion per test
 
-Test names in backticks read like a specification. This repository writes them in
-English — see `src/test/kotlin/`. Norwegian domain nouns (`søknad`, `sykmelding`,
-`brukervarsel`) and field names (`fnr`) keep their own spelling inside the name;
-they are the domain's terms, not prose, and they must match what the code calls them.
+Test names read like a specification. This repository writes them in English —
+see `src/test/kotlin/`. Established Norwegian domain nouns (`Brukervarsel`,
+`Ledervarsel`, `Brev`, `Varseltype`) and contract field names keep their own
+spelling inside the name; they are the domain's terms, not prose, and they must
+match what the code calls them.
 
 ```kotlin
-@Test fun `a call without a valid token gives 401`() = testApplication { /* ... */ }
-@Test fun `a søknad with an invalid fnr is rejected with 400`() = testApplication { /* ... */ }
+test("a call without a valid token gives 401") { /* ... */ }
+test("a Brukervarsel for a reserved Sykmeldt also produces a Brev delivery") { /* ... */ }
 ```
 
 ## Bad tests
@@ -37,12 +55,11 @@ they are the domain's terms, not prose, and they must match what the code calls 
 
 ```kotlin
 // BAD: tests that an internal collaborator was called
-@Test
-fun `behandleSoknad calls the validator`() {
-    val validator = mockk<SoknadValidator>()
-    every { validator.valider(any()) } returns true
-    behandleSoknad(soknad, validator)
-    verify { validator.valider(soknad) }   // tests HOW, not WHAT
+test("handle calls the publisher") {
+    val publisher = mockk<MinSideBrukervarselPublisher>()
+    coEvery { publisher.publish(any(), any()) } returns Unit
+    BrukervarselChannelHandler(publisher).handle(delivery)
+    coVerify { publisher.publish(any(), any()) }   // tests HOW, not WHAT
 }
 ```
 
@@ -56,25 +73,26 @@ Red flags:
 
 ```kotlin
 // BAD: goes around the interface to verify
-@Test
-fun `lagreSoknad writes to the database`() = runBlocking {
-    lagreSoknad(Soknad(fnr = "..."))
-    val rad = dataSource.connection.use {
-        it.prepareStatement("SELECT * FROM soknad WHERE fnr = ?").run { /* ... */ }
+test("saving a delivery writes to the database") {
+    repository.saveInTransaction(inboxEventId, listOf(draft))
+    val row = dataSource.connection.use {
+        it.prepareStatement("SELECT * FROM delivery WHERE reference = ?").run { /* ... */ }
     }
-    assertNotNull(rad)
+    row.shouldNotBeNull()
 }
 
 // GOOD: verifies through the interface
-@Test
-fun `a stored søknad can be read back`() = runBlocking {
-    val lagret = soknadService.lagre(Soknad(fnr = "12345678901"))
-    val hentet = soknadService.hent(lagret.id)
-    assertEquals("12345678901", hentet.fnr)
+test("a saved delivery can be claimed") {
+    repository.saveInTransaction(inboxEventId, listOf(draft))
+
+    val claimed = repository.claim(limit = 10, lease = 5.minutes, maxAttempts = 3, channels = setOf(Channel.BREV))
+
+    claimed.shouldHaveSize(1)
+    claimed.single().reference shouldBe draft.reference
 }
 ```
 
 ## Tips for this repository
 
-- In Ktor 3.x, `testApplication` does not load modules from `application.yaml` automatically — load the module explicitly in the `application { ... }` block, the way `ServerTest` does.
-- If you need Postgres/Flyway or Kafka in a test, run against real infrastructure via Testcontainers rather than mocking the database — that gives tests which actually catch SQL and migration errors. Mock HTTP boundaries instead (TokenX/Azure AD, other fagsystemer). See [mocking.md](mocking.md).
+- In Ktor 3.x, `testApplication` does not load modules from `application.conf` automatically — load the module explicitly in the `application { ... }` block, the way `DeadLetterReplayTest` does.
+- If you need Postgres/Flyway or Kafka in a test, run against real infrastructure via Testcontainers rather than mocking the database — that gives tests which actually catch SQL and migration errors. Mock HTTP boundaries instead (Entra ID token endpoint, PDL, KRR, the document distributor). See [mocking.md](mocking.md).

@@ -1,11 +1,11 @@
 ---
 name: kotlin-ktor
-description: "Use for Ktor-specific work in no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validation, and Ktor-related Kafka/Postgres setup — or /kotlin-ktor."
+description: "Use for Ktor-specific work in no.nav.budstikka: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validation, and Ktor-related Kafka/Postgres setup — or /kotlin-ktor."
 ---
 
 # Ktor — NAV-specific (this repository)
 
-Kotlin + Ktor 3.x on Netty, package `no.nav.syfo`. Java 25, Gradle. Norwegian is the working language.
+Kotlin + Ktor 3.x on Netty, package `no.nav.budstikka` (the Gradle `group` is still `no.nav.syfo`). Java 25, Gradle. Language follows `docs/agents/language-policy.md`: documentation, agent-facing material and technical code identifiers are English, while user-facing text and API response messages are Norwegian Bokmål — as are the established Norwegian domain identifiers (`Brukervarsel`, `Ledervarsel`, `Brev`).
 
 ## Skill boundaries
 
@@ -14,16 +14,17 @@ Kotlin + Ktor 3.x on Netty, package `no.nav.syfo`. Java 25, Gradle. Norwegian is
 
 ## Startup and modules
 
-This repository uses **config-based startup** with `EngineMain`, not `embeddedServer { }`. Modules are registered in `src/main/resources/application.yaml` under `ktor.application.modules`, not in `main.kt`:
+This repository uses **config-based startup** with `EngineMain`, not `embeddedServer { }`. Modules are registered in `src/main/resources/application.conf` (HOCON) under `ktor.application.modules`, not in `main.kt`:
 
-```yaml
-ktor:
-  deployment:
-    port: 8080
-  application:
-    modules:
-      - no.nav.syfo.RoutingKt.configureRouting
-      - no.nav.syfo.AppKt.apiModule
+```hocon
+ktor {
+  deployment {
+    port = 8080
+  }
+  application {
+    modules = [ no.nav.budstikka.ApplicationKt.module ]
+  }
+}
 ```
 
 `main.kt` only calls `io.ktor.server.netty.EngineMain.main(args)`. A new `Application.xxx()` module is put into use by adding the fully-qualified `<File>Kt.<function>` reference to the list above — merely writing the function is not enough.
@@ -60,12 +61,10 @@ Detect the existing DI pattern first. If `io.insert-koin` is among the dependenc
 
 ```kotlin
 install(CallId) {
-    header(HttpHeaders.XRequestId)
+    retrieve { it.request.headers[NAV_CALL_ID_HEADER] }   // "Nav-Call-Id", see api/Plugins.kt
     generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("x_request_id")
+    verify { callId: String -> callId.isNotEmpty() }
+    header(NAV_CALL_ID_HEADER)
 }
 ```
 
@@ -85,7 +84,7 @@ When the backend itself calls a downstream service: use the Ktor `HttpClient` vi
 
 ## Persistence (Postgres / Flyway)
 
-- Flyway migrations in `src/main/resources/db/migration` (`V<n>__<name>.sql`), run at startup. Migrations are append-only — never change a migration that has already been deployed.
+- Flyway migrations in `src/main/resources/database.migration` (`V<n>__<name>.sql`), configured via `.locations("classpath:database.migration")` and run at startup. Migrations are append-only — never change a migration that has already been deployed.
 - Use NAIS-provisioned Postgres with an IAM/Vault-rotated credential; do not hardcode the connection string.
 - Review schema and storage choices for personal data with
   `/architecture-review`. When the choice passes the ADR gate, recommend the
@@ -104,4 +103,4 @@ When the backend itself calls a downstream service: use the Ktor `HttpClient` vi
 
 ## Verification
 
-Quality gates are deterministic: `./gradlew test` and `./gradlew build`. Ktor routes are tested with `testApplication { }` (`ktorLibs.server.testHost`) — see `src/test/kotlin/ServerTest.kt`. No "looks right" claim without fresh command output + exit code.
+Quality gates are deterministic: `./gradlew test` and `./gradlew build`. Ktor routes are tested with `testApplication { }` / `TestApplication { }` (`ktorLibs.server.testHost`) — see `src/test/kotlin/no/nav/budstikka/bootstrap/DeadLetterReplayTest.kt`. No "looks right" claim without fresh command output + exit code.
