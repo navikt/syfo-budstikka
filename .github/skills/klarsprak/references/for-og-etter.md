@@ -67,14 +67,6 @@ Eksempler på typisk redigering fra AI-tung eller stiv tekst til klarspråk i de
    formatet ÅÅÅÅ-MM-DD.")
 ```
 
-## Loggmelding → entydig og uten persondata
-
-```
-❌ log.info("Successfully orchestrated the seamless processing of the event")
-
-✅ log.info("Behandlet melding fra topic {} med behandlingId {}", topic, behandlingId)
-```
-
 ## README → rett på sak
 
 ```

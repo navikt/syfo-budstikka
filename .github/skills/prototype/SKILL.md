@@ -1,66 +1,69 @@
 ---
 name: prototype
-description: "Bruk når et design er for usikkert for papir og du vil teste det med kjørbar kast-vekk-kode FØR du forplikter deg — datamodell, tilstandsmaskin, API-/feilkontrakt eller Kafka-flyt (idempotens/replay). Triggere: 'spike dette', 'la meg leke med det', 'er datamodellen riktig', 'prøv et par varianter'."
+description: "Use when a design is too uncertain for paper and you want to test it with runnable throwaway code BEFORE you commit to it — data model, state machine, API/error contract or Kafka flow (idempotency/replay). Triggers: 'spike this' / 'spike dette', 'let me play with it' / 'la meg leke med det', 'is the data model right' / 'er datamodellen riktig', 'try a couple of variants' / 'prøv et par varianter'."
 ---
 
 # prototype
 
-En spike er **kast-vekk-kode som svarer på ett spørsmål**. Den lever i et eget
-spor, er tydelig merket som kast-vekk, og dør når svaret er funnet. Lærdommen —
-ikke koden — returneres til samtalen eller den aktive oppgaven.
+A spike is **throwaway code that answers one question**. It lives in its own
+track, is clearly marked as throwaway, and dies once the answer is found. The
+lesson — not the code — is returned to the conversation or the active task.
 
-Dette er et backend-repo (Ktor / no.nav.syfo). Spiken handler aldri om utseende, alltid om **atferd og form**: hvordan en tilstand utvikler seg, hvilke data en modell faktisk klarer å representere, hvordan et API-svar ser ut, eller hva en konsument gjør når den samme hendelsen kommer to ganger.
+This is a backend repository (Ktor / no.nav.budstikka). A spike is never about looks, always about **behavior and shape**: how a state evolves, what data a model can actually represent, what an API response looks like, or what a consumer does when the same event arrives twice.
 
-## Når dette er riktig verktøy
+## When this is the right tool
 
-- Midt i en `/grilling`-økt dukker det opp et valg ingen av dere klarer å
-  avgjøre på papir — "føles denne tilstandsmaskinen riktig når X skjer rett før
-  Y?".
-- Du vil presse en datamodell gjennom de stygge kantene før du skriver Flyway-migrasjonen.
-- Du vil se den faktiske JSON-en og feilkontrakten et endepunkt skal gi, før du binder deg til den.
-- Du er usikker på om en Kafka-konsument er idempotent / replay-trygg, og vil mate den en sekvens av records for hånd.
+- In the middle of a `/grilling` session a choice comes up that neither of you
+  can settle on paper — "does this state machine feel right when X happens just
+  before Y?".
+- You want to push a data model through the ugly edges before writing the Flyway migration.
+- You want to see the actual JSON and error contract an endpoint is going to return, before committing to it.
+- You are unsure whether a Kafka consumer is idempotent / replay-safe, and want to feed it a sequence of records by hand.
 
-Hvis spørsmålet allerede er avklart og du bare skal bygge — feil verktøy. Bruk `/tdd` og skriv ekte kode test-først.
+If the question is already settled and you are just going to build — wrong tool. Use `/tdd` and write real code test-first.
 
-## Velg vinkel
+## Choose the angle
 
-Skriv ned spørsmålet i én setning øverst i spike-fila eller i den aktive
-oppgaven før du koder. En spike som svarer på feil spørsmål er ren sløsing.
+Write the question down in one sentence at the top of the spike file or in the
+active task before you code. A spike that answers the wrong question is pure
+waste.
 
-- **"Føles modellen/tilstandsmaskinen riktig?"** → bygg en bitteliten interaktiv `main()` som lar deg drive modellen for hånd og se tilstanden endre seg etter hver handling.
-- **"Hva skal API-formen / feilkontrakten være?"** → skissér request/response som `data class`, start en minimal `embeddedServer` med én route, og `curl` mot den til formen føles riktig.
-- **"Holder Kafka-flyten?"** → isolér konsument-/produsentlogikken som en ren funksjon over en `record`-liste, og mat den hendelser i en valgt rekkefølge (duplikat, replay, out-of-order) og se hva som faller ut.
+- **"Does the model/state machine feel right?"** → build a tiny interactive `main()` that lets you drive the model by hand and watch the state change after each action.
+- **"What should the API shape / error contract be?"** → sketch request/response as `data class`es, start a minimal `embeddedServer` with a single route, and `curl` against it until the shape feels right.
+- **"Does the Kafka flow hold up?"** → isolate the consumer/producer logic as a pure function over a list of `record`s, feed it events in a chosen order (duplicate, replay, out-of-order) and see what falls out.
 
-## Regler (gjelder alle vinkler)
+## Rules (apply to all angles)
 
-1. **Kast-vekk fra dag én, og tydelig merket.** Legg spiken nær det den utforsker (samme pakke under `no.nav.syfo`), men i et eget spor som ingen forveksler med produksjon — f.eks. `src/test/kotlin/no/nav/syfo/spike/` eller en `SpikeXxx`-fil. Aldri under `main` der den kan ende i en deploy.
-2. **Isolér logikken bak et rent grensesnitt.** Det som faktisk svarer på spørsmålet — reduceren `(state, event) -> state`, tilstandsmaskinen, settet av rene funksjoner, eller `data class`-ene — skal være løftbart rett inn i ekte kode senere. Ingen I/O, ingen `println` for kontrollflyt, ingen DB inni logikken. Runner-skallet rundt er søppel; kjernen er det eneste verdt å beholde.
-3. **Én kommando å kjøre.** Bruk Gradle slik repoet allerede gjør — en throwaway `fun main()` kjørt via en `JavaExec`-task eller fra IDE, eller en `@Test` som driver modellen. Brukeren skal aldri måtte huske en sti.
-4. **Ingen persistens som standard.** Tilstand lever i minnet. Persistens er det spiken *sjekker*, ikke noe den skal hvile på. Må du treffe en database, bruk en in-memory `H2`/Testcontainers-instans eller et lokalt skjema med navn som roper `SPIKE — slett meg`. Aldri en delt eller ekte database.
-5. **Ingen auth, ingen polish.** Dropp TokenX/Azure AD-validering, `StatusPages`, retry, metrikker, logging utover det som gjør spiken *kjørbar*. Det er nettopp tingene du tester formen på, ikke noe spiken skal implementere.
-6. **Vis tilstanden.** Etter hver handling (modell/maskin), eller for hver matet record (Kafka), eller i hvert svar (API): skriv ut hele den relevante tilstanden — én linje per felt eller formatert JSON — så du ser nøyaktig hva som endret seg.
-7. **Slett eller absorbér når du er ferdig.** Når spørsmålet er besvart: enten slett spiken, eller løft den validerte kjernen inn i ekte kode (test-først via `/tdd`). Ikke la den råtne i repoet.
+1. **Throwaway from day one, and clearly marked.** Put the spike close to what it explores (the same package under `no.nav.budstikka`), but in its own track that nobody confuses with production — e.g. `src/test/kotlin/no/nav/budstikka/spike/` or a `SpikeXxx` file. Never under `main` where it could end up in a deploy.
+2. **Isolate the logic behind a clean interface.** Whatever actually answers the question — the reducer `(state, event) -> state`, the state machine, the set of pure functions, or the `data class`es — must be liftable straight into real code later. No I/O, no `println` for control flow, no DB inside the logic. The runner shell around it is garbage; the core is the only part worth keeping.
+3. **One command to run.** Use Gradle the way the repository already does — a throwaway `fun main()` run via a `JavaExec` task or from the IDE, or a `@Test` that drives the model. The user must never have to remember a path.
+4. **No persistence by default.** State lives in memory. Persistence is what the spike *checks*, never something it rests on. If you must hit a database, use an in-memory `H2`/Testcontainers instance or a local schema named something that shouts `SPIKE — delete me`. Never a shared or real database.
+5. **No auth, no polish.** Drop token validation, error mapping, retry, metrics and logging beyond what makes the spike *runnable*. Those are precisely the things whose shape you are testing, never something the spike implements.
+6. **Show the state.** After each action (model/machine), or for each fed record (Kafka), or in each response (API): print the entire relevant state — one line per field or formatted JSON — so you see exactly what changed.
+7. **Delete or absorb when you are done.** Once the question is answered: either delete the spike, or lift the validated core into real code (test-first via `/tdd`). Do not let it rot in the repository.
 
-## Knytt til faseløkken (@grillmester)
+## Connect to the phase loop (@grillmester)
 
-Spiken er et sideverktøy *inne i* design- og planfasen, ikke et eget løp:
+The spike is a side tool *inside* the design and planning phase, not a track of its own:
 
-- **Utløses fra fase 1–2.** Når `/grilling` treffer en blind-spot ingen klarer å
-  avgjøre (idempotens, en stygg tilstandsovergang, en tvilsom modell), pauser du
-  grillingen, spiker svaret, og går tilbake.
-- **Svaret er det eneste som lagres.** Task-scope går til issue/plan og
-  vedlikeholdt detalj til relevant topic-dokument. Når et nytt begrep eller en
-  kvalifiserende beslutning bør skrives varig, anbefal dokumentert løp og vent
-  på brukerens valg før `/domain-modeling` oppdaterer glossar eller ADR. Bruk
-  `/architecture-review` først når NAV-konsekvenser er relevante.
-- **Notér åpne svar.** Kjører du AFK og brukeren ikke har bekreftet verdikten
-  ennå: returner spørsmålet + foreløpig funn til den aktive oppgaven. Skriv det
-  bare i oppgavelokal `.grill/` når den kallende arbeidsflyten har valgt det.
+- **Triggered from phases 1–2.** When `/grilling` hits a blind spot nobody can
+  settle (idempotency, an ugly state transition, a doubtful model), you pause
+  the grilling, spike the answer, and go back.
+- **The answer is the only thing that is stored.** The task scope goes to the
+  issue/plan and maintained detail to the relevant topic document. When a new
+  concept or a qualifying decision ought to be written down for good, recommend
+  the documented route and wait for the user's choice before `/domain-modeling`
+  updates the glossary or an ADR. Use `/architecture-review` only when NAV
+  consequences are relevant.
+- **Note open answers.** If you are running AFK and the user has not confirmed
+  the verdict yet: return the question + the preliminary finding to the active
+  task. Write it in a task-local `.grill/` only when the calling workflow has
+  chosen that.
 
-## Anti-mønstre
+## Anti-patterns
 
-- **Ikke skriv tester for spiken.** Trenger spiken tester, er den ikke lenger en spike — da skal den løftes inn i ekte kode og testes der.
-- **Ikke koble til ekte database, Kafka-cluster eller TokenX.** Mat hendelser og tilstand fra minnet. Spørsmålet er "holder formen?", ikke "virker infrastrukturen?".
-- **Ikke generaliser.** Ingen "hva om vi senere vil støtte X". Spiken svarer på ett spørsmål.
-- **Ikke bland kjernen og skallet.** Refererer reduceren/maskinen til `println`, HTTP eller en `Connection`, er den ikke lenger løftbar. Hold runneren som et tynt skall over en ren kjerne.
-- **Ikke promotér spike-koden rett til produksjon.** Den er skrevet under spike-vilkår (ingen auth, ingen feilhåndtering). Skriv den ordentlig på nytt når du folder den inn.
+- **Do not write tests for the spike.** If the spike needs tests it is no longer a spike — then it must be lifted into real code and tested there.
+- **Do not connect to a real database, Kafka cluster or TokenX.** Feed events and state from memory. The question is "does the shape hold?", not "does the infrastructure work?".
+- **Do not generalize.** No "what if we later want to support X". The spike answers one question.
+- **Do not mix the core and the shell.** If the reducer/machine references `println`, HTTP or a `Connection`, it is no longer liftable. Keep the runner as a thin shell over a pure core.
+- **Do not promote spike code straight to production.** It was written under spike conditions (no auth, no error handling). Write it properly again when you fold it in.

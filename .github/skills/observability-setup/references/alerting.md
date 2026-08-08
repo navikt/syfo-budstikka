@@ -1,14 +1,14 @@
 ---
-description: "Slå opp ved skriving av Prometheus-alerts og NAIS Alert-ressurser for syfo-budstikka: feilrate, latency, pod restarts, Kafka lag og Slack-ruting."
+description: "Look this up when writing Prometheus alerts and NAIS Alert resources for this service: error rate, latency, pod restarts, Kafka lag and Slack routing."
 ---
 
-# Alerting og varsling i NAIS
+# Alerting and notifications in NAIS
 
-Praktiske mønstre for Prometheus-regler og varsling til Slack via NAIS. Prioriter varsler som peker på reelle bruker- eller driftsproblemer teamet faktisk må reagere på.
+Practical patterns for Prometheus rules and notifications to Slack via NAIS. Prioritise alerts that point at real user or operational problems the team actually has to react to.
 
-## Vanlige varslingsmønstre
+## Common alerting patterns
 
-### Høy feilrate
+### High error rate
 
 ```yaml
 groups:
@@ -30,7 +30,7 @@ groups:
           runbook_url: "https://teamdocs/runbooks/syfo-budstikka-errors"
 ```
 
-### Latency-spike
+### Latency spike
 
 ```yaml
 - alert: HighLatencyP95
@@ -47,7 +47,7 @@ groups:
     description: "p95-latency er over 1 sekund"
 ```
 
-### Pod restart / utilgjengelighet
+### Pod restart / unavailability
 
 ```yaml
 - alert: PodRestarts
@@ -69,7 +69,7 @@ groups:
     description: "Ingen friske targets scrapes for syfo-budstikka"
 ```
 
-### Kafka / køproblemer
+### Kafka / queue problems
 
 ```yaml
 - alert: KafkaConsumerLagHigh
@@ -82,19 +82,19 @@ groups:
     description: "Lag har holdt seg over 10000 i 15 minutter"
 ```
 
-## NAIS-mønstre for varslingsregler
+## NAIS patterns for alerting rules
 
-- Bruk korte, stabile alert-navn
-- Legg alltid til `summary`, `description` og helst runbook-lenke
-- `warning` for ting som bør undersøkes, `critical` for aktiv hendelse
-- Alert på symptomer før interne indikatorer
-- Test terskler i `dev-gcp` før du strammer dem i prod
-- Unngå mange nesten-like varsler med små variasjoner i terskel
-- Grill endring av produksjonsterskler med `/grilling`. Når valget passerer
-  ADR-gaten, anbefal dokumentert løp og vent på brukerens valg før
-  `/domain-modeling` registrerer det.
+- Use short, stable alert names
+- Always add `summary`, `description` and preferably a runbook link
+- `warning` for things that should be looked into, `critical` for an active incident
+- Alert on symptoms before internal indicators
+- Test thresholds in `dev-gcp` before tightening them in prod
+- Avoid many near-identical alerts with small variations in threshold
+- Grill changes to production thresholds with `/grilling`. When the choice passes
+  the ADR gate, recommend the documented route and wait for the user's choice before
+  `/domain-modeling` records it.
 
-## Slack-ruting via NAIS Alert
+## Slack routing via NAIS Alert
 
 ```yaml
 apiVersion: nais.io/v1
@@ -113,4 +113,4 @@ spec:
     - alert: ApplicationDown
 ```
 
-Velg kanal og `prependText` med omtanke. Kritiske varsler kan bruke `@here`; støyende varsler bør normalt ikke gjøre det.
+Choose the channel and `prependText` with care. Critical alerts may use `@here`; noisy alerts normally should not.

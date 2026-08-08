@@ -1,70 +1,72 @@
-# Når du mocker
+# When to mock
 
-Mock kun ved **systemgrenser**:
+Mock only at **system boundaries**:
 
-- Eksterne HTTP-tjenester (andre fagsystemer, TokenX/Azure AD token-endepunkter, integrasjoner)
-- Tid og tilfeldighet (`Clock`, UUID-generering)
-- Sjelden: filsystem
+- External HTTP services (other case-processing systems, TokenX/Entra ID token endpoints, integrations)
+- Time and randomness (`Clock`, UUID generation)
+- Rarely: the file system
 
-Ikke mock:
+Do not mock:
 
-- Dine egne klasser/tjenester (`no.nav.syfo.*`)
-- Interne samarbeidspartnere
-- Databasen — foretrekk en ekte test-Postgres via Testcontainers med Flyway-migreringer kjørt, så testene fanger SQL- og skjemafeil
-- Kafka — foretrekk en ekte broker via Testcontainers (`KafkaContainer`) fremfor å mocke produsent/konsument
+- Your own classes/services (`no.nav.budstikka.*`)
+- Internal collaborators
+- The database — prefer a real test Postgres via Testcontainers with the Flyway migrations applied, so the tests catch SQL and schema errors
+- Kafka — prefer a real broker via Testcontainers (`KafkaContainer`) over mocking the producer/consumer
 
-Hovedregel: **må du mocke en intern samarbeidspartner, er modulgrensen sannsynligvis feil.**
+Rule of thumb: **if you have to mock an internal collaborator, the module boundary is probably in the wrong place.**
 
-## Design for testbarhet
+## Design for testability
 
-Ved systemgrenser, lag grensesnitt som er enkle å bytte ut i test.
+At system boundaries, build interfaces that are easy to swap out in tests.
 
-**1. Bruk dependency injection — send avhengigheter inn**
+**1. Use dependency injection — pass dependencies in**
 
-Send eksterne avhengigheter inn i stedet for å konstruere dem internt:
+Pass external dependencies in instead of constructing them internally:
 
 ```kotlin
-// Lett å bytte ut: HttpClient og Clock injiseres
-class SoknadService(
-    private val pdlClient: PdlClient,
+// Easy to swap out: the lookup port and Clock are injected
+class DispatchDecider(
+    private val reservationLookup: ReservationLookup,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    fun registrer(soknad: Soknad): RegistrertSoknad =
-        RegistrertSoknad(soknad, mottatt = Instant.now(clock))
+    suspend fun decide(draft: DeliveryDraft): Decision = /* ... */
 }
 
-// Vanskelig å teste: konstruerer klienten og leser miljø selv
-class SoknadService {
-    private val pdlClient = PdlClient(System.getenv("PDL_URL"))
+// Hard to test: constructs the client and reads the environment itself
+class DispatchDecider {
+    private val krrClient = KrrClient(System.getenv("KRR_URL"))
 }
 ```
 
-**2. Foretrekk spesifikke klientgrensesnitt over én generisk fetcher**
+**2. Prefer specific client interfaces over one generic fetcher**
 
-Lag én funksjon per ekstern operasjon i stedet for én generisk funksjon med betinget logikk:
+Write one function per external operation instead of one generic function with conditional logic:
 
 ```kotlin
-// GOD: hver funksjon er uavhengig mockbar / lett å fake
-interface PdlClient {
-    suspend fun hentPerson(ident: String): Person
-    suspend fun hentNavn(ident: String): Navn
+// GOOD: each port is independently fakeable — see application/port/ and domain/foundation/
+fun interface ReservationLookup {
+    suspend fun isReserved(ident: PersonIdentifier): Boolean
 }
 
-// DÅRLIG: mocking krever betinget logikk inne i mocken
+fun interface DeathLookup {
+    suspend fun isDead(ident: PersonIdentifier): Boolean
+}
+
+// BAD: mocking requires conditional logic inside the mock
 interface GenericClient {
     suspend fun call(path: String, body: Any?): JsonNode
 }
 ```
 
-Det spesifikke grensesnittet gir: hver fake returnerer én konkret form, ingen betinget logikk i testoppsettet, og det er lett å se hvilke kall en test faktisk utløser.
+The specific interface gives you: each fake returns one concrete shape, no conditional logic in the test setup, and it is easy to see which calls a test actually triggers.
 
-**3. Foretrekk en enkel fake fremfor en streng mock for atferdstester**
+**3. Prefer a simple fake over a strict mock for behavior tests**
 
-Når du tester atferd (ikke samhandling), er ofte en liten håndskrevet fake-implementasjon av grensesnittet klarere enn `mockk`-oppsett — den dokumenterer kontrakten og lekker ikke kall-rekkefølge inn i testen.
+When you are testing behavior (not interaction), a small hand-written fake implementation of the interface is often clearer than `mockk` setup — it documents the contract and does not leak call ordering into the test.
 
-## Ktor: mock HTTP-grenser, ikke ditt eget
+## Ktor: mock HTTP boundaries, not your own code
 
-For utgående HTTP, bruk Ktor sin `MockEngine` til å fake fjernsvar i stedet for å mocke din egen klientklasse:
+For outgoing HTTP, use Ktor's `MockEngine` to fake the remote response instead of mocking your own client class:
 
 ```kotlin
 val mockEngine = MockEngine { request ->
@@ -74,7 +76,7 @@ val mockEngine = MockEngine { request ->
         headers = headersOf(HttpHeaders.ContentType, "application/json"),
     )
 }
-val client = HttpClient(mockEngine) { /* samme config som prod */ }
+val client = HttpClient(mockEngine) { /* same config as prod */ }
 ```
 
-Da tester du din egen serialisering, feilhåndtering og retry-logikk gjennom det ekte klientlaget, men uten å treffe nettverket.
+That way you test your own serialization, error handling and retry logic through the real client layer, but without hitting the network.

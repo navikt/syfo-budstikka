@@ -1,26 +1,26 @@
-# GDPR og personvern — NAV-signal
+# GDPR and privacy — NAV signal
 
-Generisk GDPR-teori (behandlingsgrunnlag, right-to-be-forgotten, anonymisering vs. pseudonymisering, retention-job-mønstre, samtykkehistorikk) er utenfor scope. Denne referansen dekker NAV-spesifikk kategorisering og pekere til autoritative kilder.
+Generic GDPR theory (legal basis for processing, right to be forgotten, anonymization vs. pseudonymization, retention job patterns, consent history) is out of scope. This reference covers NAV-specific categorization and pointers to authoritative sources.
 
-## NAV-spesifikk kategorisering av persondata
+## NAV-specific categorization of personal data
 
-NAV opererer med fire PII-nivåer definert i SKILL.md-tabellen: **strengt fortrolig**, **fortrolig**, **intern**, **åpen**. Viktige NAV-spesifikke presiseringer:
+NAV works with four PII levels defined in the SKILL.md table: **strengt fortrolig**, **fortrolig**, **intern**, **åpen**. Important NAV-specific clarifications:
 
-- **Sykefravær er strengt fortrolig.** I `syfo`-domenet er sykmeldinger, diagnoser og det at en bruker er sykmeldt implisitt helseinformasjon → strengt fortrolig.
-- **Ytelsesdata er klassifiseringsbare implisitt.** "Bruker mottar AAP" eller "uføretrygd" er implisitt helseinformasjon → strengt fortrolig. Avklar alltid per ytelse.
-- **Kode 6/7** (adressesperre/fortrolig adresse) må håndteres som strengt fortrolig uansett felt.
-- **Fødselsnummer og D-nummer** er fortrolige. Bruk aldri ekte fnr i kode,
-  eksempler eller tester. Bruk `<SYNTHETIC_FNR>` i maler og dokumentasjon. Når
-  kjørbar kode krever gyldig format, bruk Skatteetatens syntetiske testserie og
-  merk testdataene eksplisitt.
+- **Sykefravær is strengt fortrolig.** In the `syfo` domain, sykmeldinger, diagnoses and the fact that a user is sykmeldt are implicit health information → strengt fortrolig.
+- **Benefits data can be classifiable implicitly.** "The user receives AAP" or "uføretrygd" is implicit health information → strengt fortrolig. Always clarify per benefit.
+- **Kode 6/7** (address protection/confidential address) must be handled as strengt fortrolig regardless of field.
+- **National identity numbers and D-numbers** are fortrolig. Never use a real fnr
+  in code, examples or tests. Use `<SYNTHETIC_FNR>` in templates and
+  documentation. When executable code requires a valid format, use Skatteetaten's
+  synthetic test series and mark the test data explicitly.
 
-## Pekere til autoritative kilder
+## Pointers to authoritative sources
 
-- **DPIA-prosess**: Se `references/nav-threat-model.md`. DPIA kreves ved ny behandling av personopplysninger eller vesentlig endring.
-- **CEF/ArcSight auditlogg-format**: Se `references/nav-threat-model.md` (autoritativ kilde i denne skillen).
-- **Retention-policy**: Dokumenteres per behandling med hjemmel. Koordiner med sikkerhetschampion og verifiser at også testdata, eksportfiler, backup, Kafka-topics og analytics-uttrekk dekkes av policyen.
-- **Datatilsynet / tilsynshenvendelser**: Eskaler til sikkerhetschampion umiddelbart. Ikke svar direkte.
+- **DPIA process**: See `references/nav-threat-model.md`. A DPIA is required for new processing of personal data or a substantial change.
+- **CEF/ArcSight audit log format**: See `references/nav-threat-model.md` (the authoritative source in this skill).
+- **Retention policy**: Documented per processing activity with its legal authority. Coordinate with the security champion and verify that test data, export files, backups, Kafka topics and analytics extracts are also covered by the policy.
+- **Datatilsynet / supervisory enquiries**: Escalate to the security champion immediately. Do not answer directly.
 
-## Dataminimering i praksis
+## Data minimization in practice
 
-Ved gjennomgang: spør om hvert PII-felt i en datamodell er nødvendig for formålet. Nye felter krever oppdatert behandlingsgrunnlag, ikke bare en Flyway-migrasjon.
+During review: ask whether every PII field in a data model is necessary for the purpose. New fields require an updated legal basis for processing, not just a Flyway migration.

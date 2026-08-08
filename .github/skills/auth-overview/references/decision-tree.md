@@ -1,41 +1,41 @@
-# Auth-beslutningstre — caller-type → mekanisme
+# Auth decision tree — caller type → mechanism
 
-Identifiser hvem som initierer forespørselen mot dette Ktor-backendet, og velg auth-mekanisme deretter. Skill mellom innkommende validering (hva dette API-et godtar) og utgående token (hva dette API-et selv henter for å kalle nedstrøms).
+Identify who initiates the request against this backend API, and choose the auth mechanism accordingly. Distinguish between incoming validation (what this API accepts) and outgoing tokens (what this API fetches itself in order to call downstream).
 
-## Innkommende — hvem kaller dette API-et
+## Incoming — who calls this API
 
-| Kaller                                    | Auth-mekanisme               | Nais-flagg                        |
-|-------------------------------------------|------------------------------|-----------------------------------|
-| NAV-tjeneste med brukerkontekst (OBO)     | TokenX                       | `tokenx.enabled: true`            |
-| NAV-tjeneste uten brukerkontekst (batch)  | Azure AD client_credentials  | `azure.application.enabled: true` |
-| Saksbehandler (token fra Azure-frontend)  | Azure AD                     | `azure.application.enabled: true` |
-| Innbygger (via frontend/Wonderwall)       | TokenX (frontend veksler ID-porten) | `tokenx.enabled: true`            |
-| Ekstern partner / system                  | Maskinporten                 | `maskinporten.enabled: true`      |
-| Systembruker (Altinn 3)                   | Maskinporten + systembruker  | `maskinporten.enabled: true`      |
+| Caller                                     | Auth mechanism               | Nais flag                         |
+|--------------------------------------------|------------------------------|-----------------------------------|
+| NAV service with user context (OBO)        | TokenX                       | `tokenx.enabled: true`            |
+| NAV service without user context (batch)   | Azure AD client_credentials  | `azure.application.enabled: true` |
+| Case worker (token from Azure frontend)    | Azure AD                     | `azure.application.enabled: true` |
+| Citizen (via frontend/Wonderwall)          | TokenX (the frontend exchanges ID-porten) | `tokenx.enabled: true`            |
+| External partner / system                  | Maskinporten                 | `maskinporten.enabled: true`      |
+| System user (Altinn 3)                     | Maskinporten + system user   | `maskinporten.enabled: true`      |
 
-> **Merk Innbygger-flyten:** frontend/BFF (Wonderwall) veksler ID-porten-token til TokenX før kall til dette backend-API-et — backend validerer da et TokenX-token. `idporten.enabled: true` på et rent backend-API er uvanlig (settes kun hvis appen selv mottar ID-porten-token direkte).
+> **Note the citizen flow:** the frontend/BFF (Wonderwall) exchanges the ID-porten token for a TokenX token before calling this backend API — the backend then validates a TokenX token. `idporten.enabled: true` on a pure backend API is unusual (it is set only if the app itself receives the ID-porten token directly).
 
-## Utgående — dette API-et kaller en annen tjeneste
+## Outgoing — this API calls another service
 
-| Skal brukerens identitet følge med? | Mekanisme                     | Texas `identity_provider` |
-|-------------------------------------|-------------------------------|---------------------------|
-| Ja (brukerkontekst finnes)          | TokenX exchange (OBO)         | `tokenx`                  |
-| Nei (ren maskin-til-maskin)         | Azure AD client_credentials   | `azuread`                 |
+| Must the user's identity travel along?   | Mechanism                     | Texas `identity_provider` |
+|------------------------------------------|-------------------------------|---------------------------|
+| Yes (user context exists)                | TokenX exchange (OBO)         | `tokenx`                  |
+| No (pure machine-to-machine)             | Azure AD client_credentials   | `azuread`                 |
 
-## Vanlig feil
+## Common mistake
 
-Azure client_credentials brukt der brukerkontekst finnes — identiteten tapes og per-bruker-autorisasjon blir umulig.
+Azure client_credentials used where user context exists — the identity is lost and per-user authorization becomes impossible.
 
 ```
-❌ FEIL:
-Innbygger → Frontend → [Azure client_credentials] → dette API
-   Konsekvens: Mister hvem brukeren er, kan ikke autorisere per bruker
+❌ WRONG:
+Citizen → Frontend → [Azure client_credentials] → this API
+   Consequence: Loses who the user is, cannot authorize per user
 
-✅ RIKTIG:
-Innbygger → Frontend → [TokenX] → dette API → [TokenX exchange] → nedstrøms
-   Konsekvens: Brukerens identitet (pid) følger med hele veien
+✅ RIGHT:
+Citizen → Frontend → [TokenX] → this API → [TokenX exchange] → downstream
+   Consequence: The user's identity (pid) travels along the whole way
 ```
 
-## Systembruker (Altinn 3)
+## System user (Altinn 3)
 
-Mekanisme i Altinn 3 der eksterne virksomheter oppretter en systembruker som gir tilgang til NAV-tjenester via Maskinporten. Se [Altinn 3 systembruker-dokumentasjon](https://docs.altinn.studio/authentication/what-do-you-get/systemuser/).
+A mechanism in Altinn 3 where external organizations create a system user that grants access to NAV services via Maskinporten. See the [Altinn 3 system user documentation](https://docs.altinn.studio/authentication/what-do-you-get/systemuser/).

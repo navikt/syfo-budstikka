@@ -1,118 +1,118 @@
-# Auth-diagnose — 401 Unauthorized og 403 Forbidden
+# Auth diagnosis — 401 Unauthorized and 403 Forbidden
 
-Diagnostiske trær for autentiserings- og autorisasjonsfeil i dette Ktor-backendet (`no.nav.syfo`). Dekker Azure AD, TokenX, ID-porten og Maskinporten via Texas-sidecaren (JVM/Kotlin).
+Diagnostic trees for authentication and authorization failures in this repository's Ktor backend. Covers Azure AD, TokenX, ID-porten and Maskinporten via the Texas sidecar (JVM/Kotlin).
 
-Se `/auth-overview` for mekanismene; denne filen er for å *diagnostisere når de feiler*.
+See `/auth-overview` for the mechanisms; this file is for *diagnosing when they fail*.
 
-## Dekode JWT
+## Decode a JWT
 
 ```bash
-# Dekode payload uten signatur-verifikasjon
+# Decode the payload without signature verification
 echo "{token}" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
 ```
 
-Viktige felt:
-- `iss` (issuer) — hvem utstedte token (`login.microsoftonline.com/...` for Azure AD, TokenX-URL for TokenX, ID-porten-URL for ID-porten)
-- `aud` (audience) — hvem token er ment for
-- `exp` (expiry) — når token utløper
-- `sub` / `NAVident` / `pid` — hvem token representerer
-- `azp` (authorized party) — klient som fikk token utstedt
+Important fields:
+- `iss` (issuer) — who issued the token (`login.microsoftonline.com/...` for Azure AD, the TokenX URL for TokenX, the ID-porten URL for ID-porten)
+- `aud` (audience) — who the token is intended for
+- `exp` (expiry) — when the token expires
+- `sub` / `NAVident` / `pid` — who the token represents
+- `azp` (authorized party) — the client the token was issued to
 
-## Sjekk auth-konfigurasjon i pod
+## Check the auth configuration in the pod
 
 ```bash
-# Se alle auth-relaterte env-vars fra NAIS
+# List all auth-related env vars from NAIS
 kubectl get pod {pod} -n {namespace} \
   -o jsonpath='{range .spec.containers[0].env[*]}{.name}={.value}{"\n"}{end}' \
   | grep -E 'AZURE|TOKEN_X|IDPORTEN|MASKINPORTEN|NAIS_TOKEN'
 
-# Test at JWKS-endepunkt er tilgjengelig fra podden
+# Test that the JWKS endpoint is reachable from the pod
 kubectl exec -n {namespace} {pod} -- \
   wget -qO- --timeout=5 "$AZURE_OPENID_CONFIG_JWKS_URI" 2>&1 | head -1
 ```
 
-## Sjekk accessPolicy
+## Check the accessPolicy
 
 ```bash
-# Se gjeldende accessPolicy (inbound/outbound)
+# Show the current accessPolicy (inbound/outbound)
 kubectl get app -n {namespace} {app-name} -o yaml | grep -A 30 accessPolicy
 
-# Se network policies som Nais genererer
+# Show the network policies Nais generates
 kubectl get networkpolicy -n {namespace} -l app={app-name}
 ```
 
-## 401 Unauthorized — diagnostisk tre
+## 401 Unauthorized — diagnostic tree
 
 ```
 401 Unauthorized
-├── Har forespørselen Authorization-header?
-│   ├── Nei → kaller mangler token. Sjekk kaller / Texas-sidecar-oppsett.
-│   └── Ja → gå videre
-├── Er token fra riktig issuer?
-│   ├── Azure AD men forventet TokenX → feil auth-flow (bruk token-exchange/OBO, ikke M2M)
-│   ├── ID-porten men forventet Azure AD → feil inngang / feil sidecar-config
-│   └── Riktig issuer → gå videre
-├── Er audience riktig?
+├── Does the request have an Authorization header?
+│   ├── No → the caller is missing a token. Check the caller / Texas sidecar setup.
+│   └── Yes → continue
+├── Is the token from the right issuer?
+│   ├── Azure AD but TokenX expected → wrong auth flow (use token exchange/OBO, not M2M)
+│   ├── ID-porten but Azure AD expected → wrong entry point / wrong sidecar config
+│   └── Right issuer → continue
+├── Is the audience correct?
 │   │   Azure AD: `api://{cluster}.{namespace}.{app}/.default`
 │   │   TokenX:   `{cluster}:{namespace}:{app}`
-│   ├── Feil audience → kaller sender token til feil mottaker (fiks `target` i token-exchange)
-│   └── Riktig → gå videre
-├── Er token utløpt?
-│   ├── exp < nåtid → token expired. Texas gjør refresh — ikke egen token-caching i appen.
-│   └── Gyldig → gå videre
-├── Er klokken synkronisert?
-│   ├── Klokke-skew > noen sekunder → infra-problem (sjelden på Nais)
-│   └── OK → gå videre
-└── Er JWKS tilgjengelig fra podden?
-    ├── Nei → nettverksproblem, sjekk `accessPolicy.outbound.external` (login.microsoftonline.com for Azure AD)
-    └── Ja → sjekk token-validerings-konfig i Ktor (issuer/audience i `Authentication`-installasjonen)
+│   ├── Wrong audience → the caller sends the token to the wrong recipient (fix `target` in the token exchange)
+│   └── Correct → continue
+├── Has the token expired?
+│   ├── exp < now → token expired. Texas handles refresh — no separate token caching in the app.
+│   └── Valid → continue
+├── Is the clock synchronized?
+│   ├── Clock skew > a few seconds → infra problem (rare on Nais)
+│   └── OK → continue
+└── Is JWKS reachable from the pod?
+    ├── No → network problem, check `accessPolicy.outbound.external` (login.microsoftonline.com for Azure AD)
+    └── Yes → check the token validation config in Ktor (issuer/audience in the `Authentication` installation)
 ```
 
-## 403 Forbidden — diagnostisk tre
+## 403 Forbidden — diagnostic tree
 
 ```
 403 Forbidden
-├── Er accessPolicy.inbound konfigurert?
-│   ├── Nei → legg til kaller i inbound rules
-│   └── Ja → gå videre
-├── Er kaller registrert i inbound-listen?
-│   │   Eksempel:
+├── Is accessPolicy.inbound configured?
+│   ├── No → add the caller to the inbound rules
+│   └── Yes → continue
+├── Is the caller registered in the inbound list?
+│   │   Example:
 │   │     accessPolicy.inbound.rules:
-│   │       - application: {kaller-app}
-│   │         namespace: {kaller-namespace}
-│   ├── Nei → legg til kaller
-│   └── Ja → gå videre
-└── Er det autorisasjon på applikasjonsnivå?
-    ├── Ja → sjekk roller/grupper/scopes i token
-    │   - Azure AD: roller via app-roles eller gruppe-claims
-    │   - TokenX: videreført bruker — sjekk `NAVident` eller `pid`
-    │   - Maskinporten: sjekk `scope`
-    └── Nei → sjekk Nais app-status: `kubectl get app {name} -o yaml`
+│   │       - application: {caller-app}
+│   │         namespace: {caller-namespace}
+│   ├── No → add the caller
+│   └── Yes → continue
+└── Is there authorization at the application level?
+    ├── Yes → check roles/groups/scopes in the token
+    │   - Azure AD: roles via app roles or group claims
+    │   - TokenX: forwarded user — check `NAVident` or `pid`
+    │   - Maskinporten: check `scope`
+    └── No → check the Nais app status: `kubectl get app {name} -o yaml`
 ```
 
-## Vanlige NAV-spesifikke feilmønstre
+## Common NAV-specific failure patterns
 
-| Feilmelding | Årsak | Løsning |
+| Error message | Cause | Fix |
 |------------|-------|---------|
-| `Token validation failed: wrong issuer` | Token fra feil IdP | Kaller bruker feil auth-mekanisme (Azure AD vs. TokenX vs. ID-porten) |
-| `Token validation failed: wrong audience` | Token ment for annen app | Fiks `target` i Texas token-exchange-kallet |
-| `Token validation failed: expired` | Token utløpt | Token-cache for gammel. Texas gjør refresh selv — ikke egen caching i appen. |
-| `Connection refused: login.microsoftonline.com` | Kan ikke nå JWKS/issuer | Legg til `accessPolicy.outbound.external` for issuer-host |
-| `No bearer token found` / 401 på beskyttet rute | Manglende `Authorization`-header | Sjekk at kaller/sidecar sender token; sjekk at ruten ikke uventet ligger utenfor `authenticate { }` |
-| `403 denied by NetworkPolicy` | `accessPolicy.inbound` mangler kaller | Legg til `{application, namespace}` i inbound.rules |
+| `Token validation failed: wrong issuer` | Token from the wrong IdP | The caller uses the wrong auth mechanism (Azure AD vs. TokenX vs. ID-porten) |
+| `Token validation failed: wrong audience` | Token intended for another app | Fix `target` in the Texas token exchange call |
+| `Token validation failed: expired` | Token expired | Token cache too old. Texas refreshes on its own — no separate caching in the app. |
+| `Connection refused: login.microsoftonline.com` | Cannot reach JWKS/issuer | Add `accessPolicy.outbound.external` for the issuer host |
+| `No bearer token found` / 401 on a protected route | Missing `Authorization` header | Check that the caller/sidecar sends the token; check that the route is not unexpectedly outside `authenticate { }` |
+| `403 denied by NetworkPolicy` | `accessPolicy.inbound` is missing the caller | Add `{application, namespace}` to inbound.rules |
 
-## Texas-sidecar — isolér app fra sidecar
+## Texas sidecar — isolate app from sidecar
 
-Kotlin-backend henter/utveksler tokens via Texas-sidecaren (HTTP på `localhost`, port fra `NAIS_TOKEN_*`-env). Feilsøk ved å `curl` sidecaren fra podden for å skille sidecar-problem fra app-problem:
+The Kotlin backend fetches/exchanges tokens via the Texas sidecar (HTTP on `localhost`, port from the `NAIS_TOKEN_*` env vars). Troubleshoot by `curl`-ing the sidecar from the pod to separate a sidecar problem from an app problem:
 
 ```bash
 kubectl exec -n {namespace} {pod} -- \
   curl -s "$NAIS_TOKEN_ENDPOINT" -d 'identity_provider=azuread' -d 'target={target}'
 ```
 
-Ikke implementer egen token-caching eller OAuth-flyt manuelt i appen. Se `/auth-overview`.
+Do not implement your own token caching or OAuth flow manually in the app. See `/auth-overview`.
 
-## Når dette peker på annet
+## When this points elsewhere
 
-- JWKS uoppnåelig pga. pod-/nett-problem → [pod-diagnose.md](./pod-diagnose.md)
-- Fikse-disiplin (repro av 401/403 i `testApplication { }`) → `/diagnosing-bugs`
+- JWKS unreachable due to a pod/network problem → [pod-diagnose.md](./pod-diagnose.md)
+- Fix discipline (reproducing 401/403 in `testApplication { }`) → `/diagnosing-bugs`

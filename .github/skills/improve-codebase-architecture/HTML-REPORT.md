@@ -1,23 +1,23 @@
-# HTML-rapportformat
+# HTML report format
 
-Arkitektur-reviewen rendres som én selvstendig HTML-fil i OS-temp. Tailwind og Mermaid hentes begge fra CDN. Mermaid håndterer graf-formede diagrammer pålitelig; håndbygde `<div>`-er og inline-SVG håndterer de mer redaksjonelle visualene (masse-diagrammer, tverrsnitt). Bland de to — ikke len deg på Mermaid for alt, da begynner det å se generisk ut.
+The architecture review is rendered as one self-contained HTML file in the OS temp directory. Tailwind and Mermaid are both fetched from CDN. Mermaid handles graph-shaped diagrams reliably; hand-built `<div>`s and inline SVG handle the more editorial visuals (mass diagrams, cross-sections). Mix the two — do not lean on Mermaid for everything, that is when it starts to look generic.
 
-## Stillas
+## Scaffold
 
 ```html
 <!doctype html>
-<html lang="no">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Arkitektur-review — {{repo-navn}}</title>
+    <title>Architecture review — {{repo-name}}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
       import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
       mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
     </script>
     <style>
-      /* lite eget lag for ting Tailwind ikke dekker rent:
-         stiplede søm-linjer, håndtegnede pilhoder osv. */
+      /* a small custom layer for what Tailwind does not cover cleanly:
+         dashed seam lines, hand-drawn arrowheads and so on. */
       .seam { stroke-dasharray: 4 4; }
       .leak { stroke: #dc2626; }
       .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
@@ -26,8 +26,8 @@ Arkitektur-reviewen rendres som én selvstendig HTML-fil i OS-temp. Tailwind og 
   <body class="bg-stone-50 text-slate-900 font-sans">
     <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
       <header>...</header>
-      <section id="kandidater" class="space-y-10">...</section>
-      <section id="topp-anbefaling">...</section>
+      <section id="candidates" class="space-y-10">...</section>
+      <section id="top-recommendation">...</section>
     </main>
   </body>
 </html>
@@ -35,32 +35,32 @@ Arkitektur-reviewen rendres som én selvstendig HTML-fil i OS-temp. Tailwind og 
 
 ## Header
 
-Repo-navn, dato og en kompakt forklaring: heltrukken boks = modul, stiplet linje = søm, rød pil = lekkasje, tykk mørk boks = dyp modul. Ingen innledende avsnitt — rett inn i kandidatene.
+Repo name, date and a compact legend: solid box = module, dashed line = seam, red arrow = leak, thick dark box = deep module. No introductory paragraph — straight into the candidates.
 
-## Kandidatkort
+## Candidate cards
 
-Diagrammene bærer tyngden. Prosa er knapp, enkel, og bruker vokabularet (modul, grensesnitt, dybde, søm, adapter, lokalitet, leverage) uten seremoni.
+The diagrams carry the weight. Prose is sparse, plain, and uses the vocabulary (module, interface, depth, seam, adapter, locality, leverage) without ceremony.
 
-Hver kandidat er én `<article>`:
+Each candidate is one `<article>`:
 
-- **Tittel** — kort, navngir fordypningen (f.eks. "Slå sammen Sykmelding-inntak-kjeden").
-- **Badge-rad** — anbefalingsstyrke (`Sterk` = emerald, `Verdt å utforske` = amber, `Spekulativ` = slate), pluss en tag for avhengighetskategori (`in-process`, `lokalt-substituerbar`, ` porter & adaptere`, `mock`).
-- **Filer** — monospaced liste, `font-mono text-sm` (f.eks. `src/main/kotlin/no/nav/syfo/...`).
-- **Før/etter-diagram** — midtpunktet. To kolonner side om side. Se mønstre under.
-- **Problem** — én setning. Hva som svir.
-- **Løsning** — én setning. Hva som endres.
-- **Gevinster** — punkter, ≤6 ord hver. F.eks. "Tester treffer ett grensesnitt", "TokenX-token slutter å lekke", "Slett 4 grunne wrappere".
-- **ADR-callout** (hvis relevant) — én linje i en gul-tonet boks.
+- **Title** — short, names the deepening (e.g. "Merge the Sykmelding-inntak chain").
+- **Badge row** — recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `locally-substitutable`, `ports & adapters`, `mock`).
+- **Files** — monospaced list, `font-mono text-sm` (e.g. `src/main/kotlin/no/nav/budstikka/...`).
+- **Before/after diagram** — the centerpiece. Two columns side by side. See the patterns below.
+- **Problem** — one sentence. What hurts.
+- **Solution** — one sentence. What changes.
+- **Benefits** — bullets, ≤6 words each. E.g. "Tests hit one interface", "TokenX token stops leaking", "Delete 4 shallow wrappers".
+- **ADR callout** (if relevant) — one line in a yellow-tinted box.
 
-Ingen avsnitt med forklaring. Trenger diagrammet et avsnitt for å forstås, tegn diagrammet på nytt.
+No explanatory paragraphs. If the diagram needs a paragraph to be understood, draw the diagram again.
 
-## Diagram-mønstre
+## Diagram patterns
 
-Velg mønsteret som passer kandidaten. Bland dem. Ikke la alle diagrammer se like ut — variasjon er en del av poenget.
+Pick the pattern that fits the candidate. Mix them. Do not let every diagram look the same — variation is part of the point.
 
-### Mermaid-graf (arbeidshesten for avhengigheter / kallflyt)
+### Mermaid graph (the workhorse for dependencies / call flow)
 
-Bruk `flowchart` eller `graph` når poenget er "X kaller Y kaller Z, se på rotet". Pakk den i et Tailwind-stylet kort. Stil med `classDef` for å farge lekkasje-kanter røde og den dype modulen mørk. Sekvensdiagram funker godt for "før: 6 rundturer; etter: 1".
+Use `flowchart` or `graph` when the point is "X calls Y calls Z, look at the mess". Wrap it in a Tailwind-styled card. Style with `classDef` to color leaking edges red and the deep module dark. A sequence diagram works well for "before: 6 round trips; after: 1".
 
 ```html
 <div class="rounded-lg border border-slate-200 bg-white p-4">
@@ -68,56 +68,56 @@ Bruk `flowchart` eller `graph` når poenget er "X kaller Y kaller Z, se på rote
     flowchart LR
       A[SykmeldingRoute] --> B[SykmeldingService]
       B --> C[SykmeldingRepository]
-      C -.lekk.-> D[PdlClient]
+      C -.leak.-> D[PdlClient]
       classDef leak stroke:#dc2626,stroke-width:2px;
       class C,D leak
   </pre>
 </div>
 ```
 
-### Håndbygde bokser-og-piler (når Mermaids layout slåss mot deg)
+### Hand-built boxes-and-arrows (when Mermaid's layout fights you)
 
-Moduler som `<div>`-er med rammer og etiketter. Piler som inline-SVG `<line>`/`<path>` posisjonert absolutt over en relativ container. Bruk dette når "etter"-diagrammet skal føles som én tykk-rammet dyp modul med nedtonede interne deler.
+Modules as `<div>`s with borders and labels. Arrows as inline SVG `<line>`/`<path>` positioned absolutely over a relative container. Use this when the "after" diagram should feel like one thick-bordered deep module with dimmed internal parts.
 
-### Tverrsnitt (bra for lagdelt grunnhet)
+### Cross-section (good for layered shallowness)
 
-Stable horisontale bånd (`h-12 border-l-4`) for å vise lagene et kall passerer. Før: 6 tynne lag som hver gjør ingenting (Route → Service → Mapper → Repository → Klient → DTO). Etter: 1 tykt bånd med den konsoliderte ansvaret.
+Stack horizontal bands (`h-12 border-l-4`) to show the layers a call passes through. Before: 6 thin layers that each do nothing (Route → Service → Mapper → Repository → Client → DTO). After: 1 thick band with the consolidated responsibility.
 
-### Masse-diagram (bra for "grensesnitt like bredt som implementasjon")
+### Mass diagram (good for "interface as wide as the implementation")
 
-To rektangler per modul — ett for grensesnitt-flate, ett for implementasjon. Før: grensesnitt-rektangelet er nesten like høyt som implementasjonen (grunn). Etter: grensesnittet er lavt, implementasjonen høy (dyp).
+Two rectangles per module — one for interface surface, one for implementation. Before: the interface rectangle is almost as tall as the implementation (shallow). After: the interface is short, the implementation tall (deep).
 
-### Kallgraf-kollaps
+### Call-graph collapse
 
-Før: et tre av funksjonskall som nøstede bokser. Etter: samme tre kollapset til én boks, med de nå-interne kallene nedtonet inni.
+Before: a tree of function calls as nested boxes. After: the same tree collapsed into one box, with the now-internal calls dimmed inside.
 
-## Stilguide
+## Style guide
 
-- Redaksjonelt, ikke corporate-dashboard. Raus luft. Serif valgfritt for overskrifter (`font-serif` med stone/slate).
-- Farge sparsomt: én aksent (emerald eller indigo) pluss rød for lekkasje og gul for advarsler.
-- Hold diagrammer ~320px høye så før/etter sitter komfortabelt side om side uten scrolling.
-- Bruk `text-xs uppercase tracking-wider` for modul-etiketter inni diagrammer — de skal leses som skjematiske, ikke som UI.
-- Eneste skript er Tailwind-CDN og Mermaid-ESM-import. Rapporten er ellers statisk — ingen app-kode, ingen interaktivitet utover Mermaids egen rendering.
+- Editorial, not corporate dashboard. Generous whitespace. Serif optional for headings (`font-serif` with stone/slate).
+- Color sparingly: one accent (emerald or indigo) plus red for leaks and yellow for warnings.
+- Keep diagrams ~320px tall so before/after sit comfortably side by side without scrolling.
+- Use `text-xs uppercase tracking-wider` for module labels inside diagrams — they must read as schematic, not as UI.
+- The only scripts are the Tailwind CDN and the Mermaid ESM import. The report is otherwise static — no app code, no interactivity beyond Mermaid's own rendering.
 
-## Topp-anbefaling-seksjon
+## Top recommendation section
 
-Ett større kort. Kandidatnavn, én setning på hvorfor, anker-lenke til kortet. Ferdig.
+One larger card. Candidate name, one sentence on why, anchor link to the card. Done.
 
 ## Tone
 
-Enkelt norsk, konsist — men de arkitektoniske substantivene og verbene kommer rett fra vokabularet. Konsisjon er ingen unnskyldning for å drifte.
+Plain English, concise — but the architectural nouns and verbs come straight from the vocabulary. Concision is no excuse for drifting.
 
-**Bruk eksakt:** modul, grensesnitt, implementasjon, dybde, dyp, grunn, søm, adapter, leverage, lokalitet.
+**Use exactly:** module, interface, implementation, depth, deep, shallow, seam, adapter, leverage, locality.
 
-**Aldri erstatt med:** komponent, service, enhet (for modul) · API, signatur (for grensesnitt) · boundary (for søm) · lag, wrapper (for modul, når du mener modul).
+**Never substitute with:** component, service, unit (for module) · API, signature (for interface) · boundary (for seam) · layer, wrapper (for module, when you mean module).
 
-**Fraseringer som passer stilen:**
+**Phrasings that fit the style:**
 
-- "Sykmelding-inntak-modulen er grunn — grensesnittet er nesten like bredt som implementasjonen."
-- "PDL-oppslaget lekker over sømmen."
-- "Fordyp: ett grensesnitt, ett sted å teste."
-- "To adaptere forsvarer sømmen: HTTP i prod, in-memory i test."
+- "The Sykmelding-inntak module is shallow — the interface is almost as wide as the implementation."
+- "The PDL lookup leaks across the seam."
+- "Deepen it: one interface, one place to test."
+- "Two adapters defend the seam: HTTP in prod, in-memory in test."
 
-**Gevinst-punkter** navngir gevinsten i vokabularet: *"lokalitet: feil konsentreres i én modul"*, *"leverage: ett grensesnitt, N kallsteder"*, *"grensesnittet krymper; implementasjonen absorberer wrapperne"*. Ikke skriv *"lettere å vedlikeholde"* eller *"renere kode"* — de termene er ikke i vokabularet og fortjener ikke plassen.
+**Benefit bullets** name the benefit in the vocabulary: *"locality: the bugs concentrate in one module"*, *"leverage: one interface, N call sites"*, *"the interface shrinks; the implementation absorbs the wrappers"*. Do not write *"easier to maintain"* or *"cleaner code"* — those terms are not in the vocabulary and do not deserve the space.
 
-Ingen hedging, ingen kremting, ingen "det er verdt å merke seg at…". Kan en setning være et punkt, gjør den til et punkt. Kan et punkt kuttes, kutt det.
+No hedging, no throat-clearing, no "it is worth noting that…". If a sentence can be a bullet, make it a bullet. If a bullet can be cut, cut it.

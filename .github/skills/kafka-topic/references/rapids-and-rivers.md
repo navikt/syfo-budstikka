@@ -1,20 +1,20 @@
 ---
-description: "Rapids & Rivers i Ktor — River-oppsett, validate/demand/require/interestedIn, publisering og TestRapid. Les kun når repoet allerede bruker no.nav.helse:rapids-rivers."
+description: "Rapids & Rivers in Ktor — River setup, validate/demand/require/interestedIn, publishing and TestRapid. Read only when the repository already uses no.nav.helse:rapids-rivers."
 ---
 
-# Rapids & Rivers i Ktor-backend
+# Rapids & Rivers in a Ktor backend
 
-Rapids & Rivers er Navs eventdrevne rammeverk oppå Kafka. Bruk kun hvis teamet allerede står på Rapids — ikke introduser det i et repo som kjører plain Kafka uten eksplisitt avtale.
+Rapids & Rivers is Nav's event-driven framework on top of Kafka. Use it only if the team is already on Rapids — do not introduce it into a repository running plain Kafka without an explicit agreement.
 
-`RapidApplication` har sin egen innebygde HTTP-server og livssyklus. Bruker repoet allerede Ktor `EngineMain` for sitt API, må du bevisst velge hvordan de to lever sammen — vanligst er at Rapids-appen eier prosessen og du registrerer evt. ekstra ruter på dens innebygde Ktor-motor. Avklar dette før du blander to motorer.
+`RapidApplication` has its own built-in HTTP server and lifecycle. If the repository already uses Ktor `EngineMain` for its API, you must deliberately decide how the two live together — most commonly the Rapids app owns the process and you register any extra routes on its built-in Ktor engine. Settle this before mixing two engines.
 
-## Kjernekonsepter
+## Core concepts
 
-- **Rapid** — det delte Kafka-topicet der hendelser flyter (`<team>.rapid.v1`).
-- **River** — en konsument som lytter på spesifikke hendelsestyper.
-- **Demand / Require / Reject / Interested in** — validering og filtrering på pakke-nivå.
+- **Rapid** — the shared Kafka topic where events flow (`<team>.rapid.v1`).
+- **River** — a consumer that listens for specific event types.
+- **Demand / Require / Reject / Interested in** — validation and filtering at packet level.
 
-## Oppsett
+## Setup
 
 ```kotlin
 import no.nav.helse.rapids_rivers.RapidApplication
@@ -27,15 +27,15 @@ fun main() {
 }
 ```
 
-Nais-envvars Rapids forventer:
+Nais env vars that Rapids expects:
 
 ```
 KAFKA_BROKERS, KAFKA_TRUSTSTORE_PATH, KAFKA_KEYSTORE_PATH, KAFKA_CREDSTORE_PASSWORD
-KAFKA_CONSUMER_GROUP_ID=<app-navn>-v1
+KAFKA_CONSUMER_GROUP_ID=<app-name>-v1
 KAFKA_RAPID_TOPIC=<team>.rapid.v1
 ```
 
-## En River
+## A River
 
 ```kotlin
 class SykmeldingRiver(
@@ -84,21 +84,21 @@ class SykmeldingRiver(
 }
 ```
 
-## Validering — velg riktig predikat
+## Validation — choose the right predicate
 
-| Predikat | Effekt |
-|----------|--------|
-| `demandValue(key, value)` | Riveren aktiveres kun hvis feltet har eksakt verdi. Typisk for `@event_name`. |
-| `demandKey(key)` | Kun hvis feltet finnes. |
-| `requireKey(k1, k2, …)` | Alle felter må finnes, ellers `onError`. |
-| `require(key, parser)` | Feltet må finnes og kunne parses. |
-| `requireAny(k1, k2)` | Minst ett felt må finnes. |
-| `interestedIn(k1, k2)` | Valgfrie felter — fanges hvis tilstede, ingen feil hvis ikke. |
-| `rejectKey(key)` / `rejectValue(k, v)` | Skip pakken stille. |
+| Predicate | Effect |
+|-----------|--------|
+| `demandValue(key, value)` | The River is activated only if the field has exactly this value. Typical for `@event_name`. |
+| `demandKey(key)` | Only if the field is present. |
+| `requireKey(k1, k2, …)` | All fields must be present, otherwise `onError`. |
+| `require(key, parser)` | The field must be present and parseable. |
+| `requireAny(k1, k2)` | At least one field must be present. |
+| `interestedIn(k1, k2)` | Optional fields — captured if present, no error if not. |
+| `rejectKey(key)` / `rejectValue(k, v)` | Skip the packet silently. |
 
-Bruk `demandValue` for event-type-filtrering — det hindrer at Riveren produserer `onError` for hver hendelse som ikke er dens.
+Use `demandValue` for event-type filtering — it prevents the River from producing `onError` for every event that is not its own.
 
-## Testing med TestRapid
+## Testing with TestRapid
 
 ```kotlin
 class SykmeldingRiverTest {
@@ -128,17 +128,17 @@ class SykmeldingRiverTest {
 }
 ```
 
-Kjør `./gradlew test` og returner resultatet til den aktive oppgaven.
+Run `./gradlew test` and return the result to the active task.
 
-## Feilhåndtering i Rivers
+## Error handling in Rivers
 
-- **Midlertidig feil** (DB nede, nettverk): kast exception → Kafka re-leverer.
-- **Permanent feil** (ugyldig payload som passerte validering): log + DLQ-producer + return. Ikke kast — det blokkerer strømmen.
-- **Valideringsfeil**: `onError` kalles automatisk. Log med `problems.toExtendedReport()`, ikke republiser.
+- **Temporary error** (DB down, network): throw an exception → Kafka redelivers.
+- **Permanent error** (invalid payload that passed validation): log + DLQ producer + return. Do not throw — that blocks the stream.
+- **Validation error**: `onError` is called automatically. Log with `problems.toExtendedReport()`, do not republish.
 
-## Vanlige fallgruver
+## Common pitfalls
 
-- **Glemme `demandValue` på `@event_name`** → Riveren trigges for hver melding og spammer `onError`.
-- **`requireKey` på valgfritt felt** → meldinger uten feltet feiler unødvendig. Bruk `interestedIn`.
-- **Endre `KAFKA_CONSUMER_GROUP_ID`** → reprosessering fra `auto.offset.reset`. Koordiner med drift (Spør først).
-- **Store payloads på rapid-topicet** → det er delt mellom mange team. Hold meldinger små, referer tyngre data med ID.
+- **Forgetting `demandValue` on `@event_name`** → the River is triggered for every message and spams `onError`.
+- **`requireKey` on an optional field** → messages without the field fail unnecessarily. Use `interestedIn`.
+- **Changing `KAFKA_CONSUMER_GROUP_ID`** → reprocessing from `auto.offset.reset`. Coordinate with operations (Ask first).
+- **Large payloads on the rapid topic** → it is shared between many teams. Keep messages small, reference heavier data by ID.

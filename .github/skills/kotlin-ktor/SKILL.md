@@ -1,107 +1,109 @@
 ---
 name: kotlin-ktor
-description: "Bruk ved Ktor-spesifikt arbeid i no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering, og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor."
+description: "Use for Ktor-specific work in no.nav.budstikka: routes, plugins, DI/wiring, logging/MDC, the outgoing HttpClient, and Ktor-related Kafka/Postgres setup — or /kotlin-ktor. Auth mechanisms and token exchange are owned by /auth-overview."
 ---
 
-# Ktor — NAV-spesifikt (syfo-budstikka)
+# Ktor — NAV-specific (this repository)
 
-Kotlin + Ktor 3.x på Netty, pakke `no.nav.syfo`. Java 25, Gradle. Norsk er arbeidsspråk.
+Kotlin + Ktor 3.x on Netty, package `no.nav.budstikka` (the Gradle `group` is still `no.nav.syfo`). Java 25, Gradle. Language follows `docs/agents/language-policy.md`: documentation, agent-facing material and technical code identifiers are English, while user-facing product copy is Norwegian Bokmål — as are the established Norwegian domain identifiers (`Brukervarsel`, `Ledervarsel`, `Brev`).
 
-## Skill-grenser
+## Skill boundaries
 
-- Bruk `/kotlin-ktor` når endringen rører Ktor-rammeverket (routes, plugins, auth, app wiring).
-- Bruk `/integration-tests` eller `/e2e-tests` for testtype-spesifikk flyt.
+- Use `/kotlin-ktor` when the change touches the Ktor framework (routes, plugins, app wiring).
+- Use `/auth-overview` to decide which token a call needs, and for incoming token validation if it is ever added here.
+- Use `/integration-tests` or `/e2e-tests` for test-type-specific flows.
 
-## Oppstart og moduler
+## Startup and modules
 
-Repoet bruker **config-basert oppstart** med `EngineMain`, ikke `embeddedServer { }`. Moduler registreres i `src/main/resources/application.yaml` under `ktor.application.modules`, ikke i `main.kt`:
+Production startup is **config-based** with `EngineMain`. Modules are named in `src/main/resources/application.conf` (HOCON) under `ktor.application.modules`, not passed to an `embeddedServer { }` call:
 
-```yaml
-ktor:
-  deployment:
-    port: 8080
-  application:
-    modules:
-      - no.nav.syfo.RoutingKt.configureRouting
-      - no.nav.syfo.AppKt.apiModule
-```
-
-`main.kt` kaller bare `io.ktor.server.netty.EngineMain.main(args)`. En ny `Application.xxx()`-modul tas i bruk ved å legge fully-qualified `<Fil>Kt.<funksjon>`-referansen i listen over — å bare skrive funksjonen er ikke nok.
-
-## Avhengigheter (version catalogs)
-
-To kataloger er i bruk:
-- `ktorLibs` — alle Ktor-artefakter, pinnet via `io.ktor:ktor-version-catalog` i `settings.gradle.kts`. Bruk f.eks. `implementation(ktorLibs.server.auth)`, `ktorLibs.server.contentNegotiation`. Ikke skriv Ktor-versjoner manuelt.
-- `libs` — alt annet (logback, Koin, db, Kafka, osv.), definert i `gradle/libs.versions.toml`.
-
-Legg nye Ktor-plugins via `ktorLibs.*`; legg tredjepart via `libs.*` med versjon i `[versions]`/`[libraries]`.
-
-## Autentisering (TokenX / Azure AD)
-
-```kotlin
-authenticate("azureAd") {
-    get("/api/protected") {
-        val principal = call.principal<JWTPrincipal>()
-        val navIdent = principal?.getClaim("NAVident", String::class)
-            ?: throw ApiErrorException.UnauthorizedException("Mangler NAVident")
-    }
+```hocon
+ktor {
+  deployment {
+    port = 8080
+  }
+  application {
+    modules = [ no.nav.budstikka.ApplicationKt.module ]
+  }
 }
 ```
 
-- **TokenX** for borger-til-app (on-behalf-of sluttbruker, ID-porten-opphav). Valider `sub`/`pid`.
-- **Azure AD** for ansatt-flyt og maskin-til-maskin internt. NAVident-claim identifiserer saksbehandler.
-- Sett opp `accessPolicy.inbound/outbound` i NAIS-manifestet for hvilke apper som får kalle/kalles. Auth-valg er typisk en blind-spot — grav i det i grill-fasen.
+The deployed image runs Ktor's `EngineMain` as its main class — `build.gradle.kts` sets `application { mainClass = "io.ktor.server.netty.EngineMain" }` and Jib mirrors it into the container. The repository's own `fun main` lives in `Application.kt`, not `main.kt`, and exists for manual runs: it logs, delegates to `EngineMain.main(args)`, and exits with code 1 on a fatal startup error.
 
-## Avhengighetsinjeksjon
+`ApplicationKt.module` is the only entry in the module list, and it delegates straight to `Application.configureApplication()` in the same file. Everything else — plugins, DI, metrics, Flyway migration, dead-letter replay, Kafka consumers, workers, internal routes — is an ordinary call inside `configureApplication`, not a separate Ktor module. Add new startup work there rather than as a second module entry: `src/test/kotlin/no/nav/budstikka/testsupport/BudstikkaTestApp.kt` boots the application by calling `configureApplication(overrides)` directly and `src/test/resources/application-local.conf` sets `application.modules = []`, so anything registered only in `application.conf` never reaches an e2e test or a local run.
 
-Detekter eksisterende DI-mønster først. Er `io.insert-koin` i avhengighetene: bruk Koin (`install(Koin) { modules(appModule) }`, hent via `by inject()`). Ellers er **manuell konstruktørinjeksjon** i `Application`-modulen default — ikke dra inn et DI-rammeverk uoppfordret. (Dette repoet har ingen Koin i dag.)
+## Dependencies (version catalogs)
 
-## Logging og sporing
+`build.gradle.kts` resolves **every** dependency, Ktor included, through the `libs` catalog in `gradle/libs.versions.toml` — `libs.ktor.server.core`, `libs.ktor.server.netty`, `libs.ktor.server.call.id`, `libs.ktor.server.di`, `libs.ktor.server.metrics.micrometer`, `libs.ktor.client.core`, `libs.ktor.client.cio`, plus `libs.ktor.client.mock` and `libs.ktor.server.test` on the test classpath. Each of those `[libraries]` entries carries `version.ref = "ktor"`, and the Ktor Gradle plugin (`libs.plugins.ktor`) uses the same ref, so a Ktor upgrade is one edit to `[versions] ktor`.
+
+A second catalog, `ktorLibs`, is declared in `settings.gradle.kts` from the published `io.ktor:ktor-version-catalog`, but nothing in the build references it. That is an open option rather than a rule being broken: adopting it would remove the hand-written Ktor version from `[versions]`, at the cost of pinning Ktor in the `settings.gradle.kts` coordinate instead — the two currently have to be kept in step by hand. Until someone makes that switch deliberately, add a Ktor artifact the way the build already does, as a `[libraries]` entry with `version.ref = "ktor"`, and a third-party library the same way with its own `[versions]` entry.
+
+Check the dependency list before reaching for a Ktor plugin: `ktor-server-auth`, `ktor-server-content-negotiation` and `ktor-client-content-negotiation` are **not** on the classpath. Using one of them is adding a dependency, not calling something that is already there.
+
+## Authentication — outgoing only
+
+This application validates no incoming tokens. There is no `install(Authentication)`, no `authenticate { }` block and no `JWTPrincipal` anywhere in `src/main/kotlin/`; the only routes it serves are the unauthenticated internal ones described below.
+
+`infrastructure/auth/` is the **outgoing** side. `TokenProvider.token(target)` returns a machine-to-machine bearer token for an Entra ID scope (`api://<cluster>.<namespace>.<app>/.default`), and `TexasTokenProvider` obtains it from the NAIS Texas sidecar — endpoint from `NAIS_TOKEN_ENDPOINT`, identity provider defaulting to `entra_id` — caching per target until shortly before expiry. Each client in `infrastructure/client/` calls `tokenProvider.token(config.scope)` and attaches the result with `bearerAuth`. The manifests match: `nais/nais-dev.yaml` and `nais/nais-prod.yaml` set the `texas.nais.io/enabled` annotation and `azure.application.enabled`, and declare `accessPolicy.outbound` only — inbound rules and TokenX are explicitly deferred (see the trailing comment in `nais/nais-dev.yaml`).
+
+Which mechanism a call needs (TokenX on-behalf-of versus Azure AD machine-to-machine) is decided in `/auth-overview`; do not re-derive it here. If inbound authentication is ever added to this application, `/auth-overview` owns the incoming validation setup and `/nais-manifest` owns the matching `accessPolicy.inbound`.
+
+Tokens are secrets: never log one or put it in an exception message. `TexasTokenProvider` reports only the status code when a token request fails.
+
+## Dependency injection
+
+Wiring lives in `bootstrap/DependencyInjection.kt` — read it before adding a dependency. It uses Ktor's own DI (`ktor-server-di`: `dependencies { provide { … } }`, `resolve()`, `by dependencies`), composed from per-area module functions (`databaseModule`, `kafkaModule`, `authModule`, `clientModule`, `gateModule`, `workerModule`, `livenessModule`). Do not pull in a third-party DI framework unprompted.
+
+`installDependencyInjection` runs its `overrides` lambda last, so a test or local run can replace a port with a fake. That only works because the test/local config sets `ktor.di.conflictPolicy = "OverridePrevious"`; production keeps the default policy, where a duplicate registration throws and catches wiring mistakes.
+
+Registrations that own a resource attach `.cleanup { … }` — the Hikari data source, the shared `HttpClient`, the Kafka `MessagePublisher`, the `ConsumerRunner` list and the `BackgroundLoop` list all close through it on shutdown.
+
+## Logging and tracing
 
 ```kotlin
 install(CallId) {
-    header(HttpHeaders.XRequestId)
+    retrieve { it.request.headers[NAV_CALL_ID_HEADER] }   // "Nav-Call-Id", see api/Plugins.kt
     generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("x_request_id")
+    verify { callId: String -> callId.isNotEmpty() }
+    header(NAV_CALL_ID_HEADER)
 }
 ```
 
-NAIS forventer strukturert (JSON) logging til stdout for innsamling. Logg aldri fnr eller særlige kategorier personopplysninger i klartekst — bruk callId/aktørreferanser i stedet.
+`CallId` is the only plugin `api/Plugins.kt` installs. Neither `CallLogging` nor `callIdMdc` is installed, and the plugin only covers inbound requests — which here means the internal probes. The Kafka consumers and background workers correlate through SLF4J MDC directly instead: the key names are constants in `application/MdcKeys.kt`, set with `MDC.putCloseable` or a coroutine `MDCContext`, and structured fields are attached with `StructuredArguments.kv`.
 
-## Feilhåndtering — StatusPages + ApiError
+`src/main/resources/logback.xml` sends everything to stdout through `LogstashEncoder`, which is the structured JSON that NAIS collects. Never log national identity numbers or special categories of personal data in plain text — use an event id, callId or actor reference instead. Watch throwables as well as messages: a serialization failure echoes the offending body, so the clients and `InboxMessageHandler` deliberately drop the cause rather than let a payload reach a stacktrace.
 
-Team-standard for strukturerte feilresponser: sealed `ApiErrorException`-hierarki + `StatusPages`-plugin som mapper til en enhetlig `ApiError`-payload (status, type, message, path, timestamp). Se [references/error-handling.md](references/error-handling.md) for full implementasjon (`ErrorType`-enum, `ApiErrorException`-klasser, `installStatusPages()`, `determineApiError()`, logging).
+## HTTP surface
 
-## Paginering og input-validering
+This application is a Kafka consumer/worker. The only routes it serves are `/internal/health/is_alive`, `/internal/health/is_ready` and `/internal/metrics` (`api/InternalApi.kt`), so there is no public HTTP API and no error-response contract, pagination or request validation to follow. If a public API is added, agree its error contract with the consuming team before implementing it — do not assume one already exists.
 
-Team-standard `PaginatedResponse<T>`-wrapper og route-validering med tidlig-retur (kast `ApiErrorException.BadRequestException`) på ugyldige parametre. Se [references/paginering-og-validering.md](references/paginering-og-validering.md).
+## Outgoing HttpClient (calls to a downstream service)
 
-## Utgående HttpClient (kall mot nedstrøms-tjeneste)
+One shared `HttpClient(CIO)` is provided in `authModule()` with no configuration block, and injected into `PdlClient`, `KrrClient`, `DocumentDistributionClient` and `TexasTokenProvider` alike. It installs no `HttpTimeout`, no `HttpRequestRetry`, no `Logging` and no `ContentNegotiation` — bodies are read as text and (de)serialized explicitly with kotlinx.serialization. What the clients do carry is the part that matters at the boundary: they turn the downstream status into a domain value so no `HttpResponse` escapes `infrastructure/client/`.
 
-Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `ktorLibs.client.*`, med eksplisitt timeout/retry, `Nav-Call-Id`-propagering og oversettelse av nedstrøms-feil til repoets feilkontrakt. Token for kallet hentes som beskrevet i `/auth-overview` (TokenX OBO / Azure AD M2M) — ikke dupliser auth her. Se [references/http-client.md](references/http-client.md) for konkret oppsett (motor, `HttpTimeout`, `HttpRequestRetry`, callId-header, `ApiErrorException`-mapping; circuit breaker krever Resilience4j — ikke native i Ktor).
+Adding a timeout or retry policy therefore changes the shared client and every downstream with it, including the Texas token call — treat it as a decision, not a formality. See [references/http-client.md](references/http-client.md) for what each client actually does and where the boundaries are (status mapping, the `Nav-Call-Id` header, PII in exception causes; circuit breaking would require Resilience4j — Ktor has no native equivalent).
 
-## Persistens (Postgres / Flyway)
+## Persistence (Postgres / Flyway)
 
-- Flyway-migreringer i `src/main/resources/db/migration` (`V<n>__<navn>.sql`), kjøres ved oppstart. Migreringer er append-only — endre aldri en allerede deployet migrering.
-- Bruk NAIS-provisjonert Postgres med IAM/Vault-rotert credential; ikke hardkod connection-string.
-- Review skjema- og lagringsvalg for personopplysninger med
-  `/architecture-review`. Når valget passerer ADR-gaten, anbefal
-  dokumentert løp og vent på brukerens valg før `/domain-modeling` registrerer
-  det.
+- Flyway migrations in `src/main/resources/database.migration` (`V<n>__<name>.sql`, plus repeatable `R__<name>.sql`), configured via `.locations("classpath:database.migration")` in `DataSource.migrate()` and run from `configureApplication` at startup. Migrations are append-only — never change a migration that has already been deployed.
+- Postgres is NAIS-provisioned through `gcp.sqlInstances` in the manifests, with `envVarPrefix: BUDSTIKKA_DB`. `application.conf` reads those injected `BUDSTIKKA_DB_*` variables; do not hardcode a connection string. `toDatabaseConfig()` strips the credentials NAIS embeds in the URL (Hikari wants them separately) and swaps the PEM `sslkey` for the PKCS#8 key from `BUDSTIKKA_DB_SSLKEY_PK8`. `DatabaseConfig.toString()` masks the password on purpose — keep it that way.
+- Exposed is the SQL layer (`Database.connect` over the Hikari pool, `TransactionRunner` for transactional units of work).
+- Review schema and storage choices for personal data with
+  `/architecture-review`. When the choice passes the ADR gate, recommend the
+  documented route and wait for the user's choice before `/domain-modeling`
+  records it.
 
-## Kafka (hendelseskonsument/-produsent)
+## Kafka (event consumer/producer)
 
-- Konsumenter må være **idempotente** og tåle replay — dedup på nøkkel/offset, ikke anta exactly-once.
-- Definer eksplisitt oppførsel når downstream er nede (retry/DLQ), og bekreft `accessPolicy`/topic-tilgang i NAIS.
-- Logg med callId/hendelse-id, aldri rå payload med PII.
+- Semantics are **at-least-once**, not exactly-once: `ConsumerRunner` calls `commitSync` only after the handler has processed a whole poll batch, so a throwing handler leaves the offset uncommitted and the batch is re-polled after a backoff. A record that can never be handled halts its partition (visible as consumer lag) rather than being skipped.
+- Deduplication is on the **event id header** (`DispatchHeader.EVENT_ID`), not on Kafka key or offset: `InboxMessageHandler` persists a hydrated inbox row keyed by that id. Keep new consumers idempotent on the same footing.
+- Unparseable input is dead-lettered rather than retried — `DeadLetterMessageRepository` stores the record with a reason code from the `DeadLetter` hierarchy, and `DeadLetterReplayer` replays the table when `deadLetterReplay.enabled` is set. Confirm topic access and `accessPolicy` in NAIS via `/nais-manifest`.
+- Log with event id plus topic/partition/offset, never a raw payload. A dead letter may have no event id at all, which is why `InboxMessageHandler` correlates it by Kafka coordinates and logs neither the payload nor the parse throwable.
 
 ## Graceful shutdown
 
-`EngineMain` (Netty) installerer shutdown-hook og håndterer `SIGTERM` automatisk — påbegynte kall fullføres før prosessen stopper. Du trenger ikke manuell readiness-toggling i applikasjonen. På plattformsiden gir NAIS `preStop`-hook og rimelig `terminationGracePeriodSeconds` tid til å drenere. Anti-mønstre: manuell `readiness=false`-vipping og for lav grace-period.
+`EngineMain` starts an `EmbeddedServer`, whose `start` installs a JVM shutdown hook, so `SIGTERM` is handled without any code here. Draining the parts that matter for this application — the Kafka consumers and the background workers — happens through the DI `cleanup` blocks: `ConsumerRunner.close()` wakes the consumer and joins its coroutine, `BackgroundLoop.close()` cancels the scope and joins, each with a 5-second timeout that logs a warning when it elapses. You do not need manual readiness toggling; flipping `readiness=false` by hand is an anti-pattern. Pod lifecycle on the platform side (`preStop`, `terminationGracePeriodSeconds`) belongs to `/nais-manifest`.
 
-## Verifisering
+## Verification
 
-Kvalitetsgater er deterministiske: `./gradlew test` og `./gradlew build`. Ktor-routes testes med `testApplication { }` (`ktorLibs.server.testHost`) — se `src/test/kotlin/ServerTest.kt`. Ingen «ser riktig ut»-påstand uten ferskt kommando-output + exit-kode.
+Quality gates are deterministic: `./gradlew test` and `./gradlew build` (`check` also depends on `ktlintCheck`). Ktor startup and routes are tested with `testApplication { }` / `TestApplication { }` from `libs.ktor.server.test` (`io.ktor:ktor-server-test-host`) — see `src/test/kotlin/no/nav/budstikka/bootstrap/DeadLetterReplayTest.kt`, which drives a module in isolation with a `MapApplicationConfig` and DI overrides. Full-boot specs are tagged `E2E` and excluded from `./gradlew test`; `/e2e-tests` owns those. No "looks right" claim without fresh command output + exit code.

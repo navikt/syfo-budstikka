@@ -1,45 +1,34 @@
-# API-sikkerhet — NAV-signal
+# API security — NAV signal
 
-Generisk API-sikkerhet (CORS-oppsett, CSP/X-Frame-Options/HSTS, Ktor `Authentication`/`CORS`-plugin-boilerplate, rate-limit-filterkode, cookie `Secure/HttpOnly/SameSite`, session fixation, CSRF-teori) er utenfor scope — LLM-en kan dette, og auth-oppsettet i koden dekkes av `/auth-overview`. Denne referansen dekker kun NAV-spesifikk signal.
+Generic API security (CORS setup, CSP/X-Frame-Options/HSTS, Ktor `Authentication`/`CORS` plugin boilerplate, rate-limit filter code, cookie `Secure/HttpOnly/SameSite`, session fixation, CSRF theory) is out of scope — the LLM knows this, and the auth setup in the code is covered by `/auth-overview`. This reference covers only the NAV-specific signal.
 
-## Sporbarhet med Nav-Call-Id
+## Traceability with Nav-Call-Id
 
-`Nav-Call-Id` må propageres gjennom hele kjeden. I Ktor settes den ved inngang via `CallId`-pluginen, legges i MDC for strukturert logging, og sendes videre på alle downstream-kall.
+`Nav-Call-Id` must be propagated through the entire chain. In this repository the `CallId` plugin (`api/Plugins.kt`) reads `Nav-Call-Id` from the incoming request, generates a UUID when it is absent, and echoes it in the response header. `callIdMdc` is deliberately not installed, so a callId does not reach MDC or the log lines by itself; worker and consumer logs correlate through `MdcKeys` + `MDCContext` instead (see `/kotlin-ktor`).
 
-```kotlin
-install(CallId) {
-    header(HttpHeaders.XRequestId)               // eller "Nav-Call-Id"
-    generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("callId")                          // tilgjengelig i alle logglinjer
-}
-```
+In client calls to other NAV services: set `Nav-Call-Id` explicitly on the request and reuse the id you already have (`DocumentDistributionClient` sends the event id), do not generate a new one per hop. The header is used for correlation, audit and troubleshooting across services. It is not tied to `accessPolicy`, which is NAIS's network control, and it is *never* used as a basis for authorization.
 
-I klientkall til andre NAV-tjenester: sett `Nav-Call-Id` fra MDC på request, ikke generer en ny. Headeren brukes for korrelasjon, audit og feilsøking på tvers av tjenester. Den er ikke koblet til `accessPolicy`, som er NAIS sin nettverkskontroll, og brukes *aldri* som autorisasjonsgrunnlag.
+## Nav-Consumer-Id for rate limiting and audit
 
-## Nav-Consumer-Id for rate limiting og audit
+For rate limiting against internal consumers: use `Nav-Consumer-Id` as the key before you fall back on IP. That gives meaningful limits per consumer app, not per NAIS pod.
 
-Ved rate limiting mot interne konsumenter: bruk `Nav-Consumer-Id` som nøkkel før du faller tilbake på IP. Det gir meningsfull begrensning per konsument-app, ikke per NAIS-pod.
+## accessPolicy is the primary mechanism
 
-## accessPolicy er primærmekanismen
+CORS, IP allowlisting and self-validation of `Origin` are secondary. The primary network defense on the NAIS platform is `accessPolicy.inbound/outbound`. See the SKILL.md section "accessPolicy as first-line defense".
 
-CORS, IP-allowlisting og egenvalidering av `Origin` er sekundære. Det primære nettverksforsvaret på NAIS-plattformen er `accessPolicy.inbound/outbound`. Se SKILL.md-seksjonen "accessPolicy som first-line defense".
+For frontend services (with Wonderwall in front): CSRF protection and cookie settings are normally handled by the Wonderwall/ingress layer. Check that the Ktor app does not double-authenticate or override these.
 
-For frontend-tjenester (Wonderwall foran): CSRF-beskyttelse og cookie-innstillinger håndteres normalt av Wonderwall/ingress-laget. Sjekk at Ktor-appen ikke dobbel-autentiserer eller overstyrer disse.
+## Selected OWASP API Top 10:2023 signals for NAV
 
-## Utvalgte OWASP API Top 10:2023-signaler for NAV
+Use the table as a quick check during review. It shows a selection of signals and does not replace the NAV assessments in SKILL.md or the threat model.
 
-Bruk tabellen som en rask sjekk ved review. Den viser et utvalg av signaler og erstatter ikke NAV-vurderingene i SKILL.md eller trusselmodellen.
-
-| OWASP API | Typisk NAV-signal | Sjekk i praksis |
+| OWASP API | Typical NAV signal | Check in practice |
 |-----------|-------------------|-----------------|
-| API1 Broken Object Level Authorization | Bruker eller ansatt kan slå opp ressurs med ID de ikke eier | Verifiser eierskap/sakstilhørighet i route-handleren, ikke bare at tokenet er gyldig |
-| API2 Broken Authentication | Feil issuer/audience eller manglende `azp`-sjekk | Sjekk JWT-validering i `authenticate(...)`-blokken, pre-authorized apps og riktig auth-mekanisme |
-| API3 Broken Object Property Level Authorization | API returnerer eller aksepterer felter klienten ikke skal se eller styre | Bruk eksplisitte DTO-er, ikke eksponer interne felter eller masseoppdatering ukritisk |
-| API4 Unrestricted Resource Consumption | Kostbare kall kan spammes eller tømme CPU/minne | Sjekk paginering, payload-grenser, rate limiting og dyre business-flyter |
-| API5 Broken Function Level Authorization | Vanlige brukere når admin- eller saksbehandlerfunksjoner | Sjekk rollegrenser (`claims.groups`), gruppesjekker og egne grener for kode 6/7 og egen ansatt |
-| API7 SSRF | API henter videre URL eller host fra input | Begrens outbound med `accessPolicy`, whitelist hoster og valider destinasjon |
-| API8 Security Misconfiguration | Åpen ingress, feil `accessPolicy`, debug-endepunkt eller feil CORS | Sjekk manifest, ingress, interne endepunkter og at Wonderwall/NAIS ikke overstyres |
-| API10 Unsafe Consumption of APIs | Tredjeparts-API stoles på mer enn eget input | Valider svar, timeouts, retry-strategi og dataminimering mot eksterne kall |
+| API1 Broken Object Level Authorization | A user or employee can look up a resource with an ID they do not own | Verify ownership/case affiliation in the route handler, not just that the token is valid |
+| API2 Broken Authentication | Wrong issuer/audience or a missing `azp` check | Check JWT validation in the `authenticate(...)` block, pre-authorized apps and the correct auth mechanism |
+| API3 Broken Object Property Level Authorization | The API returns or accepts fields the client must not see or control | Use explicit DTOs, do not expose internal fields or allow mass assignment uncritically |
+| API4 Unrestricted Resource Consumption | Expensive calls can be spammed or drain CPU/memory | Check pagination, payload limits, rate limiting and expensive business flows |
+| API5 Broken Function Level Authorization | Ordinary users reach admin or case worker functions | Check role boundaries (`claims.groups`), group checks and dedicated branches for kode 6/7 and egen ansatt |
+| API7 SSRF | The API takes a forwarding URL or host from input | Restrict outbound with `accessPolicy`, allowlist hosts and validate the destination |
+| API8 Security Misconfiguration | Open ingress, wrong `accessPolicy`, a debug endpoint or wrong CORS | Check the manifest, ingress, internal endpoints and that Wonderwall/NAIS is not overridden |
+| API10 Unsafe Consumption of APIs | A third-party API is trusted more than your own input | Validate responses, timeouts, retry strategy and data minimization for external calls |

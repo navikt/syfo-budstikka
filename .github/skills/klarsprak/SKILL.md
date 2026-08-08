@@ -1,10 +1,13 @@
 ---
 name: klarsprak
-description: Brukes når norsk tekst i syfo-budstikka skal skrives eller vaskes — feilmeldinger og API-respons, loggmeldinger, README, PR-beskrivelser, commit-meldinger og release-notes — eller når eksisterende ADR-prosa skal språkvaskes uten å endre beslutning eller form. Også når brukeren ber om klarspråk, språkvask, fjerning av AI-markører eller retting av anglisismer.
+description: "Use when Norwegian user-facing prose in this repository is written or cleaned up — error messages shown to a user, API response text, README, PR descriptions, commit messages, release notes — or when existing ADR prose needs a language pass without changing the decision or its form. Triggers: 'plain language' / 'klarspråk', 'clean up this Norwegian text' / 'språkvask denne teksten', 'remove the AI markers' / 'fjern AI-markørene', anglicisms in Norwegian prose. Not for technical log messages: this repository logs in English."
 ---
 # Klarspråk
 
-Bruk denne skillen når norsk tekst skal strammes inn i kode, docs, PR, commit og logger.
+Bruk denne skillen når **brukervendt norsk tekst** skal strammes inn: feilmeldinger
+brukeren ser, API-respons, README, docs, PR-beskrivelser og commit-meldinger.
+Tekniske loggmeldinger er utenfor: dette repoet logger på engelsk
+(`logger.info("Delivery sent successfully")`) — ikke oversett dem.
 Skriv **Nav** i løpende tekst (unntak: `NAIS`, `NAVident`, `no.nav.syfo`).
 For ADR-er eier `docs/agents/domain.md` den lokale formen, mens
 `/domain-modeling` bruker ADR-gaten og oppretter dokumentet etter valgt løp.
@@ -25,7 +28,8 @@ vasker norsk tekst utenfor README**. Denne skillen er en kort operativ sjekklist
 7. Bruk norsk kun for domeneord.
 8. Bruk bindestrek i sammensatte ord med engelsk fagterm.
 9. Fjern AI-markører (svulstige adjektiv, em-dash-flom, «ikke bare X, men Y»).
-10. Ingen PII i logg/feilmelding; bruk tekniske ID-er.
+10. Ingen PII i brukervendt feiltekst; vis tekniske ID-er i stedet. (Gulvet for
+    logg og feil eier `.github/instructions/security.instructions.md`.)
 
 ## Korte før/etter-eksempler
 
@@ -40,8 +44,9 @@ vasker norsk tekst utenfor README**. Denne skillen er en kort operativ sjekklist
 ```
 
 ```text
-❌ log.info("Behandlet fnr {}", fnr)
-✅ log.info("Behandlet melding {}", meldingId)
+❌ «Forespørselen kunne ikke gjennomføres grunnet manglende obligatoriske
+   feltverdier for bruker <fnr>.»
+✅ «Mangler mottaker. Oppgi «mottakerId» i forespørselen.»
 ```
 
 ## Grenser

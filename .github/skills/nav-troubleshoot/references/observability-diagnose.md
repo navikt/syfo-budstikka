@@ -1,95 +1,95 @@
-# Observability-diagnose — når metrics, logs og traces ikke peker samme vei
+# Observability diagnosis — when metrics, logs and traces do not point the same way
 
-Bruk denne referansen når dette Ktor-backendet (`no.nav.syfo`) kjører, men symptombildet er uklart: høy feilrate uten tydelig stacktrace, latency uten klar flaskehals, restarts uten sikker rotårsak, eller manglende sammenheng mellom Mimir, Loki og Tempo.
+Use this reference when this repository's Ktor backend is running but the symptoms are unclear: a high error rate with no clear stack trace, latency with no clear bottleneck, restarts with no certain root cause, or no correlation between Mimir, Loki and Tempo.
 
-Dette er en NAV-spesifikk diagnosehjelp for **Mimir + Loki + Tempo på Nais**. Den lærer ikke Prometheus eller Grafana fra bunnen. Den hjelper deg å velge riktig startpunkt og unngå vanlige feiltolkninger.
+This is NAV-specific diagnostic help for **Mimir + Loki + Tempo on Nais**. It does not teach Prometheus or Grafana from scratch. It helps you pick the right starting point and avoid common misreadings.
 
-## Første sjekk
+## First checks
 
-- Avklar **symptom**: feilrate, latency, restart, manglende traces eller uklare logger
-- Avklar **scope**: app, namespace, cluster (`dev-gcp` vs `prod-gcp`) og tidsvindu
-- Avklar **stack**: HTTP-only eller også Kafka, Micrometer-/auto-instrumentation aktiv eller ikke
-- Sjekk om symptomene startet ved siste deploy, config-endring eller økt trafikk
+- Establish the **symptom**: error rate, latency, restart, missing traces or unclear logs
+- Establish the **scope**: app, namespace, cluster (`dev-gcp` vs `prod-gcp`) and time window
+- Establish the **stack**: HTTP-only or Kafka as well, Micrometer/auto-instrumentation active or not
+- Check whether the symptoms started at the last deploy, a config change or increased traffic
 
-## Diagnostisk tre
+## Diagnostic tree
 
 ```text
-Observability-signalene spriker
-├── Høy feilrate?
-│   ├── Start i Mimir: rate på 4xx/5xx per route
-│   ├── Finn samme tidsvindu i Loki
-│   └── Hvis loggene har trace_id → slå opp i Tempo
-├── Høy latency?
-│   ├── Start i Mimir: p95/p99 per route eller operation
-│   ├── Tempo: finn langsomme spans
-│   └── Verifiser om tregheten ligger i appen, DB eller downstream-kall
+The observability signals disagree
+├── High error rate?
+│   ├── Start in Mimir: rate of 4xx/5xx per route
+│   ├── Find the same time window in Loki
+│   └── If the logs have trace_id → look it up in Tempo
+├── High latency?
+│   ├── Start in Mimir: p95/p99 per route or operation
+│   ├── Tempo: find the slow spans
+│   └── Verify whether the slowness is in the app, the DB or downstream calls
 ├── Restarts / OOM / throttling?
-│   ├── Start i pod-diagnose.md + Mimir for memory/restarts
-│   ├── Loki: se siste logger før restart
-│   └── Ikke konkluder med "app-bug" før limits/requests er sjekket
-└── Mangler traces eller korrelasjon?
-    ├── Sjekk at appen faktisk sender spans i denne runtimeen
-    ├── Sjekk at logs har trace_id/callId
-    └── Sjekk at du ser på riktig service og riktig cluster
+│   ├── Start in pod-diagnose.md + Mimir for memory/restarts
+│   ├── Loki: look at the last logs before the restart
+│   └── Do not conclude "app bug" before limits/requests have been checked
+└── Missing traces or correlation?
+    ├── Check that the app actually emits spans in this runtime
+    ├── Check that the logs have trace_id/callId
+    └── Check that you are looking at the right service and the right cluster
 ```
 
-## Startpunkt per symptom
+## Starting point per symptom
 
-### 1. Feilrate uten tydelig årsak
+### 1. Error rate with no clear cause
 
-Begynn i **Mimir** for å finne hvilken route eller operasjon som feiler. Gå deretter til **Loki** i samme tidsvindu. Ikke start med fritekstsøk i alle logger.
+Start in **Mimir** to find which route or operation is failing. Then go to **Loki** for the same time window. Do not start with a free-text search across all logs.
 
-- Filtrer først på stabile labels: `app`, `namespace`, `cluster`, eventuelt route/status
-- Se etter topp i 5xx før du tolker 4xx som serverfeil (4xx er ofte klient-/auth-side)
-- Når du finner ett konkret logg-eksempel: følg `trace_id` eller `callId` videre
+- Filter on stable labels first: `app`, `namespace`, `cluster`, possibly route/status
+- Look for a spike in 5xx before interpreting 4xx as server errors (4xx is often on the client/auth side)
+- Once you find one concrete log example: follow `trace_id` or `callId` from there
 
-### 2. Latency uten feil
+### 2. Latency without errors
 
-Begynn i **Mimir** for p95/p99 (`http_server_requests_seconds`) og gå deretter til **Tempo**.
+Start in **Mimir** for p95/p99 (`http_server_requests_seconds`), then go to **Tempo**.
 
-- Se etter om tregheten er konsistent eller bare gjelder enkeltraces
-- Sammenlign route/operation før og etter siste deploy
-- Hvis én span dominerer: sjekk DB-kall, downstream-HTTP (Ktor-klient) eller Kafka-venting før du foreslår kodeendring
+- Check whether the slowness is consistent or applies only to individual traces
+- Compare route/operation before and after the last deploy
+- If one span dominates: check DB calls, downstream HTTP (the Ktor client) or Kafka waiting before proposing a code change
 
-### 3. Restarts, memory pressure eller CPU-problemer
+### 3. Restarts, memory pressure or CPU problems
 
-Kombiner **pod-diagnose.md** og observability:
+Combine **pod-diagnose.md** and observability:
 
-- Mimir bekrefter trend: minne opp mot limit, restart-telling, eventuelt throttling
-- Loki viser hva appen gjorde rett før restart
-- `OOMKilled` er som regel ikke løst før minneprofil eller limits er vurdert
-- CPU-throttling på Nais er ofte selvpåført hvis CPU-limits er satt — fjern dem
+- Mimir confirms the trend: memory approaching the limit, restart count, possibly throttling
+- Loki shows what the app was doing right before the restart
+- `OOMKilled` is usually not resolved until the memory profile or the limits have been reviewed
+- CPU throttling on Nais is often self-inflicted if CPU limits are set — remove them
 
-### 4. "Tempo viser rare traces"
+### 4. "Tempo shows strange traces"
 
-Vanlig NAV-gotcha: Tempo-søk kan gi treff som ikke egentlig tilhører tjenesten du feilsøker.
+Common NAV gotcha: a Tempo search can return hits that do not actually belong to the service you are troubleshooting.
 
-- Verifiser `rootServiceName` eller tilsvarende tjenestenavn før du tolker trace-resultatet
-- Sjekk riktig cluster (`dev-gcp` vs `prod-gcp`)
-- Hvis appen ikke eksponerer spans ennå: gå tilbake til logs og metrics i stedet for å gjette
+- Verify `rootServiceName` or the equivalent service name before interpreting the trace result
+- Check the right cluster (`dev-gcp` vs `prod-gcp`)
+- If the app does not expose spans yet: go back to logs and metrics instead of guessing
 
-### 5. "Loki finner for mye eller for lite"
+### 5. "Loki finds too much or too little"
 
-- Start med labels først, JSON-parsing etterpå
-- Ikke søk bredt på ord som `error` uten `app` og tidsvindu
-- Hvis logger mangler `trace_id` eller `callId`, noter det som observability-gap, ikke som bevis på at feilen ligger et annet sted
+- Start with labels first, JSON parsing afterwards
+- Do not search broadly for words like `error` without `app` and a time window
+- If logs are missing `trace_id` or `callId`, note it as an observability gap, not as evidence that the fault lies elsewhere
 
-## NAV-gotchas
+## NAV gotchas
 
-- **Samme tidsvindu først**: sammenlign ikke et trace fra nå med logger fra forrige deploy
-- **Samme identifikator**: bruk `trace_id` eller `Nav-Call-Id` gjennom hele kjeden når de finnes
-- **Riktig miljø**: verifiser `cluster`, `namespace` og app-navn før du trekker konklusjoner
-- **Manglende signal er også et funn**: ingen traces kan bety manglende instrumentering, feil service-navn eller at feil miljø er valgt
-- **Ikke hopp rett til dashboard-fiks**: diagnostiser runtime-feilen først; forbedre dashboards etterpå
-- **PII**: logg `Nav-Call-Id`/`callId`, aldri fnr/tokens/navn — gjelder også midlertidige debug-logger
+- **Same time window first**: do not compare a trace from now with logs from the previous deploy
+- **Same identifier**: use `trace_id` or `Nav-Call-Id` through the whole chain where they exist
+- **Right environment**: verify `cluster`, `namespace` and app name before drawing conclusions
+- **A missing signal is a finding too**: no traces can mean missing instrumentation, the wrong service name, or that the wrong environment is selected
+- **Do not jump straight to a dashboard fix**: diagnose the runtime failure first; improve the dashboards afterwards
+- **PII**: log `Nav-Call-Id`/`callId`, never national identity numbers/tokens/names — this applies to temporary debug logging too
 
-## Når du skal eskalere
+## When to escalate
 
-- Til [pod-diagnose.md](./pod-diagnose.md) når problemet i praksis er restart, readiness eller ressursmangel
-- Til [database-diagnose.md](./database-diagnose.md) når langsomme spans eller logger peker på pool/query-problem
-- Til [auth-diagnose.md](./auth-diagnose.md) når feilraten primært er 401/403
-- Til `/diagnosing-bugs` (perf-grenen) når rotårsaken krever en baseline-måling
-  og bisect. Manglende instrumentering, feil labels eller manglende `trace_id`
-  er et vedlikeholdt observability-gap i relevant topic-dokument. Hvis løsningen
-  innebærer et varig valg som passerer ADR-gaten, anbefal dokumentert løp og
-  vent på brukerens valg før `/domain-modeling` registrerer det.
+- To [pod-diagnose.md](./pod-diagnose.md) when the problem is really a restart, readiness or resource shortage
+- To [database-diagnose.md](./database-diagnose.md) when slow spans or logs point to a pool/query problem
+- To [auth-diagnose.md](./auth-diagnose.md) when the error rate is primarily 401/403
+- To `/diagnosing-bugs` (the perf branch) when the root cause requires a baseline measurement
+  and a bisect. Missing instrumentation, wrong labels or a missing `trace_id`
+  is a maintained observability gap in the relevant topic document. If the fix
+  involves a lasting decision that passes the ADR gate, recommend the documented
+  route and wait for the user's choice before `/domain-modeling` records it.
