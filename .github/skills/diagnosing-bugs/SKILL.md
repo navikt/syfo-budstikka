@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: "Use when a bug needs systematic diagnosis — something throws, fails, hangs or is slow in test or production, a flaky test, a performance regression, or a runtime symptom on NAIS (pod crash/OOMKilled, 401/403, Kafka consumer lag, DB timeout, Flyway error). Or when someone says 'debug this', 'diagnose', 'why is X failing'. NOT for designing new functionality (use /grilling and choose the documented route when needed)."
+description: "Use when a bug needs systematic diagnosis — something throws, fails, hangs or is slow in test or production, a flaky test, a performance regression, or a runtime symptom on NAIS (pod crash/OOMKilled, 401/403, Kafka consumer lag, DB timeout, Flyway error). Or when someone says 'debug this' / 'debug dette', 'diagnose' / 'diagnostiser', 'feilsøk dette', 'why is X failing' / 'hvorfor feiler X'. For a symptom only observable on deployed NAIS, start with /nav-troubleshoot. NOT for designing new functionality (use /grilling and choose the documented route when needed)."
 ---
 
 # Diagnosing Bugs

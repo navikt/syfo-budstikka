@@ -45,7 +45,7 @@ Each candidate is one `<article>`:
 
 - **Title** — short, names the deepening (e.g. "Merge the Sykmelding-inntak chain").
 - **Badge row** — recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `locally-substitutable`, `ports & adapters`, `mock`).
-- **Files** — monospaced list, `font-mono text-sm` (e.g. `src/main/kotlin/no/nav/syfo/...`).
+- **Files** — monospaced list, `font-mono text-sm` (e.g. `src/main/kotlin/no/nav/budstikka/...`).
 - **Before/after diagram** — the centerpiece. Two columns side by side. See the patterns below.
 - **Problem** — one sentence. What hurts.
 - **Solution** — one sentence. What changes.

@@ -4,20 +4,9 @@ Generic API security (CORS setup, CSP/X-Frame-Options/HSTS, Ktor `Authentication
 
 ## Traceability with Nav-Call-Id
 
-`Nav-Call-Id` must be propagated through the entire chain. In Ktor it is set at the entry point by the `CallId` plugin, placed in MDC for structured logging, and passed on with every downstream call.
+`Nav-Call-Id` must be propagated through the entire chain. In this repository the `CallId` plugin (`api/Plugins.kt`) reads `Nav-Call-Id` from the incoming request, generates a UUID when it is absent, and echoes it in the response header. `callIdMdc` is deliberately not installed, so a callId does not reach MDC or the log lines by itself; worker and consumer logs correlate through `MdcKeys` + `MDCContext` instead (see `/kotlin-ktor`).
 
-```kotlin
-install(CallId) {
-    header(HttpHeaders.XRequestId)               // or "Nav-Call-Id"
-    generate { UUID.randomUUID().toString() }
-    verify { it.isNotBlank() }
-}
-install(CallLogging) {
-    callIdMdc("callId")                          // available in all log lines
-}
-```
-
-In client calls to other NAV services: set `Nav-Call-Id` from MDC on the request, do not generate a new one. The header is used for correlation, audit and troubleshooting across services. It is not tied to `accessPolicy`, which is NAIS's network control, and it is *never* used as a basis for authorization.
+In client calls to other NAV services: set `Nav-Call-Id` explicitly on the request and reuse the id you already have (`DocumentDistributionClient` sends the event id), do not generate a new one per hop. The header is used for correlation, audit and troubleshooting across services. It is not tied to `accessPolicy`, which is NAIS's network control, and it is *never* used as a basis for authorization.
 
 ## Nav-Consumer-Id for rate limiting and audit
 

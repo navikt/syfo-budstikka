@@ -1,6 +1,6 @@
 ---
 name: nav-troubleshoot
-description: "Use when the deployed app misbehaves IN PRODUCTION on the NAIS platform — a symptom you investigate with kubectl, Nais Console, Mimir/Loki/Tempo rather than in a local test: pod does not start / CrashLoopBackOff / OOMKilled / ImagePullBackOff, 401/403 from TokenX or Azure AD, Kafka consumer lag, Cloud SQL/HikariCP/Flyway failures at pod startup, a failing nais deploy, or platform signals that disagree. Triggers: 'the pod is crashing in prod' / 'poden krasjer i prod', 'deploy failed' / 'deployen feiler', 'we are getting 403 in dev-gcp' / 'vi får 403 i dev-gcp'. This skill locates the platform cause; /diagnosing-bugs owns bugs reproducible in code and tests, /nais-manifest and /auth-overview own design-time configuration."
+description: "Use when the app misbehaves in a deployed NAIS environment (dev-gcp or prod-gcp) — a symptom you investigate with kubectl, Nais Console, Mimir/Loki/Tempo rather than in a local test: pod does not start / CrashLoopBackOff / OOMKilled / ImagePullBackOff, 401/403 from TokenX or Azure AD, Kafka consumer lag, Cloud SQL/HikariCP/Flyway failures at pod startup, a failing nais deploy, or platform signals that disagree. Triggers: 'the pod is crashing in prod' / 'poden krasjer i prod', 'deploy failed' / 'deployen feiler', 'we are getting 403 in dev-gcp' / 'vi får 403 i dev-gcp'. This skill locates the platform cause; /diagnosing-bugs owns bugs reproducible in code and tests, /nais-manifest and /auth-overview own design-time configuration."
 ---
 
 # Nav Troubleshoot — platform diagnostics

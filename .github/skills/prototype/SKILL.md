@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: "Use when a design is too uncertain for paper and you want to test it with runnable throwaway code BEFORE you commit to it — data model, state machine, API/error contract or Kafka flow (idempotency/replay). Triggers: 'spike this', 'let me play with it', 'is the data model right', 'try a couple of variants'."
+description: "Use when a design is too uncertain for paper and you want to test it with runnable throwaway code BEFORE you commit to it — data model, state machine, API/error contract or Kafka flow (idempotency/replay). Triggers: 'spike this' / 'spike dette', 'let me play with it' / 'la meg leke med det', 'is the data model right' / 'er datamodellen riktig', 'try a couple of variants' / 'prøv et par varianter'."
 ---
 
 # prototype

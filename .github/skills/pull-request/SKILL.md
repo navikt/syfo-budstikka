@@ -1,6 +1,6 @@
 ---
 name: pull-request
-description: "Use when a change in this repository is to be created or updated as a pull request. Triggers: 'create a PR' / 'lag en PR', 'update the PR' / 'oppdater PR-en', 'open a pull request' / 'åpne en pull request', or /pull-request after a green vertical slice."
+description: "Use when a change in this repository is to be created or updated as a pull request. Triggers: 'create a PR' / 'opprett PR' / 'lag en PR', 'update the PR' / 'oppdater PR-en', 'open a pull request' / 'åpne en pull request', or /pull-request after a green vertical slice."
 ---
 
 # Pull request

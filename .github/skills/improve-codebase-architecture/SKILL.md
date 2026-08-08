@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: "Use when the user wants to improve the architecture, find refactoring opportunities, make shallow modules deeper, consolidate tightly coupled modules, or make the code more testable and easier to navigate for both people and AI. Also when someone says 'improve the architecture', 'find refactoring opportunities', 'this code is messy/hard to test', 'too many thin layers', or 'the route → service → client chains are hard to follow'."
+description: "Use when the user wants to improve the architecture, find refactoring opportunities, make shallow modules deeper, consolidate tightly coupled modules, or make the code more testable and easier to navigate for both people and AI. Also when someone says 'improve the architecture' / 'forbedre arkitekturen', 'find refactoring opportunities' / 'finn refaktoreringsmuligheter', 'this code is messy/hard to test' / 'denne koden er rotete/vanskelig å teste', 'too many thin layers' / 'for mange tynne lag', or 'the route → service → client chains are hard to follow'."
 ---
 
 # improve-codebase-architecture

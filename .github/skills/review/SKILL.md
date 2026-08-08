@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Use when the active task's diff needs a self-review before a fresh grill-inspektor review or a PR: uncommitted changes, a branch against main, or the diff since a fixed point is examined for correctness, regression, edge cases and scope. Triggered after implementation, or when someone says 'self-review', 'go through my own diff', 'review before PR', 'review since X'."
+description: "Use when the active task's diff needs a self-review before a fresh grill-inspektor review or a PR: uncommitted changes, a branch against main, or the diff since a fixed point is examined for correctness, regression, edge cases and scope. Triggered after implementation, or when someone says 'self-review' / 'selvreview', 'go through my own diff' / 'gå gjennom egen diff', 'review before PR' / 'review før PR', 'review since X' / 'review siden X'."
 ---
 
 # Self-review — go through the task diff before other eyes

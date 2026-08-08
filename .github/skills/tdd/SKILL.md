@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: "Use when test-first is explicitly wanted: 'red-green-refactor', 'test first', or a reproduction test before a bug fix. For ordinary test writing, use /integration-tests or /e2e-tests."
+description: "Use when test-first is explicitly wanted: 'red-green-refactor', 'test first' / 'test først', or a reproduction test before a bug fix. For ordinary test writing, use /integration-tests or /e2e-tests."
 ---
 
 # Test-driven development (Ktor / no.nav.budstikka)

@@ -1,6 +1,6 @@
 ---
 name: triage
-description: "Use when incoming issues/bug reports in this repository need assessment and preparation: classify, verify the claim, clarify, prioritize, make AFK-ready. Triggers: 'triage', 'go through the inbox', 'look at #42', 'is this bug real'. Not for breaking a finished plan into issues (see /to-issues)."
+description: "Use when incoming issues/bug reports in this repository need assessment and preparation: classify, verify the claim, clarify, prioritize, make AFK-ready. Triggers: 'triage', 'go through the inbox' / 'gå gjennom innboksen', 'look at #42' / 'se på #42', 'is this bug real' / 'er denne buggen ekte'. Not for breaking a finished plan into issues (see /to-issues)."
 ---
 
 # triage

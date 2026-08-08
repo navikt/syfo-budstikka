@@ -1,6 +1,6 @@
 ---
 name: auth-overview
-description: "Use when this Ktor backend needs to set up or troubleshoot authentication/authorization — incoming JWT validation, TokenX OBO, Azure AD M2M (client_credentials), the Texas sidecar, accessPolicy in Nais, or when an endpoint needs protecting. Triggers: 'protect this endpoint' / 'sikre dette endepunktet', 'which auth should this caller use' / 'hvilken auth skal denne kalleren bruke', 'exchange the token' / 'veksle tokenet', plus 401/403 errors and audience/issuer mismatch. Invoked via /auth-overview."
+description: "Use when this Ktor backend needs to set up or troubleshoot authentication/authorization — incoming JWT validation, TokenX OBO, Azure AD M2M (client_credentials), the Texas sidecar, accessPolicy in Nais, or when an endpoint needs protecting. Triggers: 'protect this endpoint' / 'beskytt dette endepunktet', 'which auth should this caller use' / 'hvilken auth skal denne kalleren bruke', 'exchange the token' / 'veksle tokenet', plus 401/403 errors and audience/issuer mismatch. Invoked via /auth-overview."
 ---
 
 # Authentication overview

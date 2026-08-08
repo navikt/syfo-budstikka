@@ -1,6 +1,6 @@
 ---
 name: observability-setup
-description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/health/is_alive|isready|prometheus, structured JSON logging with trace_id/callId, correlation ID (Nav-Call-Id/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
+description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/health/is_alive|is_ready and /internal/metrics, structured JSON logging with trace_id/callId, correlation ID (Nav-Call-Id/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
 ---
 
 # Observability in this repository
@@ -15,8 +15,8 @@ Ktor 3.x on Netty, package `no.nav.budstikka`, running in NAIS. Keep the main ru
 ## Workflow
 
 1. Read the NAIS manifest, `src/main/resources/application.conf`, `logback.xml` and `build.gradle.kts`/`gradle/libs.versions.toml` for existing observability setup.
-2. Find the established patterns for `MicrometerMetrics`, `MeterRegistry` injection (Koin), `CallId`/`CallLogging`, MDC fields and health routes.
-3. Verify which endpoints NAIS actually scrapes and probes: `/internal/health/is_alive`, `/internal/health/is_ready`, `/internal/metrics` (or `/internal/metrics`). The paths in the code must match the manifest.
+2. Find the established patterns for `MicrometerMetrics`, `MeterRegistry` injection (Ktor DI, `dependencies { }`), `CallId`, MDC fields and health routes.
+3. Verify which endpoints NAIS actually scrapes and probes: `/internal/health/is_alive`, `/internal/health/is_ready`, `/internal/metrics`. The paths in the code must match the manifest.
 4. Start with standard metrics (Ktor HTTP server + JVM) and extend with domain metrics that provide operational value.
 5. Add dashboards and alerts only once the metrics and the label set are stable.
 

@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: "Security review of a Ktor backend in no.nav.budstikka: PII/FNR/health data in logs, secrets, CEF audit log, accessPolicy in the NAIS manifest, JWT validation (TokenX/Azure AD), external integrations, DPIA and escalation to the security champion. Used before commit/push/PR with security relevance, or when someone says /security-review."
+description: "Security review of a Ktor backend in no.nav.budstikka: PII/FNR/health data in logs, secrets, CEF audit log, accessPolicy in the NAIS manifest, JWT validation (TokenX/Azure AD), external integrations, DPIA and escalation to the security champion. Used before commit/push/PR with security relevance, or when someone says 'security review' / 'sikkerhetsgjennomgang', or /security-review."
 ---
 
 # Security review — NAV context
@@ -147,7 +147,7 @@ Secrets are created in NAIS Console and injected via `envFrom`/`filesFrom`. Also
 - [ ] `accessPolicy.inbound` is explicit and mirrors the auth code's validation
 - [ ] `accessPolicy.outbound` limited to the necessary services/hosts with correct cluster/namespace
 - [ ] Secrets only from NAIS Console, no hardcoded values or prod secrets locally
-- [ ] `Nav-Call-Id` is propagated (CallId plugin → MDC) for correlation across services
+- [ ] `Nav-Call-Id` is set explicitly on outbound calls that carry it (`callIdMdc` is not installed — do not assume MDC correlation)
 - [ ] Legal basis for processing, retention and deletion are documented for personal data
 - [ ] Parameterized queries, input validated, access control checks ownership (not just a valid token)
 - [ ] `trivy repo .` with no HIGH/CRITICAL, `zizmor` OK, no committed secrets
