@@ -1,8 +1,8 @@
-# Kodeeksempler — Paginering og input-validering
+# Code examples — Pagination and input validation
 
-Team-standard mønstre for `no.nav.syfo`-Ktor-routes. Valider tidlig og kast `ApiErrorException` — StatusPages-pluginen (se `error-handling.md`) gir riktig feilrespons.
+Team standard patterns for `no.nav.syfo` Ktor routes. Validate early and throw `ApiErrorException` — the StatusPages plugin (see `error-handling.md`) produces the right error response.
 
-## Paginering
+## Pagination
 
 ### PaginatedResponse
 
@@ -19,13 +19,13 @@ data class PaginatedResponse<T>(
 get("/api/v1/vedtak") {
     val side = call.queryParameters["side"]?.toIntOrNull() ?: 0
     val antall = call.queryParameters["antall"]?.toIntOrNull() ?: 20
-    if (antall > 100) throw ApiErrorException.BadRequestException("Maks 100 per side")
+    if (antall > 100) throw ApiErrorException.BadRequestException("Max 100 per page")
     val result = vedtakService.findAll(offset = side * antall, limit = antall)
     call.respond(result)
 }
 ```
 
-### Eksempel respons
+### Example response
 
 ```json
 {
@@ -37,9 +37,9 @@ get("/api/v1/vedtak") {
 }
 ```
 
-## Input-validering
+## Input validation
 
-### Eksempel route med validering
+### Example route with validation
 
 ```kotlin
 @Serializable
@@ -47,12 +47,12 @@ data class CreateVedtakRequest(val brukerId: String, val beskrivelse: String? = 
 
 post("/api/v1/vedtak") {
     val request = call.receive<CreateVedtakRequest>()
-    if (request.brukerId.isBlank()) throw ApiErrorException.BadRequestException("brukerId kan ikke være tom")
-    request.beskrivelse?.let { if (it.length > 500) throw ApiErrorException.BadRequestException("beskrivelse maks 500 tegn") }
+    if (request.brukerId.isBlank()) throw ApiErrorException.BadRequestException("brukerId cannot be blank")
+    request.beskrivelse?.let { if (it.length > 500) throw ApiErrorException.BadRequestException("beskrivelse max 500 characters") }
     val vedtak = vedtakService.create(request)
     call.response.header("Location", "/api/v1/vedtak/${vedtak.id}")
     call.respond(HttpStatusCode.Created, vedtak.toDto())
 }
 ```
 
-Manglende påkrevde felter i request-body fanges av `ContentNegotiation`/serialisering og mappes til `INVALID_FORMAT` i `determineApiError()`. Egne forretningsregler valideres eksplisitt med tidlig-retur som over.
+Missing required fields in the request body are caught by `ContentNegotiation`/serialization and mapped to `INVALID_FORMAT` in `determineApiError()`. Your own business rules are validated explicitly with an early return as above.

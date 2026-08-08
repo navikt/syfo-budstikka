@@ -1,38 +1,38 @@
 ---
 name: nais-manifest
-description: "Bruk når dette Ktor-backendet (no.nav.syfo) skal få nytt eller endret NAIS-manifest — nais.yaml for Application eller Naisjob: ingress, resources, probes, accessPolicy, Azure AD/TokenX, Kafka eller GCP Postgres. Trigger: 'lag et nais-manifest', 'eksponer appen', 'legg til database/Kafka/auth i nais', 'skaler opp i prod', CPU-throttling, OOM-kill, batch-/cron-jobb. Kalles via /nais-manifest."
+description: "Use when this Ktor backend (no.nav.syfo) needs a new or changed NAIS manifest — nais.yaml for an Application or a Naisjob: ingress, resources, probes, accessPolicy, Azure AD/TokenX, Kafka or GCP Postgres. Trigger: 'create a nais manifest', 'expose the app', 'add database/Kafka/auth to nais', 'scale up in prod', CPU throttling, OOM kill, batch/cron job. Invoked via /nais-manifest."
 ---
 
-# NAIS-manifest
+# NAIS manifest
 
-Lag eller oppdater et komplett NAIS-manifest (`Application` for den kontinuerlige tjenesten, `Naisjob` for batch). Fokuser på server-port, JVM-runtime og JVM-observability, ikke frontend.
+Create or update a complete NAIS manifest (`Application` for the continuously running service, `Naisjob` for batch). Focus on the server port, the JVM runtime and JVM observability, not the frontend.
 
-## Fremgangsmåte
+## Procedure
 
-1. **Les eksisterende manifester først** under `.nais/`, `nais/` eller tilsvarende `*.yaml`. Gjenbruk reell `namespace`, `labels.team`, health-paths og prometheus-path — ikke anta verdier.
-2. Hvis repoet ikke har manifest enda: bruk team-namespace fra `.github/copilot-instructions.md` / README, og følg malene under.
-3. Kartlegg hva appen faktisk trenger: database (Postgres), Kafka, auth (TokenX/Azure AD), ingress, scaling — eller om det er en batch-jobb (`Naisjob` i stedet for `Application`).
-4. Bruk miljøspesifikke manifester (`*-dev.yaml`, `*-prod.yaml`) når repoet allerede følger det mønsteret.
+1. **Read the existing manifests first** under `.nais/`, `nais/` or equivalent `*.yaml`. Reuse the actual `namespace`, `labels.team`, health paths and prometheus path — do not assume values.
+2. If the repository has no manifest yet: use the team namespace from `.github/copilot-instructions.md` / README, and follow the templates below.
+3. Map out what the app actually needs: database (Postgres), Kafka, auth (TokenX/Azure AD), ingress, scaling — or whether it is a batch job (`Naisjob` instead of `Application`).
+4. Use environment-specific manifests (`*-dev.yaml`, `*-prod.yaml`) when the repository already follows that pattern.
 
-## Application-mal
+## Application template
 
 ```yaml
 apiVersion: nais.io/v1alpha1
 kind: Application
 metadata:
   name: syfo-budstikka
-  namespace: team-esyfo          # Les fra eksisterende manifest
+  namespace: team-esyfo          # Read from the existing manifest
   labels:
     team: team-esyfo
 spec:
   image: {{ image }}
-  port: 8080                     # Ktor/Netty lytter på denne
+  port: 8080                     # Ktor/Netty listens on this
 
   prometheus:
     enabled: true
-    path: /internal/prometheus   # Sjekk faktisk path i Ktor-routingen
+    path: /internal/prometheus   # Check the actual path in the Ktor routing
   liveness:
-    path: /internal/isalive      # Sjekk eksisterende — kan også være /isAlive
+    path: /internal/isalive      # Check the existing one — may also be /isAlive
     initialDelay: 5
   readiness:
     path: /internal/isready
@@ -43,32 +43,32 @@ spec:
       cpu: 50m
       memory: 256Mi
     limits:
-      memory: 512Mi              # Sett aldri cpu-limits — se regel under
+      memory: 512Mi              # Never set cpu limits — see the rule below
 ```
 
-**Viktig:** Verifiser `port`, `prometheus.path`, `liveness.path` og `readiness.path` mot Ktor-routingen (`embeddedServer`/`routing { ... }`) før du commiter. Endepunktene må eksistere i koden.
+**Important:** Verify `port`, `prometheus.path`, `liveness.path` and `readiness.path` against the Ktor routing (`embeddedServer`/`routing { ... }`) before you commit. The endpoints must exist in the code.
 
-## Regel: ingen CPU-limits i NAIS
+## Rule: no CPU limits in NAIS
 
-Sett **aldri** `resources.limits.cpu` — bare `requests.cpu`.
+**Never** set `resources.limits.cpu` — only `requests.cpu`.
 
-**Hvorfor:** Kubernetes CFS-quota håndhever CPU-limits i 100ms-vinduer. Når en container treffer grensen kort, blir hele containeren throttlet resten av vinduet — også tråder som ikke trenger CPU. På JVM rammer dette ekstra hardt under oppstart (JIT-kompilering, klasselasting) og GC, og gir latenshaler og timeouts. NAIS anbefaler `requests.cpu` for scheduling og lar noden håndtere faktisk forbruk.
+**Why:** the Kubernetes CFS quota enforces CPU limits in 100 ms windows. When a container briefly hits the limit, the whole container is throttled for the rest of the window — including threads that do not need CPU. On the JVM this hits extra hard during startup (JIT compilation, class loading) and GC, and produces latency tails and timeouts. NAIS recommends `requests.cpu` for scheduling and lets the node handle actual consumption.
 
-Memory-limits derimot **skal settes** — uten limit kan en container ta ned hele noden via OOM.
+Memory limits, on the other hand, **must be set** — without a limit a container can take down the whole node via OOM.
 
-## Ressursstartpunkter (JVM)
+## Resource starting points (JVM)
 
-| Størrelse | `requests.cpu` | `requests.memory` | `limits.memory` |
-|-----------|----------------|-------------------|-----------------|
-| Liten     | 50m            | 256Mi             | 512Mi           |
-| Middels   | 100m           | 512Mi             | 1Gi             |
-| Stor      | 200m           | 1Gi               | 2Gi             |
+| Size    | `requests.cpu` | `requests.memory` | `limits.memory` |
+|---------|----------------|-------------------|-----------------|
+| Small   | 50m            | 256Mi             | 512Mi           |
+| Medium  | 100m           | 512Mi             | 1Gi             |
+| Large   | 200m           | 1Gi               | 2Gi             |
 
-JVM trenger headroom over heap til metaspace, tråder og direct buffers — sett `limits.memory` over `-Xmx`. Juster basert på faktisk forbruk i Grafana. `replicas: { min: 2, max: 4, cpuThresholdPercentage: 80 }` er greit startpunkt for prod.
+The JVM needs headroom above the heap for metaspace, threads and direct buffers — set `limits.memory` above `-Xmx`. Adjust based on actual consumption in Grafana. `replicas: { min: 2, max: 4, cpuThresholdPercentage: 80 }` is a reasonable starting point for prod.
 
-## accessPolicy — alltid eksplisitt
+## accessPolicy — always explicit
 
-Definer både `inbound` og `outbound`. Glem ikke `namespace` (og `cluster` ved kall på tvers av klynger):
+Define both `inbound` and `outbound`. Do not forget `namespace` (and `cluster` for calls across clusters):
 
 ```yaml
 accessPolicy:
@@ -89,14 +89,14 @@ accessPolicy:
       - host: api.ekstern-tjeneste.no
 ```
 
-`accessPolicy` må holdes i sync med auth-koden: innkommende tokens som ikke matcher `inbound.rules` avvises på plattformnivå. Drift mellom manifest og kode er en feil. Auth-mekanismer og audience-format: se `/auth-overview`.
+`accessPolicy` must be kept in sync with the auth code: incoming tokens that do not match `inbound.rules` are rejected at platform level. Drift between manifest and code is a bug. Auth mechanisms and audience format: see `/auth-overview`.
 
 ## PostgreSQL (GCP SQL)
 
 ```yaml
 gcp:
   sqlInstances:
-    - type: POSTGRES_17          # Sjekk repoets versjon
+    - type: POSTGRES_17          # Check the version used in this repository
       tier: db-f1-micro          # dev; prod: db-custom-1-3840
       highAvailability: false    # prod: true
       diskAutoresize: false      # prod: true
@@ -105,48 +105,48 @@ gcp:
           envVarPrefix: DB
 ```
 
-Gir env: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Schema-endringer og migreringer kjøres med Flyway. For langvarige migreringer: sørg for `startup`-probe slik at Flyway fullfører før liveness restarter poden.
+Provides env vars: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Schema changes and migrations are run with Flyway. For long-running migrations: make sure there is a `startup` probe so that Flyway finishes before liveness restarts the pod.
 
-### HikariCP-pool — eies av `/postgresql-review`
+### HikariCP pool — owned by `/postgresql-review`
 
-Connection-pool-dimensjonering (`maximumPoolSize` 3–5 i containere, ikke default 10; `maxLifetime`; og regelen `replicas.max × maximumPoolSize ≤ max_connections`) hører til `/postgresql-review`. Manifestet mater inn i den beregningen: `replicas.max` og valgt `gcp.sqlInstances`-tier avgjør hhv. hvor mange poolere som finnes og hva `max_connections` er — hold dem i sync (flere replicaer eller en mindre tier strammer pool-budsjettet).
+Connection pool sizing (`maximumPoolSize` 3–5 in containers, not the default 10; `maxLifetime`; and the rule `replicas.max × maximumPoolSize ≤ max_connections`) belongs to `/postgresql-review`. The manifest feeds into that calculation: `replicas.max` and the chosen `gcp.sqlInstances` tier determine, respectively, how many poolers exist and what `max_connections` is — keep them in sync (more replicas or a smaller tier tightens the pool budget).
 
 ## Kafka
 
 ```yaml
 kafka:
-  pool: nav-dev                  # Eller nav-prod
+  pool: nav-dev                  # Or nav-prod
 ```
 
-Topic-navnekonvensjon: `{team}.{domene}.v{versjon}`. Dev: `partitions: 1, replication: 1`. Prod: `partitions: 6+, replication: 3`. En kontinuerlig kø-konsument hører hjemme i `Application`, ikke `Naisjob`.
+Topic naming convention: `{team}.{domain}.v{version}`. Dev: `partitions: 1, replication: 1`. Prod: `partitions: 6+, replication: 3`. A continuous queue consumer belongs in an `Application`, not a `Naisjob`.
 
-## Azure AD og TokenX
+## Azure AD and TokenX
 
 ```yaml
 azure:
   application:
     enabled: true
-    tenant: nav.no               # Eller trygdeetaten.no
+    tenant: nav.no               # Or trygdeetaten.no
 
 tokenx:
-  enabled: true                  # On-behalf-of for innlogget bruker
+  enabled: true                  # On-behalf-of for the logged-in user
 ```
 
-- Bruker-/personkontekst inn og videre nedstrøms → **TokenX (OBO)**.
-- Ren maskin-til-maskin uten personkontekst → **Azure AD client_credentials**, eller **Maskinporten** for eksterne organisasjoner.
-- Partner som handler på vegne av virksomhet i Altinn → **Altinn 3 systembruker** (Maskinporten + systembruker-token).
+- User/person context inbound and passed further downstream → **TokenX (OBO)**.
+- Pure machine-to-machine without person context → **Azure AD client_credentials**, or **Maskinporten** for external organizations.
+- A partner acting on behalf of a business in Altinn → **Altinn 3 system user** (Maskinporten + system-user token).
 
-Valg av mekanisme, token-validering i Ktor og audience-format er dekket av `/auth-overview` — ikke dupliser auth-detaljene her.
+Choice of mechanism, token validation in Ktor and audience format are covered by `/auth-overview` — do not duplicate the auth details here.
 
-## Ingress — velg riktig domene
+## Ingress — choose the right domain
 
-| Domene             | Bruk                                                      |
-|--------------------|-----------------------------------------------------------|
-| `*.nav.no`         | Publikumsrettede brukerflater                             |
-| `*.intern.nav.no`  | Interne ansattflater (krever NAV-nettverk/naisdevice)     |
-| `*.ekstern.nav.no` | Eksterne brukerflater som ikke ligger på nav.no           |
+| Domain             | Use                                                        |
+|--------------------|------------------------------------------------------------|
+| `*.nav.no`         | Public-facing user interfaces                              |
+| `*.intern.nav.no`  | Internal employee interfaces (requires Nav network/naisdevice) |
+| `*.ekstern.nav.no` | External user interfaces not hosted on nav.no              |
 
-Dev-varianter: `*.dev.nav.no`, `*.intern.dev.nav.no`, `*.ekstern.dev.nav.no`. Et rent API som bare kalles av andre NAV-apper trenger ofte **ingen** ingress — bruk `accessPolicy.inbound` i stedet.
+Dev variants: `*.dev.nav.no`, `*.intern.dev.nav.no`, `*.ekstern.dev.nav.no`. A pure API that is only called by other Nav apps often needs **no** ingress — use `accessPolicy.inbound` instead.
 
 ```yaml
 ingresses:
@@ -162,48 +162,48 @@ observability:
     runtime: java
 ```
 
-Tracing → Tempo, logger → Loki (logg til stdout/stderr, gjerne JSON via Logback), metrikker → Prometheus. Eksponer Micrometer/Prometheus-registry på `prometheus.path`.
+Tracing → Tempo, logs → Loki (log to stdout/stderr, preferably JSON via Logback), metrics → Prometheus. Expose the Micrometer/Prometheus registry on `prometheus.path`.
 
-## Pod-lifecycle og graceful shutdown
+## Pod lifecycle and graceful shutdown
 
-NAIS injiserer `preStop` med `sleep 5` før `SIGTERM`, og lastbalansereren slutter å rute trafikk før signalet sendes. Readiness-probes er **ikke** del av shutdown — manuell readiness-toggling i app-kode er et anti-mønster. Bruk Ktors ordinære shutdown (`ApplicationStopping`/`ApplicationStopped`) til å drenere og lukke connection pool/Kafka-consumer rent. Detaljer og anti-mønstre: se [`references/pod-lifecycle.md`](references/pod-lifecycle.md).
+NAIS injects `preStop` with `sleep 5` before `SIGTERM`, and the load balancer stops routing traffic before the signal is sent. Readiness probes are **not** part of shutdown — manual readiness toggling in application code is an anti-pattern. Use Ktor's ordinary shutdown (`ApplicationStopping`/`ApplicationStopped`) to drain and cleanly close the connection pool/Kafka consumer. Details and anti-patterns: see [`references/pod-lifecycle.md`](references/pod-lifecycle.md).
 
-## Naisjob — batch-jobber
+## Naisjob — batch jobs
 
-Bruk `Naisjob` når teamet trenger batch-kjøringer (nattlige jobber, engangs-migreringer, rapporter): kjører til fullført i stedet for kontinuerlig, ingen innkommende HTTP. Samme blokker for `resources`, `accessPolicy`, `gcp`, `kafka` og `azure` som `Application`, pluss `schedule` (cron), `activeDeadlineSeconds` og `backoffLimit`. Full mal med Kafka og Azure AD: [`references/naisjob-example.md`](references/naisjob-example.md).
+Use `Naisjob` when the team needs batch runs (nightly jobs, one-off migrations, reports): it runs to completion instead of continuously, with no incoming HTTP. The same blocks for `resources`, `accessPolicy`, `gcp`, `kafka` and `azure` as `Application`, plus `schedule` (cron), `activeDeadlineSeconds` and `backoffLimit`. Full template with Kafka and Azure AD: [`references/naisjob-example.md`](references/naisjob-example.md).
 
-## Kobling til faseløkken
+## Link to the phase loop
 
-- Legg task-scope i issue/plan og vedlikeholdt plattformdetalj i relevant
-  topic-dokument. Når et plattformvalg passerer ADR-gaten — for eksempel et
-  vanskelig reverserbart og ikke-opplagt valg av ingress, scaling-strategi,
-  Postgres-tier/HA eller Kafka-pool — anbefal dokumentert løp og vent på
-  brukerens valg før `/domain-modeling` registrerer det.
-- Endring i `accessPolicy`, auth-flagg eller scopes → kjør `/security-review` og
-  returner evidensen til den aktive oppgaven.
-- Endring i prod-resources, replicas eller nye GCP-ressurser (kostnad) følger
-  den kanoniske R3/R4-gaten i `.github/copilot-instructions.md`.
+- Put the task scope in the issue/plan and the maintained platform detail in the relevant
+  topic document. When a platform choice passes the ADR gate — for example a
+  hard-to-reverse and non-obvious choice of ingress, scaling strategy,
+  Postgres tier/HA or Kafka pool — recommend the documented track and wait for the
+  user's choice before `/domain-modeling` records it.
+- A change in `accessPolicy`, auth flags or scopes → run `/security-review` and
+  return the evidence to the active task.
+- A change in prod resources, replicas or new GCP resources (cost) follows
+  the canonical R3/R4 gate in `.github/copilot-instructions.md`.
 
-NAIS-dok: https://doc.nais.io/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
+NAIS docs: https://doc.nais.io/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
 
-## Grenser
+## Boundaries
 
-### Alltid
-- Inkluder liveness, readiness og metrics-endepunkter som faktisk finnes i Ktor-routingen.
-- Sett `resources.limits.memory` (hindrer OOM-kill av noden).
-- Definer eksplisitt `accessPolicy` (inbound + outbound).
-- Bruk miljøspesifikke manifester (`*-dev.yaml`, `*-prod.yaml`) når repoet gjør det.
+### Always
+- Include liveness, readiness and metrics endpoints that actually exist in the Ktor routing.
+- Set `resources.limits.memory` (prevents an OOM kill of the node).
+- Define an explicit `accessPolicy` (inbound + outbound).
+- Use environment-specific manifests (`*-dev.yaml`, `*-prod.yaml`) when the repository does.
 
-### Spør først
-- Endring i prod-resources, replicas eller `cpuThresholdPercentage`.
-- Nye GCP-ressurser (kostnad).
-- Endring i `accessPolicy` i prod.
-- Nye ingress-domener.
+### Ask first
+- A change in prod resources, replicas or `cpuThresholdPercentage`.
+- New GCP resources (cost).
+- A change to `accessPolicy` in prod.
+- New ingress domains.
 
-### Aldri
-- Sett `resources.limits.cpu` (CFS-throttling rammer JVM hardt).
-- Fjern `resources.limits.memory`.
-- Lagre hemmeligheter i Git.
-- Hopp over health-endepunkter.
-- Bruk default HikariCP `maximumPoolSize: 10` i en container.
-- Senk `terminationGracePeriodSeconds` under default 30s.
+### Never
+- Set `resources.limits.cpu` (CFS throttling hits the JVM hard).
+- Remove `resources.limits.memory`.
+- Store secrets in Git.
+- Skip health endpoints.
+- Use the default HikariCP `maximumPoolSize: 10` in a container.
+- Lower `terminationGracePeriodSeconds` below the default 30s.

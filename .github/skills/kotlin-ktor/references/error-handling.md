@@ -1,6 +1,6 @@
-# Feilhåndtering — Ktor StatusPages (komplett implementasjon)
+# Error handling — Ktor StatusPages (complete implementation)
 
-Team-standard for enhetlig feilkontrakt i `no.nav.syfo`-Ktor-tjenester. Klienter får alltid samme JSON-form, og uventede feil lekker ikke stacktrace.
+Team standard for a uniform error contract in `no.nav.syfo` Ktor services. Clients always get the same JSON shape, and unexpected errors do not leak a stacktrace.
 
 ## ApiError og ErrorType
 
@@ -85,7 +85,7 @@ fun Throwable.rootCause(): Throwable {
 
 ## Logging
 
-Forventede klientfeil (`ApiErrorException`) logges på `warn`, uventede på `error`. Logg callId, aldri rå payload med PII.
+Expected client errors (`ApiErrorException`) are logged at `warn`, unexpected ones at `error`. Log the callId, never the raw payload with PII.
 
 ```kotlin
 private fun logException(call: ApplicationCall, cause: Throwable) {
@@ -99,9 +99,9 @@ private fun logException(call: ApplicationCall, cause: Throwable) {
 }
 ```
 
-## apiModule() — oppsett
+## apiModule() — setup
 
-`installStatusPages()` registreres i en `Application`-modul. Husk å legge modulen i `application.yaml` (`ktor.application.modules`) for at den skal kjøre.
+`installStatusPages()` is registered in an `Application` module. Remember to add the module to `application.yaml` (`ktor.application.modules`) for it to run.
 
 ```kotlin
 fun Application.apiModule() {
@@ -112,13 +112,13 @@ fun Application.apiModule() {
 }
 ```
 
-## Eksempel feilrespons
+## Example error response
 
 ```json
 {
   "status": 404,
   "type": "NOT_FOUND",
-  "message": "Vedtak med id 550e8400 finnes ikke",
+  "message": "Vedtak with id 550e8400 does not exist",
   "path": "/api/v1/vedtak/550e8400",
   "timestamp": "2025-01-15T10:30:00Z"
 }

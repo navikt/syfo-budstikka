@@ -1,117 +1,117 @@
 ---
 name: triage
-description: "Bruk når innkommende issues/bug-meldinger på navikt/syfo-budstikka skal vurderes og klargjøres: klassifiser, verifiser påstanden, avklar, prioriter, gjør AFK-klar. Triggere: 'triage', 'gå gjennom innboksen', 'se på #42', 'er denne buggen ekte'. Ikke for å bryte en ferdig plan i issues (se /to-issues)."
+description: "Use when incoming issues/bug reports in this repository need assessment and preparation: classify, verify the claim, clarify, prioritize, make AFK-ready. Triggers: 'triage', 'go through the inbox', 'look at #42', 'is this bug real'. Not for breaking a finished plan into issues (see /to-issues)."
 ---
 
 # triage
 
-Flytt innkommende issues (og eksterne PR-er) på `navikt/syfo-budstikka` gjennom en liten tilstandsmaskin: **klassifiser → verifiser → grill ved behov → skriv en arbeidsklar brief**. Fokuset her er **vurdering og klargjøring**, ikke oppretting.
+Move incoming issues (and external PRs) in this repository through a small state machine: **classify → verify → grill when needed → write a work-ready brief**. The focus here is **assessment and preparation**, not creation.
 
-Dette komplementerer to nabo-skills — ikke dupliser dem:
-- `/to-issues` bryter en *ferdig plan* i nye vertikale snitt. Triage tar *innkommende* saker og avgjør om/hvordan de skal jobbes.
-- `/issue-management` eier selve GitHub-mekanikken etter at saken er formet. Repository-, label- og project-fakta kommer fra `docs/agents/issue-tracker.md`; gjenta ikke mekanikken her.
+This complements two neighboring skills — do not duplicate them:
+- `/to-issues` breaks a *finished plan* into new vertical slices. Triage takes *incoming* items and decides whether/how they should be worked.
+- `/issue-management` owns the GitHub mechanics themselves once the item has been shaped. Repository, label and project facts come from `docs/agents/issue-tracker.md`; do not repeat the mechanics here.
 
-En **PR er et issue med kode**: samme roller, samme tilstander. Der noe avviker for en PR er det merket "for en PR" under. En bar `#42` slås opp som issue eller PR.
+A **PR is an issue with code**: the same roles, the same states. Where something differs for a PR it is marked "for a PR" below. A bare `#42` is looked up as either an issue or a PR.
 
-Hver kommentar du poster under triage **må** starte med:
+Every comment you post during triage **must** start with:
 
 ```
 > *Generert av AI under triage.*
 ```
 
-## Referansedokumenter
+## Reference documents
 
-- [AGENT-BRIEF.md](AGENT-BRIEF.md) — hvordan skrive en durabel, arbeidsklar brief
+- [AGENT-BRIEF.md](AGENT-BRIEF.md) — how to write a durable, work-ready brief
 
-## Roller
+## Roles
 
-To **kategori**-roller (mapper til GitHub issue-type, se `/issue-management`):
+Two **category** roles (mapping to GitHub issue type, see `/issue-management`):
 
-- `bug` — noe er ødelagt (issue-type `Bug`)
-- `enhancement` — ny funksjonalitet eller forbedring (issue-type `Feature`/`Story`/`Task`)
+- `bug` — something is broken (issue type `Bug`)
+- `enhancement` — new functionality or an improvement (issue type `Feature`/`Story`/`Task`)
 
-Fem **tilstands**-roller (GitHub-labels):
+Five **state** roles (GitHub labels):
 
-- `needs-triage` — må vurderes
-- `needs-info` — venter på mer info fra melder
-- `ready-for-agent` — fullt spesifisert, klar for en AFK-agent
-- `ready-for-human` — krever menneskelig implementasjon (skjønn, ekstern tilgang, designvalg, manuell testing)
-- `wontfix` — gjøres ikke
+- `needs-triage` — needs assessment
+- `needs-info` — waiting for more information from the reporter
+- `ready-for-agent` — fully specified, ready for an AFK agent
+- `ready-for-human` — requires human implementation (judgment, external access, design choices, manual testing)
+- `wontfix` — will not be done
 
-For en PR leses tilstandene mot den vedlagte koden: `ready-for-agent` betyr at en brief er vedlagt og en agent tar neste steg på diffen; `ready-for-human` betyr klar for et menneske å merge.
+For a PR the states are read against the attached code: `ready-for-agent` means a brief is attached and an agent takes the next step on the diff; `ready-for-human` means ready for a human to merge.
 
-Hver triagert sak skal ha **én** kategori-rolle og **én** tilstands-rolle. Konflikterer tilstandene, flagg det og spør før du gjør noe annet. De faktiske label-strengene i repoet kan avvike fra de kanoniske navnene over — sjekk eksisterende labels.
+Every triaged item must have **one** category role and **one** state role. If the states conflict, flag it and ask before doing anything else. The actual label strings in the repository may differ from the canonical names above — check the existing labels.
 
-**Tilstandsoverganger:** en utriagert sak går normalt til `needs-triage` først; derfra til `needs-info`, `ready-for-agent`, `ready-for-human` eller `wontfix`. `needs-info` returnerer til `needs-triage` når melder svarer. Overganger som ser uvanlige ut: flagg og spør først.
+**State transitions:** an untriaged item normally goes to `needs-triage` first; from there to `needs-info`, `ready-for-agent`, `ready-for-human` or `wontfix`. `needs-info` returns to `needs-triage` when the reporter replies. Transitions that look unusual: flag and ask first.
 
-## Påkalling
+## Invocation
 
-Brukeren påkaller `/triage` og beskriver i naturlig språk. Tolk og handle. Eksempler:
+The user invokes `/triage` and describes things in natural language. Interpret and act. Examples:
 
-- "Vis meg alt som trenger oppmerksomhet"
-- "La oss se på #42" (issue eller PR)
-- "Flytt #42 til ready-for-agent"
-- "Hva er klart for agenter å plukke?"
+- "Show me everything that needs attention"
+- "Let's look at #42" (issue or PR)
+- "Move #42 to ready-for-agent"
+- "What is ready for agents to pick up?"
 
-## Vis hva som trenger oppmerksomhet
+## Show what needs attention
 
-Spør issue-trackeren og presenter tre bøtter, eldst først:
+Query the issue tracker and present three buckets, oldest first:
 
-1. **Utriagert** — aldri vurdert.
-2. **`needs-triage`** — vurdering pågår.
-3. **`needs-info` med melder-aktivitet siden siste triage-notat** — må revurderes.
+1. **Untriaged** — never assessed.
+2. **`needs-triage`** — assessment in progress.
+3. **`needs-info` with reporter activity since the last triage note** — needs re-assessment.
 
-Inkluder eksterne PR-er i bøttene og merk hver linje `[PR]` eller `[issue]`. Discovery viser kun *eksterne* PR-er (en kollegas pågående PR er ikke triage-arbeid) — men en eksplisitt navngitt PR triageres alltid uansett forfatter. Vis antall og en énlinjes oppsummering per sak. La brukeren velge.
+Include external PRs in the buckets and mark each line `[PR]` or `[issue]`. Discovery shows only *external* PRs (a colleague's in-progress PR is not triage work) — but an explicitly named PR is always triaged regardless of author. Show counts and a one-line summary per item. Let the user choose.
 
-## Triage en konkret sak
+## Triage a specific item
 
-### 1. Hent kontekst
-Les hele saken (body, kommentarer, labels, forfatter, datoer; for en PR også diffen). Parse tidligere triage-notater så du ikke spør om det som allerede er løst. Utforsk kodebasen:
+### 1. Gather context
+Read the whole item (body, comments, labels, author, dates; for a PR the diff as well). Parse earlier triage notes so you do not ask about what has already been settled. Explore the codebase:
 
-- Følg repository-policyen for dokumentasjon og last bare kilder som er
-  relevante for saken.
-- Kjør to sjekker: **(a) redundans** — søk etter eksisterende implementasjon
-  av ønsket oppførsel *etter domenebegrep* (ikke bare meldingens ordlyd), og
-  rapporter hvor du lette. Finnes den → allerede-implementert `wontfix` (steg
-  5). **(b) tidligere avvist** — søk etter konseptet i lukkede GitHub-issues og
-  `wontfix`-saker. Les lukkediskusjonen og behandle saken som tidligere avvist
-  bare når begrunnelsen faktisk sier det; en levert eller duplisert sak er
-  tidligere arbeid, ikke en avvisning.
+- Follow the repository policy for documentation and load only sources that are
+  relevant to the item.
+- Run two checks: **(a) redundancy** — search for an existing implementation
+  of the requested behavior *by domain term* (not just the wording of the
+  report), and report where you looked. If it exists → already-implemented
+  `wontfix` (step 5). **(b) previously rejected** — search for the concept in
+  closed GitHub issues and `wontfix` items. Read the closing discussion and
+  treat the item as previously rejected only when the rationale actually says
+  so; a delivered or duplicated item is prior work, not a rejection.
 
-### 2. Anbefal
-Si din kategori- og tilstands-anbefaling med begrunnelse, pluss en kort kodebase-oppsummering relevant for saken — inkludert om den allerede er implementert. Vent på retning.
+### 2. Recommend
+State your category and state recommendation with a rationale, plus a short codebase summary relevant to the item — including whether it is already implemented. Wait for direction.
 
-### 3. Verifiser påstanden
-Før noen grilling: sjekk at påstanden holder.
-- **Bug** — reproduser fra meldingens steg. Bruk `/diagnosing-bugs` for å bygge et stramt rødt signal (`./gradlew test`, en feilende route-kall, en Kafka-melding som ikke konsumeres idempotent, en Flyway-feil). Er symptomet et runtime-/NAIS-problem (pod-krasj/OOMKilled, 401/403, consumer lag, DB-timeout), følg det diagnostiske treet der.
-- **PR** — bekreft at diffen gjør det den hevder: sjekk ut grenen, kjør `./gradlew test` og relevante kommandoer.
-- Rapporter: bekreftet (med kodevei), feilet, eller utilstrekkelig detalj (et sterkt `needs-info`-signal). En bekreftet verifisering gir en mye sterkere brief.
+### 3. Verify the claim
+Before any grilling: check that the claim holds.
+- **Bug** — reproduce from the steps in the report. Use `/diagnosing-bugs` to build a tight red signal (`./gradlew test`, a failing route call, a Kafka message that is not consumed idempotently, a Flyway error). If the symptom is a runtime/NAIS problem (pod crash/OOMKilled, 401/403, consumer lag, DB timeout), follow the diagnostic tree there.
+- **PR** — confirm that the diff does what it claims: check out the branch, run `./gradlew test` and the relevant commands.
+- Report: confirmed (with the code path), failed, or insufficient detail (a strong `needs-info` signal). A confirmed verification makes for a much stronger brief.
 
-### 4. Grill (ved behov)
-Trenger saken kjøtt på beina, kjør `/grilling` og grill den i form ett spørsmål
-av gangen. Når avklarte begreper eller varige beslutninger bør dokumenteres,
-anbefal dokumentert løp, forklar hvorfor og vent på brukerens valg. Bruk
-`/architecture-review` for NAV-spesifikke funn; etter valgt dokumentert løp
-brukes `/domain-modeling` til å oppdatere glossaret eller skrive en
-kvalifiserende ADR under repository-policyen.
+### 4. Grill (when needed)
+If the item needs more substance, run `/grilling` and grill it into shape one
+question at a time. When clarified concepts or lasting decisions ought to be
+documented, recommend the documented track, explain why and wait for the user's
+choice. Use `/architecture-review` for NAV-specific findings; once the
+documented track has been chosen, `/domain-modeling` is used to update the
+glossary or write a qualifying ADR under the repository policy.
 
-### 5. Bruk utfallet
-- `ready-for-agent` — post en arbeidsklar brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Saken regnes nå som plukkbar i @grillmester sin faseløkke.
-- `ready-for-human` — samme struktur som en agent-brief, men noter *hvorfor* den ikke kan delegeres.
-- `needs-info` — post triage-notat (mal under).
-- `wontfix` — lukk, med kommentar avhengig av *hvorfor*:
-  - **Allerede implementert** — endringen finnes alt. Pek på hvor den lever i koden.
-  - **Avvist (bug)** — høflig forklaring, så lukk.
-  - **Avvist (enhancement)** — skriv en selvstendig begrunnelse i
-    lukkekommentaren, så lukk. Det lukkede issuet er historikken; opprett ikke
-    et eget beslutningsarkiv i repoet.
-- `needs-triage` — sett rollen. Valgfri kommentar hvis det er delvis fremgang.
+### 5. Apply the outcome
+- `ready-for-agent` — post a work-ready brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). The item now counts as pickable in @grillmester's phase loop.
+- `ready-for-human` — the same structure as an agent brief, but note *why* it cannot be delegated.
+- `needs-info` — post a triage note (template below).
+- `wontfix` — close, with a comment depending on *why*:
+  - **Already implemented** — the change already exists. Point to where it lives in the code.
+  - **Rejected (bug)** — a polite explanation, then close.
+  - **Rejected (enhancement)** — write a self-contained rationale in the
+    closing comment, then close. The closed issue is the history; do not create
+    a separate decision archive in the repository.
+- `needs-triage` — set the role. An optional comment if there is partial progress.
 
-## Rask tilstandsoverstyring
+## Quick state override
 
-Sier brukeren "flytt #42 til ready-for-agent", stol på det og sett rollen direkte. Bekreft hva du er i ferd med å gjøre (rolleendringer, kommentar, lukking), så handle. Hopp over grilling. Flytter du til `ready-for-agent` uten en grilling-økt, spør om de vil ha en brief skrevet.
+If the user says "move #42 to ready-for-agent", trust it and set the role directly. Confirm what you are about to do (role changes, comment, closing), then act. Skip grilling. If you move to `ready-for-agent` without a grilling session, ask whether they want a brief written.
 
-## Mal for needs-info
+## Template for needs-info
 
 ```markdown
 > *Generert av AI under triage.*
@@ -129,8 +129,8 @@ Sier brukeren "flytt #42 til ready-for-agent", stol på det og sett rollen direk
 - spørsmål 2
 ```
 
-Fang alt som ble løst under grilling under "etablert så langt" så arbeidet ikke går tapt. Spørsmål skal være konkrete og handlingsrettede — ikke "vennligst gi mer info".
+Capture everything that was settled during grilling under "etablert så langt" so the work is not lost. Questions must be concrete and actionable — not "please provide more information".
 
-## Gjenoppta en tidligere økt
+## Resume an earlier session
 
-Finnes tidligere triage-notater på saken, les dem, sjekk om melder har svart på utestående spørsmål, og presenter et oppdatert bilde før du fortsetter. Ikke spør om det som allerede er løst.
+If there are earlier triage notes on the item, read them, check whether the reporter has answered outstanding questions, and present an updated picture before continuing. Do not ask about what has already been settled.

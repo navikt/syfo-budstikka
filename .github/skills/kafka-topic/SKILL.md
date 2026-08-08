@@ -1,106 +1,106 @@
 ---
 name: kafka-topic
-description: "Brukes når dette Ktor-backendet (no.nav.syfo) skal produsere eller konsumere Kafka-hendelser — ny eller endret consumer/producer, ny topic via Kafkarator, event-kontrakt, key-strategi, idempotens eller DLQ. Triggere: 'lytte på topic', 'publisere hendelse', 'Kafkarator', 'Topic-CRD', 'consumer', 'producer', 'Rapids & Rivers', 'River', '@event_name', 'kafka.pool', 'DLQ', 'idempotent konsument'."
+description: "Use when this Ktor backend (no.nav.syfo) is to produce or consume Kafka events — a new or changed consumer/producer, a new topic via Kafkarator, event contract, key strategy, idempotency or DLQ. Triggers: 'listen to a topic', 'publish an event', 'Kafkarator', 'Topic CRD', 'consumer', 'producer', 'Rapids & Rivers', 'River', '@event_name', 'kafka.pool', 'DLQ', 'idempotent consumer'."
 ---
 
-# Kafka — topic, consumer og producer
+# Kafka — topic, consumer and producer
 
-Nav-spesifikke konvensjoner for Kafka i dette repoet. Generell Kafka-teori er ikke dekket — fokus er topic-provisjonering, event-kontrakt og hvordan consumer/producer kobles inn i en Ktor-app.
+Nav-specific conventions for Kafka in this repository. General Kafka theory is not covered — the focus is topic provisioning, the event contract, and how a consumer/producer is wired into a Ktor app.
 
-Brukes typisk i @grillmester fase 1–2 når en event-kontrakt formes, og i
-implementasjonsfasen når en consumer eller producer skrives. Når et varig valg
-passerer ADR-gaten, anbefal dokumentert løp og vent på brukerens valg før
-`/domain-modeling` registrerer det.
+Typically used in @grillmester phases 1–2 when an event contract is being shaped, and in
+the implementation phase when a consumer or producer is written. When a lasting decision
+passes the ADR gate, recommend the documented track and wait for the user's choice before
+`/domain-modeling` records it.
 
-## Detekter eksisterende Kafka-stil først
+## Detect the existing Kafka style first
 
-**Før du foreslår kode: finn ut hvilken stack repoet allerede bruker. Følg det. Ikke introduser en ny stil eller migrer mellom dem uten eksplisitt oppdrag.**
+**Before you propose code: find out which stack the repository already uses. Follow it. Do not introduce a new style or migrate between them without an explicit mandate.**
 
-I et Ktor-backend er det to realistiske valg:
+In a Ktor backend there are two realistic options:
 
-| Signal i `build.gradle.kts` / kode | Stack |
-|------------------------------------|-------|
-| `no.nav.helse:rapids-rivers`; `RapidApplication.create(env)`; klasser som implementerer `River.PacketListener` | Rapids & Rivers |
-| `org.apache.kafka:kafka-clients`; direkte `KafkaConsumer` / `KafkaProducer`, ofte i en egen tråd/coroutine ved siden av Ktor-serveren | Plain Apache Kafka |
+| Signal in `build.gradle.kts` / code | Stack |
+|-------------------------------------|-------|
+| `no.nav.helse:rapids-rivers`; `RapidApplication.create(env)`; classes implementing `River.PacketListener` | Rapids & Rivers |
+| `org.apache.kafka:kafka-clients`; direct `KafkaConsumer` / `KafkaProducer`, often in a separate thread/coroutine alongside the Ktor server | Plain Apache Kafka |
 
-Spring Kafka (`@KafkaListener`, `KafkaTemplate`) hører ikke hjemme i en Ktor-app — ser du det, er repoet enten ikke et Ktor-repo eller bruker feil mønster. Ikke foreslå Spring Kafka her.
+Spring Kafka (`@KafkaListener`, `KafkaTemplate`) does not belong in a Ktor app — if you see it, the repository either is not a Ktor repository or uses the wrong pattern. Do not propose Spring Kafka here.
 
-Følg det dominerende mønsteret. Hvis repoet ikke har Kafka fra før, velg plain Apache Kafka med mindre teamet allerede står på Rapids i nabotjenester.
+Follow the dominant pattern. If the repository has no Kafka yet, choose plain Apache Kafka unless the team is already on Rapids in neighbouring services.
 
-## Tilnærming
+## Approach
 
-1. Sjekk Nais-manifestet for `kafka.pool` og om Kafkarator `Topic`-CRD-er finnes (ofte i et eget `<team>-kafka`-repo).
-2. Søk i kodebasen etter eksisterende consumere/producere og følg samme mønster (oppstart, feilhåndtering, logging).
-3. Bekreft stack i `build.gradle.kts` (se tabell over).
-4. Planlegg event-kontrakt (topic-navn, key, felter, `@event_name`). Skriv
-   vedlikeholdt kontraktsdetalj som følger av den godkjente endringen til
-   relevant topic-dokument. Nye domenebegreper og kvalifiserende varige valg er
-   kandidater for dokumentert løp; vent på brukerens valg før
-   `/domain-modeling` skriver dem.
-5. Implementer etter mønsteret for stacken (se referansefilene under).
-6. Verifiser med tester (se referansefilene) og returner evidensen til @grillmester fase 5.
+1. Check the Nais manifest for `kafka.pool` and whether Kafkarator `Topic` CRDs exist (often in a separate `<team>-kafka` repository).
+2. Search the codebase for existing consumers/producers and follow the same pattern (startup, error handling, logging).
+3. Confirm the stack in `build.gradle.kts` (see the table above).
+4. Plan the event contract (topic name, key, fields, `@event_name`). Write the
+   maintained contract detail that follows from the approved change into the
+   relevant topic document. New domain concepts and qualifying lasting decisions are
+   candidates for the documented track; wait for the user's choice before
+   `/domain-modeling` writes them.
+5. Implement according to the pattern for the stack (see the reference files below).
+6. Verify with tests (see the reference files) and return the evidence to @grillmester phase 5.
 
-## Sync vs. hendelse — når velge hva
+## Sync vs. event — when to choose what
 
-| Behov | Mønster | Når |
-|-------|---------|-----|
-| Svar trengs umiddelbart, kallet må lykkes/feile synlig | REST på Ktor-route | CRUD, oppslag, brukerinteraksjon |
-| Fire-and-forget notifikasjon, audit, asynk nedstrøm | Kafka-producer (plain) | Varsling, logg, prosess som kan vente |
-| Hendelse-koreografi på tvers av mange tjenester | Rapids & Rivers på delt rapid-topic | Saga-flyt, flertjeneste-arbeidsflyt |
-| Periodisk batch | Naisjob (+ Kafka hvis nedstrøm) | Nattjobber, rapporter, reprosessering |
+| Need | Pattern | When |
+|------|---------|------|
+| An answer is needed immediately, the call must visibly succeed or fail | REST on a Ktor route | CRUD, lookups, user interaction |
+| Fire-and-forget notification, audit, async downstream | Kafka producer (plain) | Notifications, logging, processes that can wait |
+| Event choreography across many services | Rapids & Rivers on a shared rapid topic | Saga flows, multi-service workflows |
+| Periodic batch | Naisjob (+ Kafka if downstream) | Nightly jobs, reports, reprocessing |
 
-Bruker teamet allerede Rapids for koreografi, publiser nye hendelser dit — ikke lag en parallell plain-producer.
+If the team already uses Rapids for choreography, publish new events there — do not create a parallel plain producer.
 
-## Kafka i en Ktor-app — hvor kjører consumeren?
+## Kafka in a Ktor app — where does the consumer run?
 
-Ktor-serveren (`EngineMain` på Netty) og Kafka-consumeren er to uavhengige livssykluser i samme prosess. En `KafkaConsumer.poll`-løkke må kjøre ved siden av HTTP-serveren, ikke inne i en request. Start og stopp den sammen med applikasjonen:
+The Ktor server (`EngineMain` on Netty) and the Kafka consumer are two independent lifecycles in the same process. A `KafkaConsumer.poll` loop must run alongside the HTTP server, not inside a request. Start and stop it together with the application:
 
 ```kotlin
 fun Application.kafkaConsumerModule(consumer: HendelseConsumer) {
-    val job = launch(Dispatchers.IO) { consumer.run() }   // egen coroutine, ikke i en route
+    val job = launch(Dispatchers.IO) { consumer.run() }   // own coroutine, not in a route
     monitor.subscribe(ApplicationStopPreparing) {
-        consumer.stop()                                    // sett running=false, la løkka avslutte
+        consumer.stop()                                    // set running=false, let the loop finish
         job.cancel()
     }
 }
 ```
 
-Eksponer consumer-helsen i `/internal/isready` slik at podden ikke markeres klar før consumeren faktisk poller. Hold `/internal/*` (isalive, isready, metrics) utenfor auth, jf. `/auth-overview`.
+Expose the consumer's health in `/internal/isready` so that the pod is not marked ready before the consumer is actually polling. Keep `/internal/*` (isalive, isready, metrics) outside auth, cf. `/auth-overview`.
 
-## NAIS Kafka-konfigurasjon
+## NAIS Kafka configuration
 
 ```yaml
-# nais/*.yaml (utdrag)
+# nais/*.yaml (excerpt)
 spec:
   kafka:
-    pool: nav-dev   # eller nav-prod
+    pool: nav-dev   # or nav-prod
 ```
 
-NAIS injiserer SSL-env i podden — les dem i Ktor via `System.getenv(...)` eller `environment.config`:
+NAIS injects SSL env vars into the pod — read them in Ktor via `System.getenv(...)` or `environment.config`:
 
 - `KAFKA_BROKERS` — bootstrap servers
-- `KAFKA_TRUSTSTORE_PATH` / `KAFKA_KEYSTORE_PATH` — PKCS12-filer
-- `KAFKA_CREDSTORE_PASSWORD` — passord for begge
-- `KAFKA_SCHEMA_REGISTRY*` — kun hvis schema registry er aktivert
+- `KAFKA_TRUSTSTORE_PATH` / `KAFKA_KEYSTORE_PATH` — PKCS12 files
+- `KAFKA_CREDSTORE_PASSWORD` — password for both
+- `KAFKA_SCHEMA_REGISTRY*` — only if schema registry is enabled
 
-## Topic-provisjonering med Kafkarator
+## Topic provisioning with Kafkarator
 
-Topics i Nav opprettes deklarativt via Kafkarator `Topic`-CRD-er — ikke via kode eller `kubectl` manuelt.
+Topics at Nav are created declaratively via Kafkarator `Topic` CRDs — not through code or `kubectl` by hand.
 
 ```yaml
 apiVersion: kafka.nais.io/v1
 kind: Topic
 metadata:
-  name: <team>.<domene>.v<versjon>
+  name: <team>.<domain>.v<version>
   namespace: <team>
   labels:
     team: <team>
 spec:
   pool: nav-prod
   config:
-    retentionHours: 168          # 7 dager
-    retentionBytes: -1           # uten grense
-    cleanupPolicy: delete        # eller "compact" for state-topics
+    retentionHours: 168          # 7 days
+    retentionBytes: -1           # no limit
+    cleanupPolicy: delete        # or "compact" for state topics
     minimumInSyncReplicas: 2
     partitions: 3
     replication: 3
@@ -108,130 +108,130 @@ spec:
     - team: <team>
       application: <app>
       access: readwrite          # read | write | readwrite
-    - team: <annet-team>
-      application: <konsument-app>
+    - team: <other-team>
+      application: <consumer-app>
       access: read
 ```
 
-Viktige valg:
+Important choices:
 
-- **cleanupPolicy: compact** for topics som representerer siste tilstand per nøkkel. Krever stabil key.
-- **partitions**: øk tidlig — nedjustering krever ny topic. Start 3–6 for domene-hendelser.
-- **acl**: eksplisitt per konsument-app — ikke wildcard.
+- **cleanupPolicy: compact** for topics that represent the latest state per key. Requires a stable key.
+- **partitions**: increase early — scaling down requires a new topic. Start with 3–6 for domain events.
+- **acl**: explicit per consumer app — no wildcards.
 
-## Nav-hendelsesdesign (stack-agnostisk)
+## Nav event design (stack-agnostic)
 
-Gjelder uansett om du bruker plain Kafka eller Rapids.
+Applies whether you use plain Kafka or Rapids.
 
-### Topic-navngivning
+### Topic naming
 
 ```
-<team>.<domene>.v<versjon>
+<team>.<domain>.v<version>
 
-teamsykefravar.rapid.v1            # Rapids & Rivers fellestopic
-teamsykefravar.sykmelding.v1       # Domene-hendelser
-teamsykefravar.oppfolging.v1       # Domene-hendelser
+teamsykefravar.rapid.v1            # Rapids & Rivers shared topic
+teamsykefravar.sykmelding.v1       # Domain events
+teamsykefravar.oppfolging.v1       # Domain events
 ```
 
-### Key-strategi
+### Key strategy
 
-- **Bruker/entitet-ID som key** → hendelser for samme entitet havner på samme partisjon → rekkefølge bevares per entitet.
-- `fnr`, `aktørId`, `sykmeldingId`, `vedtakId` er typiske nøkler.
-- Ikke bruk random UUID som key med mindre du bevisst vil ha jevn partisjonsspredning uten rekkefølge-garanti.
+- **User/entity ID as the key** → events for the same entity land on the same partition → ordering is preserved per entity.
+- `fnr`, `aktørId`, `sykmeldingId`, `vedtakId` are typical keys.
+- Do not use a random UUID as the key unless you deliberately want an even partition spread without an ordering guarantee.
 
-### Event-navngivning og innhold
+### Event naming and content
 
-- **Fortid + snake_case**: `sykmelding_sendt`, `oppfolging_opprettet`, `vedtak_fattet` — ikke `create_x` / `process`.
-- **Hendelser er fakta**, ikke kommandoer. Beskriv hva som skjedde.
-- **Standard metadata** i payload:
-  - `@event_name` — hendelsestype
-  - `@id` — unik UUID per hendelse (brukes til idempotens)
+- **Past tense + snake_case**: `sykmelding_sendt`, `oppfolging_opprettet`, `vedtak_fattet` — not `create_x` / `process`.
+- **Events are facts**, not commands. Describe what happened.
+- **Standard metadata** in the payload:
+  - `@event_name` — event type
+  - `@id` — unique UUID per event (used for idempotency)
   - `@created_at` — ISO-8601 timestamp
-  - `@produced_by` — avsendertjeneste
-  - `@correlation_id` — propagér fra innkommende request (sterkt anbefalt)
-- **Ingen PII uten bevisst vurdering.** Fødselsnummer som key er akseptabelt på Nav-interne topics, men aldri logg det, og vurder kryptering av sensitive fritekstfelter.
+  - `@produced_by` — producing service
+  - `@correlation_id` — propagate from the incoming request (strongly recommended)
+- **No PII without a deliberate assessment.** Fødselsnummer as the key is acceptable on Nav-internal topics, but never log it, and consider encrypting sensitive free-text fields.
 
-## Idempotens
+## Idempotency
 
-Kafka leverer minst-én-gang — duplikater forekommer. Konsumenter må være idempotente. Dedup på en stabil event-ID (`@id` i payload), aldri på Kafka-offset (endres ved re-partisjonering).
+Kafka delivers at-least-once — duplicates happen. Consumers must be idempotent. Deduplicate on a stable event ID (`@id` in the payload), never on the Kafka offset (it changes on repartitioning).
 
 ```kotlin
 fun prosesser(eventId: String, /* ... */) {
     if (eventStore.alleredeProsessert(eventId)) return
-    // prosesser ...
+    // process ...
     eventStore.markerProsessert(eventId)
 }
 ```
 
-Dedup-tabellen er typisk en Postgres-tabell — legg den inn som Flyway-migrering.
+The dedup table is typically a Postgres table — add it as a Flyway migration.
 
-## Dead-letter-håndtering (konsept)
+## Dead-letter handling (concept)
 
-Meldinger som aldri kan prosesseres (korrupt payload, permanent valideringsfeil) skal **ikke blokkere strømmen**.
+Messages that can never be processed (corrupt payload, permanent validation error) must **not block the stream**.
 
-1. **Skill midlertidig vs. permanent feil.** Midlertidig (nettverk, DB nede) → kast exception, la Kafka retry. Permanent → log + DLQ, fortsett.
-2. **DLQ-topic** per domene (`<team>.<domene>.dlq.v1`) med originalmelding + feilårsak + timestamp.
-3. **Alarm på DLQ-rate**, ikke på enkeltmelding.
-4. **Manuell gjenspilling** etter bugfix: les DLQ, republiser til original topic.
+1. **Distinguish temporary from permanent errors.** Temporary (network, DB down) → throw an exception, let Kafka retry. Permanent → log + DLQ, continue.
+2. **A DLQ topic** per domain (`<team>.<domain>.dlq.v1`) with the original message + error cause + timestamp.
+3. **Alert on the DLQ rate**, not on individual messages.
+4. **Manual replay** after a bugfix: read the DLQ, republish to the original topic.
 
-Implementasjonen følger stacken — i et Ktor-repo ruller man som regel en egen liten DLQ-producer. Følg mønsteret som allerede finnes.
+The implementation follows the stack — in a Ktor repository you usually roll a small DLQ producer of your own. Follow the pattern that already exists.
 
-## Event-evolusjon
+## Event evolution
 
 ```
-Hvordan endre en eksisterende hendelse?
-├── Legg til nytt felt (optional)
-│   └── Bakoverkompatibelt. Konsumenter må tolerere ukjente felter
-│       (tolerant parsing / interestedIn), ikke kreve dem.
+How do you change an existing event?
+├── Add a new field (optional)
+│   └── Backwards compatible. Consumers must tolerate unknown fields
+│       (tolerant parsing / interestedIn), not require them.
 │
-├── Endre feltformat (breaking)
-│   └── Ny topic-versjon v2. Dual-write fra produsent.
-│       Migrer konsumenter én om gangen. Stopp v1-produksjon sist.
+├── Change a field format (breaking)
+│   └── New topic version v2. Dual-write from the producer.
+│       Migrate consumers one at a time. Stop v1 production last.
 │
-├── Fjerne felt
-│   └── 1. Verifiser at ingen konsument krever feltet.
-│       2. Fjern fra produsent. 3. Vent + overvåk før topic-rydding.
+├── Remove a field
+│   └── 1. Verify that no consumer requires the field.
+│       2. Remove it from the producer. 3. Wait + monitor before topic cleanup.
 │
-└── Ny hendelsestype
-    └── Publiser med ny @event_name. Eksisterende konsumenter ignorerer
-        ukjente event_names (gjelder spesielt Rapids).
+└── New event type
+    └── Publish with a new @event_name. Existing consumers ignore
+        unknown event_names (applies especially to Rapids).
 ```
 
-Breaking event-endringer er et koordineringsproblem med konsumerende team —
-samme disiplin som API-versjonering. Review NAV- og
-teamkonsekvenser med `/architecture-review`. Når beslutningen kvalifiserer,
-anbefal dokumentert løp og vent på brukerens valg før `/domain-modeling`
-registrerer en ADR.
+Breaking event changes are a coordination problem with consuming teams —
+the same discipline as API versioning. Review Nav-wide and
+team consequences with `/architecture-review`. When the decision qualifies,
+recommend the documented track and wait for the user's choice before `/domain-modeling`
+records an ADR.
 
-## Stack-spesifikke mønstre
+## Stack-specific patterns
 
-Les kun den som er aktuell for repoet:
+Read only the one relevant to the repository:
 
-- **Plain Apache Kafka** (Kotlin consumer/producer i Ktor, SSL-config, commit-strategi, Testcontainers): [`references/plain-kafka.md`](references/plain-kafka.md).
-- **Rapids & Rivers** (River-oppsett, validate/demand/require, publisering, TestRapid): [`references/rapids-and-rivers.md`](references/rapids-and-rivers.md).
+- **Plain Apache Kafka** (Kotlin consumer/producer in Ktor, SSL config, commit strategy, Testcontainers): [`references/plain-kafka.md`](references/plain-kafka.md).
+- **Rapids & Rivers** (River setup, validate/demand/require, publishing, TestRapid): [`references/rapids-and-rivers.md`](references/rapids-and-rivers.md).
 
-## Grenser
+## Boundaries
 
-### Alltid
-- Følg stacken repoet allerede bruker.
-- Opprett topics via Kafkarator `Topic`-CRD — aldri ad-hoc i kode/`kubectl`.
-- Eksplisitt ACL per konsument-app.
-- Topic-navn `<team>.<domene>.v<versjon>`; event-navn i fortid + snake_case.
-- Idempotent konsumering (dedup på `@id`).
-- DLQ for permanente feil, alarm på DLQ-rate.
-- Strukturert logging med `event_id` / `correlation_id` — aldri PII (`fnr`) i logg.
-- `kafka.pool` satt i Nais-manifest før deploy.
+### Always
+- Follow the stack the repository already uses.
+- Create topics via Kafkarator `Topic` CRDs — never ad hoc in code or `kubectl`.
+- Explicit ACL per consumer app.
+- Topic names `<team>.<domain>.v<version>`; event names in past tense + snake_case.
+- Idempotent consumption (dedup on `@id`).
+- DLQ for permanent errors, alert on the DLQ rate.
+- Structured logging with `event_id` / `correlation_id` — never PII (`fnr`) in logs.
+- `kafka.pool` set in the Nais manifest before deploy.
 
-### Spør først
-- Migrasjon plain ↔ Rapids.
-- Endre `KAFKA_CONSUMER_GROUP_ID` / consumer-group (utløser reprosessering fra `auto.offset.reset`).
-- Breaking event-endring som andre team konsumerer.
-- Endre `partitions` / `cleanupPolicy` på eksisterende topic.
+### Ask first
+- Migration plain ↔ Rapids.
+- Changing `KAFKA_CONSUMER_GROUP_ID` / consumer group (triggers reprocessing from `auto.offset.reset`).
+- A breaking event change that other teams consume.
+- Changing `partitions` / `cleanupPolicy` on an existing topic.
 
-### Aldri
-- Logge fødselsnummer eller annen PII.
-- Bruke Kafka-offset som idempotens-nøkkel.
-- Kjøre `poll`-løkka inne i en HTTP-handler.
-- Sluke permanente feil stille slik at strømmen stopper.
+### Never
+- Log fødselsnummer or other PII.
+- Use the Kafka offset as an idempotency key.
+- Run the `poll` loop inside an HTTP handler.
+- Silently swallow permanent errors so that the stream stops.
 
-NAIS-dok: https://doc.nais.io/persistence/kafka/
+NAIS docs: https://doc.nais.io/persistence/kafka/

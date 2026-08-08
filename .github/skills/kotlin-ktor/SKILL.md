@@ -1,20 +1,20 @@
 ---
 name: kotlin-ktor
-description: "Bruk ved Ktor-spesifikt arbeid i no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering, og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor."
+description: "Use for Ktor-specific work in no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validation, and Ktor-related Kafka/Postgres setup — or /kotlin-ktor."
 ---
 
-# Ktor — NAV-spesifikt (syfo-budstikka)
+# Ktor — NAV-specific (this repository)
 
-Kotlin + Ktor 3.x på Netty, pakke `no.nav.syfo`. Java 25, Gradle. Norsk er arbeidsspråk.
+Kotlin + Ktor 3.x on Netty, package `no.nav.syfo`. Java 25, Gradle. Norwegian is the working language.
 
-## Skill-grenser
+## Skill boundaries
 
-- Bruk `/kotlin-ktor` når endringen rører Ktor-rammeverket (routes, plugins, auth, app wiring).
-- Bruk `/integration-tests` eller `/e2e-tests` for testtype-spesifikk flyt.
+- Use `/kotlin-ktor` when the change touches the Ktor framework (routes, plugins, auth, app wiring).
+- Use `/integration-tests` or `/e2e-tests` for test-type-specific flows.
 
-## Oppstart og moduler
+## Startup and modules
 
-Repoet bruker **config-basert oppstart** med `EngineMain`, ikke `embeddedServer { }`. Moduler registreres i `src/main/resources/application.yaml` under `ktor.application.modules`, ikke i `main.kt`:
+This repository uses **config-based startup** with `EngineMain`, not `embeddedServer { }`. Modules are registered in `src/main/resources/application.yaml` under `ktor.application.modules`, not in `main.kt`:
 
 ```yaml
 ktor:
@@ -26,17 +26,17 @@ ktor:
       - no.nav.syfo.AppKt.apiModule
 ```
 
-`main.kt` kaller bare `io.ktor.server.netty.EngineMain.main(args)`. En ny `Application.xxx()`-modul tas i bruk ved å legge fully-qualified `<Fil>Kt.<funksjon>`-referansen i listen over — å bare skrive funksjonen er ikke nok.
+`main.kt` only calls `io.ktor.server.netty.EngineMain.main(args)`. A new `Application.xxx()` module is put into use by adding the fully-qualified `<File>Kt.<function>` reference to the list above — merely writing the function is not enough.
 
-## Avhengigheter (version catalogs)
+## Dependencies (version catalogs)
 
-To kataloger er i bruk:
-- `ktorLibs` — alle Ktor-artefakter, pinnet via `io.ktor:ktor-version-catalog` i `settings.gradle.kts`. Bruk f.eks. `implementation(ktorLibs.server.auth)`, `ktorLibs.server.contentNegotiation`. Ikke skriv Ktor-versjoner manuelt.
-- `libs` — alt annet (logback, Koin, db, Kafka, osv.), definert i `gradle/libs.versions.toml`.
+Two catalogs are in use:
+- `ktorLibs` — all Ktor artifacts, pinned via `io.ktor:ktor-version-catalog` in `settings.gradle.kts`. Use e.g. `implementation(ktorLibs.server.auth)`, `ktorLibs.server.contentNegotiation`. Do not write Ktor versions by hand.
+- `libs` — everything else (logback, Koin, db, Kafka, etc.), defined in `gradle/libs.versions.toml`.
 
-Legg nye Ktor-plugins via `ktorLibs.*`; legg tredjepart via `libs.*` med versjon i `[versions]`/`[libraries]`.
+Add new Ktor plugins via `ktorLibs.*`; add third-party libraries via `libs.*` with the version in `[versions]`/`[libraries]`.
 
-## Autentisering (TokenX / Azure AD)
+## Authentication (TokenX / Azure AD)
 
 ```kotlin
 authenticate("azureAd") {
@@ -48,15 +48,15 @@ authenticate("azureAd") {
 }
 ```
 
-- **TokenX** for borger-til-app (on-behalf-of sluttbruker, ID-porten-opphav). Valider `sub`/`pid`.
-- **Azure AD** for ansatt-flyt og maskin-til-maskin internt. NAVident-claim identifiserer saksbehandler.
-- Sett opp `accessPolicy.inbound/outbound` i NAIS-manifestet for hvilke apper som får kalle/kalles. Auth-valg er typisk en blind-spot — grav i det i grill-fasen.
+- **TokenX** for citizen-to-app (on-behalf-of the end user, originating from ID-porten). Validate `sub`/`pid`.
+- **Azure AD** for employee flows and internal machine-to-machine. The NAVident claim identifies the case worker.
+- Set up `accessPolicy.inbound/outbound` in the NAIS manifest for which apps may call and be called. Auth choices are typically a blind spot — dig into it during the grilling phase.
 
-## Avhengighetsinjeksjon
+## Dependency injection
 
-Detekter eksisterende DI-mønster først. Er `io.insert-koin` i avhengighetene: bruk Koin (`install(Koin) { modules(appModule) }`, hent via `by inject()`). Ellers er **manuell konstruktørinjeksjon** i `Application`-modulen default — ikke dra inn et DI-rammeverk uoppfordret. (Dette repoet har ingen Koin i dag.)
+Detect the existing DI pattern first. If `io.insert-koin` is among the dependencies: use Koin (`install(Koin) { modules(appModule) }`, resolve via `by inject()`). Otherwise **manual constructor injection** in the `Application` module is the default — do not pull in a DI framework unprompted. (This repository has no Koin today.)
 
-## Logging og sporing
+## Logging and tracing
 
 ```kotlin
 install(CallId) {
@@ -69,39 +69,39 @@ install(CallLogging) {
 }
 ```
 
-NAIS forventer strukturert (JSON) logging til stdout for innsamling. Logg aldri fnr eller særlige kategorier personopplysninger i klartekst — bruk callId/aktørreferanser i stedet.
+NAIS expects structured (JSON) logging to stdout for collection. Never log national identity numbers or special categories of personal data in plain text — use callId/actor references instead.
 
-## Feilhåndtering — StatusPages + ApiError
+## Error handling — StatusPages + ApiError
 
-Team-standard for strukturerte feilresponser: sealed `ApiErrorException`-hierarki + `StatusPages`-plugin som mapper til en enhetlig `ApiError`-payload (status, type, message, path, timestamp). Se [references/error-handling.md](references/error-handling.md) for full implementasjon (`ErrorType`-enum, `ApiErrorException`-klasser, `installStatusPages()`, `determineApiError()`, logging).
+Team standard for structured error responses: a sealed `ApiErrorException` hierarchy + the `StatusPages` plugin that maps to a uniform `ApiError` payload (status, type, message, path, timestamp). See [references/error-handling.md](references/error-handling.md) for the full implementation (`ErrorType` enum, `ApiErrorException` classes, `installStatusPages()`, `determineApiError()`, logging).
 
-## Paginering og input-validering
+## Pagination and input validation
 
-Team-standard `PaginatedResponse<T>`-wrapper og route-validering med tidlig-retur (kast `ApiErrorException.BadRequestException`) på ugyldige parametre. Se [references/paginering-og-validering.md](references/paginering-og-validering.md).
+Team-standard `PaginatedResponse<T>` wrapper and route validation with early return (throw `ApiErrorException.BadRequestException`) on invalid parameters. See [references/pagination-and-validation.md](references/pagination-and-validation.md).
 
-## Utgående HttpClient (kall mot nedstrøms-tjeneste)
+## Outgoing HttpClient (calls to a downstream service)
 
-Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `ktorLibs.client.*`, med eksplisitt timeout/retry, `Nav-Call-Id`-propagering og oversettelse av nedstrøms-feil til repoets feilkontrakt. Token for kallet hentes som beskrevet i `/auth-overview` (TokenX OBO / Azure AD M2M) — ikke dupliser auth her. Se [references/http-client.md](references/http-client.md) for konkret oppsett (motor, `HttpTimeout`, `HttpRequestRetry`, callId-header, `ApiErrorException`-mapping; circuit breaker krever Resilience4j — ikke native i Ktor).
+When the backend itself calls a downstream service: use the Ktor `HttpClient` via `ktorLibs.client.*`, with explicit timeout/retry, `Nav-Call-Id` propagation and translation of downstream errors into the repository's error contract. The token for the call is obtained as described in `/auth-overview` (TokenX OBO / Azure AD M2M) — do not duplicate auth here. See [references/http-client.md](references/http-client.md) for the concrete setup (engine, `HttpTimeout`, `HttpRequestRetry`, callId header, `ApiErrorException` mapping; circuit breaker requires Resilience4j — not native in Ktor).
 
-## Persistens (Postgres / Flyway)
+## Persistence (Postgres / Flyway)
 
-- Flyway-migreringer i `src/main/resources/db/migration` (`V<n>__<navn>.sql`), kjøres ved oppstart. Migreringer er append-only — endre aldri en allerede deployet migrering.
-- Bruk NAIS-provisjonert Postgres med IAM/Vault-rotert credential; ikke hardkod connection-string.
-- Review skjema- og lagringsvalg for personopplysninger med
-  `/architecture-review`. Når valget passerer ADR-gaten, anbefal
-  dokumentert løp og vent på brukerens valg før `/domain-modeling` registrerer
-  det.
+- Flyway migrations in `src/main/resources/db/migration` (`V<n>__<name>.sql`), run at startup. Migrations are append-only — never change a migration that has already been deployed.
+- Use NAIS-provisioned Postgres with an IAM/Vault-rotated credential; do not hardcode the connection string.
+- Review schema and storage choices for personal data with
+  `/architecture-review`. When the choice passes the ADR gate, recommend the
+  documented path and wait for the user's decision before `/domain-modeling`
+  records it.
 
-## Kafka (hendelseskonsument/-produsent)
+## Kafka (event consumer/producer)
 
-- Konsumenter må være **idempotente** og tåle replay — dedup på nøkkel/offset, ikke anta exactly-once.
-- Definer eksplisitt oppførsel når downstream er nede (retry/DLQ), og bekreft `accessPolicy`/topic-tilgang i NAIS.
-- Logg med callId/hendelse-id, aldri rå payload med PII.
+- Consumers must be **idempotent** and tolerate replay — dedupe on key/offset, do not assume exactly-once.
+- Define explicit behavior when downstream is unavailable (retry/DLQ), and confirm `accessPolicy`/topic access in NAIS.
+- Log with callId/event id, never a raw payload containing PII.
 
 ## Graceful shutdown
 
-`EngineMain` (Netty) installerer shutdown-hook og håndterer `SIGTERM` automatisk — påbegynte kall fullføres før prosessen stopper. Du trenger ikke manuell readiness-toggling i applikasjonen. På plattformsiden gir NAIS `preStop`-hook og rimelig `terminationGracePeriodSeconds` tid til å drenere. Anti-mønstre: manuell `readiness=false`-vipping og for lav grace-period.
+`EngineMain` (Netty) installs a shutdown hook and handles `SIGTERM` automatically — calls already in flight complete before the process stops. You do not need manual readiness toggling in the application. On the platform side, the NAIS `preStop` hook and a reasonable `terminationGracePeriodSeconds` give time to drain. Anti-patterns: manually flipping `readiness=false`, and too low a grace period.
 
-## Verifisering
+## Verification
 
-Kvalitetsgater er deterministiske: `./gradlew test` og `./gradlew build`. Ktor-routes testes med `testApplication { }` (`ktorLibs.server.testHost`) — se `src/test/kotlin/ServerTest.kt`. Ingen «ser riktig ut»-påstand uten ferskt kommando-output + exit-kode.
+Quality gates are deterministic: `./gradlew test` and `./gradlew build`. Ktor routes are tested with `testApplication { }` (`ktorLibs.server.testHost`) — see `src/test/kotlin/ServerTest.kt`. No "looks right" claim without fresh command output + exit code.

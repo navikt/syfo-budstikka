@@ -1,14 +1,14 @@
 ---
-description: "Slå opp ved skriving av Micrometer-metrikker i Ktor: MeterRegistry-oppsett, Counter/Timer/Gauge/DistributionSummary, domene- og Kafka-metrikker, og health-routes i syfo-budstikka."
+description: "Look this up when writing Micrometer metrics in Ktor: MeterRegistry setup, Counter/Timer/Gauge/DistributionSummary, domain and Kafka metrics, and health routes in this repository."
 ---
 
-# Micrometer og health i Ktor
+# Micrometer and health in Ktor
 
-Backend-mønstre for Kotlin/Ktor i syfo-budstikka. Ktor har ingen Actuator — du eier registry-oppsettet selv.
+Backend patterns for Kotlin/Ktor in this repository. Ktor has no Actuator — you own the registry setup yourself.
 
-## MeterRegistry-oppsett
+## MeterRegistry setup
 
-Opprett ett `PrometheusMeterRegistry`, installer `MicrometerMetrics`-pluginen, og del samme instans via Koin slik at domenekode måler mot samme registry som HTTP-metrikkene.
+Create a single `PrometheusMeterRegistry`, install the `MicrometerMetrics` plugin, and share the same instance via Koin so that domain code measures against the same registry as the HTTP metrics.
 
 ```kotlin
 // build.gradle.kts
@@ -32,7 +32,7 @@ fun Application.installMetrics(registry: PrometheusMeterRegistry) {
 }
 ```
 
-Registrer registryet som singleton i Koin og injiser det der du måler:
+Register the registry as a singleton in Koin and inject it wherever you measure:
 
 ```kotlin
 val metricsModule = module {
@@ -40,7 +40,7 @@ val metricsModule = module {
 }
 ```
 
-`MicrometerMetrics` gir automatisk `ktor_http_server_requests_seconds` med tags for route, method og status. Trenger du percentiler fra Prometheus, slå på histogram:
+`MicrometerMetrics` automatically provides `ktor_http_server_requests_seconds` with tags for route, method and status. If you need percentiles from Prometheus, turn on the histogram:
 
 ```kotlin
 install(MicrometerMetrics) {
@@ -53,12 +53,12 @@ install(MicrometerMetrics) {
 
 ## Counter
 
-For ting som bare kan øke.
+For things that can only increase.
 
 ```kotlin
 class OppgaveService(registry: MeterRegistry) {
     private val opprettet = Counter.builder("oppgaver_opprettet_total")
-        .description("Antall opprettede oppgaver")
+        .description("Number of oppgaver created")
         .tag("kilde", "api")
         .register(registry)
 
@@ -68,32 +68,32 @@ class OppgaveService(registry: MeterRegistry) {
 }
 ```
 
-Bruk `rate()` / `increase()` i Prometheus for hastighet over tid.
+Use `rate()` / `increase()` in Prometheus for the rate over time.
 
 ## Timer
 
-For varighet. For percentiler må timeren publisere histogram.
+For duration. For percentiles the timer must publish a histogram.
 
 ```kotlin
 class BehandlingService(registry: MeterRegistry) {
     private val behandlingstid = Timer.builder("oppgave_behandlingstid_seconds")
-        .description("Behandlingstid for oppgave")
+        .description("Processing time for an oppgave")
         .publishPercentileHistogram()
         .tag("type", "manuell")
         .register(registry)
 
     fun behandle(): String =
         requireNotNull(behandlingstid.recordCallable { "ferdig" }) {
-            "Timet blokk returnerte null"
+            "Timed block returned null"
         }
 }
 ```
 
-Bruk timer for respons- eller behandlingstid, særlig når du trenger p50/p95/p99.
+Use a timer for response or processing time, especially when you need p50/p95/p99.
 
 ## Gauge
 
-For en nåverdi, f.eks. køstørrelse eller aktive forbindelser.
+For a current value, e.g. queue size or active connections.
 
 ```kotlin
 class KoMetrics(registry: MeterRegistry) {
@@ -101,7 +101,7 @@ class KoMetrics(registry: MeterRegistry) {
 
     init {
         Gauge.builder("oppgave_ko_storrelse", koStorrelse) { it.get().toDouble() }
-            .description("Antall ventende oppgaver")
+            .description("Number of pending oppgaver")
             .register(registry)
     }
 
@@ -111,12 +111,12 @@ class KoMetrics(registry: MeterRegistry) {
 
 ## DistributionSummary
 
-For fordelinger som ikke er tid.
+For distributions that are not time.
 
 ```kotlin
 class PayloadMetrics(registry: MeterRegistry) {
     private val storrelse = DistributionSummary.builder("melding_payload_size_bytes")
-        .description("Størrelse på innkommende melding")
+        .description("Size of an incoming message")
         .baseUnit("bytes")
         .publishPercentileHistogram()
         .register(registry)
@@ -125,15 +125,15 @@ class PayloadMetrics(registry: MeterRegistry) {
 }
 ```
 
-## Domenemetrikker
+## Domain metrics
 
-Velg målinger som viser om løsningen fungerer, ikke bare om JVM-en lever.
+Choose measurements that show whether the solution works, not just whether the JVM is alive.
 
-**Gode kandidater**
-- antall behandlede domenehendelser per type
-- andel feil/suksess for viktige flyter
-- ventende oppgaver i kø
-- behandlingstid per steg eller event-type
+**Good candidates**
+- number of processed domain events per type
+- error/success ratio for important flows
+- pending tasks in a queue
+- processing time per step or event type
 
 ```kotlin
 class BehandlingMetrics(registry: MeterRegistry) {
@@ -149,11 +149,11 @@ class BehandlingMetrics(registry: MeterRegistry) {
 
 ### Kafka
 
-Mål mottatte events, vellykket behandling, feil, behandlingstid og consumer lag/køstørrelse. Bruk labels som `event_type`, `result`, `topic` eller `consumer_group` — aldri message key, payload-id, fnr eller aktør-id.
+Measure received events, successful processing, errors, processing time and consumer lag/queue size. Use labels such as `event_type`, `result`, `topic` or `consumer_group` — never message key, payload id, fnr or aktør-id.
 
-## Health-routes
+## Health routes
 
-NAV-konvensjon er enkle interne routes, ikke Actuator. Tilpass alltid stiene til NAIS-manifestet.
+The NAV convention is simple internal routes, not Actuator. Always align the paths with the NAIS manifest.
 
 ```kotlin
 routing {
@@ -168,9 +168,9 @@ routing {
 }
 ```
 
-**Tommelfingerregler**
-- `isalive` (liveness) svarer på om prosessen bør restartes — hold den triviell
-- `isready` (readiness) svarer på om instansen kan ta trafikk nå — la den avhenge av faktiske avhengigheter (Postgres-pool, Kafka)
-- Ikke legg tung logikk i health checks
-- Hold detaljer fri for sensitiv informasjon
-- Netty/`EngineMain` håndterer `SIGTERM` og graceful shutdown — du trenger ikke manuell readiness-vipping ved nedstenging
+**Rules of thumb**
+- `isalive` (liveness) answers whether the process ought to be restarted — keep it trivial
+- `isready` (readiness) answers whether the instance can take traffic right now — let it depend on actual dependencies (Postgres pool, Kafka)
+- Do not put heavy logic in health checks
+- Keep the details free of sensitive information
+- Netty/`EngineMain` handles `SIGTERM` and graceful shutdown — you do not need to flip readiness manually at shutdown

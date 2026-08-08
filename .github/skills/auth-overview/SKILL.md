@@ -1,37 +1,37 @@
 ---
 name: auth-overview
-description: "Bruk når dette Ktor-backendet (no.nav.syfo) skal sette opp eller feilsøke autentisering/autorisering — innkommende JWT-validering, TokenX OBO, Azure AD M2M (client_credentials), Texas-sidecar, accessPolicy i Nais, eller når et endepunkt skal beskyttes. Trigger: 'beskytt dette endepunktet', 401/403-feil, 'hvilken auth skal denne kalleren ha', token-utveksling mot nedstrøms-tjeneste, audience/issuer-mismatch. Kalles via /auth-overview."
+description: "Use when this Ktor backend (no.nav.syfo) needs to set up or troubleshoot authentication/authorization — incoming JWT validation, TokenX OBO, Azure AD M2M (client_credentials), the Texas sidecar, accessPolicy in Nais, or when an endpoint needs protecting. Triggers: 'protect this endpoint', 401/403 errors, 'which auth should this caller use', token exchange against a downstream service, audience/issuer mismatch. Invoked via /auth-overview."
 ---
 
-# Autentiseringsoversikt
+# Authentication overview
 
-Referanse for autentisering og autorisering i dette repoet på NAIS. Backend mottar tokens fra kallere og kaller selv nedstrøms-tjenester. Fokus er JVM/Ktor — ikke frontend.
+Reference for authentication and authorization in this repository on NAIS. The backend receives tokens from callers and calls downstream services itself. The focus is JVM/Ktor — not the frontend.
 
-## Beslutningstre — caller-type → auth-mekanisme
+## Decision tree — caller type → auth mechanism
 
-Identifiser hvem som initierer forespørselen mot dette API-et, og hvem dette API-et selv kaller.
+Identify who initiates the request against this API, and who this API calls in turn.
 
-| Kaller mot dette API-et                      | Mekanisme (innkommende validering)   | Nais-flagg                        |
-|----------------------------------------------|--------------------------------------|-----------------------------------|
-| NAV-tjeneste med brukerkontekst (OBO)        | TokenX                               | `tokenx.enabled: true`            |
-| NAV-tjeneste uten brukerkontekst (batch/job) | Azure AD client_credentials          | `azure.application.enabled: true` |
-| Saksbehandler (token fra Azure-frontend)     | Azure AD                             | `azure.application.enabled: true` |
-| Innbygger (via frontend/Wonderwall)          | TokenX (frontend veksler ID-porten-token) | `tokenx.enabled: true`            |
-| Ekstern partner / system                     | Maskinporten                         | `maskinporten.enabled: true`      |
+| Caller into this API                          | Mechanism (incoming validation)           | Nais flag                         |
+|-----------------------------------------------|-------------------------------------------|-----------------------------------|
+| NAV service with user context (OBO)           | TokenX                                    | `tokenx.enabled: true`            |
+| NAV service without user context (batch/job)  | Azure AD client_credentials               | `azure.application.enabled: true` |
+| Case worker (token from Azure frontend)       | Azure AD                                  | `azure.application.enabled: true` |
+| Citizen (via frontend/Wonderwall)             | TokenX (the frontend exchanges the ID-porten token) | `tokenx.enabled: true`  |
+| External partner / system                     | Maskinporten                              | `maskinporten.enabled: true`      |
 
-Når dette API-et kaller utgående:
-- Brukerkontekst skal følge med → **TokenX exchange (OBO)**.
-- Ren maskin-til-maskin uten bruker → **Azure AD client_credentials (M2M)**.
+When this API calls outbound:
+- User context must travel along → **TokenX exchange (OBO)**.
+- Pure machine-to-machine without a user → **Azure AD client_credentials (M2M)**.
 
-Komplett beslutningstre, mot-eksempel og systembruker (Altinn 3): se [`references/decision-tree.md`](references/decision-tree.md).
+Complete decision tree, counter-example and system user (Altinn 3): see [`references/decision-tree.md`](references/decision-tree.md).
 
-**Merk Innbygger-flyten:** frontend/BFF (Wonderwall) veksler ID-porten-token til TokenX før kall til dette backend-API-et, så backend validerer et TokenX-token. `idporten.enabled: true` settes kun hvis appen selv mottar ID-porten-token direkte — uvanlig for et rent backend-API.
+**Note the citizen flow:** the frontend/BFF (Wonderwall) exchanges the ID-porten token for a TokenX token before calling this backend API, so the backend validates a TokenX token. `idporten.enabled: true` is set only if the app itself receives the ID-porten token directly — unusual for a pure backend API.
 
-**Vanligste feil:** Azure client_credentials brukt der brukerkontekst finnes — brukeridentiteten tapes og per-bruker-autorisasjon blir umulig. Bruk TokenX-exchange i stedet.
+**Most common mistake:** Azure client_credentials used where user context exists — the user identity is lost and per-user authorization becomes impossible. Use TokenX exchange instead.
 
-## Nais-konfigurasjon per mekanisme
+## Nais configuration per mechanism
 
-### Azure AD / Entra ID (interne NAV-tjenester, M2M)
+### Azure AD / Entra ID (internal NAV services, M2M)
 ```yaml
 azure:
   application:
@@ -47,9 +47,9 @@ accessPolicy:
       - application: nedstroms-app
         namespace: team-nedstroms
 ```
-Auto-injiserte env: `AZURE_APP_CLIENT_ID`, `AZURE_APP_CLIENT_SECRET`, `AZURE_APP_WELL_KNOWN_URL`, `AZURE_OPENID_CONFIG_ISSUER`, `AZURE_OPENID_CONFIG_JWKS_URI`, `AZURE_APP_PRE_AUTHORIZED_APPS`.
+Auto-injected env vars: `AZURE_APP_CLIENT_ID`, `AZURE_APP_CLIENT_SECRET`, `AZURE_APP_WELL_KNOWN_URL`, `AZURE_OPENID_CONFIG_ISSUER`, `AZURE_OPENID_CONFIG_JWKS_URI`, `AZURE_APP_PRE_AUTHORIZED_APPS`.
 
-### TokenX (service-to-service med brukerkontekst, on-behalf-of)
+### TokenX (service-to-service with user context, on-behalf-of)
 ```yaml
 tokenx:
   enabled: true
@@ -59,9 +59,9 @@ accessPolicy:
       - application: kallende-app
         namespace: team-kallende
 ```
-Auto-injiserte env: `TOKEN_X_WELL_KNOWN_URL`, `TOKEN_X_CLIENT_ID`, `TOKEN_X_PRIVATE_JWK`, `TOKEN_X_ISSUER`, `TOKEN_X_JWKS_URI`.
+Auto-injected env vars: `TOKEN_X_WELL_KNOWN_URL`, `TOKEN_X_CLIENT_ID`, `TOKEN_X_PRIVATE_JWK`, `TOKEN_X_ISSUER`, `TOKEN_X_JWKS_URI`.
 
-### Maskinporten (eksterne organisasjoner)
+### Maskinporten (external organizations)
 ```yaml
 maskinporten:
   enabled: true
@@ -70,21 +70,21 @@ maskinporten:
       - name: "nav:example/scope"
 ```
 
-`accessPolicy` er ikke valgfri kosmetikk: innkommende tokens som ikke matcher `inbound.rules` skal avvises på plattformnivå. Hold koden og Nais-manifestet i sync — drift mellom dem er en feil.
+`accessPolicy` is not optional cosmetics: incoming tokens that do not match `inbound.rules` are to be rejected at the platform level. Keep the code and the Nais manifest in sync — drift between them is a bug.
 
-## Token-validering i Ktor
+## Token validation in Ktor
 
-Bruk NAV-biblioteket `no.nav.security:token-validation-ktor-v3` (paraply: `navikt/token-support`) for innkommende JWT-validering. Det integrerer med Ktor `Authentication` og henter issuer/JWKS fra Nais-env.
+Use the NAV library `no.nav.security:token-validation-ktor-v3` (umbrella: `navikt/token-support`) for incoming JWT validation. It integrates with Ktor `Authentication` and picks up issuer/JWKS from the Nais env.
 
 ```kotlin
 // build.gradle.kts
-implementation("no.nav.security:token-validation-ktor-v3:<versjon>")
+implementation("no.nav.security:token-validation-ktor-v3:<version>")
 
-// Plugin-oppsett — issuer-navn matcher application.yaml
+// Plugin setup — the issuer name matches application.yaml
 install(Authentication) {
     tokenValidationSupport(
         name = "tokenx",
-        config = environment.config, // leser no.nav.security.jwt.issuers.*
+        config = environment.config, // reads no.nav.security.jwt.issuers.*
     )
 }
 
@@ -94,13 +94,13 @@ routing {
             val claims = call.principal<TokenValidationContextPrincipal>()
                 ?.context?.getClaims("tokenx")
             val pid = claims?.getStringClaim("pid")        // fødselsnummer (TokenX/ID-porten)
-            // ... autoriser per bruker basert på pid
+            // ... authorize per user based on pid
         }
     }
 }
 ```
 
-`application.yaml`-utdrag (issuer-konfig leses av plugin-en):
+`application.yaml` excerpt (the issuer config is read by the plugin):
 ```yaml
 no.nav.security.jwt.issuers:
   - issuer_name: tokenx
@@ -108,20 +108,20 @@ no.nav.security.jwt.issuers:
     accepted_audience: ${TOKEN_X_CLIENT_ID}
 ```
 
-### Alternativ: Texas-sidecar (validering + utstedelse uten OAuth-bibliotek)
-Texas kjører på `localhost:3000` i podden og håndterer token-operasjoner. Nyttig når du vil unngå OAuth-bibliotek i appen. **Detekter hva repoet allerede bruker før du velger** — ikke bland token-support og Texas uten grunn, og ikke bytt auth-bibliotek uten eksplisitt oppdrag.
+### Alternative: the Texas sidecar (validation + issuance without an OAuth library)
+Texas runs on `localhost:3000` in the pod and handles token operations. Useful when you want to avoid an OAuth library in the app. **Detect what the repository already uses before choosing** — do not mix token-support and Texas without reason, and do not switch auth library without an explicit mandate.
 
-Introspect (validering av innkommende token):
+Introspect (validation of an incoming token):
 ```
 POST http://localhost:3000/api/v1/introspect
 Content-Type: application/json
 
-{ "identity_provider": "tokenx", "token": "<token som skal valideres>" }
+{ "identity_provider": "tokenx", "token": "<token to validate>" }
 ```
 
-## Utgående tokens (dette API kaller nedstrøms)
+## Outgoing tokens (this API calling downstream)
 
-### TokenX exchange (OBO — brukerkontekst følger med)
+### TokenX exchange (OBO — user context travels along)
 ```
 POST http://localhost:3000/api/v1/token/exchange
 Content-Type: application/json
@@ -129,7 +129,7 @@ Content-Type: application/json
 { "identity_provider": "tokenx", "target": "cluster:namespace:app", "user_token": "<innkommende brukertoken>" }
 ```
 
-### Azure AD client_credentials (M2M — ingen bruker)
+### Azure AD client_credentials (M2M — no user)
 ```
 POST http://localhost:3000/api/v1/token
 Content-Type: application/json
@@ -137,46 +137,46 @@ Content-Type: application/json
 { "identity_provider": "azuread", "target": "api://cluster.namespace.app/.default" }
 ```
 
-**Audience-format:**
+**Audience format:**
 - Azure AD: `api://cluster.namespace.app/.default`
 - TokenX: `cluster:namespace:app`
 
-**Caching:** Texas cacher tokens med 60 s preemptiv refresh. Ikke implementer egen token-caching.
+**Caching:** Texas caches tokens with a 60 s preemptive refresh. Do not implement your own token caching.
 
-## NAV-spesifikke JWT-claims
-- `pid` — fødselsnummer (TokenX / ID-porten). PII — aldri logg.
-- `NAVident` — saksbehandlerens identifikator (Azure AD).
-- `oid` — objekt-ID i Azure AD.
-- `azp` — authorized party (M2M). Valider mot `AZURE_APP_PRE_AUTHORIZED_APPS` for å vite hvilken app som kaller.
+## NAV-specific JWT claims
+- `pid` — national identity number (TokenX / ID-porten). PII — never log it.
+- `NAVident` — the case worker's identifier (Azure AD).
+- `oid` — object ID in Azure AD.
+- `azp` — authorized party (M2M). Validate against `AZURE_APP_PRE_AUTHORIZED_APPS` to know which app is calling.
 
-## Tilnærming
-1. Les `src/main/resources/application.yaml` og Nais-manifestet for å se hvilke mekanismer som er konfigurert.
-2. Søk i kodebasen etter eksisterende auth-oppsett (`tokenValidationSupport`, `Authentication`, Texas-kall) og følg samme mønster.
-3. Review NAV-konsekvenser av `accessPolicy` og auth-mekanisme med
-   `/architecture-review`. Når valget passerer ADR-gaten, anbefal
-   dokumentert løp og vent på brukerens valg før `/domain-modeling` registrerer
-   det.
-4. For lokal kjøring og JVM-tester: se [`references/local-auth-mock.md`](references/local-auth-mock.md).
-5. Endringer i auth-validering eller accessPolicy → kjør `/security-review` før levering og returner evidensen til @grillmester fase 5.
+## Approach
+1. Read `src/main/resources/application.yaml` and the Nais manifest to see which mechanisms are configured.
+2. Search the codebase for existing auth setup (`tokenValidationSupport`, `Authentication`, Texas calls) and follow the same pattern.
+3. Review the NAV consequences of `accessPolicy` and the auth mechanism with
+   `/architecture-review`. When the choice passes the ADR gate, recommend the
+   documented path and wait for the user's decision before `/domain-modeling`
+   records it.
+4. For local runs and JVM tests: see [`references/local-auth-mock.md`](references/local-auth-mock.md).
+5. Changes to auth validation or accessPolicy → run `/security-review` before delivery and return the evidence to @grillmester phase 5.
 
-NAIS-dok: https://doc.nais.io/auth/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
+NAIS docs: https://doc.nais.io/auth/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
 
-## Grenser
+## Boundaries
 
-### Alltid
-- Valider innkommende JWT: issuer, audience, utløpstid og signatur (gjør plugin-en/Texas — ikke skru av).
-- Valider `azp` mot `AZURE_APP_PRE_AUTHORIZED_APPS` for M2M-tokens.
-- Kryssjekk auth-kode mot Nais-manifestets `accessPolicy.inbound.rules` (drift = feil).
-- Bruk env-variabler fra Nais — aldri hardkod issuer, client-id eller hemmeligheter.
-- Kun HTTPS for tokenoverføring.
+### Always
+- Validate incoming JWTs: issuer, audience, expiry and signature (the plugin/Texas does this — do not turn it off).
+- Validate `azp` against `AZURE_APP_PRE_AUTHORIZED_APPS` for M2M tokens.
+- Cross-check auth code against the Nais manifest's `accessPolicy.inbound.rules` (drift = bug).
+- Use env variables from Nais — never hardcode issuer, client id or secrets.
+- HTTPS only for token transport.
 
-### Spør først
-- Endring i accessPolicy i produksjon.
-- Endring i tokenvalideringsregler, audience eller OAuth-scopes.
-- Bytte av auth-bibliotek (token-support ↔ Texas).
+### Ask first
+- Changing accessPolicy in production.
+- Changing token validation rules, audience or OAuth scopes.
+- Switching auth library (token-support ↔ Texas).
 
-### Aldri
-- Hardkode klienthemmeligheter eller tokens.
-- Logge hele JWT-er eller PII-claims (`pid`, `NAVident`).
-- Hoppe over tokenvalidering "for test".
-- Lage egen token-caching (Texas håndterer det).
+### Never
+- Hardcode client secrets or tokens.
+- Log whole JWTs or PII claims (`pid`, `NAVident`).
+- Skip token validation "just for testing".
+- Build your own token caching (Texas handles it).

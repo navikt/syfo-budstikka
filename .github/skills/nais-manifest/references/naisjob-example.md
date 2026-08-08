@@ -1,10 +1,10 @@
 ---
-description: "Full Naisjob-mal (cron-batch med Kafka, Azure AD M2M og Postgres) og veiledning for når Naisjob er riktig framfor Application. Les når du skal lage eller endre en batch-/cron-jobb i no.nav.syfo-backendet."
+description: "Full Naisjob template (cron batch with Kafka, Azure AD M2M and Postgres) and guidance on when Naisjob is the right choice over Application. Read when creating or changing a batch/cron job in the no.nav.syfo backend."
 ---
 
-# Naisjob — full eksempel
+# Naisjob — full example
 
-Batch-jobb for et app-team, med Kafka-produsent, Azure AD (M2M via client credentials) og Postgres.
+Batch job for an application team, with a Kafka producer, Azure AD (M2M via client credentials) and Postgres.
 
 ```yaml
 apiVersion: nais.io/v1
@@ -17,15 +17,15 @@ metadata:
 spec:
   image: {{ image }}
 
-  # Cron — kjøres 02:00 hver natt. Utelat for ren engangs-kjøring.
+  # Cron — runs at 02:00 every night. Omit for a pure one-off run.
   schedule: "0 2 * * *"
 
-  # Sikkerhetsnett mot hengende jobber og feil-loops
-  activeDeadlineSeconds: 3600   # Abort etter 1 time
-  backoffLimit: 2               # Maks 2 retries ved feil
+  # Safety net against hanging jobs and failure loops
+  activeDeadlineSeconds: 3600   # Abort after 1 hour
+  backoffLimit: 2               # Max 2 retries on failure
   ttlSecondsAfterFinished: 86400
 
-  # Observability — samme som Application
+  # Observability — same as Application
   prometheus:
     enabled: true
     path: /internal/prometheus
@@ -34,7 +34,7 @@ spec:
       enabled: true
       runtime: java
 
-  # Ingen cpu-limit (CFS-throttling); memory-limit er obligatorisk
+  # No cpu limit (CFS throttling); the memory limit is mandatory
   resources:
     requests:
       cpu: 100m
@@ -48,7 +48,7 @@ spec:
       enabled: true
       tenant: nav.no
 
-  # Tilgangsstyring — vær eksplisitt på alt jobben kaller
+  # Access control — be explicit about everything the job calls
   accessPolicy:
     outbound:
       rules:
@@ -59,11 +59,11 @@ spec:
       external:
         - host: graph.microsoft.com
 
-  # Kafka — samme pool-navngiving som Application
+  # Kafka — same pool naming as Application
   kafka:
     pool: nav-prod
 
-  # Postgres — dedikert jobb-database eller delt med Application
+  # Postgres — dedicated job database or shared with Application
   gcp:
     sqlInstances:
       - type: POSTGRES_17
@@ -74,22 +74,22 @@ spec:
           - name: report-db
             envVarPrefix: DB
 
-  # Miljøvariabler for selve jobben
+  # Environment variables for the job itself
   env:
     - name: REPORT_TARGET_BUCKET
       value: gs://team-esyfo-rapporter
 ```
 
-## Når bør du bruke Naisjob framfor Application?
+## When should you use Naisjob rather than Application?
 
-- Jobben har en **definert slutt** (rapport-kjøring, migrering, opprydding).
-- Den skal kjøre **på skjema** (cron) eller **manuelt** (engangs-kjøring).
-- Den skal **ikke** eksponere HTTP for innkommende trafikk.
+- The job has a **defined end** (report run, migration, cleanup).
+- It should run **on a schedule** (cron) or **manually** (one-off run).
+- It should **not** expose HTTP for incoming traffic.
 
-Trenger du en kontinuerlig Kafka-kø-konsument, bruk `Application` — ikke `Naisjob`.
+If you need a continuous Kafka queue consumer, use `Application` — not `Naisjob`.
 
-## Scheduling-tips
+## Scheduling tips
 
-- Unngå nær-hvert-minutt-frekvens — bruk heller en langkjørende `Application` hvis jobben kjører oftere enn hvert 5. minutt.
-- Sett `concurrencyPolicy: Forbid` hvis en jobb kan overlappe seg selv.
-- Test cron-uttrykk med [crontab.guru](https://crontab.guru) før commit.
+- Avoid near-every-minute frequency — use a long-running `Application` instead if the job runs more often than every 5 minutes.
+- Set `concurrencyPolicy: Forbid` if a job can overlap itself.
+- Test cron expressions with [crontab.guru](https://crontab.guru) before you commit.

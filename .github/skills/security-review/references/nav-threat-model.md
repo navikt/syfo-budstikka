@@ -1,255 +1,256 @@
-# NAV Threat Model — STRIDE, DFD, trusseltabell, DPIA, auditlogg, Datatilsynet
+# NAV Threat Model — STRIDE, DFD, threat table, DPIA, audit log, Datatilsynet
 
-Dyp referanse for trusselmodellering av NAV-applikasjoner (her: Ktor-backend i
-`no.nav.syfo`). Brukes når SKILL.md eskalerer: ny datakategori, ny integrasjon,
-DPIA-behov, eller strukturert sikkerhetsgjennomgang før produksjonssetting.
-Vedlikehold modellen i relevant topic-dokument når det inngår i den godkjente
-endringen, og returner verifikasjonsbevis til den aktive oppgaven. Når
-modelleringen avdekker et varig valg som passerer ADR-gaten, anbefal dokumentert
-løp og vent på brukerens valg før `/domain-modeling` registrerer det.
+Deep reference for threat modeling of NAV applications (here: a Ktor backend in
+`no.nav.syfo`). Used when SKILL.md escalates: a new data category, a new
+integration, a DPIA need, or a structured security review before going to
+production. Maintain the model in the relevant topic document when it is part of
+the approved change, and return verification evidence to the active task. When
+the modeling uncovers a lasting choice that passes the ADR gate, recommend the
+documented route and wait for the user's choice before `/domain-modeling`
+records it.
 
-## DFD først
+## DFD first
 
-Start med en enkel DFD før du vurderer STRIDE. Målet er å synliggjøre dataflyt og tillitsgrenser, ikke å tegne et perfekt arkitekturdiagram.
+Start with a simple DFD before you consider STRIDE. The goal is to make data flows and trust boundaries visible, not to draw a perfect architecture diagram.
 
-### Minimum i DFD-en
+### Minimum in the DFD
 
-- minst én ekstern aktør eller konsument
-- prosessene som faktisk håndterer data (Ktor-routes/moduler)
-- datalagre og meldingsstrømmer (PostgreSQL, Kafka)
-- alle overganger mellom ingress, app, Kafka, database og eksterne tjenester
-- markering av hvor persondata kommer inn, lagres og sendes ut
+- at least one external actor or consumer
+- the processes that actually handle data (Ktor routes/modules)
+- data stores and message streams (PostgreSQL, Kafka)
+- every transition between ingress, app, Kafka, database and external services
+- markings for where personal data enters, is stored and is sent out
 
-### Enkel tekstmal
+### Simple text template
 
 ```text
-[Innbygger eller saksbehandler]
+[Citizen or case worker]
     |
     | HTTPS / token (TokenX / Azure AD)
     v
 == Ingress / Wonderwall ==
     |
     v
-(Ktor-backend, no.nav.syfo)
+(Ktor backend, no.nav.syfo)
     | \
-    |  \---> {Kafka-topic}
+    |  \---> {Kafka topic}
     |
     +-----> {PostgreSQL}
     |
-    +-----> [Ekstern tjeneste / PDL]
+    +-----> [External service / PDL]
 ```
 
-### DFD-sjekkliste
+### DFD checklist
 
-- Tegn bare flyter som finnes i løsningen nå
-- Skill mellom menneskelig aktør, intern tjeneste og ekstern avhengighet
-- Marker hver tillitsgrense eksplisitt
-- Noter hvor auth blir validert og hvor autorisasjon faktisk avgjøres
-- Hold samme navn i DFD, NAIS-manifest og kode hvis mulig
+- Draw only the flows that exist in the solution today
+- Distinguish between human actor, internal service and external dependency
+- Mark every trust boundary explicitly
+- Note where auth is validated and where authorization is actually decided
+- Keep the same names in the DFD, the NAIS manifest and the code where possible
 
-## Trusseltabell — minimumsformat
+## Threat table — minimum format
 
-Når DFD-en er klar, dokumenter truslene i en tabell. Minstekravet er én rad per viktig flyt eller komponent med tiltak og restrisiko.
+Once the DFD is ready, document the threats in a table. The minimum requirement is one row per important flow or component, with measures and residual risk.
 
-| Komponent eller flyt | Data/aktivum | STRIDE | Trussel | Eksisterende vern | Tiltak eller oppfølging | Restrisiko | Eier |
+| Component or flow | Data/asset | STRIDE | Threat | Existing protection | Measure or follow-up | Residual risk | Owner |
 |----------------------|--------------|--------|---------|-------------------|-------------------------|------------|------|
-| Frontend → backend via TokenX | Personopplysninger, tokens | Spoofing / Information Disclosure | Feil token-type eller for bred respons | Token-validering, Wonderwall, DTO-er | Verifiser `aud`/`iss`, begrens felter i respons | Lav/medium | Teamet |
-| Backend → PostgreSQL | Saksdata, sykmeldinger | Tampering / Denial of Service | Ugyldig input eller dyre queries påvirker integritet/tilgjengelighet | Parametriserte queries, constraints, pool | Legg til paginering, tidsgrenser, query-review | Medium | Teamet |
-| Saksbehandler → personvisning | Fortrolig eller strengt fortrolig data | Repudiation / Elevation of Privilege | Uautorisert oppslag eller manglende sporbarhet | RBAC, auditlogg, tilgangskontroll | Verifiser kode 6/7 og egen ansatt i egen gren | Medium | Team + prosesseier |
+| Frontend → backend via TokenX | Personal data, tokens | Spoofing / Information Disclosure | Wrong token type or overly broad response | Token validation, Wonderwall, DTOs | Verify `aud`/`iss`, limit the fields in the response | Low/medium | The team |
+| Backend → PostgreSQL | Case data, sykmeldinger | Tampering / Denial of Service | Invalid input or expensive queries affect integrity/availability | Parameterized queries, constraints, pool | Add pagination, time limits, query review | Medium | The team |
+| Case worker → person view | Fortrolig or strengt fortrolig data | Repudiation / Elevation of Privilege | Unauthorized lookup or missing traceability | RBAC, audit log, access control | Verify kode 6/7 and egen ansatt in a dedicated branch | Medium | Team + process owner |
 
-Bruk korte, konkrete beskrivelser. Dropp generiske "kan bli angrepet"-påstander uten tiltak eller eier.
+Use short, concrete descriptions. Drop generic "could be attacked" claims that come without a measure or an owner.
 
-## STRIDE tilpasset NAV-kontekst
+## STRIDE adapted to the NAV context
 
-STRIDE brukes her som sjekkliste, ikke som generisk akademisk øvelse. For hver kategori: hvilke *NAV-konkrete* angrepsflater og tiltak som gjelder.
+STRIDE is used here as a checklist, not as a generic academic exercise. For each category: which *NAV-concrete* attack surfaces and measures apply.
 
-### Spoofing (identitetsforfalskning)
+### Spoofing (identity forgery)
 
-**NAV-kontekst:** Angriper utgir seg for å være en bruker, en NAV-ansatt, eller en annen tjeneste i klyngen.
+**NAV context:** An attacker poses as a user, as a NAV employee, or as another service in the cluster.
 
-- [ ] Brukerautentisering via riktig IDP: ID-porten for innbyggere, Azure AD for ansatte, Maskinporten for eksterne M2M, TokenX for intern service-to-service på vegne av bruker.
-- [ ] Token-validering validerer `iss`, `aud`, `exp`, `nbf` og signatur mot IDP-ens JWKS (`token-validation-ktor-v3`/`tokenValidationSupport`, se `/auth-overview`).
-- [ ] For Azure AD M2M: `azp`-claim valideres mot `AZURE_APP_PRE_AUTHORIZED_APPS`. Uten denne sjekken kan hvilken som helst app i tenanten kalle tjenesten.
-- [ ] Call-ID (`Nav-Call-Id`) propageres, men brukes *aldri* som autorisasjonsgrunnlag.
-- [ ] For impersonering/on-behalf-of: Verifiser at originalbruker er riktig tema-bruker i `sub`/`pid`.
+- [ ] User authentication via the right IDP: ID-porten for citizens, Azure AD for employees, Maskinporten for external M2M, TokenX for internal service-to-service on behalf of a user.
+- [ ] Token validation validates `iss`, `aud`, `exp`, `nbf` and the signature against the IDP's JWKS (`token-validation-ktor-v3`/`tokenValidationSupport`, see `/auth-overview`).
+- [ ] For Azure AD M2M: the `azp` claim is validated against `AZURE_APP_PRE_AUTHORIZED_APPS`. Without this check, any app in the tenant can call the service.
+- [ ] The call ID (`Nav-Call-Id`) is propagated, but is *never* used as a basis for authorization.
+- [ ] For impersonation/on-behalf-of: Verify that the original user is the correct subject user in `sub`/`pid`.
 
-### Tampering (tukling)
+### Tampering (unauthorized modification)
 
-**NAV-kontekst:** Endring av sak/vedtak/ytelsesdata underveis, enten i transit eller i databaser/kø.
+**NAV context:** Modification of case/decision/benefits data along the way, either in transit or in databases/queues.
 
-- [ ] TLS på all trafikk (NAIS default). Ingen plain HTTP til interne eller eksterne tjenester.
-- [ ] Input-validering ved grensen (DTO + eksplisitt validering i route-handler), ikke bare i forretningslaget.
-- [ ] Integritetskontroll ved mottak av eksterne meldinger (f.eks. signerte Kafka-meldinger der kontrakten krever det).
-- [ ] Idempotens-nøkler på skrivende endepunkter som kan retries.
-- [ ] Databaser: FKs og constraints håndhever invariantene (definert i Flyway-migreringer); appen "regner ikke med" at data er gyldige.
+- [ ] TLS on all traffic (NAIS default). No plain HTTP to internal or external services.
+- [ ] Input validation at the boundary (DTO + explicit validation in the route handler), not only in the business layer.
+- [ ] Integrity check when receiving external messages (e.g. signed Kafka messages where the contract requires it).
+- [ ] Idempotency keys on writing endpoints that can be retried.
+- [ ] Databases: FKs and constraints enforce the invariants (defined in Flyway migrations); the app does not "assume" that data is valid.
 
-### Repudiation (fornektelse)
+### Repudiation (denial of action)
 
-**NAV-kontekst:** Bruker eller ansatt kan i ettertid hevde at en handling ikke ble utført, eller at visning av persondata ikke skjedde.
+**NAV context:** A user or employee can later claim that an action was not performed, or that personal data was never displayed.
 
-- [ ] CEF-auditlogg når NAV-ansatte ser personopplysninger (ikke ved hver API-sjekk — ved faktisk visning).
-- [ ] Én handling = én auditlogglinje. Ingen tap i stille feil.
-- [ ] Auditlogg inneholder: tidsstempel, handling (`audit:read/update/create/delete`), subjekt-ID (fnr/aktør), utfører (ansatt-UPN/e-post), request-path, beslutning (`Permit`/`Deny`).
-- [ ] Auditlogg skrives til egen logger (`auditLogger`) med egen appender i `logback.xml` — ikke blandet inn i applikasjonslogg.
-- [ ] Vedtaks- og sakshistorikk har ikke-overskrivbare revisjoner (append-only eller event-sourcet), slik at "hvem gjorde hva når" kan rekonstrueres.
+- [ ] CEF audit log when NAV employees view personal data (not on every API check — on actual display).
+- [ ] One action = one audit log line. No losses in silent failures.
+- [ ] The audit log contains: timestamp, action (`audit:read/update/create/delete`), subject ID (fnr/actor), performer (employee UPN/email), request path, decision (`Permit`/`Deny`).
+- [ ] The audit log is written to a dedicated logger (`auditLogger`) with its own appender in `logback.xml` — not mixed into the application log.
+- [ ] Decision and case history have non-overwritable revisions (append-only or event-sourced), so that "who did what when" can be reconstructed.
 
-Se seksjonen [Audit-logging-krav](#audit-logging-krav-for-sensitive-personopplysninger) for detaljer.
+See the section [Audit logging requirements](#audit-logging-requirements-for-sensitive-personal-data) for details.
 
-### Information Disclosure (informasjonslekkasje)
+### Information Disclosure (information leakage)
 
-**NAV-kontekst:** Den største restrisikoen for NAV-apper. Lekkasje kan skje via logger, feilmeldinger, browser-cache, URL-er, eller ukontrollert outbound.
+**NAV context:** The largest residual risk for NAV apps. Leakage can happen via logs, error messages, browser cache, URLs, or uncontrolled outbound.
 
-- [ ] Ingen PII (fnr, navn, diagnose, sykmelding, ytelsesdata) i standardlogg. Se SKILL.md for klassifisering.
-- [ ] Feilmeldinger til klient er generiske; detaljer logges med korrelasjons-ID, ikke returneres (Ktor `StatusPages` + felles feilkontrakt, se `/kotlin-ktor`).
-- [ ] Persondata aldri i URL-path eller query (kommer i access-logger, browser-historikk, referer-headers). Bruk body eller header.
-- [ ] `accessPolicy.outbound` begrenser hvor appen kan sende data — begrens eksfiltrasjons-flater.
-- [ ] Cache-Control: `no-store` på responser med personopplysninger.
-- [ ] Secrets aldri i logger, error objects, exception-meldinger eller stack traces som eksponeres.
-- [ ] Anonymiserte aggregater vurderes mot koblingsangrep (k-anonymitet ved små kohorter).
+- [ ] No PII (fnr, name, diagnosis, sykmelding, benefits data) in the standard log. See SKILL.md for classification.
+- [ ] Error messages to the client are generic; details are logged with a correlation ID, not returned (Ktor `StatusPages` + a shared error contract, see `/kotlin-ktor`).
+- [ ] Personal data never in the URL path or query (it ends up in access logs, browser history, referer headers). Use the body or a header.
+- [ ] `accessPolicy.outbound` limits where the app can send data — limit exfiltration surfaces.
+- [ ] Cache-Control: `no-store` on responses containing personal data.
+- [ ] Secrets never in logs, error objects, exception messages or stack traces that are exposed.
+- [ ] Anonymized aggregates are assessed against linkage attacks (k-anonymity for small cohorts).
 
 ### Denial of Service
 
-**NAV-kontekst:** Sjelden primær trussel for interne tjenester (NAIS har resource limits), men offentlig eksponerte tjenester (søknader) må vurderes.
+**NAV context:** Rarely the primary threat for internal services (NAIS has resource limits), but publicly exposed services (applications/forms) must be assessed.
 
-- [ ] `resources.limits.memory` er satt i NAIS-manifestet. CPU er normalt kun satt som `resources.requests.cpu`, ikke som `resources.limits.cpu`.
-- [ ] Rate limiting på offentlig eksponerte og kostbare endepunkter.
-- [ ] Grenser for request-størrelse og payload-dybde (f.eks. JSON-nesting) der eksternt input aksepteres.
-- [ ] Filopplasting har både størrelses- og antallsbegrensning per bruker/sak.
-- [ ] Kostbare databasespørringer har pagination og tidsbegrensning.
+- [ ] `resources.limits.memory` is set in the NAIS manifest. CPU is normally only set as `resources.requests.cpu`, not as `resources.limits.cpu`.
+- [ ] Rate limiting on publicly exposed and expensive endpoints.
+- [ ] Limits on request size and payload depth (e.g. JSON nesting) where external input is accepted.
+- [ ] File upload has both a size limit and a count limit per user/case.
+- [ ] Expensive database queries have pagination and a time limit.
 
 ### Elevation of Privilege
 
-**NAV-kontekst:** Eskalering fra innbygger til saksbehandler, fra saksbehandler til superbruker, eller fra én saksbehandler til en annens saksområde.
+**NAV context:** Escalation from citizen to case worker, from case worker to superuser, or from one case worker to another's area of responsibility.
 
-- [ ] Tilgangskontroll sjekker *eierskap/tilhørighet*, ikke bare autentisering (IDOR-test).
-- [ ] Azure AD-grupper brukes for RBAC (`claims.groups`) — `allowAllUsers: false`.
-- [ ] Kode 6/7 og egen ansatt håndteres som egne tilgangskontroll-branches, ikke antatt sjelden edge-case.
-- [ ] `securityContext` i NAIS (runAsNonRoot, readOnlyRootFilesystem, drop ALL capabilities) er ikke overstyrt.
-- [ ] Admin-/supportfunksjoner krever eksplisitt rolle, har egen audit, og er ikke default i dev-miljø (unngå "glemte" bakdører).
+- [ ] Access control checks *ownership/affiliation*, not just authentication (IDOR test).
+- [ ] Azure AD groups are used for RBAC (`claims.groups`) — `allowAllUsers: false`.
+- [ ] Kode 6/7 and egen ansatt are handled as dedicated access control branches, not assumed to be a rare edge case.
+- [ ] `securityContext` in NAIS (runAsNonRoot, readOnlyRootFilesystem, drop ALL capabilities) is not overridden.
+- [ ] Admin/support functions require an explicit role, have their own audit trail, and are not enabled by default in the dev environment (avoid "forgotten" backdoors).
 
-## DPIA-prosess (Data Protection Impact Assessment)
+## DPIA process (Data Protection Impact Assessment)
 
-### Når DPIA kreves
+### When a DPIA is required
 
-DPIA kreves før oppstart av behandling som sannsynligvis medfører høy risiko for den registrertes rettigheter (GDPR art. 35). I NAV-kontekst utløses DPIA typisk av:
+A DPIA is required before starting processing that is likely to result in a high risk to the data subject's rights (GDPR art. 35). In a NAV context, a DPIA is typically triggered by:
 
-- **Ny behandling av sensitive personopplysninger**: Helseopplysninger, sykmeldinger, barnevernsdata, biometri, genetiske data.
-- **Stor skala**: Behandling som omfatter en betydelig andel av NAVs brukermasse.
-- **Systematisk overvåking**: Bruksanalyser, automatiserte beslutninger, profilering.
-- **Sammenstilling av datasett**: Kombinering av kilder som hver for seg var avgrensede (f.eks. ytelse + helsedata + skatt).
-- **Ny teknologi**: AI/ML-modeller som påvirker individ-beslutninger, nye lagrings-/prosesserings-paradigmer.
-- **Vesentlig endring**: Eksisterende behandling endrer formål, datakategori, kilde, eller mottakergruppe.
+- **New processing of sensitive personal data**: Health data, sykmeldinger, child welfare data, biometrics, genetic data.
+- **Large scale**: Processing that covers a significant share of NAV's user base.
+- **Systematic monitoring**: Usage analytics, automated decisions, profiling.
+- **Combining data sets**: Combining sources that were each limited on their own (e.g. benefits + health data + tax).
+- **New technology**: AI/ML models that affect decisions about individuals, new storage/processing paradigms.
+- **Substantial change**: Existing processing changes purpose, data category, source, or recipient group.
 
-Ved tvil: **spør Personvernombudet**. Utelatelse av DPIA ved plikt er selvstendig avvik.
+When in doubt: **ask Personvernombudet** (the data protection officer). Omitting a required DPIA is a deviation in its own right.
 
-### Hvem beslutter
+### Who decides
 
-- **Behandlingsansvarlig** (linjen, typisk produktområde/ytelseslinje) har ansvaret for at DPIA gjennomføres og dokumenteres.
-- **Personvernombudet (PVO)** gir råd, skal konsulteres, og vurderer om DPIA-en er tilstrekkelig. PVO beslutter ikke *for* behandlingsansvarlig, men negativt PVO-råd som ikke følges må begrunnes skriftlig.
-- **Datatilsynet** konsulteres i forkant kun hvis DPIA-en viser høy restrisiko som ikke lar seg avbøte (GDPR art. 36). Terskelen er høy — de fleste DPIAer ender uten forhåndsdrøfting.
-- **Team/utvikler** bidrar med teknisk innhold: dataflyt, lagringslokasjoner, tilgangsmodell, sikkerhetstiltak, retention.
+- **The data controller** (behandlingsansvarlig — the line organization, typically the product area/benefit line) is responsible for the DPIA being carried out and documented.
+- **Personvernombudet (PVO)**, the data protection officer, advises, must be consulted, and assesses whether the DPIA is sufficient. PVO does not decide *for* the data controller, but negative PVO advice that is not followed must be justified in writing.
+- **Datatilsynet** is consulted in advance only if the DPIA shows a high residual risk that cannot be mitigated (GDPR art. 36). The threshold is high — most DPIAs end without prior consultation.
+- **Team/developer** contributes the technical content: data flow, storage locations, access model, security measures, retention.
 
-### DPIA-innhold (minimum)
+### DPIA content (minimum)
 
-1. Systematisk beskrivelse av behandlingen og formålet.
-2. Vurdering av nødvendighet og proporsjonalitet mot formålet.
-3. Vurdering av risiko for de registrertes rettigheter og friheter.
-4. Tiltak for å redusere risiko (tekniske og organisatoriske).
-5. Konsultasjon med PVO (og eventuelt berørte grupper).
+1. A systematic description of the processing and its purpose.
+2. An assessment of necessity and proportionality relative to the purpose.
+3. An assessment of the risk to the data subjects' rights and freedoms.
+4. Measures to reduce risk (technical and organizational).
+5. Consultation with PVO (and, where relevant, affected groups).
 
-DPIA er ikke et engangsdokument — den oppdateres når behandlingen endres.
+A DPIA is not a one-off document — it is updated when the processing changes.
 
-## Audit-logging-krav for sensitive personopplysninger
+## Audit logging requirements for sensitive personal data
 
-### Hva skal logges
+### What must be logged
 
-- **Visning**: Når en NAV-ansatt ser personopplysninger i en saksbehandler-flate. Logges ved faktisk visning, ikke ved hver bakgrunns-API-sjekk.
-- **Endring**: Endringer i vedtak, registreringer, eller andre persondata som binder forvaltningen.
-- **Oppretting og sletting**: Nye saker, anonymisering, retention-sletting.
-- **Eksport/utlevering**: Uttrekk til eksterne mottakere, både automatiserte og ad hoc.
-- **Beslutninger**: `Permit`/`Deny` når tilgang vurderes mot persondata med restriksjoner (kode 6/7, egen ansatt).
+- **Display**: When a NAV employee views personal data in a case worker interface. Logged on actual display, not on every background API check.
+- **Change**: Changes to decisions, registrations, or other personal data that bind the administration.
+- **Creation and deletion**: New cases, anonymization, retention deletion.
+- **Export/disclosure**: Extracts to external recipients, both automated and ad hoc.
+- **Decisions**: `Permit`/`Deny` when access is assessed against personal data with restrictions (kode 6/7, egen ansatt).
 
-Ikke logg: listevisninger uten visning av persondetaljer, inkidentelle referanser (f.eks. antall-tellinger), eller rene helsesjekk-kall.
+Do not log: list views without display of personal details, incidental references (e.g. count aggregations), or plain health check calls.
 
 ### Format
 
-**CEF (Common Event Format)** for ArcSight. Én handling = én linje. Eksempel-struktur:
+**CEF (Common Event Format)** for ArcSight. One action = one line. Example structure:
 
 ```
 CEF:0|<application>|auditLog|1.0|<operation>|Sporingslogg|<severity>|end=<epoch-ms> duid=<subject-id> suid=<actor-id> request=<path> flexString1Label=Decision flexString1=<Permit|Deny>
 ```
 
-- **Severity**: `INFO` for standard visning/endring, `WARN` for sensitive tilfeller (fortrolig/strengt fortrolig, egen ansatt).
-- **Subject-ID (`duid`)**: Personen dataene handler om (fnr/aktør). Bruk en
-  navngitt syntetisk testident i kildekode-eksempler.
-- **Actor-ID (`suid`)**: NAV-ansatt som utfører handlingen (UPN/e-post).
+- **Severity**: `INFO` for standard display/change, `WARN` for sensitive cases (fortrolig/strengt fortrolig, egen ansatt).
+- **Subject ID (`duid`)**: The person the data is about (fnr/actor). Use a named
+  synthetic test identity in source code examples.
+- **Actor ID (`suid`)**: The NAV employee performing the action (UPN/email).
 
-Separat logger-konfigurasjon (`auditLogger`) med egen appender i `logback.xml` — ikke blandet med applikasjonslogg.
+A separate logger configuration (`auditLogger`) with its own appender in `logback.xml` — not mixed with the application log.
 
-### Hvor lenge
+### For how long
 
-Oppbevaringstid for auditlogg følger arkivlov og NAVs retningslinjer — typisk **flere år** (ofte minst 5, ofte lenger for persondata-relaterte handlinger). Team-nivå bestemmer ikke retention selv; følg NAVs sentrale krav og avtal med Team Auditlogging.
+The retention period for the audit log follows archival legislation and NAV's guidelines — typically **several years** (often at least 5, often longer for actions related to personal data). Retention is not decided at team level; follow NAV's central requirements and agree with Team Auditlogging.
 
-Applikasjonens egne logger (ikke audit) har kortere retention og er ikke erstatning for auditlogg.
+The application's own logs (not audit) have a shorter retention and are not a replacement for the audit log.
 
-### Hvem får se
+### Who may see it
 
-- **Team Auditlogging** forvalter auditlogg-pipelinen og har systemtilgang.
-- **Oppslag i auditlogg** krever tjenstlig behov og dokumentert hjemmel. Typiske saker: innsynsbegjæringer fra bruker (GDPR art. 15), tilsynssaker, interne undersøkelser, PVO-gjennomganger.
-- **Teamet selv** ser ikke egen auditlogg fritt — bestilling går via Team Auditlogging eller relevant prosesseier.
-- **Bruker** har rett til innsyn i loggføring om seg selv etter prosess (ikke selvbetjent API).
+- **Team Auditlogging** manages the audit log pipeline and has system access.
+- **Lookups in the audit log** require a legitimate work-related need and documented legal authority. Typical cases: subject access requests from users (GDPR art. 15), supervisory cases, internal investigations, PVO reviews.
+- **The team itself** does not freely view its own audit log — requests go via Team Auditlogging or the relevant process owner.
+- **The user** has a right of access to logging about themselves through a process (not a self-service API).
 
-## Kontakt med Datatilsynet
+## Contact with Datatilsynet
 
-Datatilsynet er tilsynsmyndighet for personvernlovgivningen. Teamet kontakter *ikke* Datatilsynet direkte — det går alltid via Personvernombudet og behandlingsansvarlig.
+Datatilsynet is the supervisory authority for data protection legislation. The team does *not* contact Datatilsynet directly — it always goes via Personvernombudet and the data controller.
 
-### Når varsle — avviksmelding
+### When to notify — breach notification
 
-**Brudd på personopplysningssikkerheten** (GDPR art. 33) skal meldes til Datatilsynet uten ugrunnet opphold og senest **innen 72 timer** etter at behandlingsansvarlig er blitt kjent med det, med mindre bruddet sannsynligvis ikke medfører risiko for den registrertes rettigheter og friheter.
+A **personal data breach** (GDPR art. 33) must be reported to Datatilsynet without undue delay and no later than **within 72 hours** after the data controller has become aware of it, unless the breach is unlikely to result in a risk to the data subject's rights and freedoms.
 
-Eksempler som typisk utløser varslingsplikt:
+Examples that typically trigger a notification duty:
 
-- Uautorisert tilgang til personopplysninger (f.eks. saksbehandler ser fnr de ikke skulle hatt).
-- Utlevering til feil mottaker (e-post, API-response, utskrift).
-- Tap av tilgjengelighet (sletting, ransomware, ikke-gjenopprettbar feil).
-- Lekket autentiseringsmateriale som gir tilgang til persondata.
-- Publisering av persondata i offentlig kildekoderepo eller åpen logg.
+- Unauthorized access to personal data (e.g. a case worker sees an fnr they should not have had).
+- Disclosure to the wrong recipient (email, API response, printout).
+- Loss of availability (deletion, ransomware, unrecoverable failure).
+- Leaked authentication material that grants access to personal data.
+- Publication of personal data in a public source code repository or an open log.
 
-Teamets oppgave ved mistanke:
+The team's job on suspicion:
 
-1. **Stopp bruddet** (trekk tilgang, roter secret, fjern data hvis mulig).
-2. **Bevar bevis** (logger, commit-historikk, berørte poster) før opprydning.
-3. **Varsle umiddelbart** internt: sikkerhetschampion, PVO, linjeleder.
-4. **Dokumenter**: hva, når, omfang, tiltak, varslede parter. Bruk NAVs fastsatte mal/system.
+1. **Stop the breach** (revoke access, rotate the secret, remove data if possible).
+2. **Preserve evidence** (logs, commit history, affected records) before cleanup.
+3. **Notify immediately** internally: security champion, PVO, line manager.
+4. **Document**: what, when, scope, measures, parties notified. Use NAV's prescribed template/system.
 
-Behandlingsansvarlig, med støtte fra PVO, vurderer og sender formell melding til Datatilsynet innen 72 timer.
+The data controller, supported by PVO, assesses and sends the formal notification to Datatilsynet within 72 hours.
 
-### Når varsle — forhåndsdrøfting ved DPIA
+### When to notify — prior consultation on a DPIA
 
-Hvis DPIA viser at behandlingen ville medføre høy restrisiko selv etter tiltak, skal **forhåndsdrøfting** med Datatilsynet gjøres før behandlingen starter (GDPR art. 36). Dette er en egen prosess, ikke et avviksvarsel, og initieres via PVO.
+If the DPIA shows that the processing would result in a high residual risk even after mitigation, **prior consultation** with Datatilsynet must take place before the processing starts (GDPR art. 36). This is a separate process, not a breach notification, and it is initiated via PVO.
 
-### Hva varsle
+### What to notify
 
-En avviksmelding til Datatilsynet inneholder typisk:
+A breach notification to Datatilsynet typically contains:
 
-- Arten av bruddet (kategori: tilgang, utlevering, tap).
-- Kategorier og omtrentlig antall registrerte berørt.
-- Kategorier og omtrentlig antall poster berørt.
-- Sannsynlige konsekvenser for de registrerte.
-- Tiltak iverksatt eller foreslått for å håndtere bruddet og redusere skadevirkninger.
-- Kontaktpunkt (PVO) for oppfølging.
+- The nature of the breach (category: access, disclosure, loss).
+- The categories and approximate number of data subjects affected.
+- The categories and approximate number of records affected.
+- The likely consequences for the data subjects.
+- Measures taken or proposed to handle the breach and reduce its adverse effects.
+- A point of contact (PVO) for follow-up.
 
-Når bruddet sannsynligvis vil medføre **høy risiko** for den registrertes rettigheter, skal også **den registrerte selv varsles** (GDPR art. 34) — dette er egen prosess eid av behandlingsansvarlig.
+When the breach is likely to result in a **high risk** to the data subject's rights, **the data subject must also be notified** (GDPR art. 34) — this is a separate process owned by the data controller.
 
-### Dokumentasjon uansett
+### Documentation regardless
 
-Alle brudd skal dokumenteres internt — også de som ikke utløser varsling til Datatilsynet. Dokumentasjonen er grunnlag for tilsyn, læring og senere vurderinger.
+All breaches must be documented internally — including those that do not trigger notification to Datatilsynet. The documentation is the basis for supervision, learning and later assessments.
 
-## Videre lesning
+## Further reading
 
-- `../SKILL.md` — PII-klassifisering, accessPolicy-vurdering, eskalering til sikkerhetschampion.
-- `gdpr-privacy.md` — NAV-spesifikk PII-kategorisering, retention, dataminimering.
-- `api-security.md` — Nav-Call-Id, Nav-Consumer-Id, accessPolicy som primærmekanisme.
-- `/auth-overview` — JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar.
-- `/kotlin-ktor` — StatusPages/ApiError-feilkontrakt, CallId/MDC.
-- [sikkerhet.nav.no](https://sikkerhet.nav.no) — NAVs Golden Path, autoritativ sikkerhetsveiledning.
+- `../SKILL.md` — PII classification, accessPolicy assessment, escalation to the security champion.
+- `gdpr-privacy.md` — NAV-specific PII categorization, retention, data minimization.
+- `api-security.md` — Nav-Call-Id, Nav-Consumer-Id, accessPolicy as the primary mechanism.
+- `/auth-overview` — JWT validation, TokenX/Azure AD, `pid`/NAVident/`azp` claim, Texas sidecar.
+- `/kotlin-ktor` — StatusPages/ApiError error contract, CallId/MDC.
+- [sikkerhet.nav.no](https://sikkerhet.nav.no) — NAV's Golden Path, authoritative security guidance.

@@ -1,69 +1,69 @@
 ---
 name: observability-setup
-description: "Bruk ved etablering eller forbedring av observability i syfo-budstikka: Micrometer-metrikker og PrometheusMeterRegistry i Ktor, MicrometerMetrics-plugin, /internal/isalive|isready|prometheus, strukturert JSON-logging med trace_id/callId, korrelasjons-ID (Nav-Callid/x_request_id), OpenTelemetry-tracing, PromQL/LogQL, Grafana-dashboards og Prometheus-alerts i NAIS — eller når noen sier /observability-setup."
+description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/isalive|isready|prometheus, structured JSON logging with trace_id/callId, correlation ID (Nav-Callid/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
 ---
 
-# Observability i syfo-budstikka
+# Observability in this repository
 
-Ktor 3.x på Netty, pakke `no.nav.syfo`, kjører i NAIS. Hold hovedreglene her korte — bruk `references/` for fullstendige eksempler.
+Ktor 3.x on Netty, package `no.nav.syfo`, running in NAIS. Keep the main rules here short — use `references/` for full examples.
 
-- **Metrikker** forteller *hva* som skjer
-- **Logger** forklarer *hvorfor* det skjedde
-- **Traces** viser *hvor* i flyten det skjedde
-- Verifiser alltid eksisterende oppsett i repoet før du legger til nye målepunkter, labels eller varsler
+- **Metrics** tell you *what* is happening
+- **Logs** explain *why* it happened
+- **Traces** show *where* in the flow it happened
+- Always verify the existing setup in the repository before adding new measurement points, labels or alerts
 
-## Arbeidsflyt
+## Workflow
 
-1. Les NAIS-manifestet, `src/main/resources/application.yaml`, `logback.xml` og `build.gradle.kts`/`gradle/libs.versions.toml` for eksisterende observability-oppsett.
-2. Finn etablerte mønstre for `MicrometerMetrics`, `MeterRegistry`-injeksjon (Koin), `CallId`/`CallLogging`, MDC-felt og health-routes.
-3. Verifiser hvilke endepunkter NAIS faktisk scraper og prober mot: `/internal/isalive`, `/internal/isready`, `/internal/prometheus` (eller `/internal/metrics`). Stiene i koden må matche manifestet.
-4. Start med standardmetrikker (Ktor HTTP-server + JVM) og utvid med domenemetrikker som gir operativ verdi.
-5. Legg til dashboards og varsler først når metrikkene og label-settet er stabile.
+1. Read the NAIS manifest, `src/main/resources/application.yaml`, `logback.xml` and `build.gradle.kts`/`gradle/libs.versions.toml` for existing observability setup.
+2. Find the established patterns for `MicrometerMetrics`, `MeterRegistry` injection (Koin), `CallId`/`CallLogging`, MDC fields and health routes.
+3. Verify which endpoints NAIS actually scrapes and probes: `/internal/isalive`, `/internal/isready`, `/internal/prometheus` (or `/internal/metrics`). The paths in the code must match the manifest.
+4. Start with standard metrics (Ktor HTTP server + JVM) and extend with domain metrics that provide operational value.
+5. Add dashboards and alerts only once the metrics and the label set are stable.
 
-## Metrikker i Ktor (Micrometer)
+## Metrics in Ktor (Micrometer)
 
-Ktor har ingen Actuator: registry, `MicrometerMetrics`-plugin og de interne rutene
-settes opp eksplisitt. Repoets faktiske oppsett i `infrastructure/metrics/` og
-`bootstrap/` er fasit — les det framfor et eksempel her.
+Ktor has no Actuator: the registry, the `MicrometerMetrics` plugin and the internal
+routes are set up explicitly. The repository's actual setup in `infrastructure/metrics/` and
+`bootstrap/` is the source of truth — read that rather than an example here.
 
-To valg som ikke er opplagte:
+Two choices that are not obvious:
 
-- `liveness` (`/internal/isalive`) skal bare svare på om prosessen bør restartes.
-  `readiness` (`/internal/isready`) skal avhenge av faktiske avhengigheter, men
-  holdes lett. Consumer-lag hører hjemme i varsling, aldri i liveness
-  (se [helsesjekk](../../../docs/helsesjekk.md)).
-- `distributionStatisticConfig` med `percentilesHistogram(true)` kreves for p95/p99
-  fra Prometheus — uten den finnes ikke bucketene.
+- `liveness` (`/internal/isalive`) should only answer whether the process ought to be restarted.
+  `readiness` (`/internal/isready`) should depend on actual dependencies, but be
+  kept lightweight. Consumer lag belongs in alerting, never in liveness
+  (see [helsesjekk](../../../docs/helsesjekk.md)).
+- `distributionStatisticConfig` with `percentilesHistogram(true)` is required for p95/p99
+  from Prometheus — without it the buckets do not exist.
 
-Se `references/micrometer.md` for `Counter`/`Timer`/`Gauge`/`DistributionSummary`, Koin-injeksjon, domene- og Kafka-metrikker.
+See `references/micrometer.md` for `Counter`/`Timer`/`Gauge`/`DistributionSummary`, Koin injection, domain and Kafka metrics.
 
-## Navngivning for metrikker og labels
+## Naming for metrics and labels
 
-Prometheus-navnekonvensjonene (`snake_case`, `_total`, `_seconds`) er standard og
-gjelder som ellers. Det NAIS-spesifikke er labelene:
+The Prometheus naming conventions (`snake_case`, `_total`, `_seconds`) are standard and
+apply as they do elsewhere. What is NAIS-specific is the labels:
 
-### NAIS-label-konvensjoner
+### NAIS label conventions
 
-NAIS legger automatisk på et sett labels. Ikke dupliser disse på egne metrikker — bruk dem i queries, dashboards og varsler:
+NAIS automatically adds a set of labels. Do not duplicate these on your own metrics — use them in queries, dashboards and alerts:
 
-- `app` — applikasjonsnavn fra NAIS-manifestet (`syfo-budstikka`)
-- `team` / `namespace` — eierskap og Kubernetes-namespace, brukes til alert-ruting
+- `app` — application name from the NAIS manifest (`syfo-budstikka`)
+- `team` / `namespace` — ownership and Kubernetes namespace, used for alert routing
 - `cluster` — `dev-gcp` / `prod-gcp`
 
-Egne labels skal dekke domeneaspekter:
-- Gode: `method`, `route`, `status`, `event_type`, `result`, `consumer_group`, `topic`
-- Dårlige (høy kardinalitet / PII): `user_id`, `fnr`, `aktor_id`, `trace_id`, `callId`, rå URL-er med dynamiske segmenter
-- Foretrekk normaliserte route-verdier (`/api/oppgaver/{id}`), ikke ekspanderte path-parametre
-- Hver unik label-kombinasjon er en ny tidsserie: legg bare til labels som faktisk brukes i dashboards, varsler eller feilsøking
+Your own labels should cover domain aspects:
+- Good: `method`, `route`, `status`, `event_type`, `result`, `consumer_group`, `topic`
+- Bad (high cardinality / PII): `user_id`, `fnr`, `aktor_id`, `trace_id`, `callId`, raw URLs with dynamic segments
+- Prefer normalised route values (`/api/oppgaver/{id}`), not expanded path parameters
+- Every unique label combination is a new time series: only add labels that are actually used in dashboards, alerts or debugging
 
-## Korrelasjons-ID i NAV-stacken
+## Correlation ID in the NAV stack
 
-Korrelasjons-ID lar deg følge en forespørsel på tvers av tjenester, Kafka-meldinger og logger. Repoet bruker allerede `CallId`/`CallLogging` (se `kotlin-ktor`-skillen) — bygg videre på det, ikke parallelt.
+A correlation ID lets you follow a request across services, Kafka messages and logs. The repository already uses `CallId`/`CallLogging` (see the `kotlin-ktor` skill) — build on that, do not set up something in parallel.
 
 ### Headers
-- `Nav-Callid` — NAV-konvensjon; les inn og propager på alle utgående HTTP-kall og Kafka-headere
-- `X-Request-Id` / `X-Correlation-ID` — aksepter som fallback for eksterne integrasjoner
-- W3C `traceparent` — settes automatisk av OpenTelemetry-agenten i NAIS
+- `Nav-Callid` — NAV convention; read it and propagate it on all outgoing HTTP calls and Kafka headers
+- `X-Request-Id` / `X-Correlation-ID` — accept as a fallback for external integrations
+- W3C `traceparent` — set automatically by the OpenTelemetry agent in NAIS
 
 ```kotlin
 install(CallId) {
@@ -77,32 +77,32 @@ install(CallLogging) {
 }
 ```
 
-### MDC og trace-korrelasjon
-Legg `callId` og `trace_id` på MDC slik at logback-encoderen automatisk får dem på alle logger i request-scope. Med OpenTelemetry-agenten kan du hente aktiv trace:
+### MDC and trace correlation
+Put `callId` and `trace_id` on the MDC so the logback encoder automatically gets them on all logs in request scope. With the OpenTelemetry agent you can fetch the active trace:
 
 ```kotlin
 MDC.put("callId", call.callId)
 MDC.put("trace_id", Span.current().spanContext.traceId)
 ```
 
-Inkluder `trace_id`, `span_id` og `callId` i loggene slik at Loki kan korrelere med Tempo (klikkbare trace-IDer i Grafana).
+Include `trace_id`, `span_id` and `callId` in the logs so Loki can correlate with Tempo (clickable trace IDs in Grafana).
 
-## Logging og tracing
+## Logging and tracing
 
-- Logg strukturert JSON til stdout — NAIS-loki henter automatisk. Ikke skriv til fil.
-- Bruk `logstash-logback-encoder` med `LogstashEncoder`/`net.logstash.logback.encoder` i `logback.xml`; legg domenedata som strukturerte felt via `StructuredArguments.kv(...)`, ikke via streng-interpolasjon.
-- Ikke bruk logging som erstatning for metrikker — metrikker svarer på frekvens, volum og varighet.
-- Bruk tracing for request-kjeder, Kafka-flyt og kall mot Postgres eller eksterne tjenester. Aktiver OpenTelemetry auto-instrumentation i NAIS før du legger til manuelle spans.
+- Log structured JSON to stdout — NAIS Loki picks it up automatically. Do not write to file.
+- Use `logstash-logback-encoder` with `LogstashEncoder`/`net.logstash.logback.encoder` in `logback.xml`; add domain data as structured fields via `StructuredArguments.kv(...)`, not through string interpolation.
+- Do not use logging as a substitute for metrics — metrics answer frequency, volume and duration.
+- Use tracing for request chains, Kafka flows and calls to Postgres or external services. Enable OpenTelemetry auto-instrumentation in NAIS before adding manual spans.
 
-### JSON-format for NAIS-loki
+### JSON format for NAIS Loki
 
-Én JSON-linje per logg på stdout. Felter Loki parser og indekserer:
+One JSON line per log entry on stdout. Fields Loki parses and indexes:
 
 ```json
 {
   "@timestamp": "2026-06-29T10:23:45.123Z",
   "level": "INFO",
-  "message": "Oppgave behandlet",
+  "message": "Oppgave processed",
   "logger_name": "no.nav.syfo.oppgave.OppgaveService",
   "thread_name": "eventLoopGroupProxy-4-1",
   "trace_id": "2f2f2264a8b6df9f8b3d614f4c9ce111",
@@ -112,79 +112,79 @@ Inkluder `trace_id`, `span_id` og `callId` i loggene slik at Loki kan korrelere 
 }
 ```
 
-Minimumsfelt: `@timestamp`, `level`, `message`. Legg domenedata i top-level felt (ikke nøstet under `context`). Automatiske Loki-labels (`app`, `namespace`, `cluster`, `container`, `pod`, `stream`) skal ikke dupliseres i payloaden. Aldri fnr, aktør-id, tokens eller andre særlige kategorier personopplysninger i loggen.
+Minimum fields: `@timestamp`, `level`, `message`. Put domain data in top-level fields (not nested under `context`). Automatic Loki labels (`app`, `namespace`, `cluster`, `container`, `pod`, `stream`) must not be duplicated in the payload. Never fnr, aktør-id, tokens or other special categories of personal data in the log.
 
-## Grafana-dashboards for syfo-budstikka
+## Grafana dashboards for the service
 
-Appen bør ha ett dashboard med disse panelene som baseline. Bruk `app`, `namespace` og `cluster` som template-variabler.
+The application should have one dashboard with these panels as a baseline. Use `app`, `namespace` and `cluster` as template variables.
 
 ### Golden signals
 - **Request rate** — `sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))` (per `route`/`method`)
-- **Error rate** — 5xx-andel av total trafikk, både prosent og absolutt rate
+- **Error rate** — 5xx share of total traffic, both as a percentage and as an absolute rate
 - **Latency p95/p99** — `histogram_quantile(0.95, sum(rate(ktor_http_server_requests_seconds_bucket[5m])) by (le, route))`
 
-### Ressurser
-- **Connection pool** — `hikaricp_connections_active / hikaricp_connections_max` for Postgres (krever HikariCP-binder)
-- **JVM heap og GC** — `jvm_memory_used_bytes`, `rate(jvm_gc_pause_seconds_sum[5m])`
+### Resources
+- **Connection pool** — `hikaricp_connections_active / hikaricp_connections_max` for Postgres (requires the HikariCP binder)
+- **JVM heap and GC** — `jvm_memory_used_bytes`, `rate(jvm_gc_pause_seconds_sum[5m])`
 - **Pod restarts** — `increase(kube_pod_container_status_restarts_total{app="syfo-budstikka"}[1h])`
 
-### Kafka (hvis aktuelt)
-- **Consumer lag** — `kafka_consumer_lag` / `kafka_consumergroup_lag` per `topic` og `consumer_group`
-- **Consumer/producer rate** og feil per topic
+### Kafka (if relevant)
+- **Consumer lag** — `kafka_consumer_lag` / `kafka_consumergroup_lag` per `topic` and `consumer_group`
+- **Consumer/producer rate** and errors per topic
 
-### Domene
-- Behandlede hendelser per minutt, per `event_type`
-- Feilrate per flyt (`result="failure"`)
-- Behandlingstid for kritiske operasjoner
+### Domain
+- Processed events per minute, per `event_type`
+- Error rate per flow (`result="failure"`)
+- Processing time for critical operations
 
-Se `references/promql-logql.md` for komplette PromQL- og LogQL-eksempler.
+See `references/promql-logql.md` for complete PromQL and LogQL examples.
 
-## Varsling
+## Alerting
 
-- Varsle på brukeropplevde symptomer først: feilrate, latency, utilgjengelighet og pod restarts
-- Bruk runbook-lenker og tydelige annotasjoner; skill mellom `warning` og `critical`
-- Hold terskler forsiktige til du kjenner trafikkmønstrene — test i `dev-gcp` før du strammer i prod
+- Alert on user-experienced symptoms first: error rate, latency, unavailability and pod restarts
+- Use runbook links and clear annotations; distinguish between `warning` and `critical`
+- Keep thresholds cautious until you know the traffic patterns — test in `dev-gcp` before tightening them in prod
 
-Se `references/alerting.md` for Prometheus-regler og NAIS `Alert`-ressurs med Slack-ruting.
+See `references/alerting.md` for Prometheus rules and the NAIS `Alert` resource with Slack routing.
 
-## Beslutningskandidater
+## Decision candidates
 
-Grill ikke-rutinemessige valg med `/grilling`: labels som kan øke
-kardinaliteten vesentlig, produksjonsterskler, varslingskanaler som påvirker
-teamets arbeidsflyt, og lagring av sensitive domenedata. Legg
-observability-detalj som følger av den godkjente endringen i relevant
-topic-dokument. Når et varig valg passerer ADR-gaten, anbefal dokumentert løp
-og vent på brukerens valg før `/domain-modeling` registrerer det.
+Grill non-routine choices with `/grilling`: labels that could increase
+cardinality substantially, production thresholds, alerting channels that affect the
+team's workflow, and storage of sensitive domain data. Put
+observability detail that follows from the approved change into the relevant
+topic document. When a lasting choice passes the ADR gate, recommend the documented
+route and wait for the user's choice before `/domain-modeling` records it.
 
-## Sjekkliste
+## Checklist
 
-- [ ] `/internal/isalive`, `/internal/isready` og scrape-path (`/internal/prometheus`) stemmer med NAIS-manifestet
-- [ ] `MicrometerMetrics` installert med felles `PrometheusMeterRegistry` + JVM-binders
-- [ ] OpenTelemetry auto-instrumentation vurdert/aktivert i NAIS
-- [ ] Strukturert JSON-logging til stdout med `trace_id`, `span_id`, `callId`
-- [ ] `Nav-Callid` leses via `CallId`, propageres på utgående kall og legges på MDC
-- [ ] Viktige domenemetrikker definert med stabile `snake_case`-navn og lave-kardinalitets labels
-- [ ] Dashboards dekker request rate, error rate, latency p95/p99, pool usage og Kafka lag
-- [ ] Varsler finnes for høy feilrate, høy latency, pod restarts og kritiske avhengigheter
-- [ ] Logger, traces og metric-labels inneholder ikke fnr, aktør-id, tokens eller andre hemmeligheter
+- [ ] `/internal/isalive`, `/internal/isready` and the scrape path (`/internal/prometheus`) match the NAIS manifest
+- [ ] `MicrometerMetrics` installed with a shared `PrometheusMeterRegistry` + JVM binders
+- [ ] OpenTelemetry auto-instrumentation considered/enabled in NAIS
+- [ ] Structured JSON logging to stdout with `trace_id`, `span_id`, `callId`
+- [ ] `Nav-Callid` is read via `CallId`, propagated on outgoing calls and put on the MDC
+- [ ] Key domain metrics defined with stable `snake_case` names and low-cardinality labels
+- [ ] Dashboards cover request rate, error rate, latency p95/p99, pool usage and Kafka lag
+- [ ] Alerts exist for high error rate, high latency, pod restarts and critical dependencies
+- [ ] Logs, traces and metric labels do not contain fnr, aktør-id, tokens or other secrets
 
 ## Boundaries
 
-### Alltid
-- Bruk `snake_case` og enhetssuffiks for metrikker
-- Bruk lave og begrensede label-verdier
-- Logg strukturert JSON til stdout (ikke filer)
-- Propager `Nav-Callid` og legg `trace_id`/`callId` i logger via eksisterende `CallId`/`CallLogging`
-- Følg eksisterende logging- og metrikkmønstre i repoet
-- Verifiser health paths, scrape path og tracing-oppsett mot faktisk NAIS-konfig og `application.yaml`
+### Always
+- Use `snake_case` and unit suffixes for metrics
+- Use low and bounded label values
+- Log structured JSON to stdout (not files)
+- Propagate `Nav-Callid` and put `trace_id`/`callId` in logs via the existing `CallId`/`CallLogging`
+- Follow the existing logging and metrics patterns in the repository
+- Verify health paths, scrape path and tracing setup against the actual NAIS config and `application.yaml`
 
-### Spør først / grill
-- Nye labels som kan øke kardinalitet vesentlig
-- Endring av produksjonsterskler for varsler
-- Nye dashboards, mapper eller varslingskanaler
+### Ask first / grill
+- New labels that could increase cardinality substantially
+- Changing production thresholds for alerts
+- New dashboards, folders or alerting channels
 
-### Aldri
-- Logg eller eksponer fnr, aktør-id, tokens, passord eller andre særlige kategorier personopplysninger
-- Bruk `camelCase` i metric-navn
-- Bruk labels med høy kardinalitet (`user_id`, `fnr`, `trace_id`, `callId`)
-- Legg til observability-kode som ikke kan forklares operativt eller brukes i praksis
+### Never
+- Log or expose fnr, aktør-id, tokens, passwords or other special categories of personal data
+- Use `camelCase` in metric names
+- Use labels with high cardinality (`user_id`, `fnr`, `trace_id`, `callId`)
+- Add observability code that cannot be explained operationally or used in practice

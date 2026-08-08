@@ -1,182 +1,182 @@
 ---
 name: diagnosing-bugs
-description: "Bruk når en feil skal diagnostiseres systematisk — noe kaster, feiler, henger eller er tregt i test eller drift, en flaky test, en ytelsesregresjon, eller et runtime-symptom på NAIS (pod-krasj/OOMKilled, 401/403, Kafka consumer lag, DB-timeout, Flyway-feil). Eller når noen sier 'debug dette', 'diagnostiser', 'hvorfor feiler X'. IKKE for å designe ny funksjonalitet (bruk /grilling og velg dokumentert løp ved behov)."
+description: "Use when a bug needs systematic diagnosis — something throws, fails, hangs or is slow in test or production, a flaky test, a performance regression, or a runtime symptom on NAIS (pod crash/OOMKilled, 401/403, Kafka consumer lag, DB timeout, Flyway error). Or when someone says 'debug this', 'diagnose', 'why is X failing'. NOT for designing new functionality (use /grilling and choose the documented track when needed)."
 ---
 
 # Diagnosing Bugs
 
-En disiplin for vanskelige feil. Hopp over faser kun når du eksplisitt kan begrunne det.
+A discipline for hard bugs. Skip phases only when you can explicitly justify it.
 
-Følg den smale lasterekkefølgen i `docs/agents/domain.md`: les bare
-topic-dokumentene og ADR-ene som berører symptomet, og glossaret når domenespråk
-er relevant. For ikke-trivielle fikser bruker du aktiv oppgave eller
-oppgavebrief som avgrensning; oppgavelokal `.grill/` brukes bare når den
-kallende arbeidsflyten har valgt det.
+Follow the narrow load order in `docs/agents/domain.md`: read only the topic
+documents and ADRs that touch the symptom, and the glossary when domain language
+is relevant. For non-trivial fixes, use the active task or task brief as your
+scope; a task-local `.grill/` is used only when the calling workflow has chosen
+it.
 
-Er symptomet et **runtime-/plattformproblem** (appen kjører, men feiler i drift) — start i symptom-tabellen nederst og følg det diagnostiske treet i `/nav-troubleshoot` (som eier trærne), deretter tilbake hit for fikse-disiplinen.
+Is the symptom a **runtime/platform problem** (the app runs, but fails in production) — start in the symptom table at the bottom and follow the diagnostic tree in `/nav-troubleshoot` (which owns the trees), then come back here for the fix discipline.
 
-## Fase 1 — Bygg en feedback-loop
+## Phase 1 — Build a feedback loop
 
-**Dette er selve skillen.** Alt annet er mekanikk. Har du et **stramt** pass/fail-signal for feilen — ett som går rødt på _denne_ feilen — så finner du årsaken; bisection, hypotesetesting og instrumentering konsumerer bare loopen. Har du den ikke, redder ingen mengde kodelesing deg.
+**This is the skill itself.** Everything else is mechanics. If you have a **tight** pass/fail signal for the bug — one that goes red on _this_ bug — you will find the cause; bisection, hypothesis testing and instrumentation merely consume the loop. Without it, no amount of code reading will save you.
 
-Bruk uforholdsmessig mye krefter her. **Vær aggressiv. Vær kreativ. Ikke gi opp.**
+Spend disproportionate effort here. **Be aggressive. Be creative. Do not give up.**
 
-### Måter å konstruere en på — prøv dem omtrent i denne rekkefølgen
+### Ways to construct one — try them roughly in this order
 
-1. **Feilende test** ved den sømmen som når feilen — enhetstest, integrasjonstest, eller Ktor `testApplication { }`:
+1. **Failing test** at the seam that reaches the bug — unit test, integration test, or Ktor `testApplication { }`:
    ```bash
-   ./gradlew test --tests "no.nav.syfo.<klasse>.<metode>"
+   ./gradlew test --tests "no.nav.syfo.<class>.<method>"
    ```
    ```kotlin
    testApplication {
        application { module() }
        val res = client.get("/api/sykmelding/123")
-       assertEquals(HttpStatusCode.OK, res.status) // går rødt på akkurat denne feilen
+       assertEquals(HttpStatusCode.OK, res.status) // goes red on exactly this bug
    }
    ```
-2. **curl / HTTP-script** mot en kjørende lokal Ktor-server (`./gradlew run`), som differ status/body mot kjent-god.
-3. **Replay av en fanget hendelse.** Lagre en ekte Kafka-record / HTTP-payload / event-logg til disk, og spill den gjennom kodestien isolert (kall consumer-handleren / route-handleren direkte med payloaden).
-4. **Throwaway-harness.** Spinn opp et minimalt subsett (én route, mockede avhengigheter via MockK/WireMock, in-memory Postgres via Testcontainers) som treffer feil-kodestien med ett funksjonskall.
-5. **Property / fuzz-loop.** Er feilen "noen ganger feil output", kjør 1000 tilfeldige inputs og let etter feilmodusen.
-6. **Bisection-harness.** Oppstod feilen mellom to kjente tilstander (commit, datasett, versjon), automatiser "boot ved X, sjekk, gjenta" så du kan `git bisect run` den.
-7. **Differensiell loop.** Kjør samme input gjennom gammel vs. ny versjon (eller to konfigurasjoner) og diff output.
-8. **HITL bash-script.** Siste utvei. Må et menneske klikke/handle, driv _dem_ med `scripts/hitl-loop.template.sh` så loopen forblir strukturert. Fanget output mates tilbake til deg.
+2. **curl / HTTP script** against a running local Ktor server (`./gradlew run`), diffing status/body against known-good.
+3. **Replay of a captured event.** Save a real Kafka record / HTTP payload / event log to disk and play it through the code path in isolation (call the consumer handler / route handler directly with the payload).
+4. **Throwaway harness.** Spin up a minimal subset (one route, mocked dependencies via MockK/WireMock, in-memory Postgres via Testcontainers) that hits the failing code path with a single function call.
+5. **Property / fuzz loop.** If the bug is "sometimes wrong output", run 1000 random inputs and look for the failure mode.
+6. **Bisection harness.** If the bug appeared between two known states (commit, dataset, version), automate "boot at X, check, repeat" so you can `git bisect run` it.
+7. **Differential loop.** Run the same input through the old vs. the new version (or two configurations) and diff the output.
+8. **HITL bash script.** Last resort. If a human has to click/act, drive _them_ with `scripts/hitl-loop.template.sh` so the loop stays structured. Captured output is fed back to you.
 
-Bygg riktig feedback-loop, og feilen er 90 % fikset.
+Build the right feedback loop and the bug is 90% fixed.
 
-### Stram loopen
+### Tighten the loop
 
-Behandle loopen som et produkt. Når du har _en_ loop, **stram** den:
+Treat the loop as a product. Once you have _a_ loop, **tighten** it:
 
-- Kan jeg gjøre den raskere? (Cache oppsett, hopp over urelatert init, `./gradlew test --tests` på én test, gjenbruk Testcontainers.)
-- Kan jeg gjøre signalet skarpere? (Assert på det spesifikke symptomet, ikke "krasjet ikke".)
-- Kan jeg gjøre den mer deterministisk? (Pinn tid med en `Clock`, seed RNG, isoler DB-schema, frys nettverk med WireMock/MockK.)
+- Can I make it faster? (Cache setup, skip unrelated init, `./gradlew test --tests` on a single test, reuse Testcontainers.)
+- Can I make the signal sharper? (Assert on the specific symptom, not "did not crash".)
+- Can I make it more deterministic? (Pin time with a `Clock`, seed the RNG, isolate the DB schema, freeze the network with WireMock/MockK.)
 
-En 30-sekunders flaky loop er knapt bedre enn ingen loop; en 2-sekunders deterministisk er stram — en debugging-superkraft.
+A 30-second flaky loop is barely better than no loop; a 2-second deterministic one is tight — a debugging superpower.
 
-### Ikke-deterministiske feil
+### Non-deterministic bugs
 
-Målet er ikke en ren repro, men en **høyere reproduksjonsrate**. Loop triggeren 100×, parallelliser, legg på stress, smalne timing-vinduer, injiser sleeps. En 50 %-flaky feil er debugbar; 1 % er ikke — hev raten til den er debugbar.
+The goal is not a clean repro, but a **higher reproduction rate**. Loop the trigger 100×, parallelize, add stress, narrow timing windows, inject sleeps. A 50% flaky bug is debuggable; 1% is not — raise the rate until it is.
 
-### Når du genuint ikke får bygget en loop
+### When you genuinely cannot build a loop
 
-Stopp og si det eksplisitt. List opp hva du prøvde. Be brukeren om: (a) tilgang til miljøet som reproduserer (f.eks. `dev-gcp`), (b) et fanget artefakt (HAR-fil, `kubectl logs --previous`-dump, Kafka-record, trace fra Tempo), eller (c) tillatelse til midlertidig produksjons-instrumentering. **Ikke** gå videre til hypoteser uten en loop.
+Stop and say so explicitly. List what you tried. Ask the user for: (a) access to the environment that reproduces it (e.g. `dev-gcp`), (b) a captured artifact (HAR file, `kubectl logs --previous` dump, Kafka record, trace from Tempo), or (c) permission for temporary production instrumentation. Do **not** move on to hypotheses without a loop.
 
-### Fullføringskriterium — en stram loop som kan gå rød
+### Completion criterion — a tight loop that can go red
 
-Fase 1 er ferdig når loopen er **stram** og **rød-kapabel**: du kan navngi **én kommando** — en script-sti, en test-invokasjon, en curl — som du **allerede har kjørt minst én gang** (lim inn invokasjonen og dens output), og som er:
+Phase 1 is done when the loop is **tight** and **red-capable**: you can name **one command** — a script path, a test invocation, a curl — that you have **already run at least once** (paste the invocation and its output), and that is:
 
-- [ ] **Rød-kapabel** — den driver den faktiske feil-kodestien og asserter brukerens **eksakte symptom**, så den kan gå rød på denne feilen og grønn når fikset. Ikke "kjører uten å feile" — den må kunne _fange akkurat denne feilen_.
-- [ ] **Deterministisk** — samme dom hver kjøring (flaky feil: en pinnet, høy reproduksjonsrate, jf. over).
-- [ ] **Rask** — sekunder, ikke minutter.
-- [ ] **Agent-kjørbar** — du kan kjøre den uten tilsyn; menneske i loopen kun via `scripts/hitl-loop.template.sh`.
+- [ ] **Red-capable** — it drives the actual failing code path and asserts the user's **exact symptom**, so it can go red on this bug and green once fixed. Not "runs without failing" — it must be able to _catch this specific bug_.
+- [ ] **Deterministic** — the same verdict every run (flaky bugs: a pinned, high reproduction rate, per above).
+- [ ] **Fast** — seconds, not minutes.
+- [ ] **Agent-runnable** — you can run it unsupervised; a human in the loop only via `scripts/hitl-loop.template.sh`.
 
-Tar du deg selv i å lese kode for å bygge en teori før denne kommandoen finnes, **stopp — å hoppe rett til en hypotese er nøyaktig feilen denne skillen forhindrer.** Ingen rød-kapabel kommando, ingen fase 2.
+If you catch yourself reading code to build a theory before this command exists, **stop — jumping straight to a hypothesis is exactly the mistake this skill prevents.** No red-capable command, no phase 2.
 
-## Fase 2 — Reproduser + minimer
+## Phase 2 — Reproduce + minimize
 
-Kjør loopen. Se den gå rød — feilen dukker opp.
+Run the loop. Watch it go red — the bug shows up.
 
-Bekreft:
+Confirm:
 
-- [ ] Loopen produserer feilmodusen **brukeren** beskrev — ikke en annen feil som tilfeldigvis ligger i nærheten. Feil bug = feil fiks.
-- [ ] Feilen er reproduserbar over flere kjøringer (eller, for ikke-deterministiske feil, reproduserbar med høy nok rate til å debugge mot).
-- [ ] Du har fanget det eksakte symptomet (feilmelding, feil output, treg timing) så senere faser kan verifisere at fiksen faktisk treffer det.
+- [ ] The loop produces the failure mode **the user** described — not some other bug that happens to be nearby. Wrong bug = wrong fix.
+- [ ] The bug is reproducible across several runs (or, for non-deterministic bugs, reproducible at a high enough rate to debug against).
+- [ ] You have captured the exact symptom (error message, wrong output, slow timing) so later phases can verify that the fix actually hits it.
 
-### Minimer
+### Minimize
 
-Når den er rød, krymp reproen til det **minste scenarioet som fortsatt går rødt**. Kutt inputs, kallere, config, data og steg **ett om gangen**, og kjør loopen på nytt etter hvert kutt — behold kun det som er bærende for feilen.
+Once it is red, shrink the repro to the **smallest scenario that still goes red**. Cut inputs, callers, config, data and steps **one at a time**, rerunning the loop after each cut — keep only what is load-bearing for the bug.
 
-Hvorfor bry seg: en minimal repro krymper hypoteserommet i fase 3 (færre bevegelige deler igjen å mistenke) og blir den rene regresjonstesten i fase 5.
+Why bother: a minimal repro shrinks the hypothesis space in phase 3 (fewer moving parts left to suspect) and becomes the clean regression test in phase 5.
 
-Ferdig når **hvert gjenværende element er bærende** — fjerner du ett av dem, går loopen grønn.
+Done when **every remaining element is load-bearing** — remove any one of them and the loop goes green.
 
-Ikke gå videre før du har reprodusert **og** minimert.
+Do not move on before you have reproduced **and** minimized.
 
-## Fase 3 — Hypotetiser
+## Phase 3 — Hypothesize
 
-Generer **3–5 rangerte hypoteser** før du tester noen av dem. Enkelt-hypotese-generering ankrer på den første plausible idéen.
+Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
 
-Hver hypotese må være **falsifiserbar**: oppgi prediksjonen den gjør.
+Each hypothesis must be **falsifiable**: state the prediction it makes.
 
-> Format: "Hvis <X> er årsaken, vil <endring av Y> få feilen til å forsvinne / <endring av Z> gjøre den verre."
+> Format: "If <X> is the cause, then <changing Y> will make the bug disappear / <changing Z> will make it worse."
 
-Kan du ikke oppgi prediksjonen, er hypotesen en magefølelse — forkast eller skjerp den.
+If you cannot state the prediction, the hypothesis is a gut feeling — discard it or sharpen it.
 
-**Vis den rangerte listen til brukeren før du tester.** De har ofte domenekunnskap som re-rangerer øyeblikkelig ("vi deployet nettopp en endring til #3"), eller kjenner hypoteser de allerede har utelukket. Billig sjekkpunkt, stor tidsbesparelse. Ikke blokker på det — kjør videre med din rangering hvis brukeren er borte.
+**Show the ranked list to the user before testing.** They often have domain knowledge that re-ranks it instantly ("we just deployed a change to #3"), or know hypotheses they have already ruled out. Cheap checkpoint, big time saver. Do not block on it — proceed with your own ranking if the user is away.
 
-## Fase 4 — Instrumenter
+## Phase 4 — Instrument
 
-Hver probe må mappe til en spesifikk prediksjon fra fase 3. **Endre én variabel om gangen.**
+Each probe must map to a specific prediction from phase 3. **Change one variable at a time.**
 
-Verktøypreferanse:
+Tool preference:
 
-1. **Debugger / REPL-inspeksjon** hvis miljøet støtter det. Ett breakpoint slår ti logger.
-2. **Målrettede logger** ved grensene som skiller hypotesene. I Ktor: SLF4J/Logback via `LoggerFactory.getLogger(...)`.
-3. Aldri "logg alt og grep".
+1. **Debugger / REPL inspection** if the environment supports it. One breakpoint beats ten log lines.
+2. **Targeted logging** at the boundaries that separate the hypotheses. In Ktor: SLF4J/Logback via `LoggerFactory.getLogger(...)`.
+3. Never "log everything and grep".
 
-**Tagg hver debug-logg** med et unikt prefiks, f.eks. `log.info("[DEBUG-a4f2] ...")`. Opprydding til slutt blir én grep. Utaggede logger overlever; taggede logger dør.
+**Tag every debug log** with a unique prefix, e.g. `log.info("[DEBUG-a4f2] ...")`. Cleanup at the end becomes a single grep. Untagged logs survive; tagged logs die.
 
-**PII-grense (NAV):** aldri logg fnr, tokens, navn eller særlige kategorier — heller ikke i midlertidige debug-logger. Logg ID-er/correlation (`Nav-Call-Id`, `callId`), ikke personopplysninger.
+**PII boundary (NAV):** never log fnr, tokens, names or special categories of personal data — not even in temporary debug logs. Log IDs/correlation (`Nav-Call-Id`, `callId`), not personal data.
 
-**Perf-gren.** For ytelsesregresjoner er logger som regel feil verktøy. I stedet: etabler en baseline-måling (Micrometer-timer, `measureTimedValue {}`, profiler, `EXPLAIN ANALYZE` på query-en), og bisect deretter. Mål først, fiks etterpå. Se `/nav-troubleshoot` (observability-diagnose) for Mimir/Loki/Tempo.
+**Perf branch.** For performance regressions, logs are usually the wrong tool. Instead: establish a baseline measurement (Micrometer timer, `measureTimedValue {}`, profiler, `EXPLAIN ANALYZE` on the query), then bisect. Measure first, fix afterwards. See `/nav-troubleshoot` (observability diagnosis) for Mimir/Loki/Tempo.
 
-## Fase 5 — Fiks + regresjonstest
+## Phase 5 — Fix + regression test
 
-Skriv regresjonstesten **før fiksen** — men kun hvis det finnes en **korrekt søm** for den.
+Write the regression test **before the fix** — but only if a **correct seam** exists for it.
 
-En korrekt søm er en der testen treffer det **ekte feilmønsteret** slik det oppstår på kallstedet. Er eneste tilgjengelige søm for grunn (enkelt-kaller-test når feilen krever flere kallere, enhetstest som ikke kan replikere kjeden som trigget feilen), gir en regresjonstest der falsk trygghet.
+A correct seam is one where the test hits the **real failure pattern** as it occurs at the call site. If the only available seam is too shallow (a single-caller test when the bug requires several callers, a unit test that cannot replicate the chain that triggered the bug), a regression test there gives false confidence.
 
-**Finnes ingen korrekt søm, er det i seg selv funnet.** Noter det. Arkitekturen hindrer feilen i å låses ned. Flagg det for neste fase.
+**If no correct seam exists, that is itself the finding.** Note it. The architecture prevents the bug from being locked down. Flag it for the next phase.
 
-Finnes en korrekt søm:
+If a correct seam exists:
 
-1. Gjør den minimerte reproen til en feilende test ved den sømmen.
-2. Se den feile.
-3. Påfør fiksen.
-4. Se den passere.
-5. Kjør fase 1-loopen mot det opprinnelige (u-minimerte) scenarioet.
+1. Turn the minimized repro into a failing test at that seam.
+2. Watch it fail.
+3. Apply the fix.
+4. Watch it pass.
+5. Run the phase 1 loop against the original (un-minimized) scenario.
 
-Pass/fail avgjøres deterministisk med `./gradlew test` (og lint/build der relevant). Ingen "ser riktig ut"-påstand uten ferskt bevis — kommando + output + exit-kode i samme melding.
+Pass/fail is decided deterministically with `./gradlew test` (and lint/build where relevant). No "looks right" claim without fresh evidence — command + output + exit code in the same message.
 
-## Fase 6 — Opprydding + post-mortem
+## Phase 6 — Cleanup + post-mortem
 
-Kreves før du erklærer ferdig:
+Required before you declare done:
 
-- [ ] Opprinnelig repro reproduserer ikke lenger (kjør fase 1-loopen på nytt)
-- [ ] Regresjonstesten passerer (eller fravær av søm er dokumentert)
-- [ ] All `[DEBUG-...]`-instrumentering fjernet (`grep -rn "DEBUG-" src/`)
-- [ ] Throwaway-harness slettet (eller flyttet til en tydelig merket debug-lokasjon)
-- [ ] Hypotesen som viste seg riktig er skrevet i commit/PR-melding — så neste debugger lærer
-- [ ] Ferskt grønt bevis for kvalitetsgatene returneres til @grillmester sin verifiser-fase
+- [ ] The original repro no longer reproduces (rerun the phase 1 loop)
+- [ ] The regression test passes (or the absence of a seam is documented)
+- [ ] All `[DEBUG-...]` instrumentation removed (`grep -rn "DEBUG-" src/`)
+- [ ] Throwaway harness deleted (or moved to a clearly marked debug location)
+- [ ] The hypothesis that turned out to be right is written in the commit/PR message — so the next debugger learns
+- [ ] Fresh green evidence for the quality gates is returned to @grillmester's verify phase
 
-**Spør så: hva ville forhindret denne feilen?** Involverer svaret
-arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling),
-ta funnet videre via `/grilling`. Bruk `/architecture-review` for
-NAV-spesifikke konsekvenser. Når varige begreper eller beslutninger bør
-dokumenteres, anbefal dokumentert løp og vent på brukerens valg før
-`/domain-modeling` skriver. Gi anbefalingen **etter** at fiksen er inne, ikke
-før — du vet mer nå enn da du startet.
+**Then ask: what would have prevented this bug?** If the answer involves an
+architectural change (no good test seam, entangled callers, hidden coupling),
+carry the finding forward via `/grilling`. Use `/architecture-review` for
+NAV-specific consequences. When lasting concepts or decisions ought to be
+documented, recommend the documented track and wait for the user's choice before
+`/domain-modeling` writes. Give the recommendation **after** the fix is in, not
+before — you know more now than when you started.
 
-## Symptom-oversikt — runtime/plattform
+## Symptom overview — runtime/platform
 
-Feiler appen i **drift** (ikke i test), start i riktig diagnostisk tre, og kom tilbake hit for fikse-disiplinen (fase 5–6).
+If the app fails in **production** (not in test), start in the right diagnostic tree, and come back here for the fix discipline (phases 5–6).
 
-De diagnostiske trærne eies av `/nav-troubleshoot` (ikke duplisert her). Følg treet der, og kom tilbake hit for fikse-disiplinen (fase 5–6).
+The diagnostic trees are owned by `/nav-troubleshoot` (not duplicated here). Follow the tree there, and come back here for the fix discipline (phases 5–6).
 
-| Symptom | Tre i `/nav-troubleshoot` |
+| Symptom | Tree in `/nav-troubleshoot` |
 |---------|-----------|
-| Pod starter ikke / krasjer / OOMKilled / ImagePullBackOff | `references/pod-diagnose.md` |
+| Pod does not start / crashes / OOMKilled / ImagePullBackOff | `references/pod-diagnose.md` |
 | 401 Unauthorized / 403 Forbidden (TokenX / Azure AD / Texas) | `references/auth-diagnose.md` |
-| Kafka consumer lag / meldinger prosesseres ikke | `references/kafka-diagnose.md` |
-| DB-tilkoblingsfeil / HikariCP pool exhaustion / Flyway-feil | `references/database-diagnose.md` |
-| Feilrate/latency/restarts der signalene spriker | `references/observability-diagnose.md` |
+| Kafka consumer lag / messages not processed | `references/kafka-diagnose.md` |
+| DB connection errors / HikariCP pool exhaustion / Flyway errors | `references/database-diagnose.md` |
+| Error rate/latency/restarts where the signals diverge | `references/observability-diagnose.md` |
 
-Diagnose-trærne er NAV-/Ktor-spesifikke. Generisk Kubernetes-/Kafka-/SQL-kunnskap er ikke replikert — bruk den fra eget repertoar. Foreslå alltid **minst invasive fiks først**; eskaler kun ved behov. Endring av produksjons-config, pod-restart eller pool-størrelse i prod: **spør først**.
+The diagnostic trees are NAV/Ktor-specific. Generic Kubernetes/Kafka/SQL knowledge is not replicated — bring that from your own repertoire. Always propose the **least invasive fix first**; escalate only when needed. Changing production config, restarting a pod or changing pool size in prod: **ask first**.
 
-## Relaterte skills
+## Related skills
 
-- `/grilling` — stresstest design når feilen avdekker et designhull; anbefal
-  dokumentert løp ved behov
-- `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (mekanismene bak auth-diagnose)
-- `/architecture-review` — review NAV-konsekvenser ved arkitekturendringer som ville forhindret feilen
+- `/grilling` — stress-test the design when the bug exposes a design gap;
+  recommend the documented track when needed
+- `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (the mechanisms behind auth diagnosis)
+- `/architecture-review` — review NAV consequences of architectural changes that would have prevented the bug

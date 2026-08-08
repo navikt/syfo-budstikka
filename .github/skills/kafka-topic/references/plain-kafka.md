@@ -1,14 +1,14 @@
 ---
-description: "Plain Apache Kafka i Ktor — consumer/producer-skjelett, SSL-config fra Nais-env, commit-strategi og Testcontainers. Les når repoet bruker org.apache.kafka:kafka-clients direkte."
+description: "Plain Apache Kafka in Ktor — consumer/producer skeleton, SSL config from Nais env vars, commit strategy and Testcontainers. Read when the repository uses org.apache.kafka:kafka-clients directly."
 ---
 
-# Plain Apache Kafka i Ktor-backend
+# Plain Apache Kafka in a Ktor backend
 
-Mønstre for `org.apache.kafka:kafka-clients` i en Ktor-app. Bruk kun hvis det er stacken repoet allerede står på.
+Patterns for `org.apache.kafka:kafka-clients` in a Ktor app. Use only if this is the stack the repository is already on.
 
-## Oppstart ved siden av Ktor-serveren
+## Startup alongside the Ktor server
 
-`poll`-løkka kjører i en egen coroutine/tråd, ikke i en route. Start den fra en Ktor-modul og stopp den på `ApplicationStopPreparing`.
+The `poll` loop runs in its own coroutine/thread, not in a route. Start it from a Ktor module and stop it on `ApplicationStopPreparing`.
 
 ```kotlin
 class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, private val topic: String) {
@@ -22,7 +22,7 @@ class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, priv
                 try {
                     prosesser(record)
                 } catch (e: MidlertidigFeil) {
-                    throw e   // la Kafka re-levere ved neste poll
+                    throw e   // let Kafka redeliver on the next poll
                 } catch (e: PermanentFeil) {
                     logger.error("Permanent feil, sender til DLQ",
                         kv("topic", record.topic()), kv("offset", record.offset()), e)
@@ -38,7 +38,7 @@ class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, priv
 }
 ```
 
-Commit-strategi: `commitSync()` etter hver batch er trygt og enkelt. `commitAsync()` gir høyere throughput — bruk kun ved bevisst behov. Hold `enable.auto.commit=false` så du committer etter vellykket prosessering, ikke før.
+Commit strategy: `commitSync()` after each batch is safe and simple. `commitAsync()` gives higher throughput — use it only when there is a deliberate need. Keep `enable.auto.commit=false` so that you commit after successful processing, not before.
 
 ## Producer
 
@@ -50,9 +50,9 @@ producer.send(ProducerRecord(topic, key, value)) { _, exception ->
 }
 ```
 
-For exactly-once-lignende semantikk: `enable.idempotence=true` og `acks=all`. Transaksjoner (`initTransactions()`) kun når du koordinerer produce + consume-commit i samme app.
+For exactly-once-like semantics: `enable.idempotence=true` and `acks=all`. Transactions (`initTransactions()`) only when you coordinate produce + consume commit in the same app.
 
-## Konfigurasjon fra Nais-injiserte env vars
+## Configuration from Nais-injected env vars
 
 ```kotlin
 val props = Properties().apply {
@@ -64,20 +64,20 @@ val props = Properties().apply {
     put("ssl.keystore.type", "PKCS12")
     put("ssl.keystore.location", System.getenv("KAFKA_KEYSTORE_PATH"))
     put("ssl.keystore.password", System.getenv("KAFKA_CREDSTORE_PASSWORD"))
-    // consumer-spesifikt:
+    // consumer-specific:
     put("group.id", System.getenv("KAFKA_CONSUMER_GROUP_ID") ?: "syfo-budstikka-v1")
     put("auto.offset.reset", "earliest")
     put("enable.auto.commit", "false")
 }
 ```
 
-Du kan også lese disse via Ktor `environment.config` hvis de er speilet inn i `application.yaml` — men `System.getenv` direkte er vanlig for Kafka-SSL siden Nais setter dem som rene env vars.
+You can also read these via the Ktor `environment.config` if they are mirrored into `application.yaml` — but `System.getenv` directly is common for Kafka SSL, since Nais sets them as plain env vars.
 
 ## Testing
 
-- Bruk Testcontainers `KafkaContainer` for integrasjonstester — ikke embedded Kafka (avviklet).
-- Unit-test prosesseringslogikken separat fra Kafka-klienten: injiser en `ConsumerRecord` (eller bare payloaden) direkte i `prosesser(...)` uten å starte en consumer.
-- Kjør `./gradlew test` og returner resultatet til den aktive oppgaven.
+- Use the Testcontainers `KafkaContainer` for integration tests — not embedded Kafka (discontinued).
+- Unit-test the processing logic separately from the Kafka client: inject a `ConsumerRecord` (or just the payload) directly into `prosesser(...)` without starting a consumer.
+- Run `./gradlew test` and return the result to the active task.
 
 ```kotlin
 @Test
@@ -85,7 +85,7 @@ fun `prosesserer sykmelding_sendt og dedup-er duplikat`() {
     val repo = InMemoryEventStore()
     val record = ConsumerRecord("teamsykefravar.sykmelding.v1", 0, 0L, "fnr", payload)
     prosesser(record, repo)
-    prosesser(record, repo)   // duplikat
+    prosesser(record, repo)   // duplicate
     assertEquals(1, repo.antallProsessert())
 }
 ```

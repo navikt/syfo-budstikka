@@ -1,90 +1,90 @@
 ---
 name: nav-troubleshoot
-description: "Bruk når Ktor-backendet feiler i DRIFT på NAIS: pod starter ikke / CrashLoopBackOff / OOMKilled, 401/403, Kafka consumer-lag, DB-/HikariCP-/Flyway-feil ved startup, eller sprik mellom Mimir/Loki/Tempo. For design av schema/manifest/auth, se /nais-manifest og /auth-overview."
+description: "Use when the Ktor backend fails at RUNTIME on NAIS: pod does not start / CrashLoopBackOff / OOMKilled, 401/403, Kafka consumer lag, DB/HikariCP/Flyway errors at startup, or signals that disagree across Mimir/Loki/Tempo. For designing schema/manifest/auth, see /nais-manifest and /auth-overview."
 ---
 
-# Nav Troubleshoot — plattform-diagnostikk
+# Nav Troubleshoot — platform diagnostics
 
-Strukturerte diagnostiske trær for kjøre-tids-symptomer på NAIS for dette repoet. Bruk denne skillen når noe **feiler i drift** (pod krasjer, 401/403, consumer lag, DB-timeout) — ikke når du skal designe eller endre schema / manifest / auth.
+Structured diagnostic trees for runtime symptoms on NAIS in this repository. Use this skill when something **fails at runtime** (pod crashes, 401/403, consumer lag, DB timeout) — not when you are designing or changing schema / manifest / auth.
 
-Skillen ruter symptom → riktig diagnostisk tre. Den fikse-disiplinerte delen (feedback-loop, repro, hypoteser, regresjonstest) bor i `/diagnosing-bugs` — start her for å lokalisere årsaken, gå dit for å lukke feilen. Generisk Kubernetes-/Kafka-/SQL-kunnskap er ikke replikert; bruk den fra eget repertoar.
+The skill routes symptom → the right diagnostic tree. The fix discipline (feedback loop, repro, hypotheses, regression test) lives in `/diagnosing-bugs` — start here to locate the cause, go there to close the bug. Generic Kubernetes/Kafka/SQL knowledge is not duplicated here; bring that from your own repertoire.
 
-## Arbeidsflyt
+## Workflow
 
-1. **Identifiser symptomet** før du kjører kommandoer — hva feiler konkret, i hvilket `cluster`/`namespace`, fra når?
-2. **Detekter faktisk stack i denne kodestien** — plain Apache Kafka clients vs. Rapids & Rivers, Azure AD vs. TokenX vs. ID-porten/Maskinporten. Diagnosen må matche det appen faktisk kjører, ikke hva manifestet kunne hatt.
-3. **Følg diagnostisk tre** i riktig `references/*.md` — steg for steg.
-4. **Foreslå minst invasive fiks først**; eskaler kun hvis nødvendig.
-5. **Lukk feilen via `/diagnosing-bugs`** — skriv regresjonstest (`./gradlew test`, Ktor `testApplication { }`) der det finnes en korrekt søm, og returner ferskt grønt bevis til den aktive oppgaven.
+1. **Identify the symptom** before running commands — what exactly is failing, in which `cluster`/`namespace`, since when?
+2. **Detect the actual stack in this code path** — plain Apache Kafka clients vs. Rapids & Rivers, Azure AD vs. TokenX vs. ID-porten/Maskinporten. The diagnosis must match what the app actually runs, not what the manifest could have contained.
+3. **Follow the diagnostic tree** in the right `references/*.md` — step by step.
+4. **Propose the least invasive fix first**; escalate only if necessary.
+5. **Close the bug via `/diagnosing-bugs`** — write a regression test (`./gradlew test`, Ktor `testApplication { }`) where a correct seam exists, and return fresh green evidence to the active task.
 
-## Symptom-oversikt
+## Symptom overview
 
-| Symptom | Start her |
+| Symptom | Start here |
 |---------|-----------|
-| Pod starter ikke / CrashLoopBackOff / OOMKilled / ImagePullBackOff / Pending | [references/pod-diagnose.md](./references/pod-diagnose.md) |
+| Pod does not start / CrashLoopBackOff / OOMKilled / ImagePullBackOff / Pending | [references/pod-diagnose.md](./references/pod-diagnose.md) |
 | 401 Unauthorized / 403 Forbidden (TokenX / Azure AD / Texas) | [references/auth-diagnose.md](./references/auth-diagnose.md) |
-| Kafka consumer lag / meldinger prosesseres ikke | [references/kafka-diagnose.md](./references/kafka-diagnose.md) |
-| DB-tilkoblingsfeil / HikariCP pool exhaustion / Flyway-feil | [references/database-diagnose.md](./references/database-diagnose.md) |
-| Feilrate, latency eller restarts der signalene spriker mellom metrics, logs og traces | [references/observability-diagnose.md](./references/observability-diagnose.md) |
-| Treg responstid | Se kort tre under |
-| Deploy feiler | Se kort tre under |
+| Kafka consumer lag / messages are not processed | [references/kafka-diagnose.md](./references/kafka-diagnose.md) |
+| DB connection errors / HikariCP pool exhaustion / Flyway errors | [references/database-diagnose.md](./references/database-diagnose.md) |
+| Error rate, latency or restarts where the signals disagree across metrics, logs and traces | [references/observability-diagnose.md](./references/observability-diagnose.md) |
+| Slow response time | See the short tree below |
+| Deploy fails | See the short tree below |
 
-## Ytelsesproblemer (kort)
-
-```
-Treg responstid
-├── Hvor er flaskehalsen?
-│   └── Mimir (http_server_requests_seconds), Tempo (trace), Loki (logg) — samme tidsvindu
-├── Database-queries? → EXPLAIN ANALYZE, N+1, paginering (se /postgresql-review)
-├── Ekstern tjeneste treg? → timeout/retry i Ktor-klienten, circuit breaker, caching
-└── Ressursbegrensning?
-    ├── CPU throttling → ALDRI sett CPU limits på NAIS (bruk kun requests)
-    └── Memory pressure → øk `resources.limits.memory` (se /nais-manifest)
-```
-
-Se [references/observability-diagnose.md](./references/observability-diagnose.md) for NAV-spesifikk diagnostikk i Mimir/Loki/Tempo. Mål før du fikser — etabler baseline (Micrometer-timer, `measureTimedValue {}`, `EXPLAIN ANALYZE`), så bisect.
-
-## Deploy-problemer (kort)
+## Performance problems (short)
 
 ```
-Deploy feiler
-├── GitHub Actions-feil? → Build/Docker/Push — sjekk actions-log og GAR-tilgang
-├── Nais deploy-feil?
-│   ├── "invalid manifest" → valider YAML (se /nais-manifest)
-│   ├── "unauthorized" → sjekk deploy-key / workload identity
-│   └── "resource quota exceeded" → team-kvote
-└── Deploy OK men app feiler? → bruk references/pod-diagnose.md
+Slow response time
+├── Where is the bottleneck?
+│   └── Mimir (http_server_requests_seconds), Tempo (trace), Loki (log) — same time window
+├── Database queries? → EXPLAIN ANALYZE, N+1, pagination (see /postgresql-review)
+├── Slow external service? → timeout/retry in the Ktor client, circuit breaker, caching
+└── Resource constraint?
+    ├── CPU throttling → NEVER set CPU limits on NAIS (use requests only)
+    └── Memory pressure → increase `resources.limits.memory` (see /nais-manifest)
 ```
 
-## Relaterte skills
+See [references/observability-diagnose.md](./references/observability-diagnose.md) for NAV-specific diagnostics in Mimir/Loki/Tempo. Measure before you fix — establish a baseline (Micrometer timers, `measureTimedValue {}`, `EXPLAIN ANALYZE`), then bisect.
 
-- `/nais-manifest` — manifest-struktur, resources, probes, accessPolicy, GCP Postgres, Kafka pool
-- `/auth-overview` — Azure AD, TokenX, ID-porten, Maskinporten, Texas-sidecar (mekanismene bak auth-diagnose)
-- `/kafka-topic` — consumer/producer-mønstre, SSL-env, idempotens, Rapids & Rivers
-- `/postgresql-review` — schema, query- og indeksvurdering (design-tid)
-- `/observability-setup` — Micrometer/Prometheus + Mimir/Loki/Tempo-oppsett (design-tid; nav-troubleshoot leser signalene, observability-setup etablerer dem)
-- `/diagnosing-bugs` — feedback-loop, repro, hypoteser og regresjonstest;
-  returnerer funn og verifikasjon til den aktive oppgaven
+## Deploy problems (short)
 
-## Grenser
+```
+Deploy fails
+├── GitHub Actions failure? → Build/Docker/Push — check the actions log and GAR access
+├── Nais deploy failure?
+│   ├── "invalid manifest" → validate the YAML (see /nais-manifest)
+│   ├── "unauthorized" → check the deploy key / workload identity
+│   └── "resource quota exceeded" → team quota
+└── Deploy OK but the app fails? → use references/pod-diagnose.md
+```
 
-### Alltid
+## Related skills
 
-- Start med symptomet; ikke spekuler på årsak før logs/events er sjekket.
-- Følg det diagnostiske treet steg for steg; verifiser `cluster`/`namespace`/app-navn før du konkluderer.
-- Sjekk `kubectl logs --previous` ved CrashLoopBackOff.
-- Respekter appens faktiske stack — ikke foreslå Rapids & Rivers-fiks på en plain Kafka-konsument eller omvendt.
+- `/nais-manifest` — manifest structure, resources, probes, accessPolicy, GCP Postgres, Kafka pool
+- `/auth-overview` — Azure AD, TokenX, ID-porten, Maskinporten, the Texas sidecar (the mechanisms behind auth-diagnose)
+- `/kafka-topic` — consumer/producer patterns, SSL env vars, idempotency, Rapids & Rivers
+- `/postgresql-review` — schema, query and index review (design time)
+- `/observability-setup` — Micrometer/Prometheus + Mimir/Loki/Tempo setup (design time; nav-troubleshoot reads the signals, observability-setup establishes them)
+- `/diagnosing-bugs` — feedback loop, repro, hypotheses and regression test;
+  returns findings and verification to the active task
 
-### Spør først
+## Limits
 
-- Endre produksjons-konfigurasjon (resources, replicas, secrets, accessPolicy).
-- Restart av pods i produksjon.
-- Endring av database-konfigurasjon eller `maximumPoolSize`.
+### Always
 
-### Aldri
+- Start with the symptom; do not speculate about the cause before logs/events have been checked.
+- Follow the diagnostic tree step by step; verify `cluster`/`namespace`/app name before you conclude.
+- Check `kubectl logs --previous` on CrashLoopBackOff.
+- Respect the app's actual stack — do not propose a Rapids & Rivers fix for a plain Kafka consumer or vice versa.
 
-- Endre secrets direkte i klusteret (gå via kildekontroll / NAIS).
-- Kjør `kubectl delete pod` i prod uten å forstå årsaken.
-- Ignorer `OOMKilled` — den kommer tilbake.
-- Sett CPU-limits på NAIS — forårsaker throttling.
-- Logg fnr, tokens, navn eller særlige kategorier under feilsøking — logg `Nav-Call-Id`/`callId`, ikke personopplysninger.
+### Ask first
+
+- Changing production configuration (resources, replicas, secrets, accessPolicy).
+- Restarting pods in production.
+- Changing database configuration or `maximumPoolSize`.
+
+### Never
+
+- Change secrets directly in the cluster (go through source control / NAIS).
+- Run `kubectl delete pod` in prod without understanding the cause.
+- Ignore `OOMKilled` — it will come back.
+- Set CPU limits on NAIS — it causes throttling.
+- Log national identity numbers, tokens, names or special categories of data while troubleshooting — log `Nav-Call-Id`/`callId`, not personal data.
