@@ -64,7 +64,7 @@ Does the code follow the way this repository writes code — Ktor route structur
 ## NAV/Ktor edge cases (axis C, checklist)
 
 - **Auth:** Missing or wrong claim check? Is `azp` validated against `AZURE_APP_PRE_AUTHORIZED_APPS`? Is NAVident/`pid` read safely (not `!!` on a claim that may be absent)? Is the route behind the right `authenticate("…")` branch?
-- **PII in logs:** Do fnr, names, diagnosis or sykmelding status sneak into a standard log line via string interpolation? Displaying personal data to an employee → CEF audit log, not the standard log. (Details: `/security-review`.)
+- **PII in logs:** Do national identity numbers, names, diagnosis or sykmelding status sneak into a standard log line via string interpolation? Displaying personal data to an employee → CEF audit log, not the standard log. (Details: `/security-review`.)
 - **Kafka:** Empty/`null` record value? Idempotence on redelivery? Manual vs. auto-commit semantics? Poison message — does it end up in a DLQ or loop? Is the offset committed before or after the side effect?
 - **Postgres/Flyway:** New migration — runnable forward AND backward-compatible with running pods (rolling deploy)? A `NOT NULL` column without a default on a non-empty table? An N+1 introduced? Connection closed / returned to the pool? A transaction boundary around multi-step writes?
 - **Ktor HTTP:** Are errors mapped to the right status via StatusPages (no stack trace leaked to the client)? Is `Nav-Call-Id` propagated to outgoing calls? Timeout and retry on external calls? Pagination preserved?
@@ -84,14 +84,14 @@ Self-review produces an action, not a report for the archive:
 3. **Findings you deliberately leave** (out of scope, their own task) → note
    them briefly in the active task so they do not get lost.
 4. **Decision candidates** that surface during the review → report them.
-   When a candidate passes the ADR gate, recommend the documented track and wait
+   When a candidate passes the ADR gate, recommend the documented route and wait
    for the user's choice before `/domain-modeling` writes.
 
 Once the steps are complete, report that the diff is ready for any
 `grill-inspektor` review. Grillmester handles the risk assessment,
 the user's choice and the review flow.
 
-## Flow connection
+## Flow coupling
 
 - **Phase in the phase loop:** verify (phase 5), before any inspector review.
 - **Reads:** the task/issue, the active plan or task brief, and the sources the

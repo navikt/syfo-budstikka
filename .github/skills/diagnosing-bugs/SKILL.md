@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: "Use when a bug needs systematic diagnosis — something throws, fails, hangs or is slow in test or production, a flaky test, a performance regression, or a runtime symptom on NAIS (pod crash/OOMKilled, 401/403, Kafka consumer lag, DB timeout, Flyway error). Or when someone says 'debug this', 'diagnose', 'why is X failing'. NOT for designing new functionality (use /grilling and choose the documented track when needed)."
+description: "Use when a bug needs systematic diagnosis — something throws, fails, hangs or is slow in test or production, a flaky test, a performance regression, or a runtime symptom on NAIS (pod crash/OOMKilled, 401/403, Kafka consumer lag, DB timeout, Flyway error). Or when someone says 'debug this', 'diagnose', 'why is X failing'. NOT for designing new functionality (use /grilling and choose the documented route when needed)."
 ---
 
 # Diagnosing Bugs
@@ -117,7 +117,7 @@ Tool preference:
 
 **Tag every debug log** with a unique prefix, e.g. `log.info("[DEBUG-a4f2] ...")`. Cleanup at the end becomes a single grep. Untagged logs survive; tagged logs die.
 
-**PII boundary (NAV):** never log fnr, tokens, names or special categories of personal data — not even in temporary debug logs. Log IDs/correlation (`Nav-Call-Id`, `callId`), not personal data.
+**PII boundary (NAV):** never log national identity numbers, tokens, names or special categories of personal data — not even in temporary debug logs. Log IDs/correlation (`Nav-Call-Id`, `callId`), not personal data.
 
 **Perf branch.** For performance regressions, logs are usually the wrong tool. Instead: establish a baseline measurement (Micrometer timer, `measureTimedValue {}`, profiler, `EXPLAIN ANALYZE` on the query), then bisect. Measure first, fix afterwards. See `/nav-troubleshoot` (observability diagnosis) for Mimir/Loki/Tempo.
 
@@ -154,7 +154,7 @@ Required before you declare done:
 architectural change (no good test seam, entangled callers, hidden coupling),
 carry the finding forward via `/grilling`. Use `/architecture-review` for
 NAV-specific consequences. When lasting concepts or decisions ought to be
-documented, recommend the documented track and wait for the user's choice before
+documented, recommend the documented route and wait for the user's choice before
 `/domain-modeling` writes. Give the recommendation **after** the fix is in, not
 before — you know more now than when you started.
 
@@ -177,6 +177,6 @@ The diagnostic trees are NAV/Ktor-specific. Generic Kubernetes/Kafka/SQL knowled
 ## Related skills
 
 - `/grilling` — stress-test the design when the bug exposes a design gap;
-  recommend the documented track when needed
+  recommend the documented route when needed
 - `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (the mechanisms behind auth diagnosis)
 - `/architecture-review` — review NAV consequences of architectural changes that would have prevented the bug

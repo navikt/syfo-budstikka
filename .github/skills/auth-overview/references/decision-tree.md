@@ -17,7 +17,7 @@ Identify who initiates the request against this backend API, and choose the auth
 
 ## Outgoing — this API calls another service
 
-| Should the user's identity travel along? | Mechanism                     | Texas `identity_provider` |
+| Must the user's identity travel along?   | Mechanism                     | Texas `identity_provider` |
 |------------------------------------------|-------------------------------|---------------------------|
 | Yes (user context exists)                | TokenX exchange (OBO)         | `tokenx`                  |
 | No (pure machine-to-machine)             | Azure AD client_credentials   | `azuread`                 |

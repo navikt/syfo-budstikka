@@ -24,7 +24,7 @@ class HendelseConsumer(private val consumer: KafkaConsumer<String, String>, priv
                 } catch (e: MidlertidigFeil) {
                     throw e   // let Kafka redeliver on the next poll
                 } catch (e: PermanentFeil) {
-                    logger.error("Permanent feil, sender til DLQ",
+                    logger.error("Permanent failure, sending to DLQ",
                         kv("topic", record.topic()), kv("offset", record.offset()), e)
                     dlqProducer.send(record.value(), e.message)
                 }
@@ -45,7 +45,7 @@ Commit strategy: `commitSync()` after each batch is safe and simple. `commitAsyn
 ```kotlin
 producer.send(ProducerRecord(topic, key, value)) { _, exception ->
     if (exception != null) {
-        logger.error("Feil ved sending til Kafka", kv("topic", topic), exception)
+        logger.error("Failed to send to Kafka", kv("topic", topic), exception)
     }
 }
 ```
@@ -81,7 +81,7 @@ You can also read these via the Ktor `environment.config` if they are mirrored i
 
 ```kotlin
 @Test
-fun `prosesserer sykmelding_sendt og dedup-er duplikat`() {
+fun `processes sykmelding_sendt and deduplicates a duplicate`() {
     val repo = InMemoryEventStore()
     val record = ConsumerRecord("teamsykefravar.sykmelding.v1", 0, 0L, "fnr", payload)
     prosesser(record, repo)

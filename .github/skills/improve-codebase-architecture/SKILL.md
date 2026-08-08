@@ -10,9 +10,9 @@ Uncover architectural friction in this repository and propose **deepening opport
 **Role:** this _finds_ candidates (discovery). Design the interface for a chosen
 candidate inline with two genuinely different alternatives and interrogate the
 choice with `/grilling`. When lasting concepts or decisions ought to be
-documented, recommend the documented path and wait for the user's decision. Use
+documented, recommend the documented route and wait for the user's choice. Use
 `/architecture-review` for NAV review and `/domain-modeling` after the
-documented path has been chosen.
+documented route has been chosen.
 
 The skill is **informed by** the domain model and settled decisions, and builds on a shared architecture vocabulary:
 
@@ -47,7 +47,7 @@ Apply the deletion test to anything you suspect is shallow.
 
 ### 2. Present the candidates as an HTML report
 
-Write a self-contained HTML file to the OS temp directory so that nothing ends up in the repository. Resolve the temp directory from `$TMPDIR` with `/tmp` as fallback, and write to `<tmpdir>/arkitektur-review-<timestamp>.html`. Open it for the user (`open <path>` on macOS, `xdg-open <path>` on Linux) and state the absolute path.
+Write a self-contained HTML file to the OS temp directory so that nothing ends up in the repository. Resolve the temp directory from `$TMPDIR` with `/tmp` as fallback, and write to `<tmpdir>/architecture-review-<timestamp>.html`. Open it for the user (`open <path>` on macOS, `xdg-open <path>` on Linux) and state the absolute path.
 
 Each candidate gets a card with: **Files**, **Problem** (one sentence), **Solution** (one sentence), **Benefits** (bullet list in the vocabulary — locality/leverage/test surface), **Before/after diagram**, and **Recommendation strength** (`Strong`, `Worth exploring`, `Speculative`). Close with a **Top recommendation**: which one you would take first and why.
 
@@ -68,11 +68,11 @@ phases 1–2.
 
 When clarified concepts or qualifying, lasting decisions ought to be written to
 `docs/`, recommend `/grill-with-docs`, explain why and wait for the user's
-decision. Before a documented path is chosen, keep the results in the
+choice. Before a documented route is chosen, keep the results in the
 conversation and the active task. Use a task-local `.grill/` only when the
 calling workflow has explicitly chosen it.
 
-After a documented path has been chosen, documentation happens **continuously**
+After a documented route has been chosen, documentation happens **continuously**
 as decisions fall into place:
 
 - **Naming a deepened module after a concept that is not in `docs/glossary.md`?** Add the term there (use `/domain-modeling`). Create the file lazily if it is missing.
@@ -88,7 +88,7 @@ as decisions fall into place:
 
 Once the chosen deepening has been thoroughly grilled:
 
-- Write the task scope to the issue/plan. After a documented path has been
+- Write the task scope to the issue/plan. After a documented route has been
   chosen, `/domain-modeling` writes new concepts and qualifying decisions;
   maintained detail goes to the relevant topic document.
 - Break the deepening down into a safe, incremental refactoring plan in the

@@ -86,7 +86,7 @@ Index strategies, JSONB patterns, `ON CONFLICT`, constraints, `TIMESTAMPTZ`, UUI
 and anti-patterns (N+1, `SELECT *`, missing `LIMIT`) are generic PostgreSQL knowledge —
 read the repository's existing migrations and schema for the local style instead of a list here.
 
-Two things that are not obvious, and that a review should catch:
+Two things that are not obvious, and that a review must catch:
 
 - `CREATE INDEX CONCURRENTLY` must live in its own migration outside a transaction, and an
   aborted call leaves behind an invalid index with the same name that blocks the next attempt.

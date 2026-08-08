@@ -2,7 +2,7 @@
 
 Team standard for a uniform error contract in `no.nav.syfo` Ktor services. Clients always get the same JSON shape, and unexpected errors do not leak a stacktrace.
 
-## ApiError og ErrorType
+## ApiError and ErrorType
 
 ```kotlin
 open class ApiError(

@@ -1,6 +1,6 @@
 ---
 name: pull-request
-description: "Use when a change in navikt/syfo-budstikka is to be created or updated as a pull request: 'create PR', 'update PR', or /pull-request after a green vertical slice."
+description: "Use when a change in this repository is to be created or updated as a pull request: 'create PR', 'update PR', or /pull-request after a green vertical slice."
 ---
 
 # Pull request

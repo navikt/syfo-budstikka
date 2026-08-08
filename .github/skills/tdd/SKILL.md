@@ -7,7 +7,7 @@ description: "Use when test-first is explicitly wanted: 'red-green-refactor', 't
 
 ## Philosophy
 
-**Core principle**: Tests verify behavior through public interfaces, not implementation details. The code may change completely — the tests should survive.
+**Core principle**: Tests verify behavior through public interfaces, not implementation details. The code may change completely — the tests must survive.
 
 **Good tests** run through real code paths via public APIs. In a Ktor backend that usually means: enter through the HTTP layer with `testApplication`/`client`, or call the domain service via its public function. A good test reads like a specification — `\`a user without a valid token gets 401\`` tells you exactly which capability exists. These tests survive refactoring because they do not care about internal structure.
 

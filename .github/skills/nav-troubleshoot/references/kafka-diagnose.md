@@ -61,7 +61,7 @@ Consumer lag is growing
 
 | Observation | Cause | Fix |
 |-------------|-------|---------|
-| Lag grows linearly from a deploy | New `group.id` / offset reset = earliest | Controlled; it will catch up. Optionally set `auto.offset.reset: latest` if that is acceptable |
+| Lag grows linearly from a deploy | New `group.id` / offset reset = earliest | Expected; it will catch up. Optionally set `auto.offset.reset: latest` if that is acceptable |
 | The consumer processes nothing, no errors | Wrong `group.id` / topic name | Check the NAIS manifest and the Ktor config |
 | Rebalance every N minutes | Processing time > `max.poll.interval.ms` | Reduce the batch size, or increase the interval |
 | `SSL handshake failed` | The NAIS SSL env vars are not used correctly | Check that the app reads `KAFKA_TRUSTSTORE_PATH` / `KAFKA_KEYSTORE_PATH` / `KAFKA_CREDSTORE_PASSWORD` |

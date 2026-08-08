@@ -9,7 +9,7 @@ Nav-specific conventions for Kafka in this repository. General Kafka theory is n
 
 Typically used in @grillmester phases 1–2 when an event contract is being shaped, and in
 the implementation phase when a consumer or producer is written. When a lasting decision
-passes the ADR gate, recommend the documented track and wait for the user's choice before
+passes the ADR gate, recommend the documented route and wait for the user's choice before
 `/domain-modeling` records it.
 
 ## Detect the existing Kafka style first
@@ -35,7 +35,7 @@ Follow the dominant pattern. If the repository has no Kafka yet, choose plain Ap
 4. Plan the event contract (topic name, key, fields, `@event_name`). Write the
    maintained contract detail that follows from the approved change into the
    relevant topic document. New domain concepts and qualifying lasting decisions are
-   candidates for the documented track; wait for the user's choice before
+   candidates for the documented route; wait for the user's choice before
    `/domain-modeling` writes them.
 5. Implement according to the pattern for the stack (see the reference files below).
 6. Verify with tests (see the reference files) and return the evidence to @grillmester phase 5.
@@ -116,7 +116,7 @@ spec:
 Important choices:
 
 - **cleanupPolicy: compact** for topics that represent the latest state per key. Requires a stable key.
-- **partitions**: increase early — scaling down requires a new topic. Start with 3–6 for domain events.
+- **partitions**: increase early — reducing the partition count requires a new topic. Start with 3–6 for domain events.
 - **acl**: explicit per consumer app — no wildcards.
 
 ## Nav event design (stack-agnostic)
@@ -200,7 +200,7 @@ How do you change an existing event?
 Breaking event changes are a coordination problem with consuming teams —
 the same discipline as API versioning. Review Nav-wide and
 team consequences with `/architecture-review`. When the decision qualifies,
-recommend the documented track and wait for the user's choice before `/domain-modeling`
+recommend the documented route and wait for the user's choice before `/domain-modeling`
 records an ADR.
 
 ## Stack-specific patterns
@@ -229,7 +229,7 @@ Read only the one relevant to the repository:
 - Changing `partitions` / `cleanupPolicy` on an existing topic.
 
 ### Never
-- Log fødselsnummer or other PII.
+- Log national identity numbers or other PII.
 - Use the Kafka offset as an idempotency key.
 - Run the `poll` loop inside an HTTP handler.
 - Silently swallow permanent errors so that the stream stops.

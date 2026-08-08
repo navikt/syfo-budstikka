@@ -90,9 +90,9 @@ Before any grilling: check that the claim holds.
 ### 4. Grill (when needed)
 If the item needs more substance, run `/grilling` and grill it into shape one
 question at a time. When clarified concepts or lasting decisions ought to be
-documented, recommend the documented track, explain why and wait for the user's
+documented, recommend the documented route, explain why and wait for the user's
 choice. Use `/architecture-review` for NAV-specific findings; once the
-documented track has been chosen, `/domain-modeling` is used to update the
+documented route has been chosen, `/domain-modeling` is used to update the
 glossary or write a qualifying ADR under the repository policy.
 
 ### 5. Apply the outcome

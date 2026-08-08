@@ -96,7 +96,7 @@ Before: a tree of function calls as nested boxes. After: the same tree collapsed
 - Editorial, not corporate dashboard. Generous whitespace. Serif optional for headings (`font-serif` with stone/slate).
 - Color sparingly: one accent (emerald or indigo) plus red for leaks and yellow for warnings.
 - Keep diagrams ~320px tall so before/after sit comfortably side by side without scrolling.
-- Use `text-xs uppercase tracking-wider` for module labels inside diagrams — they should read as schematic, not as UI.
+- Use `text-xs uppercase tracking-wider` for module labels inside diagrams — they must read as schematic, not as UI.
 - The only scripts are the Tailwind CDN and the Mermaid ESM import. The report is otherwise static — no app code, no interactivity beyond Mermaid's own rendering.
 
 ## Top recommendation section

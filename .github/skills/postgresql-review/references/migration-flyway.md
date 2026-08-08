@@ -17,7 +17,7 @@ If such a migration was aborted, an invalid index with the same name may be left
 
 ## Generic migration conventions
 
-File naming (`V<n>__`), `TIMESTAMPTZ` over `TIMESTAMP`, `UUID`/`gen_random_uuid()`, `TEXT` over `VARCHAR`, FK indexes, repeatable `R__` migrations and the forward-only discipline are Flyway standard — read the repository's existing migrations for the local style. This reference covers only what a **review** should look for in a Postgres context: an aborted `CONCURRENTLY` (above) and shared-schema coordination (below).
+File naming (`V<n>__`), `TIMESTAMPTZ` over `TIMESTAMP`, `UUID`/`gen_random_uuid()`, `TEXT` over `VARCHAR`, FK indexes, repeatable `R__` migrations and the forward-only discipline are Flyway standard — read the repository's existing migrations for the local style. This reference covers only what a **review** must look for in a Postgres context: an aborted `CONCURRENTLY` (above) and shared-schema coordination (below).
 
 ## Three-step field migration on a shared schema
 

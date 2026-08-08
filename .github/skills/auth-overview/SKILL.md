@@ -70,7 +70,7 @@ maskinporten:
       - name: "nav:example/scope"
 ```
 
-`accessPolicy` is not optional cosmetics: incoming tokens that do not match `inbound.rules` are to be rejected at the platform level. Keep the code and the Nais manifest in sync — drift between them is a bug.
+`accessPolicy` is not optional cosmetics: incoming tokens that do not match `inbound.rules` must be rejected at the platform level. Keep the code and the Nais manifest in sync — drift between them is a bug.
 
 ## Token validation in Ktor
 
@@ -93,7 +93,7 @@ routing {
         get("/api/sykmeldinger") {
             val claims = call.principal<TokenValidationContextPrincipal>()
                 ?.context?.getClaims("tokenx")
-            val pid = claims?.getStringClaim("pid")        // fødselsnummer (TokenX/ID-porten)
+            val pid = claims?.getStringClaim("pid")        // national identity number (TokenX/ID-porten)
             // ... authorize per user based on pid
         }
     }
@@ -126,7 +126,7 @@ Content-Type: application/json
 POST http://localhost:3000/api/v1/token/exchange
 Content-Type: application/json
 
-{ "identity_provider": "tokenx", "target": "cluster:namespace:app", "user_token": "<innkommende brukertoken>" }
+{ "identity_provider": "tokenx", "target": "cluster:namespace:app", "user_token": "<incoming user token>" }
 ```
 
 ### Azure AD client_credentials (M2M — no user)
@@ -154,7 +154,7 @@ Content-Type: application/json
 2. Search the codebase for existing auth setup (`tokenValidationSupport`, `Authentication`, Texas calls) and follow the same pattern.
 3. Review the NAV consequences of `accessPolicy` and the auth mechanism with
    `/architecture-review`. When the choice passes the ADR gate, recommend the
-   documented path and wait for the user's decision before `/domain-modeling`
+   documented route and wait for the user's choice before `/domain-modeling`
    records it.
 4. For local runs and JVM tests: see [`references/local-auth-mock.md`](references/local-auth-mock.md).
 5. Changes to auth validation or accessPolicy → run `/security-review` before delivery and return the evidence to @grillmester phase 5.

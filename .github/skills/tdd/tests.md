@@ -21,7 +21,10 @@ Characteristics:
 - Describes WHAT, not HOW
 - One logical assertion per test
 
-Test names in backticks read like a specification:
+Test names in backticks read like a specification. This repository writes them in
+English — see `src/test/kotlin/`. Norwegian domain nouns (`søknad`, `sykmelding`,
+`brukervarsel`) and field names (`fnr`) keep their own spelling inside the name;
+they are the domain's terms, not prose, and they must match what the code calls them.
 
 ```kotlin
 @Test fun `a call without a valid token gives 401`() = testApplication { /* ... */ }

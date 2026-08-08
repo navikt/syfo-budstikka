@@ -27,13 +27,13 @@ NAV processes personal data at four protection levels. Incorrect classification 
 | Level | Typical data | Handling |
 |------|--------------|------------|
 | **Strengt fortrolig** (strictly confidential) | Health data, diagnoses, sykmeldinger, people exposed to violence/kode 6, child welfare data | Encryption at rest and in transit, strict access control, CEF audit log on display (WARN), dedicated DPIA |
-| **Fortrolig** (confidential) | National identity number (fnr), D-number, kode 7, sensitive benefits data | Never in standard logs, CEF audit log on display, access control per case/user |
+| **Fortrolig** (confidential) | National identity number (`fnr`), D-number, kode 7, sensitive benefits data | Never in standard logs, CEF audit log on display, access control per case/user |
 | **Intern** (internal) | Name, address, phone, email, non-sensitive benefit status | Data minimization, access on a need-to-know basis, retention documented |
 | **Åpen** (open) | Public statistics, anonymized aggregates | Normal access; verify that the anonymization withstands linkage attacks |
 
-The `syfo` domain handles sykefravær and sykmeldinger — the fact that "a user is sykmeldt" is **strengt fortrolig** (implicit health information). Treat fnr, sykmeldinger and diagnoses accordingly.
+The `syfo` domain handles sykefravær and sykmeldinger — the fact that "a user is sykmeldt" is **strengt fortrolig** (implicit health information). Treat `fnr`, sykmeldinger and diagnoses accordingly.
 
-**Placeholder in code and documentation**: Never use a real fnr. Use a clearly
+**Placeholder in code and documentation**: Never use a real `fnr`. Use a clearly
 named synthetic test identity from the test fixture or Skatteetaten's official
 test series, explicitly marked as synthetic. See
 `references/nav-threat-model.md` for the DPIA process and audit requirements.

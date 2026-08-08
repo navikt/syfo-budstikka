@@ -28,8 +28,8 @@ routes are set up explicitly. The repository's actual setup in `infrastructure/m
 
 Two choices that are not obvious:
 
-- `liveness` (`/internal/isalive`) should only answer whether the process ought to be restarted.
-  `readiness` (`/internal/isready`) should depend on actual dependencies, but be
+- `liveness` (`/internal/isalive`) must only answer whether the process ought to be restarted.
+  `readiness` (`/internal/isready`) must depend on actual dependencies, but be
   kept lightweight. Consumer lag belongs in alerting, never in liveness
   (see [helsesjekk](../../../docs/helsesjekk.md)).
 - `distributionStatisticConfig` with `percentilesHistogram(true)` is required for p95/p99
@@ -50,7 +50,7 @@ NAIS automatically adds a set of labels. Do not duplicate these on your own metr
 - `team` / `namespace` — ownership and Kubernetes namespace, used for alert routing
 - `cluster` — `dev-gcp` / `prod-gcp`
 
-Your own labels should cover domain aspects:
+Your own labels must cover domain aspects:
 - Good: `method`, `route`, `status`, `event_type`, `result`, `consumer_group`, `topic`
 - Bad (high cardinality / PII): `user_id`, `fnr`, `aktor_id`, `trace_id`, `callId`, raw URLs with dynamic segments
 - Prefer normalised route values (`/api/oppgaver/{id}`), not expanded path parameters
@@ -102,7 +102,7 @@ One JSON line per log entry on stdout. Fields Loki parses and indexes:
 {
   "@timestamp": "2026-06-29T10:23:45.123Z",
   "level": "INFO",
-  "message": "Oppgave processed",
+  "message": "Task processed",
   "logger_name": "no.nav.syfo.oppgave.OppgaveService",
   "thread_name": "eventLoopGroupProxy-4-1",
   "trace_id": "2f2f2264a8b6df9f8b3d614f4c9ce111",
@@ -112,7 +112,7 @@ One JSON line per log entry on stdout. Fields Loki parses and indexes:
 }
 ```
 
-Minimum fields: `@timestamp`, `level`, `message`. Put domain data in top-level fields (not nested under `context`). Automatic Loki labels (`app`, `namespace`, `cluster`, `container`, `pod`, `stream`) must not be duplicated in the payload. Never fnr, aktør-id, tokens or other special categories of personal data in the log.
+Minimum fields: `@timestamp`, `level`, `message`. Put domain data in top-level fields (not nested under `context`). Automatic Loki labels (`app`, `namespace`, `cluster`, `container`, `pod`, `stream`) must not be duplicated in the payload. Never national identity numbers, aktør-id, tokens or other special categories of personal data in the log.
 
 ## Grafana dashboards for the service
 
@@ -166,7 +166,7 @@ route and wait for the user's choice before `/domain-modeling` records it.
 - [ ] Key domain metrics defined with stable `snake_case` names and low-cardinality labels
 - [ ] Dashboards cover request rate, error rate, latency p95/p99, pool usage and Kafka lag
 - [ ] Alerts exist for high error rate, high latency, pod restarts and critical dependencies
-- [ ] Logs, traces and metric labels do not contain fnr, aktør-id, tokens or other secrets
+- [ ] Logs, traces and metric labels do not contain national identity numbers, aktør-id, tokens or other secrets
 
 ## Boundaries
 
@@ -184,7 +184,7 @@ route and wait for the user's choice before `/domain-modeling` records it.
 - New dashboards, folders or alerting channels
 
 ### Never
-- Log or expose fnr, aktør-id, tokens, passwords or other special categories of personal data
+- Log or expose national identity numbers, aktør-id, tokens, passwords or other special categories of personal data
 - Use `camelCase` in metric names
 - Use labels with high cardinality (`user_id`, `fnr`, `trace_id`, `callId`)
 - Add observability code that cannot be explained operationally or used in practice

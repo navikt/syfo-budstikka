@@ -177,7 +177,7 @@ Use `Naisjob` when the team needs batch runs (nightly jobs, one-off migrations, 
 - Put the task scope in the issue/plan and the maintained platform detail in the relevant
   topic document. When a platform choice passes the ADR gate — for example a
   hard-to-reverse and non-obvious choice of ingress, scaling strategy,
-  Postgres tier/HA or Kafka pool — recommend the documented track and wait for the
+  Postgres tier/HA or Kafka pool — recommend the documented route and wait for the
   user's choice before `/domain-modeling` records it.
 - A change in `accessPolicy`, auth flags or scopes → run `/security-review` and
   return the evidence to the active task.

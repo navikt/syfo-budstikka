@@ -89,7 +89,7 @@ When the backend itself calls a downstream service: use the Ktor `HttpClient` vi
 - Use NAIS-provisioned Postgres with an IAM/Vault-rotated credential; do not hardcode the connection string.
 - Review schema and storage choices for personal data with
   `/architecture-review`. When the choice passes the ADR gate, recommend the
-  documented path and wait for the user's decision before `/domain-modeling`
+  documented route and wait for the user's choice before `/domain-modeling`
   records it.
 
 ## Kafka (event consumer/producer)

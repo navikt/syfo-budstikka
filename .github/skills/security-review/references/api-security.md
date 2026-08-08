@@ -37,7 +37,7 @@ Use the table as a quick check during review. It shows a selection of signals an
 |-----------|-------------------|-----------------|
 | API1 Broken Object Level Authorization | A user or employee can look up a resource with an ID they do not own | Verify ownership/case affiliation in the route handler, not just that the token is valid |
 | API2 Broken Authentication | Wrong issuer/audience or a missing `azp` check | Check JWT validation in the `authenticate(...)` block, pre-authorized apps and the correct auth mechanism |
-| API3 Broken Object Property Level Authorization | The API returns or accepts fields the client should not see or control | Use explicit DTOs, do not expose internal fields or allow mass assignment uncritically |
+| API3 Broken Object Property Level Authorization | The API returns or accepts fields the client must not see or control | Use explicit DTOs, do not expose internal fields or allow mass assignment uncritically |
 | API4 Unrestricted Resource Consumption | Expensive calls can be spammed or drain CPU/memory | Check pagination, payload limits, rate limiting and expensive business flows |
 | API5 Broken Function Level Authorization | Ordinary users reach admin or case worker functions | Check role boundaries (`claims.groups`), group checks and dedicated branches for kode 6/7 and egen ansatt |
 | API7 SSRF | The API takes a forwarding URL or host from input | Restrict outbound with `accessPolicy`, allowlist hosts and validate the destination |

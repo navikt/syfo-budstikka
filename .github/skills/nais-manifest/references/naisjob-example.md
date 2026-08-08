@@ -83,8 +83,8 @@ spec:
 ## When should you use Naisjob rather than Application?
 
 - The job has a **defined end** (report run, migration, cleanup).
-- It should run **on a schedule** (cron) or **manually** (one-off run).
-- It should **not** expose HTTP for incoming traffic.
+- It must run **on a schedule** (cron) or **manually** (one-off run).
+- It must **not** expose HTTP for incoming traffic.
 
 If you need a continuous Kafka queue consumer, use `Application` — not `Naisjob`.
 

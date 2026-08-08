@@ -58,7 +58,7 @@ For things that can only increase.
 ```kotlin
 class OppgaveService(registry: MeterRegistry) {
     private val opprettet = Counter.builder("oppgaver_opprettet_total")
-        .description("Number of oppgaver created")
+        .description("Number of tasks created")
         .tag("kilde", "api")
         .register(registry)
 
@@ -77,7 +77,7 @@ For duration. For percentiles the timer must publish a histogram.
 ```kotlin
 class BehandlingService(registry: MeterRegistry) {
     private val behandlingstid = Timer.builder("oppgave_behandlingstid_seconds")
-        .description("Processing time for an oppgave")
+        .description("Processing time for a task")
         .publishPercentileHistogram()
         .tag("type", "manuell")
         .register(registry)
@@ -101,7 +101,7 @@ class KoMetrics(registry: MeterRegistry) {
 
     init {
         Gauge.builder("oppgave_ko_storrelse", koStorrelse) { it.get().toDouble() }
-            .description("Number of pending oppgaver")
+            .description("Number of pending tasks")
             .register(registry)
     }
 
@@ -137,7 +137,7 @@ Choose measurements that show whether the solution works, not just whether the J
 
 ```kotlin
 class BehandlingMetrics(registry: MeterRegistry) {
-    private val resultat = registry // tag-basert: én metrikk, flere resultater
+    private val resultat = registry // tag-based: one metric, several results
 
     fun tellResultat(result: String) =
         Counter.builder("oppgaver_behandlet_total")
@@ -149,7 +149,7 @@ class BehandlingMetrics(registry: MeterRegistry) {
 
 ### Kafka
 
-Measure received events, successful processing, errors, processing time and consumer lag/queue size. Use labels such as `event_type`, `result`, `topic` or `consumer_group` — never message key, payload id, fnr or aktør-id.
+Measure received events, successful processing, errors, processing time and consumer lag/queue size. Use labels such as `event_type`, `result`, `topic` or `consumer_group` — never message key, payload id, `fnr` or `aktør-id`.
 
 ## Health routes
 
