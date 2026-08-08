@@ -21,7 +21,7 @@ Bruk bindestrek, ikke særskriving: `Kafka-topicet`, `deploy-steg`, `token-valid
 
 ### Kode vs. prosa
 
-Kode-identifikatorer (`.kt`) følger en strengere regel enn prosa: norsk KUN på domeneord, alt annet engelsk — `.github/instructions/kotlin.instructions.md` er fasit. `oppslag` er OK i norsk prosa, men i kode skal det være `lookup`. I denne kodebasen er `Dispatch`, `Decision`, `Delivery`, `Recipient`, `Foundation`, `Channel` og `Reference` tekniske kodeord (engelsk), mens `Brukervarsel`, `Ledervarsel`, `DittSykefravaer` og `Brev` er domeneord (norsk).
+Kode-identifikatorer (`.kt`) følger en strengere regel enn prosa: norsk KUN på domeneord, alt annet engelsk — `docs/agents/language-policy.md` er fasit. `oppslag` er OK i norsk prosa, men i kode skal det være `lookup`. I denne kodebasen er `Dispatch`, `Decision`, `Delivery`, `Recipient`, `Foundation`, `Channel` og `Reference` tekniske kodeord (engelsk), mens `Brukervarsel`, `Ledervarsel`, `DittSykefravaer` og `Brev` er domeneord (norsk).
 
 ## Anglisismer — bruk norsk
 
