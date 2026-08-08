@@ -1,11 +1,11 @@
 ---
-description: "Used when writing or changing a Dockerfile or .dockerignore for this Ktor backend — base image selection, multi-stage/fat-jar builds, non-root and security."
+description: "Used when writing or changing a Dockerfile or .dockerignore in a Nav repository — base image selection, multi-stage builds, non-root and security. Portable core; repository facts live in the adapter section at the end."
 applyTo: "**/Dockerfile*, **/.dockerignore"
 ---
 
-# Docker — Nav (Ktor backend)
+# Docker — Nav
 
-Standards for Dockerfiles in this Ktor service (`no.nav.syfo`): Chainguard base images, fat jar from Gradle, non-root and security practice.
+Standards for Dockerfiles in Nav repositories: Chainguard base images, multi-stage builds, non-root and security practice. The core is stack-agnostic; anything specific to this repository lives in the [repository adapter](#repository-adapter) at the end.
 
 Reference: [Chainguard base images — sikkerhet.nav.no](https://sikkerhet.nav.no/docs/verktoy/chainguard-dockerimages)
 
@@ -13,23 +13,30 @@ Reference: [Chainguard base images — sikkerhet.nav.no](https://sikkerhet.nav.n
 
 Nav pays for [Chainguard base images](https://sikkerhet.nav.no/docs/verktoy/chainguard-dockerimages) with minimal vulnerabilities. Use these instead of Google Distroless or full OS images.
 
-### Nav's private registry (JVM)
+### Nav's private registry (JVM, Node, Python)
 
 ```
 europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/<image>:<tag>
 ```
 
-Relevant images for this service: `jre` (runtime), `jdk` (builds inside the Dockerfile).
+Available images include `jre`, `jdk`, `node`, `python`.
+
+### Free Chainguard images (Go, nginx, static)
+
+```
+cgr.dev/chainguard/<image>:<tag>
+```
 
 ### Tags
 
-- Use the major version that matches `jvmToolchain(...)` in `build.gradle.kts` (here: **25** → `jre:openjdk-25`). Chainguard does not backport.
+- Use the major version that matches the toolchain the repository builds with. Chainguard does not backport.
 - Do not pin SHAs manually. Set up a workflow for regular rebuilds.
 - Use [digestabot](https://github.com/navikt/digestabot) if you want SHA pinning with automatic PRs.
 
 ```dockerfile
-# ✅ Chainguard JRE from Nav's registry — match major against jvmToolchain
+# ✅ Chainguard from Nav's registry — match major against the build toolchain
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jre:openjdk-25
+FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/node:22-slim
 
 # ⚠️ Google Distroless works, but Chainguard is preferred in Nav
 FROM gcr.io/distroless/java21-debian12:nonroot
@@ -39,24 +46,23 @@ FROM ubuntu:22.04
 FROM openjdk:25
 ```
 
-## Fat jar from Gradle (recommended)
+## Build the artifact in CI, copy it in (recommended)
 
-The Ktor plugin builds a fat jar with `./gradlew buildFatJar` → `build/libs/*-all.jar`. Build the jar in CI and copy it in — then a simple single-stage Dockerfile is enough, and the Gradle layer stays out of the image.
+Build the deployable artifact (jar, binary, bundle) in CI and copy it into the image — then a simple single-stage Dockerfile is enough, and the build toolchain stays out of the runtime image.
 
 ```dockerfile
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jre:openjdk-25
 ENV TZ="Europe/Oslo"
 WORKDIR /app
 COPY build/libs/*-all.jar app.jar
-# mainClass = io.ktor.server.netty.EngineMain is baked in by the Ktor plugin
 CMD ["java", "-jar", "app.jar"]
 ```
 
-`EXPOSE` is not required for NAIS, but can document the port (default Ktor/Netty: 8080).
+`EXPOSE` is not required for NAIS, but can document the port.
 
 ## Multi-stage (building inside the Dockerfile)
 
-Use only if you do not build the jar in CI. Then it must be multi-stage so the Gradle layer stays out of the runtime image.
+Use only if you do not build the artifact in CI. Then it must be multi-stage so the build toolchain stays out of the runtime image.
 
 ```dockerfile
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jdk:openjdk-25 AS build
@@ -67,29 +73,29 @@ COPY gradle ./gradle
 COPY gradlew ./
 RUN ./gradlew dependencies --no-daemon
 COPY src ./src
-RUN ./gradlew buildFatJar --no-daemon
+RUN ./gradlew installDist --no-daemon
 
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jre:openjdk-25
 ENV TZ="Europe/Oslo"
 WORKDIR /app
-COPY --from=build /app/build/libs/*-all.jar app.jar
+COPY --from=build /app/build/libs/*.jar app.jar
 CMD ["java", "-jar", "app.jar"]
 ```
 
 ## Layer caching
 
 ```dockerfile
-# ✅ Copy build scripts and the gradle wrapper first → cache holds while dependencies are unchanged
+# ✅ Copy build scripts and dependency manifests first → cache holds while dependencies are unchanged
 COPY build.gradle.kts settings.gradle.kts gradle.properties gradlew ./
 COPY gradle ./gradle
 RUN ./gradlew dependencies --no-daemon
 COPY src ./src
-RUN ./gradlew buildFatJar --no-daemon
 
 # ❌ Invalidates the cache on any source change
 COPY . .
-RUN ./gradlew buildFatJar
 ```
+
+The same principle applies to every stack: copy the dependency manifest (`package.json`, `go.mod`, `requirements.txt`) and resolve dependencies before copying sources.
 
 ## Security
 
@@ -100,14 +106,14 @@ RUN ./gradlew buildFatJar
 USER nonroot
 USER 1001
 
-# ✅ Minimal COPY — only the jar into the runtime stage
-COPY --from=build /app/build/libs/*-all.jar app.jar
+# ✅ Minimal COPY — only the artifact into the runtime stage
+COPY --from=build /app/build/libs/*.jar app.jar
 
 # ❌ Copies secrets, test files, .git, the whole build directory
 COPY . .
 ```
 
-Secrets (TokenX, Azure AD, Postgres, Kafka) are injected as env/secrets by NAIS at runtime — never in the Dockerfile.
+Secrets are injected as env/secrets by NAIS at runtime — never in the Dockerfile.
 
 ## .dockerignore
 
@@ -116,48 +122,25 @@ Always create a `.dockerignore` so the build context stays small and secrets do 
 ```
 .git
 .github
-.gradle
 .idea
-build
-!build/libs
 *.md
 docker-compose*.yml
 .env*
 ```
 
-> Note: if you copy the finished jar with `COPY build/libs/*-all.jar`, `build/libs` must not be excluded — use `!build/libs` as above.
+Add the stack's build output directories, and re-include the artifact path if the Dockerfile copies a CI-built artifact (e.g. `!build/libs`).
 
-## CI — Chainguard authentication
+## CI — registry authentication
 
-Use `nais/docker-build-push` in GitHub Actions — it handles authentication against Nav's Chainguard registry automatically. Build the jar before the docker step.
-
-```yaml
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
-        with:
-          distribution: temurin
-          java-version: 25
-      - run: ./gradlew buildFatJar
-      - uses: nais/docker-build-push@v0
-        id: docker-push
-        with:
-          team: team-esyfo
-```
+Use `nais/docker-build-push` in GitHub Actions — it handles authentication against Nav's Chainguard registry and pushes to GAR with SBOM and SLSA attestation. Build the artifact before the docker step.
 
 ## Boundaries
 
 ### Always
-- Chainguard `jre`/`jdk` from Nav's registry, major matched against `jvmToolchain`
-- Fat jar via `./gradlew buildFatJar` (single-stage COPY) or multi-stage if the build happens in the Dockerfile
+- Chainguard base images from Nav's registry, major matched against the build toolchain
+- Build the artifact in CI (single-stage COPY) or multi-stage if the build happens in the Dockerfile
 - A `.dockerignore` file
-- Copy dependencies separately for layer caching
+- Copy dependency manifests separately for layer caching
 - `nais/docker-build-push` for CI
 
 ### Ask first
@@ -171,4 +154,12 @@ jobs:
 - Secrets in the Dockerfile (`ENV SECRET=...`, `ARG PASSWORD=...`) — use NAIS secrets
 - The `latest` tag on Nav registry images (use a specific major version)
 - Full OS images (`ubuntu`, `debian`, `openjdk`)
-- The Gradle layer in the runtime image (use multi-stage or build the jar in CI)
+- The build toolchain in the runtime image (use multi-stage or build the artifact in CI)
+
+## Repository adapter
+
+Facts for **this** repository (syfo-budstikka). Replace this section when rolling the core out to another repository.
+
+- **This repository has no Dockerfile.** Images are built with Jib (ADR 0010) via `nais/login` in the deploy workflow. These standards apply only if a Dockerfile is introduced — prefer keeping Jib.
+- JVM toolchain major lives in `gradle/libs.versions.toml` (`java`); a base image must match it.
+- Runtime base image (through Jib) is the Chainguard `jre` from Nav's registry, configured in `build.gradle.kts`.

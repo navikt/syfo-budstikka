@@ -1,13 +1,11 @@
 ---
-description: "Used when creating or changing GitHub Actions workflows (.github/workflows/**) for this Ktor backend — build, test, docker-build-push and Nais deploy. Trigger signals: SHA pinning, permissions, deploy dev/prod, secrets, concurrency, Gradle caching."
+description: "Used when creating or changing GitHub Actions workflows (.github/workflows/**) in a Nav repository — build, test and Nais deploy. Trigger signals: SHA pinning, permissions, deploy dev/prod, secrets, concurrency, build caching. Portable core; repository facts live in the adapter section at the end."
 applyTo: ".github/workflows/**"
 ---
 
-# GitHub Actions — syfo-budstikka (Ktor backend, team-esyfo)
+# GitHub Actions — Nav
 
-Standards for CI/CD workflows with GitHub Actions on Nais for this Kotlin/Ktor backend (`no.nav.syfo`). Check whether `team-esyfo` has a repository with reusable workflows before writing your own.
-
-This repository builds with Gradle (version catalogs: `libs`, `ktorLibs`), runs on Netty via `io.ktor.server.netty.EngineMain` and deploys as a Nais app. It is a pure backend — no Node/frontend steps in the workflow.
+Standards for CI/CD workflows with GitHub Actions on Nais. The core is stack-agnostic; anything specific to this repository lives in the [repository adapter](#repository-adapter) at the end. Check whether the team has a repository with reusable workflows before writing your own.
 
 ## Action pinning
 
@@ -16,13 +14,12 @@ Pin all third-party actions to a full commit SHA with a version comment:
 ```yaml
 # ✅ Pinned to SHA
 - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-- uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
 
 # ❌ An unpinned tag can be compromised
 - uses: actions/checkout@v4
 ```
 
-> **Exception**: `nais/*` actions (`nais/docker-build-push`, `nais/deploy`) are internal Nav actions with stable semver tags. They do not need SHA pinning, but should have a version comment.
+> **Exception**: `nais/*` actions (`nais/docker-build-push`, `nais/deploy`, `nais/login`) are internal Nav actions with stable semver tags. They do not need SHA pinning, but should have a version comment.
 
 ## Minimal permissions
 
@@ -36,6 +33,8 @@ permissions: write-all
 ```
 
 ## Build, test and Nais deploy
+
+The standard shape, independent of stack:
 
 ```yaml
 name: Build and deploy
@@ -59,18 +58,11 @@ jobs:
       image: ${{ steps.docker-build-push.outputs.image }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
-        with:
-          distribution: temurin
-          java-version: 25      # match jvmToolchain(25) in build.gradle.kts
-          cache: gradle
-      - run: ./gradlew build --no-daemon
+      # <stack setup and build steps — see the repository adapter>
       - uses: nais/docker-build-push@v0
         id: docker-build-push
         with:
-          team: team-esyfo
-          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
-          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          team: <team>
 
   deploy-dev:
     needs: build
@@ -81,7 +73,7 @@ jobs:
       - uses: nais/deploy/actions/deploy@v2
         env:
           CLUSTER: dev-gcp
-          RESOURCE: .nais/nais.yaml
+          RESOURCE: <path to Nais manifest>
           VAR: image=${{ needs.build.outputs.image }}
 
   deploy-prod:
@@ -93,23 +85,15 @@ jobs:
       - uses: nais/deploy/actions/deploy@v2
         env:
           CLUSTER: prod-gcp
-          RESOURCE: .nais/nais.yaml
+          RESOURCE: <path to Nais manifest>
           VAR: image=${{ needs.build.outputs.image }}
 ```
 
-The Nais manifest (`RESOURCE`) must follow the pattern in the `kotlin-ktor`/`nais-manifest` skill. If you change resources, health probes or scaling there, update the manifest at the same time.
+Deploy every environment from the same built image — never rebuild per environment.
 
-## Gradle caching
+## Build caching
 
-```yaml
-- uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
-  with:
-    distribution: temurin
-    java-version: 25
-    cache: gradle
-```
-
-`cache: gradle` caches `~/.gradle/caches` and the wrapper. Use `./gradlew --no-daemon` in CI for predictable behaviour. For migration/integration tests with Postgres (Flyway/Kafka via Testcontainers) — let the tests start containers themselves; do not define service containers in the workflow unless the team's pattern requires it.
+Use the setup action's built-in dependency caching (`actions/setup-java` with `cache: gradle`, `actions/setup-node` with `cache: npm`, and so on) rather than hand-rolled `actions/cache` steps. The toolchain version in CI must match the version the repository's build defines. For integration tests that need infrastructure (databases, brokers) via Testcontainers — let the tests start containers themselves; do not define service containers in the workflow unless the team's pattern requires it.
 
 ## Security
 
@@ -132,8 +116,8 @@ The Nais manifest (`RESOURCE`) must follow the pattern in the `kotlin-ktor`/`nai
 - Set explicit `permissions` per workflow/job (`contents: read`, `id-token: write` for Nais)
 - Set `timeout-minutes` on all jobs
 - Use `concurrency` for deploy workflows
-- `java-version` in CI must match `jvmToolchain` in `build.gradle.kts`
-- Check for reusable workflows in team-esyfo before writing your own
+- The CI toolchain version must match the repository's build definition
+- Check for reusable workflows in the team before writing your own
 
 ### Ask first
 - New secrets or environment variables (including TokenX/Azure AD related)
@@ -145,3 +129,14 @@ The Nais manifest (`RESOURCE`) must follow the pattern in the `kotlin-ktor`/`nai
 - Unpinned third-party action versions without SHA (exception: `nais/*` actions)
 - Logging secrets in workflow output
 - `pull_request_target` with `actions/checkout` of the PR branch (code injection)
+
+## Repository adapter
+
+Facts for **this** repository (syfo-budstikka). Replace this section when rolling the core out to another repository.
+
+- Team: `team-esyfo`. Stack: Kotlin/Ktor backend built with Gradle (version catalogs `libs` and `ktorLibs`); pure backend, no Node/frontend steps.
+- CI toolchain: `actions/setup-java` with `distribution: temurin`, `cache: gradle`, and `java-version` matching `java` in `gradle/libs.versions.toml`.
+- **Images are built with Jib** (ADR 0010) via `nais/login` + `./gradlew jib`, not `nais/docker-build-push`. Every environment deploys the image from the single build job (`deploy.yaml` → `deploy-nais.yaml`).
+- The PR/merge-queue gate is the reusable `ci-reusable.yml`, summarised by the single required `Merge gate` check. Contract-relevant changes additionally run the compatibility gates (`scripts/detect-contract-changes.sh`).
+- Contract releases have their own tag-driven workflow (`publish-kontrakt.yml`).
+- Lint workflows locally with `actionlint` and `zizmor` before pushing.
