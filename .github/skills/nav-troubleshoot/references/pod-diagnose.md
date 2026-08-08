@@ -107,7 +107,7 @@ Pod fails
 │   ├── Log shows an auth-related error at startup? → see auth-diagnose.md
 │   └── Unknown? → `kubectl logs --previous` and search the logs
 └── Status = Running but readiness fails?
-    ├── The readiness endpoint does not respond → check that the Ktor route (e.g. `/internal/isready`) matches `readiness.path`
+    ├── The readiness endpoint does not respond → check that the Ktor route (e.g. `/internal/health/is_ready`) matches `readiness.path`
     ├── The app listens on a different port than `spec.port`
     └── The app takes a long time to start (Flyway migration at startup) → increase `readiness.initialDelay`
 ```

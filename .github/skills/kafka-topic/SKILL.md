@@ -65,7 +65,7 @@ fun Application.kafkaConsumerModule(consumer: HendelseConsumer) {
 }
 ```
 
-Expose the consumer's health in `/internal/isready` so that the pod is not marked ready before the consumer is actually polling. Keep `/internal/*` (isalive, isready, metrics) outside auth, cf. `/auth-overview`.
+Expose the consumer's health in `/internal/health/is_ready` so that the pod is not marked ready before the consumer is actually polling. Keep `/internal/*` (isalive, isready, metrics) outside auth, cf. `/auth-overview`.
 
 ## NAIS Kafka configuration
 

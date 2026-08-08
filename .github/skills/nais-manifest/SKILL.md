@@ -30,12 +30,12 @@ spec:
 
   prometheus:
     enabled: true
-    path: /internal/prometheus   # Check the actual path in the Ktor routing
+    path: /internal/metrics   # Check the actual path in the Ktor routing
   liveness:
-    path: /internal/isalive      # Check the existing one — may also be /isAlive
+    path: /internal/health/is_alive      # Check the existing one — may also be /isAlive
     initialDelay: 5
   readiness:
-    path: /internal/isready
+    path: /internal/health/is_ready
     initialDelay: 5
 
   resources:

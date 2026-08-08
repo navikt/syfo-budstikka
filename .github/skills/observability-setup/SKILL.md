@@ -1,6 +1,6 @@
 ---
 name: observability-setup
-description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/isalive|isready|prometheus, structured JSON logging with trace_id/callId, correlation ID (Nav-Call-Id/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
+description: "Use when establishing or improving observability in this repository: Micrometer metrics and PrometheusMeterRegistry in Ktor, the MicrometerMetrics plugin, /internal/health/is_alive|isready|prometheus, structured JSON logging with trace_id/callId, correlation ID (Nav-Call-Id/x_request_id), OpenTelemetry tracing, PromQL/LogQL, Grafana dashboards and Prometheus alerts in NAIS — or when someone says /observability-setup."
 ---
 
 # Observability in this repository
@@ -16,7 +16,7 @@ Ktor 3.x on Netty, package `no.nav.budstikka`, running in NAIS. Keep the main ru
 
 1. Read the NAIS manifest, `src/main/resources/application.conf`, `logback.xml` and `build.gradle.kts`/`gradle/libs.versions.toml` for existing observability setup.
 2. Find the established patterns for `MicrometerMetrics`, `MeterRegistry` injection (Koin), `CallId`/`CallLogging`, MDC fields and health routes.
-3. Verify which endpoints NAIS actually scrapes and probes: `/internal/isalive`, `/internal/isready`, `/internal/prometheus` (or `/internal/metrics`). The paths in the code must match the manifest.
+3. Verify which endpoints NAIS actually scrapes and probes: `/internal/health/is_alive`, `/internal/health/is_ready`, `/internal/metrics` (or `/internal/metrics`). The paths in the code must match the manifest.
 4. Start with standard metrics (Ktor HTTP server + JVM) and extend with domain metrics that provide operational value.
 5. Add dashboards and alerts only once the metrics and the label set are stable.
 
@@ -28,8 +28,8 @@ routes are set up explicitly. The repository's actual setup in `infrastructure/m
 
 Two choices that are not obvious:
 
-- `liveness` (`/internal/isalive`) must only answer whether the process ought to be restarted.
-  `readiness` (`/internal/isready`) must depend on actual dependencies, but be
+- `liveness` (`/internal/health/is_alive`) must only answer whether the process ought to be restarted.
+  `readiness` (`/internal/health/is_ready`) must depend on actual dependencies, but be
   kept lightweight. Consumer lag belongs in alerting, never in liveness
   (see [helsesjekk](../../../docs/helsesjekk.md)).
 - `distributionStatisticConfig` with `percentilesHistogram(true)` is required for p95/p99
@@ -162,7 +162,7 @@ route and wait for the user's choice before `/domain-modeling` records it.
 
 ## Checklist
 
-- [ ] `/internal/isalive`, `/internal/isready` and the scrape path (`/internal/prometheus`) match the NAIS manifest
+- [ ] `/internal/health/is_alive`, `/internal/health/is_ready` and the scrape path (`/internal/metrics`) match the NAIS manifest
 - [ ] `MicrometerMetrics` installed with a shared `PrometheusMeterRegistry` + JVM binders
 - [ ] OpenTelemetry auto-instrumentation considered/enabled in NAIS
 - [ ] Structured JSON logging to stdout with `trace_id`, `span_id`, `callId`

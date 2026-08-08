@@ -28,7 +28,7 @@ spec:
   # Observability — same as Application
   prometheus:
     enabled: true
-    path: /internal/prometheus
+    path: /internal/metrics
   observability:
     autoInstrumentation:
       enabled: true

@@ -138,7 +138,7 @@ When the backend exposes an API, list the endpoints from `routing { ... }` with 
 | POST | `/api/v1/...` | Kort beskrivelse | Azure AD |
 ```
 
-Include only endpoints that are actually central to the consumers. `/internal/isalive`, `/internal/isready` and `/metrics` (NAIS probes) normally do not need to appear in the API table.
+Include only endpoints that are actually central to the consumers. `/internal/health/is_alive`, `/internal/health/is_ready` and `/metrics` (NAIS probes) normally do not need to appear in the API table.
 
 ## The Formål section
 

@@ -27,7 +27,7 @@ fun Application.installMetrics(registry: PrometheusMeterRegistry) {
         meterBinders = listOf(JvmMemoryMetrics(), JvmGcMetrics(), ProcessorMetrics())
     }
     routing {
-        get("/internal/prometheus") { call.respond(registry.scrape()) }
+        get("/internal/metrics") { call.respond(registry.scrape()) }
     }
 }
 ```
@@ -157,8 +157,8 @@ The NAV convention is simple internal routes, not Actuator. Always align the pat
 
 ```kotlin
 routing {
-    get("/internal/isalive") { call.respondText("OK") }
-    get("/internal/isready") {
+    get("/internal/health/is_alive") { call.respondText("OK") }
+    get("/internal/health/is_ready") {
         if (kafkaConsumer.isReady() && dataSource.isHealthy()) {
             call.respondText("OK")
         } else {
