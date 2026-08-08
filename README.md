@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("no.nav.syfo:budstikka-kontrakt:<latest release version>")
+    implementation("no.nav.syfo:budstikka-kontrakt:0.1.0")
     implementation("org.apache.kafka:kafka-clients:4.3.1")
 }
 ```
