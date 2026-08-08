@@ -1,67 +1,67 @@
 ---
-description: "Brukes når du skriver eller endrer en Dockerfile eller .dockerignore for denne Ktor-backenden — valg av base image, multi-stage/fat-jar-bygg, non-root og sikkerhet."
+description: "Used when writing or changing a Dockerfile or .dockerignore for this Ktor backend — base image selection, multi-stage/fat-jar builds, non-root and security."
 applyTo: "**/Dockerfile*, **/.dockerignore"
 ---
 
-# Docker — Nav (Ktor-backend)
+# Docker — Nav (Ktor backend)
 
-Standarder for Dockerfile i denne Ktor-tjenesten (`no.nav.syfo`): Chainguard base images, fat-jar fra Gradle, non-root og sikkerhetspraksis.
+Standards for Dockerfiles in this Ktor service (`no.nav.syfo`): Chainguard base images, fat jar from Gradle, non-root and security practice.
 
 Reference: [Chainguard base images — sikkerhet.nav.no](https://sikkerhet.nav.no/docs/verktoy/chainguard-dockerimages)
 
-## Base Images — Chainguard
+## Base images — Chainguard
 
-Nav betaler for [Chainguard base images](https://sikkerhet.nav.no/docs/verktoy/chainguard-dockerimages) med minimale sårbarheter. Bruk disse i stedet for Google Distroless eller fulle OS-images.
+Nav pays for [Chainguard base images](https://sikkerhet.nav.no/docs/verktoy/chainguard-dockerimages) with minimal vulnerabilities. Use these instead of Google Distroless or full OS images.
 
-### Navs private registry (JVM)
+### Nav's private registry (JVM)
 
 ```
 europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/<image>:<tag>
 ```
 
-Relevante images for denne tjenesten: `jre` (kjøring), `jdk` (bygg i Dockerfile).
+Relevant images for this service: `jre` (runtime), `jdk` (builds inside the Dockerfile).
 
 ### Tags
 
-- Bruk major version som matcher `jvmToolchain(...)` i `build.gradle.kts` (her: **25** → `jre:openjdk-25`). Chainguard backporter ikke.
-- Ikke pin SHA manuelt. Sett opp workflow for regelmessig rebuild.
-- Bruk [digestabot](https://github.com/navikt/digestabot) om du vil pinne SHA med automatiske PR-er.
+- Use the major version that matches `jvmToolchain(...)` in `build.gradle.kts` (here: **25** → `jre:openjdk-25`). Chainguard does not backport.
+- Do not pin SHAs manually. Set up a workflow for regular rebuilds.
+- Use [digestabot](https://github.com/navikt/digestabot) if you want SHA pinning with automatic PRs.
 
 ```dockerfile
-# ✅ Chainguard JRE fra Navs registry — match major mot jvmToolchain
+# ✅ Chainguard JRE from Nav's registry — match major against jvmToolchain
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jre:openjdk-25
 
-# ⚠️ Google Distroless fungerer, men Chainguard er foretrukket i Nav
+# ⚠️ Google Distroless works, but Chainguard is preferred in Nav
 FROM gcr.io/distroless/java21-debian12:nonroot
 
-# ❌ Unngå fulle OS-images
+# ❌ Avoid full OS images
 FROM ubuntu:22.04
 FROM openjdk:25
 ```
 
-## Fat-jar fra Gradle (anbefalt)
+## Fat jar from Gradle (recommended)
 
-Ktor-pluginen bygger en fat-jar med `./gradlew buildFatJar` → `build/libs/*-all.jar`. Bygg jaren i CI og kopier den inn — da holder en enkel single-stage Dockerfile, og du slipper Gradle-laget i image.
+The Ktor plugin builds a fat jar with `./gradlew buildFatJar` → `build/libs/*-all.jar`. Build the jar in CI and copy it in — then a simple single-stage Dockerfile is enough, and the Gradle layer stays out of the image.
 
 ```dockerfile
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jre:openjdk-25
 ENV TZ="Europe/Oslo"
 WORKDIR /app
 COPY build/libs/*-all.jar app.jar
-# mainClass = io.ktor.server.netty.EngineMain bakes inn av Ktor-pluginen
+# mainClass = io.ktor.server.netty.EngineMain is baked in by the Ktor plugin
 CMD ["java", "-jar", "app.jar"]
 ```
 
-`EXPOSE` er ikke nødvendig for NAIS, men kan dokumentere porten (default Ktor/Netty: 8080).
+`EXPOSE` is not required for NAIS, but can document the port (default Ktor/Netty: 8080).
 
-## Multi-stage (bygg i Dockerfile)
+## Multi-stage (building inside the Dockerfile)
 
-Bruk kun hvis du ikke bygger jaren i CI. Da skal det være multi-stage så Gradle-laget ikke havner i kjøre-imaget.
+Use only if you do not build the jar in CI. Then it must be multi-stage so the Gradle layer stays out of the runtime image.
 
 ```dockerfile
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/jdk:openjdk-25 AS build
 WORKDIR /app
-# Avhengigheter først → bedre layer caching (se under)
+# Dependencies first → better layer caching (see below)
 COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 COPY gradle ./gradle
 COPY gradlew ./
@@ -76,42 +76,42 @@ COPY --from=build /app/build/libs/*-all.jar app.jar
 CMD ["java", "-jar", "app.jar"]
 ```
 
-## Layer Caching
+## Layer caching
 
 ```dockerfile
-# ✅ Kopier build-script og gradle-wrapper først → cache holder så lenge avhengigheter er uendret
+# ✅ Copy build scripts and the gradle wrapper first → cache holds while dependencies are unchanged
 COPY build.gradle.kts settings.gradle.kts gradle.properties gradlew ./
 COPY gradle ./gradle
 RUN ./gradlew dependencies --no-daemon
 COPY src ./src
 RUN ./gradlew buildFatJar --no-daemon
 
-# ❌ Invaliderer cache ved enhver kildeendring
+# ❌ Invalidates the cache on any source change
 COPY . .
 RUN ./gradlew buildFatJar
 ```
 
-## Sikkerhet
+## Security
 
 ```dockerfile
-# ✅ Chainguard kjører som non-root automatisk — ingen USER nødvendig
+# ✅ Chainguard runs as non-root automatically — no USER needed
 
-# ✅ For andre base images — kjør som non-root
+# ✅ For other base images — run as non-root
 USER nonroot
 USER 1001
 
-# ✅ Minimal COPY — kun jaren til kjøre-stage
+# ✅ Minimal COPY — only the jar into the runtime stage
 COPY --from=build /app/build/libs/*-all.jar app.jar
 
-# ❌ Kopierer secrets, testfiler, .git, hele build-mappa
+# ❌ Copies secrets, test files, .git, the whole build directory
 COPY . .
 ```
 
-Hemmeligheter (TokenX, Azure AD, Postgres, Kafka) injiseres som env/secrets via NAIS i runtime — aldri i Dockerfile.
+Secrets (TokenX, Azure AD, Postgres, Kafka) are injected as env/secrets by NAIS at runtime — never in the Dockerfile.
 
 ## .dockerignore
 
-Lag alltid en `.dockerignore` så build-konteksten holdes liten og secrets ikke lekker:
+Always create a `.dockerignore` so the build context stays small and secrets do not leak:
 
 ```
 .git
@@ -125,11 +125,11 @@ docker-compose*.yml
 .env*
 ```
 
-> Merk: hvis du kopierer den ferdige jaren med `COPY build/libs/*-all.jar` må `build/libs` ikke ekskluderes — bruk `!build/libs` som over.
+> Note: if you copy the finished jar with `COPY build/libs/*-all.jar`, `build/libs` must not be excluded — use `!build/libs` as above.
 
-## CI — Chainguard-autentisering
+## CI — Chainguard authentication
 
-Bruk `nais/docker-build-push` i GitHub Actions — den håndterer autentisering mot Navs Chainguard-registry automatisk. Bygg jaren før docker-steget.
+Use `nais/docker-build-push` in GitHub Actions — it handles authentication against Nav's Chainguard registry automatically. Build the jar before the docker step.
 
 ```yaml
 jobs:
@@ -151,24 +151,24 @@ jobs:
           team: team-esyfo
 ```
 
-## Grenser
+## Boundaries
 
-### Alltid
-- Chainguard `jre`/`jdk` fra Navs registry, major matchet mot `jvmToolchain`
-- Fat-jar via `./gradlew buildFatJar` (single-stage COPY) eller multi-stage hvis bygg skjer i Dockerfile
-- `.dockerignore`-fil
-- Kopier avhengigheter separat for layer caching
+### Always
+- Chainguard `jre`/`jdk` from Nav's registry, major matched against `jvmToolchain`
+- Fat jar via `./gradlew buildFatJar` (single-stage COPY) or multi-stage if the build happens in the Dockerfile
+- A `.dockerignore` file
+- Copy dependencies separately for layer caching
 - `nais/docker-build-push` for CI
 
-### Spør først
+### Ask first
 - Custom base images
-- `--privileged` eller ekstra Linux capabilities
-- Mounting secrets i build
+- `--privileged` or extra Linux capabilities
+- Mounting secrets during build
 
-### Aldri
-- `COPY . .` i final stage
-- Root-bruker i produksjon
-- Secrets i Dockerfile (`ENV SECRET=...`, `ARG PASSWORD=...`) — bruk NAIS-secrets
-- `latest`-tag på Nav registry images (bruk spesifikk major version)
-- Fulle OS-images (`ubuntu`, `debian`, `openjdk`)
-- Gradle-laget i kjøre-imaget (bruk multi-stage eller bygg jaren i CI)
+### Never
+- `COPY . .` in the final stage
+- Root user in production
+- Secrets in the Dockerfile (`ENV SECRET=...`, `ARG PASSWORD=...`) — use NAIS secrets
+- The `latest` tag on Nav registry images (use a specific major version)
+- Full OS images (`ubuntu`, `debian`, `openjdk`)
+- The Gradle layer in the runtime image (use multi-stage or build the jar in CI)

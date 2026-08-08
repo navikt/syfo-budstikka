@@ -1,41 +1,41 @@
 ---
-description: "Brukes når du oppretter eller endrer GitHub Actions-workflows (.github/workflows/**) for dette Ktor-backendet — build, test, docker-build-push og Nais-deploy. Trigger-signaler: SHA-pinning, permissions, deploy dev/prod, secrets, concurrency, Gradle-caching."
+description: "Used when creating or changing GitHub Actions workflows (.github/workflows/**) for this Ktor backend — build, test, docker-build-push and Nais deploy. Trigger signals: SHA pinning, permissions, deploy dev/prod, secrets, concurrency, Gradle caching."
 applyTo: ".github/workflows/**"
 ---
 
-# GitHub Actions — syfo-budstikka (Ktor-backend, team-esyfo)
+# GitHub Actions — syfo-budstikka (Ktor backend, team-esyfo)
 
-Standarder for CI/CD-workflows med GitHub Actions på Nais for dette Kotlin/Ktor-backendet (`no.nav.syfo`). Sjekk om `team-esyfo` har et repo med gjenbrukbare workflows før du skriver egne.
+Standards for CI/CD workflows with GitHub Actions on Nais for this Kotlin/Ktor backend (`no.nav.syfo`). Check whether `team-esyfo` has a repository with reusable workflows before writing your own.
 
-Dette repoet bygges med Gradle (version catalogs: `libs`, `ktorLibs`), kjører på Netty via `io.ktor.server.netty.EngineMain` og deployes som Nais-app. Det er et rent backend — ingen Node/frontend-steg i workflowen.
+This repository builds with Gradle (version catalogs: `libs`, `ktorLibs`), runs on Netty via `io.ktor.server.netty.EngineMain` and deploys as a Nais app. It is a pure backend — no Node/frontend steps in the workflow.
 
-## Action Pinning
+## Action pinning
 
-Pin alle tredjeparts-actions til full commit SHA med versjonskommentar:
+Pin all third-party actions to a full commit SHA with a version comment:
 
 ```yaml
-# ✅ Pinnet til SHA
+# ✅ Pinned to SHA
 - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 - uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
 
-# ❌ Upinnet tag kan kompromitteres
+# ❌ An unpinned tag can be compromised
 - uses: actions/checkout@v4
 ```
 
-> **Unntak**: `nais/*`-actions (`nais/docker-build-push`, `nais/deploy`) er interne Nav-actions med stabile semver-tags. Disse trenger ikke SHA-pinning, men bør ha versjonskommentar.
+> **Exception**: `nais/*` actions (`nais/docker-build-push`, `nais/deploy`) are internal Nav actions with stable semver tags. They do not need SHA pinning, but should have a version comment.
 
-## Minimale tilganger
+## Minimal permissions
 
 ```yaml
 permissions:
   contents: read
-  id-token: write   # kreves for nais/docker-build-push og nais/deploy (OIDC)
+  id-token: write   # required by nais/docker-build-push and nais/deploy (OIDC)
 
-# ❌ Aldri
+# ❌ Never
 permissions: write-all
 ```
 
-## Build, test og Nais-deploy
+## Build, test and Nais deploy
 
 ```yaml
 name: Build and deploy
@@ -62,7 +62,7 @@ jobs:
       - uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
         with:
           distribution: temurin
-          java-version: 25      # samsvar med jvmToolchain(25) i build.gradle.kts
+          java-version: 25      # match jvmToolchain(25) in build.gradle.kts
           cache: gradle
       - run: ./gradlew build --no-daemon
       - uses: nais/docker-build-push@v0
@@ -97,9 +97,9 @@ jobs:
           VAR: image=${{ needs.build.outputs.image }}
 ```
 
-Nais-manifestet (`RESOURCE`) skal følge mønsteret i `kotlin-ktor`-/`nais-manifest`-skillet. Endrer du ressurser, helse-probes eller scaling der, oppdater manifestet samtidig.
+The Nais manifest (`RESOURCE`) must follow the pattern in the `kotlin-ktor`/`nais-manifest` skill. If you change resources, health probes or scaling there, update the manifest at the same time.
 
-## Gradle-caching
+## Gradle caching
 
 ```yaml
 - uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
@@ -109,39 +109,39 @@ Nais-manifestet (`RESOURCE`) skal følge mønsteret i `kotlin-ktor`-/`nais-manif
     cache: gradle
 ```
 
-`cache: gradle` cacher `~/.gradle/caches` og wrapper. Bruk `./gradlew --no-daemon` i CI for forutsigbar oppførsel. For migrasjons-/integrasjonstester med Postgres (Flyway/Kafka via Testcontainers) — la testene starte containere selv, ikke definer service-containere i workflowen med mindre teamets mønster krever det.
+`cache: gradle` caches `~/.gradle/caches` and the wrapper. Use `./gradlew --no-daemon` in CI for predictable behaviour. For migration/integration tests with Postgres (Flyway/Kafka via Testcontainers) — let the tests start containers themselves; do not define service containers in the workflow unless the team's pattern requires it.
 
-## Sikkerhet
+## Security
 
 ```yaml
-# Scanning av filsystem / avhengigheter
-- uses: aquasecurity/trivy-action@0.28.0   # pin SHA i produksjon
+# Filesystem / dependency scanning
+- uses: aquasecurity/trivy-action@0.28.0   # pin SHA in production
   with:
     scan-type: fs
     severity: HIGH,CRITICAL
     exit-code: 1
 
-# Statisk analyse av selve workflows
+# Static analysis of the workflows themselves
 - run: pipx run zizmor .github/workflows/
 ```
 
-## Grenser
+## Boundaries
 
-### Alltid
-- Pin tredjeparts-actions til SHA med versjonskommentar
-- Sett eksplisitte `permissions` per workflow/job (`contents: read`, `id-token: write` for Nais)
-- Sett `timeout-minutes` på alle jobs
-- Bruk `concurrency` for deploy-workflows
-- `java-version` i CI skal matche `jvmToolchain` i `build.gradle.kts`
-- Sjekk gjenbrukbare workflows i team-esyfo før du skriver egen
+### Always
+- Pin third-party actions to SHA with a version comment
+- Set explicit `permissions` per workflow/job (`contents: read`, `id-token: write` for Nais)
+- Set `timeout-minutes` on all jobs
+- Use `concurrency` for deploy workflows
+- `java-version` in CI must match `jvmToolchain` in `build.gradle.kts`
+- Check for reusable workflows in team-esyfo before writing your own
 
-### Spør først
-- Nye secrets eller environment variables (også TokenX/Azure AD-relaterte)
-- Endringer i deploy-rekkefølge (dev → prod)
-- Nye gjenbrukbare workflows eller endringer i `team`-verdi
+### Ask first
+- New secrets or environment variables (including TokenX/Azure AD related)
+- Changes to deploy order (dev → prod)
+- New reusable workflows or changes to the `team` value
 
-### Aldri
+### Never
 - `permissions: write-all`
-- Upinnede tredjeparts-action-versjoner uten SHA (unntak: `nais/*`-actions)
-- Logg secrets i workflow-output
-- `pull_request_target` med `actions/checkout` av PR-branch (code injection)
+- Unpinned third-party action versions without SHA (exception: `nais/*` actions)
+- Logging secrets in workflow output
+- `pull_request_target` with `actions/checkout` of the PR branch (code injection)

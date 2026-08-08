@@ -1,46 +1,46 @@
 ---
-description: "Brukes ved alt Kotlin-arbeid i dette Ktor-backend-repoet (no.nav.syfo): routes/plugins, JWT-claims, DI, logging, feilhåndtering, Gradle Version Catalog, Flyway, Kafka, metrikker og tester."
+description: "Used for all Kotlin work in this Ktor backend repository (no.nav.syfo): routes/plugins, JWT claims, DI, logging, error handling, Gradle Version Catalog, Flyway, Kafka, metrics and tests."
 applyTo: "**/*.kt"
 ---
 
-# Kotlin — Nav Ktor-backend (no.nav.syfo)
+# Kotlin — Nav Ktor backend (no.nav.syfo)
 
-Denne fila er kort og bindende: harde regler som alltid gjelder for `*.kt`.
-Detaljert arbeidsflyt ligger i skills:
+This file is short and binding: hard rules that always apply to `*.kt`.
+Detailed workflows live in skills:
 
-- `/kotlin` for ny Kotlin-kode **og** refaktorering (idiomatisk Kotlin, typer, coroutines, design).
-- `/kotlin-ktor` for Ktor-spesifikt arbeid (routes/plugins/auth/StatusPages/wiring).
-- `/unit-tests`, `/integration-tests`, `/e2e-tests` for riktig testnivå.
+- `/kotlin` for new Kotlin code **and** refactoring (idiomatic Kotlin, types, coroutines, design).
+- `/kotlin-ktor` for Ktor-specific work (routes/plugins/auth/StatusPages/wiring).
+- `/unit-tests`, `/integration-tests`, `/e2e-tests` for the right test level.
 
-## Harde regler
+## Hard rules
 
-1. **Navngiving:** norske ord kun på domeneord. Teknisk mekanikk på engelsk.
-   - Domeneord som forblir norske: `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`.
-   - Vanlige tekniske navn skal være engelske: `save`, `fetch`, `isDead`, `toColumns`.
-   - Norske ord i publiserte kontrakter er breaking å endre.
+1. **Naming:** Norwegian words only for domain words. Technical mechanics in English.
+   - Domain words that stay Norwegian: `Brukervarsel`, `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`.
+   - Ordinary technical names must be English: `save`, `fetch`, `isDead`, `toColumns`.
+   - Changing Norwegian words in published contracts is breaking.
 
-2. **Arkitektur:** følg hexagonal modell.
-   - `domain` er uavhengig.
-   - `application` avhenger av `domain`.
-   - `infrastructure` implementerer porter.
+2. **Architecture:** follow the hexagonal model.
+   - `domain` is independent.
+   - `application` depends on `domain`.
+   - `infrastructure` implements ports.
 
-3. **Sikkerhet og persondata:**
-   - Ingen fnr, tokens eller annen PII i logger eller feilmeldinger.
-   - Ingen hardkodede secrets, URL-er eller auth-verdier i kode.
-   - Valider auth-config (`issuer`/`audience`) via konfigurasjon.
+3. **Security and personal data:**
+   - No fnr, tokens or other PII in logs or error messages.
+   - No hardcoded secrets, URLs or auth values in code.
+   - Validate auth config (`issuer`/`audience`) through configuration.
 
-4. **Avhengigheter og konfigurasjon:**
-   - Bruk version catalogs: `ktorLibs.*` for Ktor, `libs.*` for øvrige avhengigheter.
-   - Ikke hardkod versjoner i `build.gradle.kts`.
-   - Bruk Ktor-mønstre i repoet, ikke Spring-mønstre.
+4. **Dependencies and configuration:**
+   - Use version catalogs: `ktorLibs.*` for Ktor, `libs.*` for other dependencies.
+   - Do not hardcode versions in `build.gradle.kts`.
+   - Use the repository's Ktor patterns, not Spring patterns.
 
-5. **Datatilgang og meldingsflyt:**
-   - Flyway er append-only: nye `V<n>__...sql`, aldri endre deployet migrering.
-   - SQL skal være parameterisert.
-   - Kafka-konsum må være idempotent.
+5. **Data access and message flow:**
+   - Flyway is append-only: new `V<n>__...sql`, never change a deployed migration.
+   - SQL must be parameterised.
+   - Kafka consumption must be idempotent.
 
-## Validering
+## Validation
 
-- Kjør minste relevante testkommando underveis.
-- Før ferdigmelding: minst `./gradlew test`.
-- Ved bredere eller risikofylt endring: `./gradlew build`.
+- Run the smallest relevant test command as you go.
+- Before reporting done: at least `./gradlew test`.
+- For broader or riskier changes: `./gradlew build`.
