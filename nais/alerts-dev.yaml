@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: syfo-budstikka-alerts
+  namespace: team-esyfo
+  labels:
+    team: team-esyfo
+spec:
+  groups:
+    - name: syfo-budstikka-consumer-lag
+      rules:
+        # Vedvarende lag betyr at consumeren leser saktere enn produsentene skriver, eller står
+        # helt. Liveness fanger bare en død loop; en poison record eller kanalutfall holder loopen
+        # i live mens køen vokser, og da er dette alarmen som skal si fra. Runbook:
+        # docs/helsesjekk.md («Consumer-lag-alarm»).
+        - alert: BudstikkaConsumerLagWarning
+          expr: >
+            max by (topic)
+            (kafka_consumer_fetch_manager_records_lag_max{app="syfo-budstikka",
+            namespace="team-esyfo", topic="team-esyfo.budstikka.v1"}) > 100
+          for: 15m
+          labels:
+            namespace: team-esyfo
+            severity: warning
+          annotations:
+            summary: >-
+              Consumer-gruppen syfo-budstikka-budstikka-v1 har hatt over 100 meldinger lag på
+              team-esyfo.budstikka.v1 i 15 minutter.
+            consequence: Varsler til sykmeldte og arbeidsgivere er forsinket.
+            action: >-
+              Følg runbooken i docs/helsesjekk.md («Consumer-lag-alarm»): sjekk consumer-lag,
+              dead letters, inbox-feil og logger. Ikke logg nøkler eller payload.
+        - alert: BudstikkaConsumerLagCritical
+          expr: >
+            max by (topic)
+            (kafka_consumer_fetch_manager_records_lag_max{app="syfo-budstikka",
+            namespace="team-esyfo", topic="team-esyfo.budstikka.v1"}) > 0
+          for: 1h
+          labels:
+            namespace: team-esyfo
+            severity: critical
+          annotations:
+            summary: >-
+              Consumer-gruppen syfo-budstikka-budstikka-v1 har ikke tømt team-esyfo.budstikka.v1
+              på en time; en partisjon er trolig blokkert eller consumeren står.
+            consequence: >-
+              Varsler leveres ikke. En restart hjelper ikke mot poison records eller vedvarende
+              backlogg.
+            action: >-
+              Følg runbooken i docs/helsesjekk.md («Consumer-lag-alarm»): sjekk consumer-lag,
+              dead letters, inbox-feil og logger. Ikke logg nøkler eller payload.
