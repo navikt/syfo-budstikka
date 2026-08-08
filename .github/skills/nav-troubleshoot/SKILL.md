@@ -1,6 +1,6 @@
 ---
 name: nav-troubleshoot
-description: "Bruk når Ktor-backendet feiler i DRIFT på NAIS: pod starter ikke / CrashLoopBackOff / OOMKilled, 401/403, Kafka consumer-lag, DB-/HikariCP-/Flyway-feil ved startup, eller sprik mellom Mimir/Loki/Tempo. For design av schema/manifest/auth, se /nais-manifest, /auth-overview, /flyway-migration."
+description: "Bruk når Ktor-backendet feiler i DRIFT på NAIS: pod starter ikke / CrashLoopBackOff / OOMKilled, 401/403, Kafka consumer-lag, DB-/HikariCP-/Flyway-feil ved startup, eller sprik mellom Mimir/Loki/Tempo. For design av schema/manifest/auth, se /nais-manifest og /auth-overview."
 ---
 
 # Nav Troubleshoot — plattform-diagnostikk
@@ -61,7 +61,7 @@ Deploy feiler
 - `/nais-manifest` — manifest-struktur, resources, probes, accessPolicy, GCP Postgres, Kafka pool
 - `/auth-overview` — Azure AD, TokenX, ID-porten, Maskinporten, Texas-sidecar (mekanismene bak auth-diagnose)
 - `/kafka-topic` — consumer/producer-mønstre, SSL-env, idempotens, Rapids & Rivers
-- `/flyway-migration` og `/postgresql-review` — schema, migrering, query- og indeksvurdering (design-tid)
+- `/postgresql-review` — schema, query- og indeksvurdering (design-tid)
 - `/observability-setup` — Micrometer/Prometheus + Mimir/Loki/Tempo-oppsett (design-tid; nav-troubleshoot leser signalene, observability-setup etablerer dem)
 - `/diagnosing-bugs` — feedback-loop, repro, hypoteser og regresjonstest;
   returnerer funn og verifikasjon til den aktive oppgaven

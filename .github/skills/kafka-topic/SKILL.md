@@ -44,7 +44,7 @@ Følg det dominerende mønsteret. Hvis repoet ikke har Kafka fra før, velg plai
 
 | Behov | Mønster | Når |
 |-------|---------|-----|
-| Svar trengs umiddelbart, kallet må lykkes/feile synlig | REST på Ktor-route (se `/api-design`) | CRUD, oppslag, brukerinteraksjon |
+| Svar trengs umiddelbart, kallet må lykkes/feile synlig | REST på Ktor-route | CRUD, oppslag, brukerinteraksjon |
 | Fire-and-forget notifikasjon, audit, asynk nedstrøm | Kafka-producer (plain) | Varsling, logg, prosess som kan vente |
 | Hendelse-koreografi på tvers av mange tjenester | Rapids & Rivers på delt rapid-topic | Saga-flyt, flertjeneste-arbeidsflyt |
 | Periodisk batch | Naisjob (+ Kafka hvis nedstrøm) | Nattjobber, rapporter, reprosessering |
@@ -163,7 +163,7 @@ fun prosesser(eventId: String, /* ... */) {
 }
 ```
 
-Dedup-tabellen er typisk en Postgres-tabell — legg den inn som Flyway-migrering (`/flyway-migration`).
+Dedup-tabellen er typisk en Postgres-tabell — legg den inn som Flyway-migrering.
 
 ## Dead-letter-håndtering (konsept)
 
@@ -198,7 +198,7 @@ Hvordan endre en eksisterende hendelse?
 ```
 
 Breaking event-endringer er et koordineringsproblem med konsumerende team —
-samme disiplin som API-versjonering (`/api-design`). Review NAV- og
+samme disiplin som API-versjonering. Review NAV- og
 teamkonsekvenser med `/nav-architecture-review`. Når beslutningen kvalifiserer,
 anbefal dokumentert løp og vent på brukerens valg før `/domain-modeling`
 registrerer en ADR.

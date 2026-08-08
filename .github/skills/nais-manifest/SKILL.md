@@ -105,7 +105,7 @@ gcp:
           envVarPrefix: DB
 ```
 
-Gir env: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Schema-endringer og migreringer kjøres med Flyway — se `/flyway-migration`. For langvarige migreringer: sørg for `startup`-probe slik at Flyway fullfører før liveness restarter poden.
+Gir env: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Schema-endringer og migreringer kjøres med Flyway. For langvarige migreringer: sørg for `startup`-probe slik at Flyway fullfører før liveness restarter poden.
 
 ### HikariCP-pool — eies av `/postgresql-review`
 

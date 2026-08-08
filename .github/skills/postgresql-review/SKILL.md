@@ -78,7 +78,7 @@ Bruk **trestegs feltmigrasjon** (expand-migrate-contract) for delte schemas:
 
 > **🚫 Aldri** kjør `DROP COLUMN` eller `ALTER COLUMN TYPE` på delt schema uten forhåndsvarsel og bekreftelse fra konsument-team. Én deploy kan ta ned andres tjenester.
 
-Selve migreringsfilene følger `flyway-migration`-skillen i dette repoet. Se også [references/migration-flyway.md](references/migration-flyway.md).
+Se også [references/migration-flyway.md](references/migration-flyway.md).
 
 ## Generisk SQL-tuning
 
@@ -89,13 +89,13 @@ Indeksstrategier, JSONB-mønstre, upsert/ON CONFLICT, CHECK/UNIQUE-constraints, 
 - `ON CONFLICT` kun mot faktisk `UNIQUE`-constraint
 - Batch-henting (`findByIdIn`) i stedet for N+1
 - LIMIT på spørringer som kan returnere mange rader
-- `CREATE INDEX CONCURRENTLY` i egen migrering utenfor transaksjon — se `flyway-migration`-skillen
+- `CREATE INDEX CONCURRENTLY` i egen migrering utenfor transaksjon
 
 Partisjonering og advisory locks: **⚠️ Spør først** før du introduserer dem i en eksisterende løsning.
 
 ## Migrasjoner
 
-For Flyway-migrasjoner og SQL-konvensjoner, følg `flyway-migration`-skillen i dette repoet. Nøkkelpunkter:
+For Flyway-migrasjoner og SQL-konvensjoner gjelder disse nøkkelpunktene:
 
 - Bruk `TIMESTAMPTZ` (ikke `TIMESTAMP`) for alle tidsstempel-kolonner
 - Indekser på alle FK-kolonner
@@ -118,7 +118,7 @@ Se [references/migration-flyway.md](references/migration-flyway.md) for konkrete
 - [ ] Ingen N+1-spørringer
 - [ ] SELECT bare kolonner som trengs
 - [ ] LIMIT på spørringer som kan returnere mange rader
-- [ ] Revert-vei vurdert (forward-only: ny `V{n+1}`-migrering, ikke undo — se `/flyway-migration`)
+- [ ] Revert-vei vurdert (forward-only: ny `V{n+1}`-migrering, ikke undo)
 - [ ] Ingen `SELECT *` i produksjonskode
 
 ## Grenser
