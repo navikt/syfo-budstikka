@@ -50,7 +50,7 @@ log.info("Processing case", kv("callId", MDC.get("callId")), kv("tema", sak.tema
 log.info("Processing case for ${bruker.fnr}")
 ```
 
-`Nav-Call-Id` is set at the entry point by the Ktor `CallId` plugin and placed in MDC, so that every log line correlates across services (see `/kotlin-ktor`). Display of personal data to NAV employees must be logged in **CEF format** to the audit log (a dedicated `auditLogger`, not the standard log). See `references/nav-threat-model.md` for the format and what to log when.
+`Nav-Call-Id` is propagated on outbound calls that carry it (see `/kotlin-ktor`); worker and consumer log lines correlate through `MdcKeys` + `MDCContext`. Note that `callIdMdc` is not installed, so an incoming callId does not reach MDC by itself. Display of personal data to NAV employees must be logged in **CEF format** to the audit log (a dedicated `auditLogger`, not the standard log). See `references/nav-threat-model.md` for the format and what to log when.
 
 ## accessPolicy as first-line defense
 
@@ -85,7 +85,7 @@ Every team has a security champion (or can escalate to the platform's security f
 **When the skill handles it (no escalation):**
 
 - Parameterized queries, input validation, standard OWASP patterns.
-- CEF audit log on display of personal data (the pattern is established).
+- CEF audit log on display of personal data. This repository has no audit logger today (`grep -rn 'auditLogger\|CEF' src/` is empty) because it is a worker/consumer with no endpoint that shows personal data to a NAV employee. Adding such an endpoint requires adding CEF audit logging in the same change.
 - accessPolicy setup for standard inbound/outbound.
 - Trivy/zizmor findings with known fixes.
 

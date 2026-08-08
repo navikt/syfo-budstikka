@@ -58,7 +58,7 @@ Your own labels must cover domain aspects:
 
 ## Correlation ID in the NAV stack
 
-A correlation ID lets you follow a request across services, Kafka messages and logs. The repository already uses `CallId`/`CallLogging` (see the `kotlin-ktor` skill) — build on that, do not set up something in parallel.
+A correlation ID lets you follow a request across services, Kafka messages and logs. The repository installs `CallId` on the internal probes only; `CallLogging` and `callIdMdc` are not installed. Worker and consumer correlation goes through `MdcKeys` + `MDCContext` + `StructuredArguments.kv` — build on that, do not set up something in parallel.
 
 ### Headers
 - `Nav-Call-Id` — NAV convention; read it and propagate it on all outgoing HTTP calls and Kafka headers
