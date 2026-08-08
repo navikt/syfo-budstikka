@@ -60,7 +60,7 @@ also require an explicit user request.
   pull request, not only in ephemeral conversation. Any subsequent diff change
   invalidates a review-based route and requires fresh deterministic evidence
   and a fresh review.
-- `/nav-architecture-review` reviews relevant NAV platform, security, privacy,
+- `/architecture-review` reviews relevant NAV platform, security, privacy,
   operability, and team-boundary choices. It does not write ADRs.
   `/domain-modeling` owns the ADR gate and durable domain writes after the user
   chooses the documented route.

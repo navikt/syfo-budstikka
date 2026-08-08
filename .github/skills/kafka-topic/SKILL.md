@@ -199,7 +199,7 @@ Hvordan endre en eksisterende hendelse?
 
 Breaking event-endringer er et koordineringsproblem med konsumerende team —
 samme disiplin som API-versjonering. Review NAV- og
-teamkonsekvenser med `/nav-architecture-review`. Når beslutningen kvalifiserer,
+teamkonsekvenser med `/architecture-review`. Når beslutningen kvalifiserer,
 anbefal dokumentert løp og vent på brukerens valg før `/domain-modeling`
 registrerer en ADR.
 

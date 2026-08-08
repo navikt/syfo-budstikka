@@ -22,41 +22,25 @@ Ktor 3.x på Netty, pakke `no.nav.syfo`, kjører i NAIS. Hold hovedreglene her k
 
 ## Metrikker i Ktor (Micrometer)
 
-Ktor har ingen Actuator. Opprett `PrometheusMeterRegistry` selv, installer `MicrometerMetrics`-pluginen, og eksponer registry-scrapet på en intern route. Hent samme registry videre via Koin der du måler domenehendelser.
+Ktor har ingen Actuator: registry, `MicrometerMetrics`-plugin og de interne rutene
+settes opp eksplisitt. Repoets faktiske oppsett i `infrastructure/metrics/` og
+`bootstrap/` er fasit — les det framfor et eksempel her.
 
-```kotlin
-val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+To valg som ikke er opplagte:
 
-install(MicrometerMetrics) {
-    this.registry = registry
-    // ktor_http_server_requests_seconds_* med route/method/status som tags
-    meterBinders = listOf(
-        JvmMemoryMetrics(),
-        JvmGcMetrics(),
-        ProcessorMetrics(),
-    )
-}
-
-routing {
-    get("/internal/prometheus") { call.respond(registry.scrape()) }
-    get("/internal/isalive") { call.respondText("OK") }
-    get("/internal/isready") { call.respondText("OK") }
-}
-```
-
-- `MicrometerMetrics` gir automatisk `ktor_http_server_requests_seconds` (count/sum/bucket) med tags for route, method og status.
-- Bruk `distributionStatisticConfig` med `percentilesHistogram(true)` hvis du trenger p95/p99 fra Prometheus.
-- `liveness` (`/internal/isalive`) skal være enkel og bare svare på om prosessen bør restartes. `readiness` (`/internal/isready`) skal avhenge av faktiske avhengigheter (Postgres-pool, Kafka-consumer) — men hold logikken lett.
+- `liveness` (`/internal/isalive`) skal bare svare på om prosessen bør restartes.
+  `readiness` (`/internal/isready`) skal avhenge av faktiske avhengigheter, men
+  holdes lett. Consumer-lag hører hjemme i varsling, aldri i liveness
+  (se [helsesjekk](../../../docs/helsesjekk.md)).
+- `distributionStatisticConfig` med `percentilesHistogram(true)` kreves for p95/p99
+  fra Prometheus — uten den finnes ikke bucketene.
 
 Se `references/micrometer.md` for `Counter`/`Timer`/`Gauge`/`DistributionSummary`, Koin-injeksjon, domene- og Kafka-metrikker.
 
 ## Navngivning for metrikker og labels
 
-### Metrikker
-- Bruk `snake_case` (Prometheus-konvensjon; Micrometer punkt-navn blir automatisk `snake_case`)
-- Bruk enhetssuffiks når det er relevant: `_seconds`, `_bytes`
-- Countere skal ha suffikset `_total`
-- Bruk navn som beskriver domenet, ikke `camelCase` eller miljøspesifikke navn
+Prometheus-navnekonvensjonene (`snake_case`, `_total`, `_seconds`) er standard og
+gjelder som ellers. Det NAIS-spesifikke er labelene:
 
 ### NAIS-label-konvensjoner
 

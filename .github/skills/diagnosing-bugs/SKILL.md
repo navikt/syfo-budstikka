@@ -152,7 +152,7 @@ Kreves før du erklærer ferdig:
 
 **Spør så: hva ville forhindret denne feilen?** Involverer svaret
 arkitekturendring (ingen god testsøm, sammenfiltrede kallere, skjult kobling),
-ta funnet videre via `/grilling`. Bruk `/nav-architecture-review` for
+ta funnet videre via `/grilling`. Bruk `/architecture-review` for
 NAV-spesifikke konsekvenser. Når varige begreper eller beslutninger bør
 dokumenteres, anbefal dokumentert løp og vent på brukerens valg før
 `/domain-modeling` skriver. Gi anbefalingen **etter** at fiksen er inne, ikke
@@ -179,4 +179,4 @@ Diagnose-trærne er NAV-/Ktor-spesifikke. Generisk Kubernetes-/Kafka-/SQL-kunnsk
 - `/grilling` — stresstest design når feilen avdekker et designhull; anbefal
   dokumentert løp ved behov
 - `/auth-overview` — Azure AD / TokenX / ID-porten / Maskinporten / Texas (mekanismene bak auth-diagnose)
-- `/nav-architecture-review` — review NAV-konsekvenser ved arkitekturendringer som ville forhindret feilen
+- `/architecture-review` — review NAV-konsekvenser ved arkitekturendringer som ville forhindret feilen

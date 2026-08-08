@@ -91,7 +91,7 @@ Før noen grilling: sjekk at påstanden holder.
 Trenger saken kjøtt på beina, kjør `/grilling` og grill den i form ett spørsmål
 av gangen. Når avklarte begreper eller varige beslutninger bør dokumenteres,
 anbefal dokumentert løp, forklar hvorfor og vent på brukerens valg. Bruk
-`/nav-architecture-review` for NAV-spesifikke funn; etter valgt dokumentert løp
+`/architecture-review` for NAV-spesifikke funn; etter valgt dokumentert løp
 brukes `/domain-modeling` til å oppdatere glossaret eller skrive en
 kvalifiserende ADR under repository-policyen.
 

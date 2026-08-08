@@ -1,5 +1,5 @@
 ---
-name: nav-architecture-review
+name: architecture-review
 description: Review a proposed architecture change against NAV platform, security, privacy, operability, and team-boundary constraints. Use for new services, cross-team integrations, storage or event seams, authentication or accessPolicy changes, personal-data processing, platform migrations, or deviations from established NAV patterns.
 ---
 
