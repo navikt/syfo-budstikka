@@ -78,33 +78,22 @@ Bruk **trestegs feltmigrasjon** (expand-migrate-contract) for delte schemas:
 
 > **🚫 Aldri** kjør `DROP COLUMN` eller `ALTER COLUMN TYPE` på delt schema uten forhåndsvarsel og bekreftelse fra konsument-team. Én deploy kan ta ned andres tjenester.
 
-Selve migreringsfilene følger `flyway-migration`-skillen i dette repoet. Se også [references/migration-flyway.md](references/migration-flyway.md).
+Se også [references/migration-flyway.md](references/migration-flyway.md).
 
-## Generisk SQL-tuning
+## SQL-tuning og migrasjoner
 
-Indeksstrategier, JSONB-mønstre, upsert/ON CONFLICT, CHECK/UNIQUE-constraints, advisory locks, partisjonering og anti-mønstre (N+1, SELECT *, manglende LIMIT) er generisk PostgreSQL-kunnskap. Bruk de standard NAV-prinsippene:
+Indeksstrategier, JSONB-mønstre, `ON CONFLICT`, constraints, `TIMESTAMPTZ`, UUID-nøkler
+og anti-mønstre (N+1, `SELECT *`, manglende `LIMIT`) er generisk PostgreSQL-kunnskap —
+les repoets eksisterende migreringer og skjema for lokal stil i stedet for en liste her.
 
-- Indekser på FK-kolonner og hyppige WHERE-kolonner
-- `@>` + GIN-indeks for JSONB-containment, `->>` for nøkkeloppslag
-- `ON CONFLICT` kun mot faktisk `UNIQUE`-constraint
-- Batch-henting (`findByIdIn`) i stedet for N+1
-- LIMIT på spørringer som kan returnere mange rader
-- `CREATE INDEX CONCURRENTLY` i egen migrering utenfor transaksjon — se `flyway-migration`-skillen
+To ting som ikke er opplagte, og som en review skal fange:
 
-Partisjonering og advisory locks: **⚠️ Spør først** før du introduserer dem i en eksisterende løsning.
+- `CREATE INDEX CONCURRENTLY` må ligge i egen migrering utenfor transaksjon, og et
+  avbrutt kall etterlater en ugyldig indeks med samme navn som blokkerer neste forsøk.
+- Partisjonering og advisory locks: **⚠️ Spør først** før de introduseres i en
+  eksisterende løsning.
 
-## Migrasjoner
-
-For Flyway-migrasjoner og SQL-konvensjoner, følg `flyway-migration`-skillen i dette repoet. Nøkkelpunkter:
-
-- Bruk `TIMESTAMPTZ` (ikke `TIMESTAMP`) for alle tidsstempel-kolonner
-- Indekser på alle FK-kolonner
-- UUID-primærnøkler med `gen_random_uuid()`
-- Egne migreringer for `CREATE INDEX CONCURRENTLY` (kan ikke kjøre i transaksjon)
-- Repeterbare migreringer (`R__*.sql`) for views, funksjoner og triggers
-- Koordiner destruktive endringer med konsument-team for delte schemas
-
-Se [references/migration-flyway.md](references/migration-flyway.md) for konkrete eksempler.
+Se [references/migration-flyway.md](references/migration-flyway.md) for delt-schema-koordinering.
 
 ## Sjekkliste
 
@@ -118,7 +107,7 @@ Se [references/migration-flyway.md](references/migration-flyway.md) for konkrete
 - [ ] Ingen N+1-spørringer
 - [ ] SELECT bare kolonner som trengs
 - [ ] LIMIT på spørringer som kan returnere mange rader
-- [ ] Revert-vei vurdert (forward-only: ny `V{n+1}`-migrering, ikke undo — se `/flyway-migration`)
+- [ ] Revert-vei vurdert (forward-only: ny `V{n+1}`-migrering, ikke undo)
 - [ ] Ingen `SELECT *` i produksjonskode
 
 ## Grenser

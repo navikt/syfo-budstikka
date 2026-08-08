@@ -252,5 +252,4 @@ Alle brudd skal dokumenteres internt — også de som ikke utløser varsling til
 - `api-security.md` — Nav-Call-Id, Nav-Consumer-Id, accessPolicy som primærmekanisme.
 - `/auth-overview` — JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar.
 - `/kotlin-ktor` — StatusPages/ApiError-feilkontrakt, CallId/MDC.
-- `/flyway-migration` — constraints og PII-kolonner i migreringer.
 - [sikkerhet.nav.no](https://sikkerhet.nav.no) — NAVs Golden Path, autoritativ sikkerhetsveiledning.

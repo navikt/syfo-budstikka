@@ -1,6 +1,6 @@
 # Migrasjoner og Flyway-mønstre
 
-Migrasjonsmønstre for PostgreSQL i dette NAV Ktor-backendet. Selve filnavngiving, plassering og rekkefølge dekkes av `flyway-migration`-skillen i repoet.
+Migrasjonsmønstre for PostgreSQL i et NAV-backend. Filnavngiving, plassering og rekkefølge følger Flyway-standarden og repoets eksisterende migreringer.
 
 ## CONCURRENTLY-indekser i produksjon
 
@@ -15,9 +15,9 @@ ON vedtak (bruker_id, status);
 
 Hvis en slik migrering ble avbrutt, kan en ugyldig indeks med samme navn ligge igjen. Rydd den opp før ny kjøring — `IF NOT EXISTS` kan ellers skjule problemet i stedet for å gjøre re-kjøring trygg.
 
-## Generiske migreringskonvensjoner → `/flyway-migration`
+## Generiske migreringskonvensjoner
 
-Filnavngiving (`V<n>__`), `TIMESTAMPTZ` over `TIMESTAMP`, `UUID`/`gen_random_uuid()`, `TEXT` over `VARCHAR`, FK-indekser, repeterbare `R__`-migreringer og forward-only-disiplinen eies av `/flyway-migration` — ikke dupliser dem her. Denne referansen dekker bare det en **review** skal se etter i Postgres-kontekst: avbrutt `CONCURRENTLY` (over) og delt-schema-koordinering (under).
+Filnavngiving (`V<n>__`), `TIMESTAMPTZ` over `TIMESTAMP`, `UUID`/`gen_random_uuid()`, `TEXT` over `VARCHAR`, FK-indekser, repeterbare `R__`-migreringer og forward-only-disiplinen er Flyway-standard — les repoets eksisterende migreringer for lokal stil. Denne referansen dekker bare det en **review** skal se etter i Postgres-kontekst: avbrutt `CONCURRENTLY` (over) og delt-schema-koordinering (under).
 
 ## Trestegs feltmigrasjon på delt schema
 

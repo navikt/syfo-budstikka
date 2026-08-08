@@ -162,7 +162,7 @@ Secrets opprettes i NAIS Console og injiseres via `envFrom`/`filesFrom`. Sjekk o
 | `security.instructions.md` | Alltid-på (`applyTo: "**"`) sikkerhetsgrenser — supplerer denne on-demand-skillen |
 | `/auth-overview` | JWT-validering, TokenX/Azure AD, `pid`/NAVident/`azp`-claim, Texas-sidecar |
 | `/kotlin-ktor` | CallId/MDC, StatusPages/ApiError-feilkontrakt |
-| `/flyway-migration` | Migreringer som legger til/endrer PII-kolonner — vurder klassifisering og behandlingsgrunnlag |
+| `/postgresql-review` | Migreringer som legger til/endrer PII-kolonner — vurder klassifisering og behandlingsgrunnlag |
 | `references/nav-threat-model.md` | Dyp trusselmodellering (STRIDE i NAV-kontekst), DPIA-prosess, audit-logging-krav, Datatilsynet-varsling |
 | `references/gdpr-privacy.md` | NAV-spesifikk PII-kategorisering og pekere til DPIA/CEF/retention |
 | `references/api-security.md` | NAV-signal: Nav-Call-Id, Nav-Consumer-Id, accessPolicy som primærmekanisme |

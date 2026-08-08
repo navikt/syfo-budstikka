@@ -37,7 +37,7 @@ Database-tilkoblingsfeil
 ├── Feilet Flyway-migrasjon?
 │   ├── "relation does not exist" → Flyway ikke kjørt; sjekk at migrering kjøres i startup
 │   ├── "Migration failed" → SQL-feil i én migrasjonsfil. Se log for filnavn.
-│   │   → Fiks SQL, ev. `flyway repair` (kun utvikler-assistert). Se /flyway-migration.
+│   │   → Fiks SQL, ev. `flyway repair` (kun utvikler-assistert).
 │   └── Nei → gå videre
 ├── Pool exhaustion?
 │   ├── "Connection is not available, request timed out"
@@ -62,7 +62,7 @@ Database-tilkoblingsfeil
 | `Connection is not available, request timed out` | HikariCP pool exhaustion | Reduser `maximumPoolSize`; se connection leaks |
 | `FATAL: too many connections for role` | `replicas × pool` > `max_connections` | Reduser pool per replica eller oppgrader instans |
 | `FATAL: password authentication failed` | Feil credentials | NAIS genererer nye secrets ved rotasjon — redeploy appen |
-| `Flyway migration ... failed` | SQL-feil i migrasjon | Fiks SQL i `V{nr}__{navn}.sql`; se /flyway-migration |
+| `Flyway migration ... failed` | SQL-feil i migrasjon | Fiks SQL i `V{nr}__{navn}.sql` |
 | `relation "tabell" does not exist` | Flyway ikke kjørt eller feil schema | Sjekk at Flyway kjører i startup og at schema stemmer |
 | `Connection refused: localhost:5432` | Cloud SQL proxy-sidecar ikke oppe | `kubectl describe pod` — se at `cloudsql-proxy`-container er Ready |
 
@@ -75,5 +75,5 @@ Database-tilkoblingsfeil
 ## Når dette peker på annet
 
 - Pod krasjer pga. DB-problem ved oppstart → [pod-diagnose.md](./pod-diagnose.md)
-- Trege queries, schema-valg, index-strategi → `/postgresql-review` / `/flyway-migration` (design-tid, ikke kjøre-tid)
+- Trege queries, schema-valg, index-strategi → `/postgresql-review` (design-tid, ikke kjøre-tid)
 - Fikse-disiplin (in-memory Postgres via Testcontainers) → `/diagnosing-bugs`

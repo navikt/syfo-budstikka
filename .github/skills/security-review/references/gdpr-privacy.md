@@ -23,4 +23,4 @@ NAV opererer med fire PII-nivåer definert i SKILL.md-tabellen: **strengt fortro
 
 ## Dataminimering i praksis
 
-Ved gjennomgang: spør om hvert PII-felt i en datamodell er nødvendig for formålet. Nye felter krever oppdatert behandlingsgrunnlag, ikke bare en Flyway-migrasjon — se `/flyway-migration` når en migrering legger til eller endrer PII-kolonner.
+Ved gjennomgang: spør om hvert PII-felt i en datamodell er nødvendig for formålet. Nye felter krever oppdatert behandlingsgrunnlag, ikke bare en Flyway-migrasjon.

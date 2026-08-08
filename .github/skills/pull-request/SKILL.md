@@ -10,7 +10,6 @@ Pakk endringen i en PR som kan reviewes uten gjetting: tydelig tittel, riktig is
 ## Kontrakt for PR-en
 
 1. **Tittel følger semantisk format:** `type(scope): kort beskrivelse`.
-   - Bruk `/conventional-commit` for type/scope-regler.
    - **Ferdig når:** tittelen beskriver endringen presist på én linje.
 
 2. **Body følger repoets mal:** `.github/PULL_REQUEST_TEMPLATE.md`.

@@ -1,6 +1,6 @@
 ---
 name: kotlin-ktor
-description: "Bruk ved Ktor-spesifikt arbeid i no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering, og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor. Bruk /kotlin for ren Kotlin-kode uten Ktor-oppsett."
+description: "Bruk ved Ktor-spesifikt arbeid i no.nav.syfo: routes, plugins, auth, DI/wiring, logging/MDC, StatusPages, validering, og Ktor-relatert Kafka/Postgres-oppsett — eller /kotlin-ktor."
 ---
 
 # Ktor — NAV-spesifikt (syfo-budstikka)
@@ -10,8 +10,7 @@ Kotlin + Ktor 3.x på Netty, pakke `no.nav.syfo`. Java 25, Gradle. Norsk er arbe
 ## Skill-grenser
 
 - Bruk `/kotlin-ktor` når endringen rører Ktor-rammeverket (routes, plugins, auth, app wiring).
-- Bruk `/kotlin` når endringen er ren Kotlin (domene, typer, nullability, coroutines, ny kode eller refaktorering) uten Ktor-oppsett.
-- Bruk `/unit-tests`, `/integration-tests` eller `/e2e-tests` for testtype-spesifikk flyt.
+- Bruk `/integration-tests` eller `/e2e-tests` for testtype-spesifikk flyt.
 
 ## Oppstart og moduler
 
@@ -89,7 +88,7 @@ Når backenden selv kaller en nedstrøms-tjeneste: bruk Ktor `HttpClient` via `k
 - Flyway-migreringer i `src/main/resources/db/migration` (`V<n>__<navn>.sql`), kjøres ved oppstart. Migreringer er append-only — endre aldri en allerede deployet migrering.
 - Bruk NAIS-provisjonert Postgres med IAM/Vault-rotert credential; ikke hardkod connection-string.
 - Review skjema- og lagringsvalg for personopplysninger med
-  `/nav-architecture-review`. Når valget passerer ADR-gaten, anbefal
+  `/architecture-review`. Når valget passerer ADR-gaten, anbefal
   dokumentert løp og vent på brukerens valg før `/domain-modeling` registrerer
   det.
 

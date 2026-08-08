@@ -52,7 +52,7 @@ Spiken er et sideverktøy *inne i* design- og planfasen, ikke et eget løp:
   vedlikeholdt detalj til relevant topic-dokument. Når et nytt begrep eller en
   kvalifiserende beslutning bør skrives varig, anbefal dokumentert løp og vent
   på brukerens valg før `/domain-modeling` oppdaterer glossar eller ADR. Bruk
-  `/nav-architecture-review` først når NAV-konsekvenser er relevante.
+  `/architecture-review` først når NAV-konsekvenser er relevante.
 - **Notér åpne svar.** Kjører du AFK og brukeren ikke har bekreftet verdikten
   ennå: returner spørsmålet + foreløpig funn til den aktive oppgaven. Skriv det
   bare i oppgavelokal `.grill/` når den kallende arbeidsflyten har valgt det.

@@ -11,7 +11,7 @@ Avdekk arkitektonisk friksjon i dette repoet og foreslå **fordypningsmuligheter
 valgt kandidat inline med to genuint ulike alternativer og avhør valget med
 `/grilling`. Når varige begreper eller beslutninger bør dokumenteres, anbefal
 det dokumenterte løpet og vent på brukerens valg. Bruk
-`/nav-architecture-review` for NAV-review og `/domain-modeling` etter valgt
+`/architecture-review` for NAV-review og `/domain-modeling` etter valgt
 dokumentert løp.
 
 Skillen er **informert av** domenemodellen og besluttede valg, og bygger på et delt arkitekturvokabular:
@@ -80,7 +80,7 @@ beslutninger faller på plass:
 - **Forkaster brukeren kandidaten av en bærende grunn?** Vurder ADR bare når
   valget er vanskelig å reversere, overraskende uten kontekst og resultatet av
   en reell avveining. Hopp over flyktige ("ikke verdt det nå") og
-  selvinnlysende grunner. Bruk `/nav-architecture-review` hvis NAV-spesifikke
+  selvinnlysende grunner. Bruk `/architecture-review` hvis NAV-spesifikke
   konsekvenser må vurderes, og `/domain-modeling` for selve ADR-en.
 - **Vil du utforske alternative grensesnitt for den fordypede modulen?** Design to genuint ulike alternativer sekvensielt inline før du sammenligner dem. Bruk subagenter bare til kompakt, read-only divergent utforsking, aldri til parallell skriving.
 

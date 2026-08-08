@@ -60,7 +60,7 @@ also require an explicit user request.
   pull request, not only in ephemeral conversation. Any subsequent diff change
   invalidates a review-based route and requires fresh deterministic evidence
   and a fresh review.
-- `/nav-architecture-review` reviews relevant NAV platform, security, privacy,
+- `/architecture-review` reviews relevant NAV platform, security, privacy,
   operability, and team-boundary choices. It does not write ADRs.
   `/domain-modeling` owns the ADR gate and durable domain writes after the user
   chooses the documented route.
@@ -89,8 +89,9 @@ These apply to all code assistance in this repository.
 - **Naming:** Norwegian words only for domain terms (`Brukervarsel`,
   `Ledervarsel`, `Arbeidsgivervarsel`, `DittSykefravaer`, `Brev`). Everything
   else — mechanics, verbs, plumbing, technical identifiers — is English
-  (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full rule with
-  examples in `.github/instructions/kotlin.instructions.md`.
+  (`lagre`→`save`, `innhent`→`fetch`, `erDod`→`isDead`). Full rule in
+  [`docs/agents/language-policy.md`](../docs/agents/language-policy.md);
+  [`docs/glossary.md`](../docs/glossary.md) owns the domain vocabulary.
 - **Quality gates are deterministic:** `./gradlew test`,
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.
