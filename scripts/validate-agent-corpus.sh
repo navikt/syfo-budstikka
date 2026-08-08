@@ -44,8 +44,14 @@ fail() {
 #
 # Ratio alone is not enough: a 20-word file crosses 4.00 on a single hit. The
 # absolute minimum makes the measure refuse to speak until it has evidence.
+# Distinct words guard against English collisions in the stopword list: "HAR"
+# (the devtools HTTP Archive format), "men" and "den" are legitimate English
+# tokens, and an English file about one of them can repeat it past both
+# thresholds on its own. Norwegian prose always spreads across many function
+# words; repetition of a single one is English jargon, not Norwegian.
 NORWEGIAN_RATIO_THRESHOLD=400 # 4.00 stopwords per 100 words, scaled by 100
 NORWEGIAN_MINIMUM_HITS=5
+NORWEGIAN_MINIMUM_DISTINCT=3
 
 # A gate that scans nothing reports success. If the pathspecs below stop
 # matching (a directory is renamed, a checkout is partial), that must fail
@@ -123,14 +129,16 @@ STOPWORD_RE = re.compile(
 # Code is not prose. Domain terms are usually cited as inline code, and fenced
 # blocks hold Kotlin samples, Norwegian error strings and verbatim issue
 # templates — all of which docs/agents/language-policy.md says to preserve.
-FENCED_CODE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})[^\n]*$.*?^[ \t]*\1[ \t]*$", re.M | re.S)
+# \r? on the closing fence: a CRLF checkout must not silently un-close every
+# fence and turn its code into counted prose.
+FENCED_CODE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})[^\n]*$.*?^[ \t]*\1[ \t]*\r?$", re.M | re.S)
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 WORD_RE = re.compile(r"[^\W\d_]+")
 # Only the frontmatter block declares the id; a `name:` inside an example is
 # someone else's YAML.
 FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 NAME_RE = re.compile(r"^name:[ \t]*(.+)$", re.M)
-REFERENCE_LINK_RE = re.compile(r"\]\((?:\./)?(references/[A-Za-z0-9_.-]+\.md)\)")
+REFERENCE_LINK_RE = re.compile(r"\]\((?:\./)?(references/[A-Za-z0-9_.-]+\.md)(?:#[^)]*)?\)")
 
 US = b"\x1f"
 out = sys.stdout.buffer
@@ -157,9 +165,11 @@ for path in sys.stdin.buffer.read().split(b"\0"):
 
     prose = INLINE_CODE_RE.sub(" ", FENCED_CODE_RE.sub(" ", text))
     words = len(WORD_RE.findall(prose))
-    hits = len(STOPWORD_RE.findall(prose))
+    matches = STOPWORD_RE.findall(prose)
+    hits = len(matches)
+    distinct = len({re.sub(r"\s+", " ", match.lower()) for match in matches})
     ratio = round(hits / words * 10000) if words else 0
-    emit(b"LANG", "%d %d" % (ratio, hits), path)
+    emit(b"LANG", "%d %d %d" % (ratio, hits, distinct), path)
 
     parts = path.split(b"/")
     if len(parts) == 4 and parts[:2] == [b".github", b"skills"] and parts[3] == b"SKILL.md":
@@ -191,10 +201,9 @@ while IFS=$'\x1f' read -r -d '' kind value path; do
         ;;
 
     LANG)
-        ratio="${value% *}"
-        hits="${value#* }"
+        read -r ratio hits distinct <<<"$value"
         norwegian=0
-        if [[ "$ratio" -gt "$NORWEGIAN_RATIO_THRESHOLD" && "$hits" -ge "$NORWEGIAN_MINIMUM_HITS" ]]; then
+        if [[ "$ratio" -gt "$NORWEGIAN_RATIO_THRESHOLD" && "$hits" -ge "$NORWEGIAN_MINIMUM_HITS" && "$distinct" -ge "$NORWEGIAN_MINIMUM_DISTINCT" ]]; then
             norwegian=1
         fi
         printf -v measured '%d.%02d' "$((ratio / 100))" "$((ratio % 100))"
@@ -212,10 +221,10 @@ while IFS=$'\x1f' read -r -d '' kind value path; do
         if [[ "$allowlisted" -ge 0 ]]; then
             allowlist_matches[allowlisted]=$((allowlist_matches[allowlisted] + 1))
             if [[ "$norwegian" -eq 0 ]]; then
-                fail "Allowlisted file is no longer Norwegian (${measured} stopwords/100 words, ${hits} hits): ${path}. The exception now only blinds this gate — drop it from the allowlist in this script."
+                fail "Allowlisted file is no longer Norwegian (${measured} stopwords/100 words, ${hits} hits, ${distinct} distinct): ${path}. The exception now only blinds this gate — drop it from the allowlist in this script."
             fi
         elif [[ "$norwegian" -eq 1 ]]; then
-            fail "Norwegian prose in agent-facing file (${measured} stopwords/100 words, ${hits} hits, threshold 4.00): ${path}. Translate it, or add it to the allowlist in this script with a reason."
+            fail "Norwegian prose in agent-facing file (${measured} stopwords/100 words, ${hits} hits across ${distinct} distinct stopwords, threshold 4.00): ${path}. Translate it, or add it to the allowlist in this script with a reason."
         fi
         ;;
 
