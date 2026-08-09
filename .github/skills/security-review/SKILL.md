@@ -74,7 +74,7 @@ spec:
 **Critical considerations during review:**
 
 - **No open inbound**: `inbound.rules` must be an explicit list. Absence of rules = no access (fine for internal batch/job), but open wildcards or many general rules require justification.
-- **Inbound and auth code mirror each other**: Every app in `inbound.rules` must be validated in the auth code (`azp` check against `AZURE_APP_PRE_AUTHORIZED_APPS` in the `authenticate("azureAd")` branch). Diff the discrepancies — either dead code or a missing network rule.
+- **This repo has no inbound callers**: `nais/nais-dev.yaml` and `nais/nais-prod.yaml` define only `accessPolicy.outbound`, and the app exposes only `/internal` probes (`api/InternalApi.kt`) with no inbound auth on the classpath. `inbound.rules` should normally be absent or empty — a diff that adds inbound rules without an authenticated HTTP surface (or the reverse) is a finding. If an inbound surface is ever added, the design rule is that inbound rules and auth code mirror each other: every app in `inbound.rules` is validated in the auth code (`azp` check against `AZURE_APP_PRE_AUTHORIZED_APPS`).
 - **Outbound is a security measure, not just routing**: Restricted outbound = limited blast radius if the app is compromised. Outbound `external` must have a clear purpose and owner.
 - **Cluster/namespace match the environment**: `prod-gcp` vs `dev-gcp` — the wrong cluster in outbound = the service does not work in prod, but this is often discovered late.
 
@@ -117,25 +117,12 @@ trivy image <image-name> --severity HIGH,CRITICAL
 
 # GitHub Actions workflows
 zizmor .github/workflows/
-
-# Secrets in git history
-git log -p --all -S 'password' -- '*.kt' '*.kts' '*.yaml' | head -100
-git log -p --all -S 'secret' -- '*.kt' '*.kts' '*.yaml' | head -100
 ```
 
 Return evidence (command + output + exit code) to the calling workflow — no
 "looks safe" claims without fresh evidence.
 
 ## Secrets
-
-```kotlin
-// OK — from the environment (NAIS injects via a Console secret)
-val dbPassword = System.getenv("DB_PASSWORD")
-    ?: error("DB_PASSWORD missing")
-
-// Never — hardcoded
-val dbPassword = "supersecret123"
-```
 
 Secrets are created in NAIS Console and injected via `envFrom`/`filesFrom`. Also check that they do not end up in `application.conf`, `gradle.properties` or the version catalog. Never copy prod secrets locally.
 

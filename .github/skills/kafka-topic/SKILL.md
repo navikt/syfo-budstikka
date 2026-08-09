@@ -29,10 +29,10 @@ Follow the dominant pattern. If the repository has no Kafka yet, choose plain Ap
 
 ## Approach
 
-1. Check the Nais manifest for `kafka.pool` and whether Kafkarator `Topic` CRDs exist (often in a separate `<team>-kafka` repository).
+1. Check the Nais manifest for `kafka.pool`. The Kafkarator `Topic` CRDs are checked in **here**, in `nais/topics/kafka-dev.yaml` and `nais/topics/kafka-prod.yaml`, and deployed by `.github/workflows/deploy-topic.yaml` — not in a separate `<team>-kafka` repository.
 2. Search the codebase for existing consumers/producers and follow the same pattern (startup, error handling, logging).
 3. Confirm the stack in `build.gradle.kts` (see the table above).
-4. Plan the event contract (topic name, key, fields, `@event_name`). Write the
+4. Plan the event contract (topic name, key, fields, the event-id header). Write the
    maintained contract detail that follows from the approved change into the
    relevant topic document. New domain concepts and qualifying lasting decisions are
    candidates for the documented route; wait for the user's choice before
@@ -42,30 +42,15 @@ Follow the dominant pattern. If the repository has no Kafka yet, choose plain Ap
 
 ## Sync vs. event — when to choose what
 
-| Need | Pattern | When |
-|------|---------|------|
-| An answer is needed immediately, the call must visibly succeed or fail | REST on a Ktor route | CRUD, lookups, user interaction |
-| Fire-and-forget notification, audit, async downstream | Kafka producer (plain) | Notifications, logging, processes that can wait |
-| Event choreography across many services | Rapids & Rivers on a shared rapid topic | Saga flows, multi-service workflows |
-| Periodic batch | Naisjob (+ Kafka if downstream) | Nightly jobs, reports, reprocessing |
-
-If the team already uses Rapids for choreography, publish new events there — do not create a parallel plain producer.
+Nav-specific rules only: periodic batch belongs in a Naisjob (+ Kafka if downstream), and if the team already uses Rapids & Rivers for choreography, publish new events on the shared rapid — do not create a parallel plain producer.
 
 ## Kafka in a Ktor app — where does the consumer run?
 
-The Ktor server (`EngineMain` on Netty) and the Kafka consumer are two independent lifecycles in the same process. A `KafkaConsumer.poll` loop must run alongside the HTTP server, not inside a request. Start and stop it together with the application:
+The Ktor server (`EngineMain` on Netty) and the Kafka consumer are two independent lifecycles in the same process. A `KafkaConsumer.poll` loop must run alongside the HTTP server, not inside a request.
 
-```kotlin
-fun Application.kafkaConsumerModule(consumer: HendelseConsumer) {
-    val job = launch(Dispatchers.IO) { consumer.run() }   // own coroutine, not in a route
-    monitor.subscribe(ApplicationStopPreparing) {
-        consumer.stop()                                    // set running=false, let the loop finish
-        job.cancel()
-    }
-}
-```
+In this repository the lifecycle runs through Ktor DI, not `monitor.subscribe(ApplicationStopPreparing)`: `ConsumerRunner`s are registered in the DI container (`infrastructure/kafka/config/Module.kt`) and started from bootstrap via `startKafkaConsumers()` / `startWorkers()` (`bootstrap/KafkaConsumers.kt`, `bootstrap/Workers.kt`, called in `Application.kt`). Teardown is the DI `.cleanup { }` block, which closes each `ConsumerRunner` / `BackgroundLoop`; `close()` joins the running loop with a 5 s timeout (`CLOSE_TIMEOUT_SECONDS = 5` in `ConsumerRunner.kt`).
 
-Expose the consumer's health in `/internal/health/is_ready` so that the pod is not marked ready before the consumer is actually polling. Keep `/internal/*` (isalive, isready, metrics) outside auth, cf. `/auth-overview`.
+Consumer health belongs in **liveness**, not readiness (`docs/helsesjekk.md` lists putting the consumer in the readiness check as an anti-pattern — a dead consumer must not pull the pod out of load balancing). The loop records a self-reported heartbeat every poll round, and the `LivenessCheck` behind `/internal/health/is_alive` (`api/InternalApi.kt`, `infrastructure/Health.kt`) reports unhealthy only when the last poll is stale. Never ping the broker in a probe. Keep `/internal/*` (health probes, metrics) outside auth, cf. `/auth-overview`.
 
 ## NAIS Kafka configuration
 
@@ -76,7 +61,7 @@ spec:
     pool: nav-dev   # or nav-prod
 ```
 
-NAIS injects SSL env vars into the pod — read them in Ktor via `System.getenv(...)` or `environment.config`:
+NAIS injects SSL env vars into the pod — this repository reads them via `${?ENV_VAR}` substitution in HOCON `application.conf` into the typed Kafka config (`infrastructure/kafka/config/Config.kt`), not via `System.getenv`:
 
 - `KAFKA_BROKERS` — bootstrap servers
 - `KAFKA_TRUSTSTORE_PATH` / `KAFKA_KEYSTORE_PATH` — PKCS12 files
@@ -143,59 +128,23 @@ teamsykefravar.oppfolging.v1       # Domain events
 
 - **Past tense + snake_case**: `sykmelding_sendt`, `oppfolging_opprettet`, `vedtak_fattet` — not `create_x` / `process`.
 - **Events are facts**, not commands. Describe what happened.
-- **Standard metadata** in the payload:
-  - `@event_name` — event type
-  - `@id` — unique UUID per event (used for idempotency)
-  - `@created_at` — ISO-8601 timestamp
-  - `@produced_by` — producing service
-  - `@correlation_id` — propagate from the incoming request (strongly recommended)
+- **Event identity lives in a Kafka header, not the payload.** This repository's contract puts the event UUID in the `DispatchHeader.EVENT_ID` header (kontrakt module); the consumer reads it with `readEventId()` in `InboxMessageHandler.kt` and dead-letters records where it is missing or invalid. Per the README, `eventId` exists only in the header and is what deduplication keys on — not a payload field, and not the message key.
+- The `@`-prefixed payload metadata (`@event_name`, `@id`, `@created_at`, ...) is a Rapids & Rivers convention. This repository does not use it — it applies only when working on that stack (see `references/rapids-and-rivers.md`).
 - **No PII without a deliberate assessment.** Fødselsnummer as the key is acceptable on Nav-internal topics, but never log it, and consider encrypting sensitive free-text fields.
 
 ## Idempotency
 
-Kafka delivers at-least-once — duplicates happen. Consumers must be idempotent. Deduplicate on a stable event ID (`@id` in the payload), never on the Kafka offset (it changes on repartitioning).
+In this repository deduplication keys on the event-id Kafka header (`DispatchHeader.EVENT_ID`) — never the payload, the message key, or the Kafka offset. The header UUID is the primary key of `inbox_message`, and `saveBatch` inserts with ON CONFLICT DO NOTHING semantics (`InboxMessageRepositoryImpl.kt`, `batchInsert(ignore = true)`), so a redelivered record is a no-op.
 
-```kotlin
-fun prosesser(eventId: String, /* ... */) {
-    if (eventStore.alleredeProsessert(eventId)) return
-    // process ...
-    eventStore.markerProsessert(eventId)
-}
-```
+## Dead-letter handling
 
-The dedup table is typically a Postgres table — add it as a Flyway migration.
+Messages that can never be processed (missing/invalid event-id header, missing or unparseable payload) must **not block the stream** — distinguish temporary errors (throw, let Kafka redeliver) from permanent ones (park, continue).
 
-## Dead-letter handling (concept)
+This repository has **no DLQ topic and no DLQ producer**: poison records are parked as Postgres rows in `dead_letter_message` (`DeadLetterMessageRepository.kt`), written by `InboxMessageHandler` while the offset commits and the stream moves on. Replay is a manual procedure: `DeadLetterReplayer` runs at startup only when `DEAD_LETTER_REPLAY_ENABLED=true`, re-parses the rows in code, and inserts the parseable ones into `inbox_message` — see `docs/dead-letter-replay.md`. Follow this pattern; do not introduce a DLQ topic here.
 
-Messages that can never be processed (corrupt payload, permanent validation error) must **not block the stream**.
-
-1. **Distinguish temporary from permanent errors.** Temporary (network, DB down) → throw an exception, let Kafka retry. Permanent → log + DLQ, continue.
-2. **A DLQ topic** per domain (`<team>.<domain>.dlq.v1`) with the original message + error cause + timestamp.
-3. **Alert on the DLQ rate**, not on individual messages.
-4. **Manual replay** after a bugfix: read the DLQ, republish to the original topic.
-
-The implementation follows the stack — in a Ktor repository you usually roll a small DLQ producer of your own. Follow the pattern that already exists.
+Alternative for repos without a database only: a DLQ topic per domain (`<team>.<domain>.dlq.v1`) with a small producer of your own, alerting on the DLQ rate. Reach for that only when there is no Postgres to park rows in.
 
 ## Event evolution
-
-```
-How do you change an existing event?
-├── Add a new field (optional)
-│   └── Backwards compatible. Consumers must tolerate unknown fields
-│       (tolerant parsing / interestedIn), not require them.
-│
-├── Change a field format (breaking)
-│   └── New topic version v2. Dual-write from the producer.
-│       Migrate consumers one at a time. Stop v1 production last.
-│
-├── Remove a field
-│   └── 1. Verify that no consumer requires the field.
-│       2. Remove it from the producer. 3. Wait + monitor before topic cleanup.
-│
-└── New event type
-    └── Publish with a new @event_name. Existing consumers ignore
-        unknown event_names (applies especially to Rapids).
-```
 
 Breaking event changes are a coordination problem with consuming teams —
 the same discipline as API versioning, see `/api-design`. Review Nav-wide and
@@ -217,14 +166,14 @@ Read only the one relevant to the repository:
 - Create topics via Kafkarator `Topic` CRDs — never ad hoc in code or `kubectl`.
 - Explicit ACL per consumer app.
 - Topic names `<team>.<domain>.v<version>`; event names in past tense + snake_case.
-- Idempotent consumption (dedup on `@id`).
-- DLQ for permanent errors, alert on the DLQ rate.
+- Idempotent consumption (dedup on the `DispatchHeader.EVENT_ID` header).
+- Dead-letter permanent errors (Postgres `dead_letter_message` rows here), alert on the rate.
 - Structured logging with `event_id` / `correlation_id` — never PII (`fnr`) in logs.
 - `kafka.pool` set in the Nais manifest before deploy.
 
 ### Ask first
 - Migration plain ↔ Rapids.
-- Changing `KAFKA_CONSUMER_GROUP_ID` / consumer group (triggers reprocessing from `auto.offset.reset`).
+- Changing the consumer group — the default `syfo-budstikka-budstikka-v1` in `application.conf`, overridable via `KAFKA_BUDSTIKKA_GROUP_ID` (triggers reprocessing from `auto.offset.reset`).
 - A breaking event change that other teams consume.
 - Changing `partitions` / `cleanupPolicy` on an existing topic.
 

@@ -38,10 +38,16 @@ Consumer lag is growing
 │   └── Continuously → the consumer cannot keep up
 │       ├── Check the processing time per message (log/trace per record)
 │       ├── Poison pill? — one message that always fails, blocking the offset commit
+│       │   └── In this repo poison messages should NOT block: they are parked as rows in
+│       │       the `dead_letter_message` table and the offset commits. Are messages parked
+│       │       in dead_letter? Check the table (`failure_reason` column) — see
+│       │       docs/dead-letter-replay.md for counting and replaying them
 │       ├── Consider increasing `replicas` (up to the number of partitions)
 │       └── Consider increasing the partitions on the topic (requires coordination)
 ├── Is the consumer logging errors?
 │   ├── Deserialization error → schema mismatch, check the producer and the Avro/JSON schema
+│   │   └── In this repo unparseable payloads and missing/invalid event-id headers are
+│   │       dead-lettered — check `dead_letter_message`, see docs/dead-letter-replay.md
 │   ├── DB error along the way → see database-diagnose.md
 │   ├── Rebalance loop → check `max.poll.interval.ms` vs. the actual processing time
 │   └── No errors but no progress → check that it is actually reading the right topic / consumer group
@@ -63,6 +69,7 @@ Consumer lag is growing
 |-------------|-------|---------|
 | Lag grows linearly from a deploy | New `group.id` / offset reset = earliest | Expected; it will catch up. Optionally set `auto.offset.reset: latest` if that is acceptable |
 | The consumer processes nothing, no errors | Wrong `group.id` / topic name | Check the NAIS manifest and the Ktor config |
+| Messages are consumed but rows never appear downstream | Records parked in `dead_letter_message` (e.g. `MISSING_EVENT_ID`, `UNPARSEABLE_PAYLOAD`) | Count rows per `failure_reason`; fix the cause, then replay per docs/dead-letter-replay.md |
 | Rebalance every N minutes | Processing time > `max.poll.interval.ms` | Reduce the batch size, or increase the interval |
 | `SSL handshake failed` | The NAIS SSL env vars are not used correctly | Check that the app reads `KAFKA_TRUSTSTORE_PATH` / `KAFKA_KEYSTORE_PATH` / `KAFKA_CREDSTORE_PASSWORD` |
 | Rapids messages "disappear" | `demandValue("@event_name", "...")` does not match | Log what the River actually sees; check the producer event name |

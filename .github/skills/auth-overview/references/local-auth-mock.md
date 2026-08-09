@@ -1,13 +1,39 @@
 # Local auth mocking for Ktor tests
 
-How to run token validation locally and in JUnit/Ktor tests without a real ID-porten/Azure/TokenX. Use `mock-oauth2-server` as the OIDC issuer.
+How this repository tests auth without real NAIS infrastructure. There is no inbound token validation in this repo to mock — the only auth code is outbound token fetching via the Texas sidecar (`TexasTokenProvider.kt`). Tests are Kotest `FunSpec` (`kotest-runner-junit5` in `build.gradle.kts`), not JUnit test classes.
 
-## JVM tests (primary for this repository)
+## Primary pattern for this repository: MockEngine against the Texas endpoint
 
-Use `no.nav.security:mock-oauth2-server` directly from the tests — no Docker needed.
+`TexasTokenProviderTest.kt` (`src/test/kotlin/no/nav/budstikka/infrastructure/auth/`) stubs the Texas sidecar with Ktor's `MockEngine` (`ktor-client-mock` in `gradle/libs.versions.toml`): point `TexasConfig` at a fake URL and let the engine answer with the token JSON. No server process, no Docker.
 
 ```kotlin
-// build.gradle.kts
+// Pattern from TexasTokenProviderTest.kt
+val config = TexasConfig(tokenEndpoint = "http://texas.local/api/v1/token", identityProvider = "entra_id")
+val client =
+    HttpClient(
+        MockEngine { request ->
+            respond(
+                content = """{"access_token":"tok-1","expires_in":3600,"token_type":"Bearer"}""",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        },
+    )
+val provider = TexasTokenProvider(client, config, MutableClock(start))
+```
+
+Assert on the captured request (`identity_provider` must be `entra_id`, `target` as expected) and on caching behavior by advancing `MutableClock`.
+
+## Hand-written fakes
+
+Collaborators behind interfaces get hand-written fakes in `src/test/kotlin/no/nav/budstikka/fakes/` (e.g. `FakeDocumentDistributor.kt`, `FakeReservationLookup.kt`, `FakeDeathLookup.kt`) — no mocking framework in this repo.
+
+## Future option: mock-oauth2-server for an inbound surface (NOT currently used)
+
+`no.nav.security:mock-oauth2-server` is **not** a dependency here, and there is no inbound validation to point it at. Only if a future inbound authenticated surface (token validation with `navikt/token-support`) is added does it become relevant, as the local OIDC issuer:
+
+```kotlin
+// build.gradle.kts (only when inbound validation exists)
 testImplementation("no.nav.security:mock-oauth2-server:<version>")
 ```
 
@@ -33,9 +59,9 @@ client.get("/api/sykmeldinger") {
 mockServer.shutdown()
 ```
 
-In `application.yaml` for the test profile, point `discoveryurl` and `accepted_audience` at the mock server.
+In the test config, point `discoveryurl` and `accepted_audience` at the mock server — this repo's config file is `src/main/resources/application.conf` (HOCON; there is no `application.yaml`).
 
-## Running locally with Docker (optional)
+### Running locally with Docker (optional, same future scenario)
 
 ```yaml
 services:

@@ -4,6 +4,8 @@ Diagnostic trees for authentication and authorization failures in this repositor
 
 See `/auth-overview` for the mechanisms; this file is for *diagnosing when they fail*.
 
+> **Scope note:** this repo currently has no inbound token validation — there is no `ktor-server-auth` or token-support dependency in `build.gradle.kts`, and the only auth code is outbound token fetching via `TexasTokenProvider.kt`. The 401/403 trees and the inbound rows in the failure table apply to services *with* an inbound authenticated surface (or a future one here). For diagnosing this app today, start at the Texas sidecar section below.
+
 ## Decode a JWT
 
 ```bash
@@ -58,7 +60,7 @@ kubectl get networkpolicy -n {namespace} -l app={app-name}
 │   ├── Wrong audience → the caller sends the token to the wrong recipient (fix `target` in the token exchange)
 │   └── Correct → continue
 ├── Has the token expired?
-│   ├── exp < now → token expired. Texas handles refresh — no separate token caching in the app.
+│   ├── exp < now → token expired. This app caches per target and renews 30 s before expiry (`TexasTokenProvider.kt`) — suspect a second cache layer outside it, or a clock problem.
 │   └── Valid → continue
 ├── Is the clock synchronized?
 │   ├── Clock skew > a few seconds → infra problem (rare on Nais)
@@ -96,7 +98,7 @@ kubectl get networkpolicy -n {namespace} -l app={app-name}
 |------------|-------|---------|
 | `Token validation failed: wrong issuer` | Token from the wrong IdP | The caller uses the wrong auth mechanism (Azure AD vs. TokenX vs. ID-porten) |
 | `Token validation failed: wrong audience` | Token intended for another app | Fix `target` in the Texas token exchange call |
-| `Token validation failed: expired` | Token expired | Token cache too old. Texas refreshes on its own — no separate caching in the app. |
+| `Token validation failed: expired` | Token expired | Token cached beyond its lifetime. `TexasTokenProvider.kt` renews 30 s before expiry — look for an extra cache layer outside it, or a clock problem. |
 | `Connection refused: login.microsoftonline.com` | Cannot reach JWKS/issuer | Add `accessPolicy.outbound.external` for the issuer host |
 | `No bearer token found` / 401 on a protected route | Missing `Authorization` header | Check that the caller/sidecar sends the token; check that the route is not unexpectedly outside `authenticate { }` |
 | `403 denied by NetworkPolicy` | `accessPolicy.inbound` is missing the caller | Add `{application, namespace}` to inbound.rules |
@@ -107,10 +109,10 @@ The Kotlin backend fetches/exchanges tokens via the Texas sidecar (HTTP on `loca
 
 ```bash
 kubectl exec -n {namespace} {pod} -- \
-  curl -s "$NAIS_TOKEN_ENDPOINT" -d 'identity_provider=azuread' -d 'target={target}'
+  curl -s "$NAIS_TOKEN_ENDPOINT" -d 'identity_provider=entra_id' -d 'target={target}'
 ```
 
-Do not implement your own token caching or OAuth flow manually in the app. See `/auth-overview`.
+Token caching lives in exactly one place: `TexasTokenProvider.kt` deliberately caches per target until 30 s before expiry (its KDoc explains why). Do not add a second cache layer on top of it, cache a token without expiry-skew handling, or hand-roll an OAuth flow elsewhere in the app. See `/auth-overview`.
 
 ## When this points elsewhere
 

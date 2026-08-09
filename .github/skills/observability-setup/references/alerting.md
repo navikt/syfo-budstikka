@@ -1,116 +1,55 @@
 ---
-description: "Look this up when writing Prometheus alerts and NAIS Alert resources for this service: error rate, latency, pod restarts, Kafka lag and Slack routing."
+description: "Look this up when introducing alerts (PrometheusRule) for this service: consumer lag, inbox/delivery failures, worker failures, heartbeat staleness and Slack routing."
 ---
 
-# Alerting and notifications in NAIS
+# Alerting for syfo-budstikka
 
-Practical patterns for Prometheus rules and notifications to Slack via NAIS. Prioritise alerts that point at real user or operational problems the team actually has to react to.
+No alert configuration exists in this repository today — no `PrometheusRule`, no legacy
+`nais.io/v1` `Alert`. This reference says what to alert on for this app when alerts are
+introduced, derived from the metrics the app exports and the checked-in dashboard already
+queries (`grafana/dashboards/syfo-budstikka.json`).
 
-## Common alerting patterns
+## What to alert on for this app
 
-### High error rate
+The app has no public API — its only HTTP traffic is the internal probes
+(`src/main/kotlin/no/nav/budstikka/api/InternalApi.kt`) — so HTTP error-rate and latency alerts
+would only measure the probes and are meaningless here. The symptoms that matter are pipeline
+symptoms:
 
-```yaml
-groups:
-  - name: syfo-budstikka-alerts
-    rules:
-      - alert: HighErrorRate
-        expr: |
-          (
-            sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka",status=~"5.."}[5m]))
-            /
-            sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))
-          ) > 0.05
-        for: 10m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Høy feilrate for syfo-budstikka"
-          description: "Mer enn 5% av forespørslene feiler med 5xx over 10 minutter"
-          runbook_url: "https://teamdocs/runbooks/syfo-budstikka-errors"
-```
+- **Consumer lag** — `kafka_consumer_fetch_manager_records_lag_max{topic="team-esyfo.budstikka.v1"}`,
+  the metric the app exports and the dashboard queries. Sustained growth means messages arrive
+  faster than they are processed.
+- **Inbox and delivery failures** — `inbox_message_failed_total` climbing, and
+  `delivery_total{result="failed"}` per `channel`.
+- **Worker failures** — `worker_failures_total{worker=...}`; the dashboard already tracks
+  `worker="inbox-message"` iteration failures.
+- **Absence of heartbeat** — a stale consumer heartbeat fails `is_alive` and the platform
+  restarts the pod (`docs/helsesjekk.md`), so it surfaces as restarts:
+  `kube_pod_container_status_restarts_total` increasing, or `up{app="syfo-budstikka"}` targets
+  disappearing.
+- **Dead-letter growth** — poison messages land in the dead-letter table and log
+  "Poison inbox message dead-lettered" (`infrastructure/kafka/consumer/InboxMessageHandler.kt`).
+  No Prometheus counter exists for this yet, so either add one first or alert on the Loki log
+  line.
 
-### Latency spike
+## Mechanism
 
-```yaml
-- alert: HighLatencyP95
-  expr: |
-    histogram_quantile(
-      0.95,
-      sum(rate(ktor_http_server_requests_seconds_bucket{app="syfo-budstikka"}[5m])) by (le)
-    ) > 1
-  for: 15m
-  labels:
-    severity: warning
-  annotations:
-    summary: "Høy latency for syfo-budstikka"
-    description: "p95-latency er over 1 sekund"
-```
+NAIS alerting today uses the Prometheus Operator's `PrometheusRule` resource
+(`apiVersion: monitoring.coreos.com/v1`), not the legacy `nais.io/v1` `Alert` (Alerterator).
+Routing is label-driven: the `namespace` label (here `team-esyfo`) routes the notification to
+the team's Slack channel as configured in Nais Console, and `severity`
+(`critical`/`warning`/`info`) sets the level. Check the NAIS docs (doc.nais.io, observability →
+alerting) for the current reference before writing rules.
 
-### Pod restart / unavailability
+The team channel is [#esyfo](https://nav-it.slack.com/archives/C012X796B4L) (see `README.md`).
 
-```yaml
-- alert: PodRestarts
-  expr: sum(increase(kube_pod_container_status_restarts_total{app="syfo-budstikka"}[15m])) > 3
-  for: 5m
-  labels:
-    severity: warning
-  annotations:
-    summary: "Pods restarter hyppig"
-    description: "syfo-budstikka har restartet mer enn 3 ganger på 15 minutter"
+## Rules of thumb
 
-- alert: ApplicationDown
-  expr: sum(up{app="syfo-budstikka"}) == 0
-  for: 2m
-  labels:
-    severity: critical
-  annotations:
-    summary: "Applikasjonen er nede"
-    description: "Ingen friske targets scrapes for syfo-budstikka"
-```
-
-### Kafka / queue problems
-
-```yaml
-- alert: KafkaConsumerLagHigh
-  expr: max(kafka_consumer_lag{app="syfo-budstikka"}) > 10000
-  for: 15m
-  labels:
-    severity: warning
-  annotations:
-    summary: "Høy Kafka consumer lag"
-    description: "Lag har holdt seg over 10000 i 15 minutter"
-```
-
-## NAIS patterns for alerting rules
-
-- Use short, stable alert names
-- Always add `summary`, `description` and preferably a runbook link
+- Short, stable alert names; always add `summary` and `description` annotations
 - `warning` for things that should be looked into, `critical` for an active incident
-- Alert on symptoms before internal indicators
-- Test thresholds in `dev-gcp` before tightening them in prod
+- Keep thresholds cautious until traffic patterns are known — test in `dev-gcp` before
+  tightening them in prod
 - Avoid many near-identical alerts with small variations in threshold
-- Grill changes to production thresholds with `/grilling`. When the choice passes
+- Grill production thresholds and alerting channels with `/grilling`. When the choice passes
   the ADR gate, recommend the documented route and wait for the user's choice before
   `/domain-modeling` records it.
-
-## Slack routing via NAIS Alert
-
-```yaml
-apiVersion: nais.io/v1
-kind: Alert
-metadata:
-  name: syfo-budstikka-alerts
-  namespace: team-esyfo
-spec:
-  receivers:
-    slack:
-      channel: "#team-esyfo-alerts"
-      prependText: "@here "
-  alerts:
-    - alert: HighErrorRate
-    - alert: HighLatencyP95
-    - alert: ApplicationDown
-```
-
-Choose the channel and `prependText` with care. Critical alerts may use `@here`; noisy alerts normally should not.

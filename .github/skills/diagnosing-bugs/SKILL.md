@@ -34,9 +34,9 @@ Spend disproportionate effort here. **Be aggressive. Be creative. Do not give up
        res.status shouldBe HttpStatusCode.OK   // goes red on exactly this bug
    }
    ```
-2. **curl / HTTP script** against a running local Ktor server (`./gradlew run`), diffing status/body against known-good.
+2. **curl / HTTP script** against a running local Ktor server (`./gradlew runLocal` / `mise dev:tc` — bare `./gradlew run` boots the prod config without DB env), diffing status/body against known-good.
 3. **Replay of a captured event.** Save a real Kafka record / HTTP payload / event log to disk and play it through the code path in isolation (call the consumer handler / route handler directly with the payload).
-4. **Throwaway harness.** Spin up a minimal subset (one route, mocked dependencies via MockK/WireMock, in-memory Postgres via Testcontainers) that hits the failing code path with a single function call.
+4. **Throwaway harness.** Spin up a minimal subset (one route, faked dependencies via Ktor `MockEngine` or the hand-written fakes, real Postgres via Testcontainers) that hits the failing code path with a single function call.
 5. **Property / fuzz loop.** If the bug is "sometimes wrong output", run 1000 random inputs and look for the failure mode.
 6. **Bisection harness.** If the bug appeared between two known states (commit, dataset, version), automate "boot at X, check, repeat" so you can `git bisect run` it.
 7. **Differential loop.** Run the same input through the old vs. the new version (or two configurations) and diff the output.
@@ -50,7 +50,7 @@ Treat the loop as a product. Once you have _a_ loop, **tighten** it:
 
 - Can I make it faster? (Cache setup, skip unrelated init, `./gradlew test --tests` on a single test, reuse Testcontainers.)
 - Can I make the signal sharper? (Assert on the specific symptom, not "did not crash".)
-- Can I make it more deterministic? (Pin time with a `Clock`, seed the RNG, isolate the DB schema, freeze the network with WireMock/MockK.)
+- Can I make it more deterministic? (Pin time with a `Clock`, seed the RNG, isolate the DB schema, freeze the network with Ktor `MockEngine`/hand-written fakes.)
 
 A 30-second flaky loop is barely better than no loop; a 2-second deterministic one is tight — a debugging superpower.
 

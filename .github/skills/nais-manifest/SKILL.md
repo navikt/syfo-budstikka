@@ -96,16 +96,16 @@ accessPolicy:
 ```yaml
 gcp:
   sqlInstances:
-    - type: POSTGRES_17          # Check the version used in this repository
-      tier: db-f1-micro          # dev; prod: db-custom-1-3840
-      highAvailability: false    # prod: true
-      diskAutoresize: false      # prod: true
+    - type: POSTGRES_18          # The version in nais/nais-dev.yaml and nais/nais-prod.yaml
+      tier: db-f1-micro          # dev; prod: db-custom-1-5120
+      highAvailability: false    # also false in prod — Kafka replay covers recovery (rationale in nais/nais-prod.yaml)
+      diskAutoresize: true       # true in both dev and prod
       databases:
         - name: budstikka-db
-          envVarPrefix: DB
+          envVarPrefix: BUDSTIKKA_DB
 ```
 
-Provides env vars: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Schema changes and migrations are run with Flyway. For long-running migrations: make sure there is a `startup` probe so that Flyway finishes before liveness restarts the pod.
+Provides env vars: `BUDSTIKKA_DB_HOST`, `BUDSTIKKA_DB_PORT`, `BUDSTIKKA_DB_DATABASE`, `BUDSTIKKA_DB_USERNAME`, `BUDSTIKKA_DB_PASSWORD`, `BUDSTIKKA_DB_URL` and `BUDSTIKKA_DB_SSLKEY_PK8` (`nais/nais-dev.yaml`), which `application.conf` reads in its `database { }` block. Schema changes and migrations are run with Flyway. For long-running migrations: make sure there is a `startup` probe so that Flyway finishes before liveness restarts the pod.
 
 ### HikariCP pool — owned by `/postgresql-review`
 
@@ -166,7 +166,7 @@ Tracing → Tempo, logs → Loki (log to stdout/stderr, preferably JSON via Logb
 
 ## Pod lifecycle and graceful shutdown
 
-NAIS injects `preStop` with `sleep 5` before `SIGTERM`, and the load balancer stops routing traffic before the signal is sent. Readiness probes are **not** part of shutdown — manual readiness toggling in application code is an anti-pattern. Use Ktor's ordinary shutdown (`ApplicationStopping`/`ApplicationStopped`) to drain and cleanly close the connection pool/Kafka consumer. Details and anti-patterns: see [`references/pod-lifecycle.md`](references/pod-lifecycle.md).
+NAIS injects `preStop` with `sleep 5` before `SIGTERM`, and the load balancer stops routing traffic before the signal is sent. Readiness probes are **not** part of shutdown — manual readiness toggling in application code is an anti-pattern. In this repository shutdown runs through the Ktor DI `.cleanup { }` blocks (see `/kotlin-ktor` and `src/main/kotlin/no/nav/budstikka/bootstrap/WorkerModule.kt`): `ConsumerRunner.close()` and `BackgroundLoop.close()` join their coroutines with a 5-second timeout, and the Hikari pool closes via its own cleanup block. Details and anti-patterns: see [`references/pod-lifecycle.md`](references/pod-lifecycle.md).
 
 ## Naisjob — batch jobs
 

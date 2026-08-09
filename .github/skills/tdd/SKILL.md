@@ -5,14 +5,6 @@ description: "Use when test-first is explicitly wanted: 'red-green-refactor', 't
 
 # Test-driven development (Ktor / no.nav.budstikka)
 
-## Philosophy
-
-**Core principle**: Tests verify behavior through public interfaces, not implementation details. The code may change completely — the tests must survive.
-
-**Good tests** run through real code paths via public APIs. In a Ktor backend that usually means: enter through the HTTP layer with `testApplication`/`client`, or call the domain service via its public function. A good test reads like a specification — `\`a user without a valid token gets 401\`` tells you exactly which capability exists. These tests survive refactoring because they do not care about internal structure.
-
-**Bad tests** are coupled to the implementation: they mock internal collaborators, test private functions, or verify through the side door (e.g. SELECT straight against Postgres instead of reading back through the service). Warning sign: the test fails when you refactor, but the behavior is unchanged. Rename an internal function and tests break — then they tested implementation, not behavior.
-
 See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for when and how to mock system boundaries.
 
 ## Anti-pattern: horizontal slices

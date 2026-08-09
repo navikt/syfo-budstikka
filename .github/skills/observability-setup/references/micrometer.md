@@ -4,173 +4,53 @@ description: "Look this up when writing Micrometer metrics in Ktor: MeterRegistr
 
 # Micrometer and health in Ktor
 
-Backend patterns for Kotlin/Ktor in this repository. Ktor has no Actuator — you own the registry setup yourself.
+Backend patterns for Kotlin/Ktor in this repository. Ktor has no Actuator — the registry setup is owned here, and it already exists: read it before adding anything.
 
 ## MeterRegistry setup
 
-Create a single `PrometheusMeterRegistry`, install the `MicrometerMetrics` plugin, and share the same instance via Koin so that domain code measures against the same registry as the HTTP metrics.
+A single `PrometheusMeterRegistry` is provided through Ktor's dependency injection plugin —
+`dependencies { provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) } }` in
+`src/main/kotlin/no/nav/budstikka/bootstrap/DependencyInjection.kt` — and consumed with
+`val registry: PrometheusMeterRegistry by dependencies` wherever code measures. There is no
+Koin in this repository.
 
-```kotlin
-// build.gradle.kts
-//   implementation(ktorLibs.server.metrics.micrometer)
-//   implementation(libs.micrometer.registry.prometheus)
-import io.ktor.server.metrics.micrometer.MicrometerMetrics
-import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics
-import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics
-import io.micrometer.core.instrument.binder.system.ProcessorMetrics
-import io.micrometer.prometheusmetrics.PrometheusConfig
-import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+`installMetrics()` in `src/main/kotlin/no/nav/budstikka/infrastructure/metrics/MetricsPlugin.kt`
+installs the `MicrometerMetrics` plugin against that shared registry, with the JVM and process
+binders. The scrape endpoint is `GET /internal/metrics` — `registry.scrape()` in
+`src/main/kotlin/no/nav/budstikka/api/InternalApi.kt` — matching `prometheus.path` in the NAIS
+manifest.
 
-fun Application.installMetrics(registry: PrometheusMeterRegistry) {
-    install(MicrometerMetrics) {
-        this.registry = registry
-        meterBinders = listOf(JvmMemoryMetrics(), JvmGcMetrics(), ProcessorMetrics())
-    }
-    routing {
-        get("/internal/metrics") { call.respond(registry.scrape()) }
-    }
-}
-```
+`MicrometerMetrics` automatically provides `ktor_http_server_requests_seconds` with tags for
+route, method and status. For p95/p99 in Prometheus a timer must publish histogram buckets
+(`percentilesHistogram(true)` in `distributionStatisticConfig`, or `publishPercentileHistogram()`
+on the builder) — without it the `_bucket` series does not exist and `histogram_quantile`
+returns nothing.
 
-Register the registry as a singleton in Koin and inject it wherever you measure:
+## Domain and Kafka metrics
 
-```kotlin
-val metricsModule = module {
-    single { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
-}
-```
-
-`MicrometerMetrics` automatically provides `ktor_http_server_requests_seconds` with tags for route, method and status. If you need percentiles from Prometheus, turn on the histogram:
-
-```kotlin
-install(MicrometerMetrics) {
-    this.registry = registry
-    distributionStatisticConfig = DistributionStatisticConfig.Builder()
-        .percentilesHistogram(true)
-        .build()
-}
-```
-
-## Counter
-
-For things that can only increase.
-
-```kotlin
-class OppgaveService(registry: MeterRegistry) {
-    private val opprettet = Counter.builder("oppgaver_opprettet_total")
-        .description("Number of tasks created")
-        .tag("kilde", "api")
-        .register(registry)
-
-    fun opprett() {
-        opprettet.increment()
-    }
-}
-```
-
-Use `rate()` / `increase()` in Prometheus for the rate over time.
-
-## Timer
-
-For duration. For percentiles the timer must publish a histogram.
-
-```kotlin
-class BehandlingService(registry: MeterRegistry) {
-    private val behandlingstid = Timer.builder("oppgave_behandlingstid_seconds")
-        .description("Processing time for a task")
-        .publishPercentileHistogram()
-        .tag("type", "manuell")
-        .register(registry)
-
-    fun behandle(): String =
-        requireNotNull(behandlingstid.recordCallable { "ferdig" }) {
-            "Timed block returned null"
-        }
-}
-```
-
-Use a timer for response or processing time, especially when you need p50/p95/p99.
-
-## Gauge
-
-For a current value, e.g. queue size or active connections.
-
-```kotlin
-class KoMetrics(registry: MeterRegistry) {
-    private val koStorrelse = AtomicInteger(0)
-
-    init {
-        Gauge.builder("oppgave_ko_storrelse", koStorrelse) { it.get().toDouble() }
-            .description("Number of pending tasks")
-            .register(registry)
-    }
-
-    fun oppdater(antall: Int) = koStorrelse.set(antall)
-}
-```
-
-## DistributionSummary
-
-For distributions that are not time.
-
-```kotlin
-class PayloadMetrics(registry: MeterRegistry) {
-    private val storrelse = DistributionSummary.builder("melding_payload_size_bytes")
-        .description("Size of an incoming message")
-        .baseUnit("bytes")
-        .publishPercentileHistogram()
-        .register(registry)
-
-    fun record(bytes: Int) = storrelse.record(bytes.toDouble())
-}
-```
-
-## Domain metrics
-
-Choose measurements that show whether the solution works, not just whether the JVM is alive.
-
-**Good candidates**
-- number of processed domain events per type
-- error/success ratio for important flows
-- pending tasks in a queue
-- processing time per step or event type
-
-```kotlin
-class BehandlingMetrics(registry: MeterRegistry) {
-    private val resultat = registry // tag-based: one metric, several results
-
-    fun tellResultat(result: String) =
-        Counter.builder("oppgaver_behandlet_total")
-            .tag("result", result) // "success" | "failure"
-            .register(resultat)
-            .increment()
-}
-```
-
-### Kafka
-
-Measure received events, successful processing, errors, processing time and consumer lag/queue size. Use labels such as `event_type`, `result`, `topic` or `consumer_group` — never message key, payload id, `fnr` or `aktør-id`.
+Use the standard Micrometer builders; the house style lives in
+`src/main/kotlin/no/nav/budstikka/infrastructure/metrics/MicrometerDispatchMetrics.kt` and
+`src/main/kotlin/no/nav/budstikka/infrastructure/worker/BackgroundLoop.kt`: dot-form meter names
+(`inbox.message.processed` becomes `inbox_message_processed_total` when scraped), name and label
+constants kept in one companion object, and low-cardinality PII-free labels. For Kafka and
+domain metrics, label with values like `event_type`, `result`, `channel`, `reason`, `topic` or
+`consumer_group` — never message key, payload id, `fnr` or aktør-id.
 
 ## Health routes
 
-The NAV convention is simple internal routes, not Actuator. Always align the paths with the NAIS manifest.
+The routes live in `src/main/kotlin/no/nav/budstikka/api/InternalApi.kt`:
+`GET /internal/health/is_alive` and `GET /internal/health/is_ready`, matching the probe paths in
+the NAIS manifests (`nais/nais-dev.yaml`, `nais/nais-prod.yaml`).
 
-```kotlin
-routing {
-    get("/internal/health/is_alive") { call.respondText("OK") }
-    get("/internal/health/is_ready") {
-        if (kafkaConsumer.isReady() && dataSource.isHealthy()) {
-            call.respondText("OK")
-        } else {
-            call.respond(HttpStatusCode.ServiceUnavailable, "NOT READY")
-        }
-    }
-}
-```
-
-**Rules of thumb**
-- `isalive` (liveness) answers whether the process ought to be restarted — keep it trivial
-- `isready` (readiness) answers whether the instance can take traffic right now — let it depend on actual dependencies (Postgres pool, Kafka)
-- Do not put heavy logic in health checks
-- Keep the details free of sensitive information
-- Netty/`EngineMain` handles `SIGTERM` and graceful shutdown — you do not need to flip readiness manually at shutdown
+- `is_ready` (readiness) answers whether the instance can take traffic right now. Here it checks
+  the database only (`src/main/kotlin/no/nav/budstikka/infrastructure/database/config/HealthCheck.kt`).
+  The Kafka consumer must NOT be in readiness: the consumer serves no HTTP traffic, so a dead
+  consumer should not pull the pod out of load balancing (see `docs/helsesjekk.md`).
+- `is_alive` (liveness) is where consumer health belongs, via the self-reported heartbeat
+  contract: each consumer runner and background loop updates a heartbeat every poll cycle, and
+  the aggregated `LivenessCheck` (`src/main/kotlin/no/nav/budstikka/bootstrap/Liveness.kt`)
+  reports stale when any loop stops cycling, so the platform restarts the pod. Never tie
+  liveness to broker availability or consumer lag (`docs/helsesjekk.md`).
+- Do not put heavy logic in health checks, and keep responses free of sensitive information.
+- Netty/`EngineMain` handles `SIGTERM` and graceful shutdown — you do not need to flip readiness
+  manually at shutdown.

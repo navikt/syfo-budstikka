@@ -48,5 +48,5 @@ fun ApplicationConfig.toDatabaseConfig() =
 private fun String.withoutCredentials(): String = replaceFirst(Regex("://[^@/]+@"), "://")
 
 // The NAIS url points sslkey at the PEM key, but the JDBC driver needs the PKCS#8 (DER) key
-// from FLAGGSKIPET_DB_SSLKEY_PK8. Locally there is no sslkey, so this is a no-op.
+// from BUDSTIKKA_DB_SSLKEY_PK8. Locally there is no sslkey, so this is a no-op.
 private fun String.withSslKey(sslKey: String): String = if (sslKey.isBlank()) this else replace(Regex("sslkey=[^&]*")) { "sslkey=$sslKey" }

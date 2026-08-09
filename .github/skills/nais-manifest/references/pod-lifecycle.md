@@ -9,7 +9,7 @@ description: "How NAIS handles pod shutdown (preStop, SIGTERM, load balancing) a
 - Readiness probes are **not** involved in the shutdown flow in NAIS.
 - Setting readiness=false manually in application code therefore has no effect and is an anti-pattern.
 - The application only needs to: (a) drain in-flight requests and (b) shut down cleanly.
-- In Ktor: use the `ApplicationStopping`/`ApplicationStopped` events (or `embeddedServer(...).stop(gracePeriod, timeout)`) to close the connection pool (Hikari), the Kafka consumer/producer and other resources in a controlled way. Do not build your own readiness toggles.
+- In this repository: `EngineMain` already installs a JVM shutdown hook, and resources close through the Ktor DI `.cleanup { }` blocks — `ConsumerRunner.close()` and `BackgroundLoop.close()` join their coroutines with a 5-second timeout, and the Hikari pool, the shared `HttpClient` and the Kafka producer close the same way (see `/kotlin-ktor` and `src/main/kotlin/no/nav/budstikka/bootstrap/WorkerModule.kt`). Do not build your own readiness toggles.
 - Do not lower `terminationGracePeriodSeconds` below the default of `30` seconds.
 - A lower grace period reduces the time the app has for draining and controlled shutdown.
 - A short grace period increases the risk of aborted calls and unfinished cleanup.

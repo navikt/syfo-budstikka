@@ -14,8 +14,8 @@ Focus on what a backend reader needs: what the service does, which APIs it expos
 Read the actual sources before writing a single line of README:
 
 1. **Existing README** — preserve manual content, Slack channels, wiki links and stable operational tips that still hold. The generated Ktor scaffold (links to ktor.io, an empty "Features" table, the `./gradlew run` table) is not manual content — it must be replaced.
-2. **Stack and build** — `build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`. Pull out `group` (`no.nav.syfo` — note that the Kotlin source package is `no.nav.budstikka`), `mainClass` (typically `io.ktor.server.netty.EngineMain`), the JVM toolchain, the Ktor version from the version catalog, and which modules are actually on the classpath (server-core, netty, auth, content-negotiation, flyway, kafka client, exposed/hikari and so on).
-3. **NAIS manifest** — `.nais/` (or `nais/`, `.nais.yaml`) for environments (`dev-gcp`/`prod-gcp`), `ingresses`, `gcp.sqlInstances` (Postgres), `kafka`, `accessPolicy.inbound`/`outbound`, and `tokenx`/`azure`. The manifest is the source of truth for auth, integrations and environments — do not guess.
+2. **Stack and build** — `build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`. Pull out `group` (`no.nav.syfo` — note that the Kotlin source package is `no.nav.budstikka`), `mainClass` (typically `io.ktor.server.netty.EngineMain`), the JVM toolchain, the Ktor version from the version catalog, and which modules are actually on the classpath (server-core, netty, flyway, kafka client, exposed/hikari and so on).
+3. **NAIS manifest** — `nais/` in this repository (other repos may use `.nais/` or `.nais.yaml`) for environments (`dev-gcp`/`prod-gcp`), `ingresses`, `gcp.sqlInstances` (Postgres), `kafka`, `accessPolicy.inbound`/`outbound`, and `tokenx`/`azure`. The manifest is the source of truth for auth, integrations and environments — do not guess.
 4. **Code** — `src/main/kotlin/` for the Ktor setup: `embeddedServer`/`Application.module()`, `routing { ... }` blocks (endpoints), `install(Authentication)` (TokenX/Azure AD validation), Kafka consumer/producer, and the database layer. Check `src/main/resources/application.conf` for ports, environment variables and feature toggles, and `src/main/resources/database.migration/` for Flyway migrations.
 5. **CI/CD** — `.github/workflows/` for the workflow name used in the CI badge and the deploy flow.
 6. **Docs** — maintained contracts and reader/operator documentation. Link
@@ -25,7 +25,7 @@ Read the actual sources before writing a single line of README:
 Clarify at least this before you write:
 
 - What is the backend's main responsibility, and which domain does it cover?
-- Which environments actually exist in `.nais/`?
+- Which environments actually exist in `nais/`?
 - Which REST/GraphQL endpoints does it expose, and which of them require auth?
 - Does it consume or produce on Kafka? Which topics, and in which direction?
 - Does it own a Postgres database with Flyway migrations?
@@ -74,23 +74,11 @@ Clarify at least this before you write:
 ### Quality rules
 
 - Cognitive funnel: title → purpose/context → API/Kafka/DB/auth → development → meta. Readers scan from the top down.
-- Do not invent endpoints, topics, databases, auth or environments. Always cross-check against the code and `.nais/`.
+- Do not invent endpoints, topics, databases, auth or environments. Always cross-check against the code and `nais/`.
 - Do not claim an auth setup without having seen `install(Authentication)` in the code or `tokenx`/`azure` in the manifest.
 - If information is missing for an "always" section, preserve the existing text or ask the user.
 - In the development section: point to `./gradlew tasks` for the available Gradle tasks instead of copying specific commands. That way the reader always sees an up-to-date list.
 - Write short, concrete plain language in the purpose, development and contact sections. The README is an entry point, not a complete internal wiki.
-
-## Anti-patterns to watch for
-
-- Scaffold leftovers: ktor.io links, an empty "Features" table and the generic build/run table from the Ktor Project Generator that were never replaced.
-- Template cargo-culting: a copied template with no adaptation to the actual repository.
-- Zombie sections: outdated sections that are never removed.
-- Badge wall: more than 5 badges in a row with no clear signal value.
-- README bloat: over 500 lines — split the content into `docs/` instead.
-- Command cargo-culting: copied `./gradlew` commands instead of pointing to `./gradlew tasks`.
-- Stale examples: endpoints, topics or paths that no longer work.
-- Aspirational docs: describing what ought to exist, not what does exist.
-- Happy-path only: missing error handling or troubleshooting where it is needed.
 
 ## Badges
 
@@ -154,13 +142,13 @@ If the repository owns a Postgres database: describe briefly what the database s
 
 ## Observability
 
-If the repository has Grafana dashboards, link to them. Nav uses `https://grafana.nav.cloud.nais.io/` with team-specific dashboards. Check the `.nais/` manifest or the existing README for verified dashboard URLs — do not construct URLs you have not seen.
+If the repository has Grafana dashboards, link to them. Nav uses `https://grafana.nav.cloud.nais.io/` with team-specific dashboards. Check the `nais/` manifest or the existing README for verified dashboard URLs — do not construct URLs you have not seen.
 
 ## Boundaries
 
 ### Always
 
-- Read actual repository content (`build.gradle.kts`, `.nais/`, `src/main/kotlin/`, `application.conf`, workflows) before you write the README.
+- Read actual repository content (`build.gradle.kts`, `nais/`, `src/main/kotlin/`, `application.conf`, workflows) before you write the README.
 - Cross-check the README text against code, manifest and workflows.
 - Preserve manual content that is still correct.
 - Describe auth and integrations with Nav context where they exist: TokenX, Azure AD, `accessPolicy`, Kafka topics, Postgres.
