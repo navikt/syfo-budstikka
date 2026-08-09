@@ -63,7 +63,7 @@ Does the code follow the way this repository writes code — Ktor route structur
 
 ## NAV/Ktor edge cases (axis C, checklist)
 
-- **Auth:** Missing or wrong claim check? Is `azp` validated against `AZURE_APP_PRE_AUTHORIZED_APPS`? Is NAVident/`pid` read safely (not `!!` on a claim that may be absent)? Is the route behind the right `authenticate("…")` branch?
+- **Auth:** Missing or wrong claim check? Is `azp` validated against `AZURE_APP_PRE_AUTHORIZED_APPS`? Is NAVident/`pid` read safely (not `!!` on a claim that may be absent)? If the change adds an HTTP surface: is authentication designed and is `accessPolicy.inbound` updated to match? (This repo currently has no inbound auth — only `/internal` probes.)
 - **PII in logs:** Do national identity numbers, names, diagnosis or sykmelding status sneak into a standard log line via string interpolation? Displaying personal data to a NAV employee → CEF audit log, not the standard log. (Details: `/security-review`.)
 - **Kafka:** Empty/`null` record value? Idempotence on redelivery? Manual vs. auto-commit semantics? Poison message — does it end up in a DLQ or loop? Is the offset committed before or after the side effect?
 - **Postgres/Flyway:** New migration — runnable forward AND backward-compatible with running pods (rolling deploy)? A `NOT NULL` column without a default on a non-empty table? An N+1 introduced? Connection closed / returned to the pool? A transaction boundary around multi-step writes?

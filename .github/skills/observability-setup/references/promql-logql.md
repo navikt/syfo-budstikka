@@ -4,129 +4,65 @@ description: "Look this up when writing PromQL and LogQL queries for this servic
 
 # PromQL, LogQL and dashboards
 
-Common queries for Grafana, Prometheus and Loki in this repository. Adapt metric names, labels and time windows to what you actually expose.
+Queries for Grafana, Prometheus/Mimir and Loki in this repository. The names below are the
+metrics this app actually exports — the same names the checked-in dashboard queries
+(`grafana/dashboards/syfo-budstikka.json`). Start from those; do not invent names.
 
-## PromQL
+## The app's metric names
 
-### Throughput
+- `ktor_http_server_requests_seconds` — the Ktor HTTP server metric from `MicrometerMetrics`
+  (tags: route, method, status). Note the `ktor_` prefix — this is not Spring's
+  `http_server_requests_seconds`. Only the internal probes generate HTTP traffic here.
+- `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
+  `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
+  `inbox_message_failed_total` — inbox pipeline
+  (`src/main/kotlin/no/nav/budstikka/infrastructure/metrics/MicrometerDispatchMetrics.kt`)
+- `delivery_total{channel,result}`, `delivery_claimed_total`, `delivery_empty_polls_total` —
+  delivery pipeline (same file)
+- `worker_runs_total{worker}`, `worker_failures_total{worker}`, `worker_duration_seconds_*` —
+  background loops (`src/main/kotlin/no/nav/budstikka/infrastructure/worker/BackgroundLoop.kt`)
+- `kafka_consumer_fetch_manager_records_lag_max{topic,partition}` and
+  `kafka_consumer_fetch_manager_records_consumed_total` — the Kafka client metrics; this is the
+  consumer-lag metric here, not `kafka_consumer_lag` / `kafka_consumergroup_lag`
 
-```promql
-sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))
-```
-
-For event-driven flows:
-
-```promql
-sum(rate(oppgaver_behandlet_total{app="syfo-budstikka"}[5m])) by (event_type)
-```
-
-### Error rate
-
-```promql
-sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka",status=~"5.."}[5m]))
-/
-sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))
-```
-
-With your own domain counters:
+Example queries, straight from the dashboard:
 
 ```promql
-sum(rate(oppgaver_behandlet_total{app="syfo-budstikka",result="failure"}[5m]))
-/
-sum(rate(oppgaver_behandlet_total{app="syfo-budstikka"}[5m]))
+sum(rate(inbox_message_processed_total[5m]))
+sum by (reason)(rate(inbox_message_dropped_total[5m]))
+sum by (channel)(rate(delivery_total{result="sent"}[5m]))
+sum by (worker)(rate(worker_failures_total[5m]))
+sum by (partition)(kafka_consumer_fetch_manager_records_lag_max{topic="team-esyfo.budstikka.v1"})
 ```
 
-### Latency percentiles
-
-```promql
-histogram_quantile(
-  0.95,
-  sum(rate(ktor_http_server_requests_seconds_bucket{app="syfo-budstikka"}[5m])) by (le, route, method)
-)
-```
-
-For a custom timer:
-
-```promql
-histogram_quantile(
-  0.99,
-  sum(rate(oppgave_behandlingstid_seconds_bucket{app="syfo-budstikka"}[5m])) by (le)
-)
-```
-
-### Pod restarts and queue size
-
-```promql
-sum(increase(kube_pod_container_status_restarts_total{app="syfo-budstikka"}[15m]))
-```
-
-```promql
-max_over_time(oppgave_ko_storrelse{app="syfo-budstikka"}[10m])
-```
+The standard PromQL toolbox (`rate`, `increase`, `histogram_quantile`, error ratios) is not
+repeated here — the one repo-specific gotcha is that `histogram_quantile` needs `_bucket`
+series, which exist only for timers that publish percentile histograms (see
+`references/micrometer.md`).
 
 ## LogQL
 
-### Filtering
+The app logs one JSON line per entry via `LogstashEncoder`
+(`src/main/resources/logback.xml`), so parse with `| json`. Loki's own labels (`app`,
+`namespace`, `cluster`, `container`, `pod`) come from the platform — filter on those first,
+then parse.
+
+Queries the dashboard uses:
 
 ```logql
-{app="syfo-budstikka", namespace="team-esyfo"} |= "ERROR"
+{app="syfo-budstikka"} | json | level="error"
+sum(rate({app="syfo-budstikka"} | json | level="error" [5m]))
+{app="syfo-budstikka"} | json | event_id="$traceId" or reference="$traceId"
 ```
 
-```logql
-{app="syfo-budstikka", namespace="team-esyfo"} | json | level="error"
-```
-
-### Aggregation
-
-Errors per container per minute:
-
-```logql
-sum(rate({app="syfo-budstikka", namespace="team-esyfo"} |= "ERROR" [1m])) by (container)
-```
-
-Structured logs grouped by event type:
-
-```logql
-sum by (event_type) (
-  rate({app="syfo-budstikka"} | json | event_type=~".+" [5m])
-)
-```
-
-### Correlation with traces
-
-Fetch all logs for a trace (clickable from Tempo in Grafana):
-
-```logql
-{app="syfo-budstikka", namespace="team-esyfo"}
-| json
-| trace_id="2f2f2264a8b6df9f8b3d614f4c9ce111"
-```
-
-Combine with error level:
-
-```logql
-{app="syfo-budstikka"}
-| json
-| level="error"
-| trace_id=~".+"
-```
-
-### Kafka
-
-```logql
-{app="syfo-budstikka"}
-| json
-| event_type="oppgave_opprettet"
-| result="failure"
-```
-
-```logql
-{app="syfo-budstikka"} |= "consumer lag"
-```
+The message-trace pattern works because workers and handlers put `event_id` and `reference` on
+the logs as structured fields (`src/main/kotlin/no/nav/budstikka/application/MdcKeys.kt` +
+`StructuredArguments.kv`). Dead-lettered messages can lack `event_id`; they log
+"Poison inbox message dead-lettered" with Kafka coordinates instead
+(`infrastructure/kafka/consumer/InboxMessageHandler.kt`).
 
 ## Practical tips
 
 - Use the same label set in dashboards and alerts where it makes sense
-- Normalise `route` before you build panels — expanded path parameters give noisy graphs and high cardinality
-- Always look at both metrics and logs when debugging latency or error rates
+- Always look at both metrics and logs when debugging pipeline failures
 - Use traces when you need to find bottlenecks across HTTP, Kafka and Postgres

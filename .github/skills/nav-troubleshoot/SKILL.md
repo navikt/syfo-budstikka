@@ -34,7 +34,7 @@ The skill routes symptom → the right diagnostic tree. The fix discipline (feed
 ```
 Slow response time
 ├── Where is the bottleneck?
-│   └── Mimir (http_server_requests_seconds), Tempo (trace), Loki (log) — same time window
+│   └── Mimir (ktor_http_server_requests_seconds), Tempo (trace), Loki (log) — same time window
 ├── Database queries? → EXPLAIN ANALYZE, N+1, pagination (see /postgresql-review)
 ├── Slow external service? → timeout/retry in the Ktor client, circuit breaker, caching
 └── Resource constraint?

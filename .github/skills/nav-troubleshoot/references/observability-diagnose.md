@@ -45,7 +45,7 @@ Start in **Mimir** to find which route or operation is failing. Then go to **Lok
 
 ### 2. Latency without errors
 
-Start in **Mimir** for p95/p99 (`http_server_requests_seconds`), then go to **Tempo**.
+Start in **Mimir** for p95/p99 (`ktor_http_server_requests_seconds`), then go to **Tempo**.
 
 - Check whether the slowness is consistent or applies only to individual traces
 - Compare route/operation before and after the last deploy

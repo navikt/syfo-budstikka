@@ -33,7 +33,7 @@ spec:
   # Pod count: minimum 2 provides HA, so the application survives rolling deployments and node loss.
   # Maximum 4 leaves capacity to drain delivery/inbox backlog (workers are not partition-bound: they
   # poll the database with SKIP LOCKED, so N equal instances are safe). No leaderElection:
-  # periodic sweeps coordinate through a Postgres advisory lock.
+  # periodic sweeps coordinate through FOR UPDATE SKIP LOCKED in the claim queries.
   replicas:
     min: 2
     max: 4

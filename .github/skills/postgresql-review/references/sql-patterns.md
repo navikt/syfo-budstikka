@@ -9,25 +9,28 @@ Generic SQL optimisation (EXPLAIN ANALYZE, index choice, N+1, SELECT *, JSONB op
 The NAV default is Cloud SQL via `gcp.sqlInstances` in the NAIS manifest. The pool size must be sized against `replicas.max` and Cloud SQL's `max_connections`, not JVM defaults.
 
 ```yaml
-# NAIS — Cloud SQL instance (injects DB_JDBC_URL, DB_USERNAME, DB_PASSWORD as env)
+# NAIS — Cloud SQL instance (injects BUDSTIKKA_DB_URL, BUDSTIKKA_DB_USERNAME, BUDSTIKKA_DB_PASSWORD
+# and friends as env — see nais/nais-dev.yaml and nais/nais-prod.yaml)
 spec:
   replicas:
     min: 2
     max: 4
   gcp:
     sqlInstances:
-      - type: POSTGRES_15
+      - type: POSTGRES_18
         databases:
           - name: budstikka-db
-            envVarPrefix: DB
+            envVarPrefix: BUDSTIKKA_DB
 ```
 
 ```kotlin
-// The example shows the ENV wiring; size the pool from verified capacity:
+// In this repository the BUDSTIKKA_DB_* env vars flow through application.conf's database { }
+// block, and infrastructure/database/config/Config.kt builds the jdbc url and the pool config.
+// Size the pool from verified capacity:
 HikariConfig().apply {
-    setJdbcUrl(System.getenv("DB_JDBC_URL"))   // injected by gcp.sqlInstances envVarPrefix: DB
-    setUsername(System.getenv("DB_USERNAME"))
-    setPassword(System.getenv("DB_PASSWORD"))
+    jdbcUrl = databaseConfig.jdbcUrl        // "jdbc:" + BUDSTIKKA_DB_URL, credentials stripped
+    username = databaseConfig.username      // BUDSTIKKA_DB_USERNAME
+    password = databaseConfig.password      // BUDSTIKKA_DB_PASSWORD
     // Set pool, timeout and isolation values from verified capacity and SLOs
 }
 ```

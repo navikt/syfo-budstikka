@@ -27,14 +27,17 @@ The NAV default is PostgreSQL via `gcp.sqlInstances` in the NAIS manifest. Choos
 The pool size must be adapted to the NAIS replicas and the Cloud SQL limits, not to JVM defaults. Configure the `DataSource` explicitly — do not lean on Hikari's defaults (`maximumPoolSize = 10`), which are dangerous for a service that can be scaled out.
 
 ```kotlin
-// Configure from the env variables injected by gcp.sqlInstances (DB_JDBC_URL, DB_USERNAME, DB_PASSWORD)
-fun dataSource(env: ApplicationEnvironment): HikariDataSource =
+// In this repository: gcp.sqlInstances (envVarPrefix: BUDSTIKKA_DB) injects BUDSTIKKA_DB_URL,
+// BUDSTIKKA_DB_USERNAME, BUDSTIKKA_DB_PASSWORD (+ _HOST/_PORT/_DATABASE/_SSLKEY_PK8), which
+// application.conf maps in its database { } block. Config.kt and Module.kt under
+// src/main/kotlin/no/nav/budstikka/infrastructure/database/config/ build the HikariConfig from it.
+fun createDataSource(config: DatabaseConfig): HikariDataSource =
     HikariDataSource(HikariConfig().apply {
-        jdbcUrl = env.config.property("db.jdbcUrl").getString()
-        username = env.config.property("db.username").getString()
-        setPassword(env.config.property("db.password").getString())
-        maximumPoolSize = 3                          // Start small — 3–5 for typical NAV services
-        minimumIdle = 1
+        jdbcUrl = config.jdbcUrl                     // "jdbc:" + BUDSTIKKA_DB_URL, credentials stripped
+        username = config.username
+        password = config.password
+        maximumPoolSize = config.maximumPoolSize     // Start small — 3–5 for typical NAV services
+        minimumIdle = config.minimumIdle
         connectionTimeout = 10_000                   // 10s — fail fast when the Cloud SQL Proxy is down
         idleTimeout = 300_000                        // 5 min — release idle connections quickly
         maxLifetime = 1_800_000                      // 30 min — below Cloud SQL's restart threshold

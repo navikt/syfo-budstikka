@@ -66,7 +66,7 @@ spec:
   # Postgres — dedicated job database or shared with Application
   gcp:
     sqlInstances:
-      - type: POSTGRES_17
+      - type: POSTGRES_18       # Same version as the Application manifests (nais/nais-dev.yaml, nais/nais-prod.yaml)
         tier: db-custom-1-3840
         highAvailability: true
         diskAutoresize: true

@@ -19,26 +19,7 @@ Rule of thumb: **if you have to mock an internal collaborator, the module bounda
 
 At system boundaries, build interfaces that are easy to swap out in tests.
 
-**1. Use dependency injection — pass dependencies in**
-
-Pass external dependencies in instead of constructing them internally:
-
-```kotlin
-// Easy to swap out: the lookup port and Clock are injected
-class DispatchDecider(
-    private val reservationLookup: ReservationLookup,
-    private val clock: Clock = Clock.systemUTC(),
-) {
-    suspend fun decide(draft: DeliveryDraft): Decision = /* ... */
-}
-
-// Hard to test: constructs the client and reads the environment itself
-class DispatchDecider {
-    private val krrClient = KrrClient(System.getenv("KRR_URL"))
-}
-```
-
-**2. Prefer specific client interfaces over one generic fetcher**
+**1. Prefer specific client interfaces over one generic fetcher**
 
 Write one function per external operation instead of one generic function with conditional logic:
 
@@ -60,23 +41,10 @@ interface GenericClient {
 
 The specific interface gives you: each fake returns one concrete shape, no conditional logic in the test setup, and it is easy to see which calls a test actually triggers.
 
-**3. Prefer a simple fake over a strict mock for behavior tests**
+**2. Prefer a simple fake over a strict mock for behavior tests**
 
-When you are testing behavior (not interaction), a small hand-written fake implementation of the interface is often clearer than `mockk` setup — it documents the contract and does not leak call ordering into the test.
+When you are testing behavior (not interaction), a small hand-written fake implementation of the interface is clearer than a mocking library — it documents the contract, does not leak call ordering into the test, and no mocking library is on the classpath here.
 
 ## Ktor: mock HTTP boundaries, not your own code
 
-For outgoing HTTP, use Ktor's `MockEngine` to fake the remote response instead of mocking your own client class:
-
-```kotlin
-val mockEngine = MockEngine { request ->
-    respond(
-        content = """{"navn":"Kari"}""",
-        status = HttpStatusCode.OK,
-        headers = headersOf(HttpHeaders.ContentType, "application/json"),
-    )
-}
-val client = HttpClient(mockEngine) { /* same config as prod */ }
-```
-
-That way you test your own serialization, error handling and retry logic through the real client layer, but without hitting the network.
+For outgoing HTTP, use Ktor's `MockEngine` to fake the remote response instead of mocking your own client class — build the `HttpClient(mockEngine)` with the same config as prod. That way you test your own serialization, error handling and retry logic through the real client layer, but without hitting the network.

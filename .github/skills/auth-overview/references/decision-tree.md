@@ -20,7 +20,7 @@ Identify who initiates the request against this backend API, and choose the auth
 | Must the user's identity travel along?   | Mechanism                     | Texas `identity_provider` |
 |------------------------------------------|-------------------------------|---------------------------|
 | Yes (user context exists)                | TokenX exchange (OBO)         | `tokenx`                  |
-| No (pure machine-to-machine)             | Azure AD client_credentials   | `azuread`                 |
+| No (pure machine-to-machine)             | Azure AD client_credentials   | `entra_id` (`application.conf`, asserted in `TexasTokenProviderTest.kt`) |
 
 ## Common mistake
 

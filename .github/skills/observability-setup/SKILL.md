@@ -26,16 +26,14 @@ Ktor has no Actuator: the registry, the `MicrometerMetrics` plugin and the inter
 routes are set up explicitly. The repository's actual setup in `infrastructure/metrics/` and
 `bootstrap/` is the source of truth — read that rather than an example here.
 
-Two choices that are not obvious:
+One choice that is not obvious:
 
 - `liveness` (`/internal/health/is_alive`) must only answer whether the process ought to be restarted.
   `readiness` (`/internal/health/is_ready`) must depend on actual dependencies, but be
   kept lightweight. Consumer lag belongs in alerting, never in liveness
   (see [helsesjekk](../../../docs/helsesjekk.md)).
-- `distributionStatisticConfig` with `percentilesHistogram(true)` is required for p95/p99
-  from Prometheus — without it the buckets do not exist.
 
-See `references/micrometer.md` for `Counter`/`Timer`/`Gauge`/`DistributionSummary`, Koin injection, domain and Kafka metrics.
+See `references/micrometer.md` for the registry wiring (Ktor DI), the percentile-histogram gotcha, domain and Kafka metrics, and the health-route contract.
 
 ## Naming for metrics and labels
 
@@ -120,36 +118,36 @@ Minimum fields: `@timestamp`, `level`, `message`. Put domain data in top-level f
 
 ## Grafana dashboards for the service
 
-The application should have one dashboard with these panels as a baseline. Use `app`, `namespace` and `cluster` as template variables.
+The dashboard already exists: `grafana/dashboards/syfo-budstikka.json`. It is built on the
+domain metrics the app actually exports — `inbox_message_*` (claimed, processed, dropped,
+failed, empty polls), `delivery_total{channel,result}`, `worker_runs_total` /
+`worker_failures_total` / `worker_duration_seconds`, Kafka consumer lag, and Loki panels over
+`{app="syfo-budstikka"} | json`. Start from that file when adding or changing panels; do not
+design a new baseline from scratch.
 
-### Golden signals
-- **Request rate** — `sum(rate(ktor_http_server_requests_seconds_count{app="syfo-budstikka"}[5m]))` (per `route`/`method`)
-- **Error rate** — 5xx share of total traffic, both as a percentage and as an absolute rate
-- **Latency p95/p99** — `histogram_quantile(0.95, sum(rate(ktor_http_server_requests_seconds_bucket[5m])) by (le, route))`
+- **Consumer lag** is `kafka_consumer_fetch_manager_records_lag_max` per `topic`/`partition` —
+  the metric the app exports and the dashboard queries
+  (`grafana/dashboards/syfo-budstikka.json`) — not `kafka_consumer_lag` or
+  `kafka_consumergroup_lag`.
+- HTTP golden signals (request rate, error rate, latency) say little here: the app's only HTTP
+  traffic is the internal probes (`api/InternalApi.kt`). The pipeline panels are this app's
+  golden signals.
+- Tie new panels to metrics the app exports today (`infrastructure/metrics/`,
+  `infrastructure/worker/BackgroundLoop.kt`), with `app`, `namespace` and `cluster` as template
+  variables where useful.
 
-### Resources
-- **Connection pool** — `hikaricp_connections_active / hikaricp_connections_max` for Postgres (requires the HikariCP binder)
-- **JVM heap and GC** — `jvm_memory_used_bytes`, `rate(jvm_gc_pause_seconds_sum[5m])`
-- **Pod restarts** — `increase(kube_pod_container_status_restarts_total{app="syfo-budstikka"}[1h])`
-
-### Kafka (if relevant)
-- **Consumer lag** — `kafka_consumer_lag` / `kafka_consumergroup_lag` per `topic` and `consumer_group`
-- **Consumer/producer rate** and errors per topic
-
-### Domain
-- Processed events per minute, per `event_type`
-- Error rate per flow (`result="failure"`)
-- Processing time for critical operations
-
-See `references/promql-logql.md` for complete PromQL and LogQL examples.
+See `references/promql-logql.md` for the app's metric names and query examples.
 
 ## Alerting
 
-- Alert on user-experienced symptoms first: error rate, latency, unavailability and pod restarts
-- Use runbook links and clear annotations; distinguish between `warning` and `critical`
+- No alert configuration exists in this repository today. When introducing alerts, start from
+  the candidates in `references/alerting.md` — consumer lag, inbox/delivery/worker failures,
+  pod restarts from a stale heartbeat — not HTTP error rate/latency, which here only measure
+  the probes.
+- Use clear annotations; distinguish between `warning` and `critical`
 - Keep thresholds cautious until you know the traffic patterns — test in `dev-gcp` before tightening them in prod
 
-See `references/alerting.md` for Prometheus rules and the NAIS `Alert` resource with Slack routing.
+See `references/alerting.md` for the alert candidates and the current NAIS mechanism (`PrometheusRule`).
 
 ## Decision candidates
 
@@ -168,8 +166,8 @@ route and wait for the user's choice before `/domain-modeling` records it.
 - [ ] Structured JSON logging to stdout with `trace_id`, `span_id`, `callId`
 - [ ] `Nav-Call-Id` is read via `CallId`, propagated on outgoing calls and put on the MDC
 - [ ] Key domain metrics defined with stable `snake_case` names and low-cardinality labels
-- [ ] Dashboards cover request rate, error rate, latency p95/p99, pool usage and Kafka lag
-- [ ] Alerts exist for high error rate, high latency, pod restarts and critical dependencies
+- [ ] Dashboard changes start from `grafana/dashboards/syfo-budstikka.json` and use metrics the app exports (inbox, delivery, workers, consumer lag, error logs)
+- [ ] Alert candidates (none configured in the repo yet) follow `references/alerting.md`: consumer lag, inbox/delivery/worker failures, pod restarts
 - [ ] Logs, traces and metric labels do not contain national identity numbers, aktør-id, tokens or other secrets
 
 ## Boundaries
@@ -178,7 +176,7 @@ route and wait for the user's choice before `/domain-modeling` records it.
 - Use `snake_case` and unit suffixes for metrics
 - Use low and bounded label values
 - Log structured JSON to stdout (not files)
-- Propagate `Nav-Call-Id` and put `trace_id`/`callId` in logs via the existing `CallId`/`CallLogging`
+- Propagate `Nav-Call-Id` explicitly on outbound calls; worker/consumer log correlation goes through `MdcKeys` + `MDCContext` (`CallLogging`/`callIdMdc` are not installed)
 - Follow the existing logging and metrics patterns in the repository
 - Verify health paths, scrape path and tracing setup against the actual NAIS config and `application.conf`
 

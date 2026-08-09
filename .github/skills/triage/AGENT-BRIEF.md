@@ -15,7 +15,7 @@ The item may sit in `ready-for-agent` for days or weeks, and the codebase change
 ### Behavior, not procedure
 Describe **what** the system should do, not **how** it is implemented. The agent explores the codebase afresh and makes its own implementation choices.
 
-- **Good:** "The endpoint `GET /api/v1/budstikke/{id}` must validate the TokenX token and return 404 via the StatusPages error contract when the row does not exist."
+- **Good:** "A Kafka record with a missing or invalid event-id header must be parked as a `dead_letter_message` row with the matching `failure_reason`, while the valid records in the same batch are still saved to the inbox."
 - **Bad:** "Open `BudstikkeRoute.kt` and add an `if` at line 42."
 
 ### Complete acceptance criteria
@@ -75,7 +75,7 @@ og feilkontrakt.
 ## Brief
 
 **Kategori:** bug
-**Oppsummering:** Kafka-konsument for sykmelding-topic dobbeltbehandler ved replay
+**Oppsummering:** Kafka-konsument for budstikka-topicen dobbeltbehandler ved replay
 
 **Dagens oppførsel:**
 Når konsumenten leser samme melding på nytt (rebalansering / offset-reset),
@@ -83,13 +83,13 @@ skrives raden inn i Postgres en gang til. Reprodusert: en test som leverer
 samme `ConsumerRecord` to ganger gir to rader.
 
 **Ønsket oppførsel:**
-Konsumering skal være idempotent på meldingsnøkkelen — andre gangs behandling
-av samme nøkkel skal være en no-op, ingen ny rad, ingen feil.
+Konsumering skal være idempotent på event-id-headeren — andre gangs behandling
+av samme event-id skal være en no-op, ingen ny rad, ingen feil.
 
 **Sentrale grensesnitt:**
 - Repository-innskrivningen som persisterer hendelsen — trenger en
-  idempotent upsert / unik constraint på meldingsnøkkelen
-- Konsument-løkka — bør ikke kaste på allerede-sett nøkkel
+  idempotent insert / unik constraint på event-id
+- Konsument-løkka — bør ikke kaste på allerede-sett event-id
 
 **Akseptansekriterier:**
 - [ ] Samme melding levert to ganger gir nøyaktig én rad
@@ -111,24 +111,26 @@ For a PR, "Dagens oppførsel" describes the state of the diff, and the brief ask
 ## Brief
 
 **Kategori:** enhancement
-**Oppsummering:** Fullfør bidragsyters `--json`-output på `budstikke list`-endepunktet
+**Oppsummering:** Fullfør bidragsyters oppsummeringslogg i dead letter-replay
 
 **Dagens oppførsel:**
-PR-en legger til JSON-serialisering. Happy path virker, men feil sendes
-fortsatt som plain text, og den nye stien har ingen testdekning.
+PR-en legger til en oppsummeringslogg etter replay. Happy path virker, men
+rader som hoppes over (fortsatt uparsebare) telles ikke med, og den nye
+stien har ingen testdekning.
 
 **Ønsket oppførsel:**
-Med JSON-format er all output — også feil via StatusPages — velformet JSON,
-og statuskodene er uendret. Eksisterende oppførsel uten flagget er urørt.
+Oppsummeringen dekker både replayede og hoppede rader (`replayed_count` /
+`skipped_count`), uten payload eller PII i loggen. Eksisterende
+replay-semantikk — insert før delete, hoppede rader blir liggende — er urørt.
 
 **Akseptansekriterier:**
-- [ ] Både suksess og feil gir gyldig JSON med riktig statuskode
-- [ ] `./gradlew test` grønn, inkl. én suksess- og én feiltest
-- [ ] Eksisterende ikke-JSON-svar er byte-for-byte uendret
+- [ ] Både replayede og hoppede rader telles riktig i oppsummeringen
+- [ ] `./gradlew test` grønn, inkl. én replay- og én skip-test
+- [ ] Ingen payload eller PII i loggmeldingene
 
 **Utenfor scope:**
-- Legge til JSON på andre endepunkt
-- Endre den allerede definerte JSON-formen for suksess
+- Endre hvilke rader replayen velger
+- Automatisk replay uten miljøvariabel-flagget
 ```
 
 ## Bad brief (do not do this)
