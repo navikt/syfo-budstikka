@@ -19,3 +19,16 @@ commands, change tracker state, or make a product or architecture decision.
 Prefer primary sources. Return a compact sourced note that separates verified
 facts from inference, records material uncertainty, and answers only the
 question in the task brief.
+
+## Result statuses
+
+End the note with exactly one status line so the caller can branch without
+re-reading the evidence:
+
+- `ANSWERED`: the sourced facts answer the ticket's question.
+- `PARTIAL`: some facts are verified; a named part of the question is still
+  open.
+- `NOT_FOUND`: the sources consulted do not answer the question; list what was
+  ruled out.
+- `NEEDS_CONTEXT`: the question is ambiguous without a fact only the caller
+  holds; name it.

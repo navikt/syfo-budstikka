@@ -45,7 +45,7 @@ RIGHT (vertical):
 
 Read `docs/glossary.md` when test names and interface vocabulary need domain
 language, and only the ADRs that bind the area you are touching. If you are
-following a plan or task brief from `@grillmester`, stick to the behaviors there.
+following a plan or task brief from the calling workflow, stick to the behaviors there.
 
 Before you write code:
 

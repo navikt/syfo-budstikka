@@ -19,8 +19,8 @@ The skill is **informed by** the domain model and settled decisions, and builds 
 - `docs/glossary.md` names good seams in the domain; relevant topic
   documents describe maintained detail. Interpret ADR status via
   `docs/agents/domain.md`, and do not re-litigate binding decisions without reason.
-- This is @grillmester's discovery phase: findings from here feed into natural
-  grilling (`/grilling`), the active plan and verification.
+- This is the calling workflow's discovery stage: findings from here feed into
+  natural grilling (`/grilling`), the active plan and verification.
 
 ## Vocabulary
 
@@ -63,8 +63,8 @@ See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram pattern
 
 Once the user has chosen a candidate, run `/grilling` to walk down the decision
 tree together with them — constraints, dependencies, the shape of the deepened
-module, what sits behind the seam, which tests survive. This is @grillmester
-phases 1–2.
+module, what sits behind the seam, which tests survive. This is the calling
+workflow's design stage.
 
 When clarified concepts or qualifying, lasting decisions ought to be written to
 `docs/`, recommend `/grill-with-docs`, explain why and wait for the user's

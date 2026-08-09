@@ -157,7 +157,7 @@ Content-Type: application/json
    documented route and wait for the user's choice before `/domain-modeling`
    records it.
 4. For local runs and JVM tests: see [`references/local-auth-mock.md`](references/local-auth-mock.md).
-5. Changes to auth validation or accessPolicy → run `/security-review` before delivery and return the evidence to @grillmester phase 5.
+5. Changes to auth validation or accessPolicy → run `/security-review` before delivery and return the evidence to the calling workflow's verify step.
 
 NAIS docs: https://doc.nais.io/auth/ · Golden Path: https://sikkerhet.nav.no/docs/goldenpath/
 

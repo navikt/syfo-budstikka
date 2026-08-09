@@ -53,7 +53,8 @@ implementation work.
    durable rationale.
 4. Read only the relevant maintained topic document:
    `docs/sende-varsler.md`, `docs/flyt.md`, `docs/datamodell.md`,
-   `docs/migrering.md`, `docs/teststrategi.md`, `docs/helsesjekk.md`, or
+   `docs/migrering.md`, `docs/esyfovarsel-kanalkart.md`,
+   `docs/teststrategi.md`, `docs/helsesjekk.md`, or
    `docs/dead-letter-replay.md`.
 5. Read the active issue for task scope and unresolved choices. The open
    GitHub issues are the living work queue and own overall status.

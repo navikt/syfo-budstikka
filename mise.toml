@@ -39,6 +39,14 @@ run = './gradlew e2eTest'
 description = "Run check with gradle"
 run = './gradlew ktlintCheck'
 
+# Same deterministic agent gates as CI (ci-reusable.yml) — run before pushing corpus changes.
+[tasks."lint:agents"]
+description = "Validate agent model pins and the agent corpus"
+run = [
+  "bash scripts/validate-agent-models.sh .github/agents",
+  "bash scripts/validate-agent-corpus.sh",
+]
+
 [tasks.format]
 description = "Run ktlintFormat with gradle"
 run = './gradlew ktlintFormat'

@@ -42,7 +42,8 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: bash scripts/detect-contract-changes.sh
 
-      # Deterministic gate 2: compilation + ktlint + full test suite (E2E excluded, ADR 0006).
+      # Deterministic gate 2: compilation + ktlint + full test suite. E2E is opt-in and runs
+      # separately so deploys do not wait for slow full-boot specs (docs/teststrategi.md).
       - name: Build, lint and test
         run: ./gradlew build --no-daemon
 
@@ -84,7 +85,7 @@ jobs:
         with:
           team: team-esyfo
 
-      # Deterministic gate 3: build container-image with Jib WITHOUT push (ADR 0010). Catches
+      # Deterministic gate 3: build container-image with Jib WITHOUT push. Catches
       # base-image-/Jib configuration errors in PR instead of on main-deploy. jibBuildTar pre-pulls
       # Chainguard base to the docker daemon (docker:// due to OCI 1.1 bug), which is available on the runner.
       - name: Build container-image (Jib, no-push)

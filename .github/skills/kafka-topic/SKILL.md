@@ -7,8 +7,8 @@ description: "Use when this Ktor backend is to produce or consume Kafka events �
 
 Nav-specific conventions for Kafka in this repository. General Kafka theory is not covered — the focus is topic provisioning, the event contract, and how a consumer/producer is wired into a Ktor app.
 
-Typically used in @grillmester phases 1–2 when an event contract is being shaped, and in
-the implementation phase when a consumer or producer is written. When a lasting decision
+Typically used in the calling workflow's design stage when an event contract is being shaped, and in
+the implementation stage when a consumer or producer is written. When a lasting decision
 passes the ADR gate, recommend the documented route and wait for the user's choice before
 `/domain-modeling` records it.
 
@@ -38,7 +38,7 @@ Follow the dominant pattern. If the repository has no Kafka yet, choose plain Ap
    candidates for the documented route; wait for the user's choice before
    `/domain-modeling` writes them.
 5. Implement according to the pattern for the stack (see the reference files below).
-6. Verify with tests (see the reference files) and return the evidence to @grillmester phase 5.
+6. Verify with tests (see the reference files) and return the evidence to the calling workflow's verify step.
 
 ## Sync vs. event — when to choose what
 

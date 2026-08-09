@@ -42,11 +42,11 @@ waste.
 6. **Show the state.** After each action (model/machine), or for each fed record (Kafka), or in each response (API): print the entire relevant state — one line per field or formatted JSON — so you see exactly what changed.
 7. **Delete or absorb when you are done.** Once the question is answered: either delete the spike, or lift the validated core into real code (test-first via `/tdd`). Do not let it rot in the repository.
 
-## Connect to the phase loop (@grillmester)
+## Connect to the calling workflow
 
-The spike is a side tool *inside* the design and planning phase, not a track of its own:
+The spike is a side tool *inside* the design and planning stage, not a track of its own:
 
-- **Triggered from phases 1–2.** When `/grilling` hits a blind spot nobody can
+- **Triggered from design.** When `/grilling` hits a blind spot nobody can
   settle (idempotency, an ugly state transition, a doubtful model), you pause
   the grilling, spike the answer, and go back.
 - **The answer is the only thing that is stored.** The task scope goes to the

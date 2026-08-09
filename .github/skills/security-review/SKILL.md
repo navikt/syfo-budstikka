@@ -9,7 +9,7 @@ NAV-specific security check before commit, push and PR in this repository. Gener
 
 ## Flow coupling
 
-This skill is typically used in the **verifiser** (verify) phase of @grillmester's phase loop, and before PR. When the review uncovers lasting value:
+This skill is typically used in the calling workflow's verify step, and before a PR. When the review uncovers lasting value:
 
 - A candidate that passes the ADR gate → recommend the documented route and wait
   for the user's choice before `/domain-modeling` writes.
