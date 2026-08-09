@@ -47,6 +47,10 @@ also require an explicit user request.
 - **Kokk** is the internal writer for that slice and returns deterministic
   evidence with a structured status. Kokk never stages or commits.
 - **Grill-inspektor** is the internal independent read-only reviewer.
+- **Barista** owns ordinary solo-first work end to end and never invokes
+  Grillmester or Kokk; it may offer Grill-inspektor for opt-in review.
+- **Researcher** is the internal read-only resolver for one claimed
+  `/wayfinder` research ticket.
 
 ### Repository risk and review policy
 
