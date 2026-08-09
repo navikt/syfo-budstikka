@@ -138,6 +138,21 @@ for role in barista grillmester kokk grill-inspektor researcher; do
 
 done
 
+# The loop above validates the agents this script knows; this guards the
+# inverse. A new .agent.md dropped into the directory would otherwise ship with
+# no model pin, no capability boundary, and no invocability check at all.
+for f in "$AGENT_DIR"/*.agent.md; do
+  [ -e "$f" ] || continue
+  role="$(basename "$f" .agent.md)"
+  case "$role" in
+    barista|grillmester|kokk|grill-inspektor|researcher) ;;
+    *)
+      echo "UNEXPECTED: $f is not a validated agent; add it to every EXPECTED_* table and the role loop in this script"
+      fail=1
+      ;;
+  esac
+done
+
 if [ "$fail" -eq 0 ]; then
   echo "OK   required agent semantics"
 fi

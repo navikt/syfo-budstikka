@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # Deterministic gate for the agent corpus (.github/skills, .github/agents,
-# .github/instructions, and the two agent-facing files at the root of .github).
-# Enforces the invariants established when the corpus was pruned and migrated to
-# English, so they cannot decay silently.
+# .github/instructions, docs/agents, and the two agent-facing files at the root
+# of .github). Enforces the invariants established when the corpus was pruned
+# and migrated to English, so they cannot decay silently.
 #
 # Checks:
 #   1. No Norwegian prose in agent-facing files, except a deliberate allowlist
 #      that must itself stay justified.
-#   2. Every skill's `name:` matches its directory (the name is the skill id).
-#   3. No reference to a skill or instruction file that does not exist.
-#   4. Links into a skill's own references/ directory resolve.
+#   2. Every skill's `name:` matches its directory (the name is the skill id),
+#      its frontmatter carries a non-empty description, and only known keys are
+#      used — a misspelled boundary key silently changes who can invoke it.
+#   3. No reference to a skill or instruction file that does not exist,
+#      including unbackticked citations of retired skills.
+#   4. Relative links in corpus prose resolve.
+#   5. Every agent in .github/agents/ appears in both roster maps, and @agent
+#      references resolve to an existing agent.
 #
 # Usage: bash scripts/validate-agent-corpus.sh
 # Exit:  0 = clean, 1 = violation
@@ -95,7 +100,8 @@ done < <(
         '.github/agents/*.md' \
         '.github/instructions/*.md' \
         '.github/copilot-instructions.md' \
-        '.github/GRILLMESTER.md'
+        '.github/GRILLMESTER.md' \
+        'docs/agents/*.md'
 )
 
 if [[ "${#corpus_files[@]}" -lt "$MINIMUM_CORPUS_FILES" ]]; then
@@ -138,7 +144,16 @@ WORD_RE = re.compile(r"[^\W\d_]+")
 # someone else's YAML.
 FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 NAME_RE = re.compile(r"^name:[ \t]*(.+)$", re.M)
-REFERENCE_LINK_RE = re.compile(r"\]\((?:\./)?(references/[A-Za-z0-9_.-]+\.md)(?:#[^)]*)?\)")
+DESCRIPTION_RE = re.compile(r"^description:[ \t]*(.+)$", re.M)
+KEY_RE = re.compile(r"^([A-Za-z][A-Za-z_-]*):", re.M)
+# Any relative link, extracted from code-stripped prose so illustrative links
+# inside fenced examples stay out of scope. Anchors are split off before the
+# target is resolved.
+RELATIVE_LINK_RE = re.compile(r"\]\((?!https?://|mailto:|#|/)([^)#\s]+?)(?:#[^)]*)?\)")
+# Agents are cited as @name in prose; a retired or misspelled agent reference
+# has no other guard. The lookahead keeps identifiers with a longer tail
+# (@event_name) from matching on their prefix.
+AGENT_REFERENCE_RE = re.compile(r"@([a-z][a-z-]+)(?![A-Za-z0-9_])")
 
 US = b"\x1f"
 out = sys.stdout.buffer
@@ -176,10 +191,15 @@ for path in sys.stdin.buffer.read().split(b"\0"):
         frontmatter = FRONTMATTER_RE.match(text)
         match = NAME_RE.search(frontmatter.group(1)) if frontmatter else None
         emit(b"NAME", match.group(1).strip().strip("\"'") if match else "", path)
+        description = DESCRIPTION_RE.search(frontmatter.group(1)) if frontmatter else None
+        keys = KEY_RE.findall(frontmatter.group(1)) if frontmatter else []
+        described = 1 if description and description.group(1).strip().strip("\"'") else 0
+        emit(b"SKILLFM", "%d %s" % (described, ",".join(keys)), path)
 
-    if path.startswith(b".github/skills/"):
-        for target in REFERENCE_LINK_RE.findall(text):
-            emit(b"LINK", target, path)
+    for target in RELATIVE_LINK_RE.findall(prose):
+        emit(b"LINK", target, path)
+    for cited_agent in AGENT_REFERENCE_RE.findall(prose):
+        emit(b"AGENTREF", cited_agent, path)
 PYTHON
 )
 
@@ -188,8 +208,12 @@ for index in $(seq 0 $((${#norwegian_allowlist[@]} - 1))); do
     allowlist_matches[index]=0
 done
 
-# Checks 1 (Norwegian prose), 2 (skill name matches directory) and 4 (links into
-# references/ resolve) all read the same records.
+# The roster feeds both halves of check 5: @agent references (in the stream)
+# and the roster maps (after it).
+agent_roster="$(git ls-files '.github/agents/*.agent.md' | sed -e 's|.*/||' -e 's|\.agent\.md$||' | sort -u)"
+
+# Checks 1 (Norwegian prose), 2 (skill identity and frontmatter), 4 (relative
+# links) and the @agent half of check 5 all read the same records.
 while IFS=$'\x1f' read -r -d '' kind value path; do
     case "$kind" in
     UNREADABLE)
@@ -238,9 +262,30 @@ while IFS=$'\x1f' read -r -d '' kind value path; do
         fi
         ;;
 
+    SKILLFM)
+        read -r described frontmatter_keys <<<"$value"
+        if [[ "$described" -ne 1 ]]; then
+            fail "Skill has no description in its frontmatter: ${path}. The description is the discovery surface that decides when the skill loads."
+        fi
+        IFS=',' read -ra skill_keys <<<"$frontmatter_keys"
+        for skill_key in "${skill_keys[@]}"; do
+            case "$skill_key" in
+            name | description | disable-model-invocation | argument-hint) ;;
+            *)
+                fail "Unknown frontmatter key '${skill_key}' in: ${path}. Allowed: name, description, disable-model-invocation, argument-hint. A misspelled boundary key silently changes who can invoke the skill."
+                ;;
+            esac
+        done
+        ;;
+
     LINK)
         [[ -e "${path%/*}/${value}" ]] ||
             fail "Broken link to '${value}' in: ${path}"
+        ;;
+
+    AGENTREF)
+        printf '%s\n' "$agent_roster" | grep -qxF -- "$value" ||
+            fail "Reference to unknown agent '@${value}' in: ${path}. Agents live in .github/agents/*.agent.md."
         ;;
     esac
 done < <(printf '%s\0' "${corpus_files[@]}" | python3 -c "$analysis_program")
@@ -295,7 +340,19 @@ done < <(
         tr -d '`' | cut -c2- | sort -u || true
 )
 
-# --- 3c. No references to instruction files that do not exist ----------------
+# Backticks are the citation convention, but descriptions and running prose
+# also cite skills bare (/prototype) or by path (skills/prototype/). A bare
+# unknown token is indistinguishable from an ordinary path, so this pass only
+# polices the names known to be retired — which is the decay that matters.
+while IFS= read -r retired; do
+    [[ -n "$retired" ]] || continue
+    printf '%s\n' "$existing_skills" | grep -qxF -- "$retired" && continue
+    locations="$(git grep -lE "(^|[^\`a-zA-Z0-9/_-])/${retired}([^a-z0-9/-]|\$)|skills/${retired}/" -- '.github' 'docs' 'README.md' || true)"
+    [[ -z "$locations" ]] ||
+        fail "Unbackticked reference to retired skill '/${retired}' in: $(printf '%s' "$locations" | tr '\n' ' ')"
+done <<<"$deleted_skills"
+
+# --- 3b. No references to instruction files that do not exist ----------------
 while IFS= read -r instruction_reference; do
     [[ -n "$instruction_reference" ]] || continue
     [[ -f "$instruction_reference" ]] && continue
@@ -306,9 +363,21 @@ done < <(
         sort -u || true
 )
 
+# --- 5. Roster maps stay in sync with .github/agents/ ------------------------
+#
+# GRILLMESTER.md calls itself the human-facing map and copilot-instructions.md
+# names the agent lineup. An agent absent from either is discoverable only by
+# listing the directory — which is how two agents once went unmapped for weeks.
+for mapped_agent in $agent_roster; do
+    for roster_map in .github/GRILLMESTER.md .github/copilot-instructions.md; do
+        grep -qiE "(^|[^a-z-])${mapped_agent}([^a-z-]|\$)" "$roster_map" ||
+            fail "Agent '${mapped_agent}' is missing from the roster map ${roster_map}."
+    done
+done
+
 if [[ "$failures" -ne 0 ]]; then
     echo "Agent corpus validation failed." >&2
     exit 1
 fi
 
-printf 'Agent corpus valid: %d files scanned, no undeclared Norwegian, skill names match directories, no dangling references.\n' "${#corpus_files[@]}"
+printf 'Agent corpus valid: %d files scanned, no undeclared Norwegian, skill identities and frontmatter valid, roster maps in sync, no dangling references.\n' "${#corpus_files[@]}"

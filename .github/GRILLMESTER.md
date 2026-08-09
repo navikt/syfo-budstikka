@@ -12,6 +12,12 @@ contracts; this page does not duplicate their full workflows.
   slice from a concise task brief and returns evidence.
 - **Grill-inspektor** (`.github/agents/grill-inspektor.agent.md`) performs an
   independent read-only review when selected or required by risk.
+- **Barista** (`.github/agents/barista.agent.md`) owns ordinary repository work
+  solo-first, from request through verified result. It recommends Grillmester
+  when a durable user-owned choice or red signal appears, and never invokes
+  Grillmester or Kokk itself.
+- **Researcher** (`.github/agents/researcher.agent.md`) resolves one claimed
+  `/wayfinder` research ticket read-only and returns a compact sourced note.
 - **Skills** (`.github/skills/`) provide progressively disclosed workflows and
   domain knowledge. Their descriptions are the discovery surface.
 - **Instructions** (`.github/instructions/` and
@@ -46,6 +52,10 @@ rules live once in `.github/copilot-instructions.md`.
 Runtime claims come from current agent frontmatter, Copilot discovery, the
 repository gates, and an authenticated bounded pilot. Historical setup prose
 does not prove which configuration the runtime applied.
+
+Grill-inspektor's tool grants use the reviewer runtime's vocabulary (`view`,
+`grep`, `glob`); every other agent uses `read`/`search`. The divergence is
+deliberate and pinned per agent in `scripts/validate-agent-models.sh`.
 
 Sources, reviewed revisions, and local adaptations are recorded in
 `docs/agents/provenance.md`. The repository files remain the only runtime
