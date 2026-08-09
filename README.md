@@ -64,9 +64,11 @@ Den interne flyten eies av [docs/flyt.md](docs/flyt.md).
 
 - [Datamodell](docs/datamodell.md) — inbox, delivery, dead letter, claim/lease og tilstander
 - [Migrering](docs/migrering.md) — kildefestet cutover-plan fra esyfovarsel
+- [Kanalkart esyfovarsel](docs/esyfovarsel-kanalkart.md) — kildefestet kanalinventar og dokdist-detaljer
 - [Teststrategi](docs/teststrategi.md) — delt testsubstrat, e2e og lokal kjøring
 - [Helsesjekk](docs/helsesjekk.md) — liveness-kontrakten for Kafka-consumeren
 - [Dead-letter-replay](docs/dead-letter-replay.md) — manuell replay-prosedyre
+- [Ordliste](docs/glossary.md) — eier domenevokabularet
 
 ## Kjøre lokalt
 
@@ -79,6 +81,17 @@ mise dev:tc       # eller: ./gradlew runLocal
 Løpet starter appen mot Testcontainers med Postgres, Kafka og fakes for eksterne integrasjoner.
 Se [teststrategien](docs/teststrategi.md) for testnivåer og lokal kjøring. Kjør `./gradlew tasks`
 for tilgjengelige Gradle-oppgaver.
+
+## Agentoppsett
+
+Repoet er testbenk for Grillmester-agentoppsettet for GitHub Copilot CLI.
+[.github/GRILLMESTER.md](.github/GRILLMESTER.md) er kartet over agenter, skills og
+instruksjoner. `mise lint:agents` kjører de deterministiske agent-gatene lokalt.
+Aktiver pre-commit-vakten mot PII i stagede filer én gang per klon:
+
+```sh
+git config core.hooksPath .githooks
+```
 
 ## For Nav-ansatte
 

@@ -96,7 +96,7 @@ documented route has been chosen, `/domain-modeling` is used to update the
 glossary or write a qualifying ADR under the repository policy.
 
 ### 5. Apply the outcome
-- `ready-for-agent` — post a work-ready brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). The item now counts as pickable in @grillmester's phase loop.
+- `ready-for-agent` — post a work-ready brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). The item now counts as pickable by a delivery agent (Grillmester or Barista).
 - `ready-for-human` — the same structure as an agent brief, but note *why* it cannot be delegated.
 - `needs-info` — post a triage note (template below).
 - `wontfix` — close, with a comment depending on *why*:

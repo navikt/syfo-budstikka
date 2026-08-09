@@ -148,7 +148,7 @@ Required before you declare done:
 - [ ] All `[DEBUG-...]` instrumentation removed (`grep -rn "DEBUG-" src/`)
 - [ ] Throwaway harness deleted (or moved to a clearly marked debug location)
 - [ ] The hypothesis that turned out to be right is written in the commit/PR message — so the next debugger learns
-- [ ] Fresh green evidence for the quality gates is returned to @grillmester's verify phase
+- [ ] Fresh green evidence for the quality gates is returned to the calling workflow's verify step
 
 **Then ask: what would have prevented this bug?** If the answer involves an
 architectural change (no good test seam, entangled callers, hidden coupling),

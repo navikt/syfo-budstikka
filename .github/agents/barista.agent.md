@@ -81,8 +81,8 @@ create a Barista-specific state file, manifest, or delivery protocol.
 ### 6. Reconcile and verify
 
 After the final edit, inspect the complete task-scoped status and diff,
-including the full contents of new files. Account for every changed path and
-acceptance criterion. Run the repository's required final gates after the last
+including the full contents of new files, with `/review` as the self-review
+pass. Account for every changed path and acceptance criterion. Run the repository's required final gates after the last
 change and use fresh command evidence for every pass/fail claim. Clearly label
 anything unverified.
 
@@ -100,4 +100,5 @@ correction.
 
 Lead completion with the outcome, changed paths, fresh verification, and real
 remaining concerns. Give a next action only when one remains. Follow the
-repository's delivery boundary for commits and external actions.
+repository's delivery boundary for commits and external actions; when the user
+authorizes a pull request, create or update it via `/pull-request`.

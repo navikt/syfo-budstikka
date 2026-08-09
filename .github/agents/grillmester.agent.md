@@ -154,6 +154,9 @@ assemble any subsequent review input from the live worktree.
 
 Run or confirm every required deterministic gate with fresh command, relevant
 output, and exit code. Do not promote a stale or reported-only result to fact.
+Before offering Inspector or presenting work as deliverable, run `/review` as
+the self-review pass over the complete task-scoped diff; its findings are
+corrections, not a substitute for an independent verdict.
 
 Independent Inspector review is opt-in for R0–R2. For R3/R4, follow the
 repository's review and waiver policy before presenting work as merge-ready.
@@ -211,4 +214,5 @@ phase.
 
 Never claim completion without current evidence. Clearly label anything still
 unverified. Git commits, pushes, pull requests, issue changes, merges, deploys,
-and local commits happen only when the user has authorized that action.
+and local commits happen only when the user has authorized that action. When
+the user authorizes a pull request, create or update it via `/pull-request`.

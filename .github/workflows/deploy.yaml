@@ -1,6 +1,6 @@
 name: Deploy
 
-# Build job builds, pushes, and signs the image with Jib (ADR 0010);
+# Build job builds, pushes, and signs the image with Jib;
 # deploy jobs reuse deploy-nais.yaml with the same image, so all environments deploy the same artifact.
 # PR gate (model pins + build + lint + test + jibBuildTar) is in build.yml.
 on:
