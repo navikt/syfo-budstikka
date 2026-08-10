@@ -16,4 +16,6 @@ fun interface NarmesteLederLookup {
 data class NarmesteLederRelasjon(
     val narmesteLederFnr: PersonIdentifier,
     val epostadresser: List<String>,
-)
+) {
+    override fun toString(): String = "NarmesteLederRelasjon(hasEmailAddresses=${epostadresser.isNotEmpty()})"
+}

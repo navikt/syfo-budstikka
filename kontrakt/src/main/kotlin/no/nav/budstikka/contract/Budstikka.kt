@@ -23,9 +23,9 @@ import kotlin.time.Instant
  * )
  * ```
  *
- * Variants a Produsent cannot send yet are deliberately absent, even where the wire type exists:
- * DittSykefravaer and Arbeidsgivervarsel have no registered channel in budstikka, so a dispatch would
- * be accepted and never delivered. They are added here when their channel is finished.
+ * Variants a Produsent cannot send through the facade yet are deliberately absent, even where the
+ * wire type exists. DittSykefravaer has no registered channel. Arbeidsgivervarsel has runtime
+ * delivery, but remains outside the producer facade until the producer contract is completed.
  *
  * Every function validates required identifiers, references and explicitly constrained values before
  * encoding, and fails with [IllegalArgumentException] naming the offending parameter — never its
@@ -106,7 +106,7 @@ object Budstikka {
      * An in-app activity notification about the Sykmeldt in Dine Sykmeldte. The function is named
      * after the channel it delivers on; the wire variant keeps budstikka's established domain name
      * [LedervarselCreate]. Naming the recipient instead would mislead: the leader can also be
-     * reached through Arbeidsgivervarsel once that channel is finished, and this channel has no
+     * reached through Arbeidsgivervarsel, and this channel has no
      * external carrier, so there is no SMS or email option here. You pass the Sykmeldt and the
      * organisation, never a leader's personident: budstikka forwards `(sykmeldt, orgnummer,
      * oppgavetype)` to Dine Sykmeldte as an activity notification and does no Nærmeste leder lookup

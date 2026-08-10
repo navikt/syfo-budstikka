@@ -20,7 +20,9 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * Sends ARBEIDSGIVERVARSEL through an [AltinnResource] or a Nærmeste leder path. The latter resolves
  * the active leader at send time, so a deferred delivery follows leader changes without persisting
  * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
- * has already waited for budstikka's delivery window. Closing remains a permanent failure.
+ * has already waited for budstikka's delivery window. A requested external notification without a
+ * leader email fails the entire delivery terminally; it does not degrade to in-app only. Closing
+ * remains a permanent failure.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,

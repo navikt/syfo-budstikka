@@ -112,8 +112,8 @@ class ArbeidsgiverNotifikasjonClientTest :
                 request(
                     recipient =
                         ArbeidsgiverNotificationRecipient.NarmesteLeder(
-                            narmesteLederFnr = PersonIdentifier("22222222222"),
-                            ansattFnr = PersonIdentifier("11111111111"),
+                            narmesteLederFnr = PersonIdentifier("00000000000"),
+                            ansattFnr = PersonIdentifier("00000000000"),
                             externalVarsling =
                                 no.nav.budstikka.application.port.NarmesteLederExternalVarsling(
                                     "Tittel",
@@ -124,7 +124,7 @@ class ArbeidsgiverNotifikasjonClientTest :
                 ),
             ) shouldBe ArbeidsgiverNotificationResponse.Published
 
-            body shouldContain """"naermesteLeder":{"naermesteLederFnr":"22222222222","ansattFnr":"11111111111"}"""
+            body shouldContain """"naermesteLeder":{"naermesteLederFnr":"00000000000","ansattFnr":"00000000000"}"""
             body shouldContain """"virksomhetsnummer":"123456789""""
             body shouldContain """"epostadresse":"first@example.test""""
             body shouldContain """"epostadresse":"second@example.test""""
@@ -173,6 +173,17 @@ class ArbeidsgiverNotifikasjonClientTest :
             }
             shouldThrow<IllegalStateException> {
                 client { respond("""{"errors":[{"message":"sensitive"}]}""", HttpStatusCode.OK) }.publish(request())
+            }
+        }
+
+        test("throws for retry when the GraphQL union contains an unknown result type") {
+            shouldThrow<IllegalStateException> {
+                client {
+                    respond(
+                        """{"data":{"nyBeskjed":{"__typename":"NyttUkjentResultat"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.publish(request())
             }
         }
     })

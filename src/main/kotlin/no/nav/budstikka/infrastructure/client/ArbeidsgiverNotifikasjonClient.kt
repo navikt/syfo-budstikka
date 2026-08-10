@@ -39,11 +39,11 @@ class ArbeidsgiverNotifikasjonClient(
     private val tokenProvider: TokenProvider,
 ) : ArbeidsgiverNotificationPublisher {
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
-        val token = tokenProvider.token(config.scope)
+        val credential = tokenProvider.token(config.scope)
         val response =
             httpClient.post(config.url) {
                 contentType(ContentType.Application.Json)
-                bearerAuth(token)
+                bearerAuth(credential)
                 header(NAV_CALL_ID_HEADER, request.eksternId)
                 setBody(json.encodeToString(request.toGraphqlRequest()))
             }
@@ -71,14 +71,20 @@ class ArbeidsgiverNotifikasjonClient(
             }
         if (!payload.errors.isNullOrEmpty()) error("Arbeidsgiver notification API returned GraphQL errors")
         val result = payload.data?.result ?: error("Arbeidsgiver notification API returned no result")
-        return when (result.typeName) {
-            "NyBeskjedVellykket", "NyOppgaveVellykket", "DuplikatEksternIdOgMerkelapp" ->
+        return when (result.type) {
+            NotificationResultType.NY_BESKJED_VELLYKKET,
+            NotificationResultType.NY_OPPGAVE_VELLYKKET,
+            NotificationResultType.DUPLIKAT_EKSTERN_ID_OG_MERKELAPP,
+            ->
                 ArbeidsgiverNotificationResponse.Published
-            "UgyldigMerkelapp", "UgyldigMottaker", "UkjentProdusent", "UkjentRolle", "UgyldigPaaminnelseTidspunkt" ->
-                ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: ${result.typeName}")
-            else ->
+            NotificationResultType.UGYLDIG_MERKELAPP,
+            NotificationResultType.UGYLDIG_MOTTAKER,
+            NotificationResultType.UKJENT_PRODUSENT,
+            NotificationResultType.UKJENT_ROLLE,
+            NotificationResultType.UGYLDIG_PAAMINNELSE_TIDSPUNKT,
+            ->
                 ArbeidsgiverNotificationResponse.Rejected(
-                    "Arbeidsgiver notification API returned unexpected result: ${result.typeName}",
+                    "Arbeidsgiver notification API rejected request: ${result.type.wireName}",
                 )
         }
     }
@@ -304,5 +310,34 @@ private data class NotificationData(
 
 @Serializable
 private data class NotificationResult(
-    @SerialName("__typename") val typeName: String,
+    @SerialName("__typename") val type: NotificationResultType,
 )
+
+@Serializable
+private enum class NotificationResultType(
+    val wireName: String,
+) {
+    @SerialName("NyBeskjedVellykket")
+    NY_BESKJED_VELLYKKET("NyBeskjedVellykket"),
+
+    @SerialName("NyOppgaveVellykket")
+    NY_OPPGAVE_VELLYKKET("NyOppgaveVellykket"),
+
+    @SerialName("DuplikatEksternIdOgMerkelapp")
+    DUPLIKAT_EKSTERN_ID_OG_MERKELAPP("DuplikatEksternIdOgMerkelapp"),
+
+    @SerialName("UgyldigMerkelapp")
+    UGYLDIG_MERKELAPP("UgyldigMerkelapp"),
+
+    @SerialName("UgyldigMottaker")
+    UGYLDIG_MOTTAKER("UgyldigMottaker"),
+
+    @SerialName("UkjentProdusent")
+    UKJENT_PRODUSENT("UkjentProdusent"),
+
+    @SerialName("UkjentRolle")
+    UKJENT_ROLLE("UkjentRolle"),
+
+    @SerialName("UgyldigPaaminnelseTidspunkt")
+    UGYLDIG_PAAMINNELSE_TIDSPUNKT("UgyldigPaaminnelseTidspunkt"),
+}
