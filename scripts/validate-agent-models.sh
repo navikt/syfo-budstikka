@@ -20,7 +20,7 @@ declare -A EXPECTED_TOOLS=(
   [barista]=$'agent\nask_user\nedit\nexecute\nread\nsearch\nskill\nweb'
   [grillmester]=$'agent\nask_user\nedit\nexecute\nread\nsearch\nskill\nweb'
   [kokk]=$'edit\nexecute\nread\nsearch\nskill'
-  [grill-inspektor]=$'glob\ngrep\nview'
+  [grill-inspektor]=$'execute\nglob\ngrep\nview'
   [researcher]=$'read\nsearch\nweb'
 )
 

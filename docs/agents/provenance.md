@@ -44,13 +44,16 @@ research role. The local files are the operative contracts.
 | `.github/agents/barista.agent.md` | `dist/agents/barista.agent.md` | Adapted as a compact English solo-first entry point: it owns ordinary implementation, routes unresolved decisions and high risk to user-selected Grillmester, and invokes only an explicitly selected Grill-inspektor review |
 | `.github/agents/grillmester.agent.md` | `dist/agents/hovmester.agent.md` | Adapted to preserve Grillmester's phase loop, natural grilling, R0/R1 fast path, phase anchor, and end-to-end ownership while delegating one Kokk slice at a time |
 | `.github/agents/kokk.agent.md` | `dist/agents/kokk.agent.md` | Adapted to one concise task brief, one vertical slice, five explicit completion statuses, and a commit-free handoff to the orchestrator |
-| `.github/agents/grill-inspektor.agent.md` | `dist/agents/inspektor-claude.agent.md` | Adapted to a compact independent review contract with explicit `view`, `grep`, and `glob` tools, no write or shell boundary, and no mandatory positive section |
+| `.github/agents/grill-inspektor.agent.md` | `dist/agents/inspektor-claude.agent.md` | Adapted to a compact independent review contract with explicit `view`, `grep`, `glob`, and an `execute` grant constrained by the role contract, no `edit` grant, and no mandatory positive section |
 | `.github/agents/researcher.agent.md` | [`skills/engineering/research/SKILL.md` at `8b36d4f`](https://github.com/mattpocock/skills/blob/8b36d4fb2635b3c21998dcd8144439c9e5ba7302/skills/engineering/research/SKILL.md) | Replaces upstream file-writing background research with an internal read, search, and web-only Copilot agent that returns one sourced note for a claimed Wayfinder ticket |
 
 The capability declarations follow GitHub's documented
 [custom-agent tool names and aliases](https://docs.github.com/en/copilot/reference/custom-agents-configuration#tools).
 A bounded repository pilot on 2026-08-03 exercised Kokk's read, search, and
-command paths and Inspector's read-only paths.
+command paths and Inspector's earlier read-only discovery paths. An
+authenticated fresh Copilot CLI pilot on 2026-08-10 exercised Inspector's
+`execute` path by running `git rev-parse HEAD`, which returned
+`c1c118ecfc527f1aa3ecdb5aace0b10925065efe` with exit code 0.
 `scripts/validate-agent-models.sh` pins the declared capability and reachability
 boundaries for all five roles so they cannot drift silently.
 
