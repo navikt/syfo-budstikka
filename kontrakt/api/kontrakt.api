@@ -1,3 +1,18 @@
+public final synthetic class no/nav/budstikka/contract/AltinnExternalVarsling$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lno/nav/budstikka/contract/AltinnExternalVarsling$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lno/nav/budstikka/contract/AltinnExternalVarsling;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lno/nav/budstikka/contract/AltinnExternalVarsling;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class no/nav/budstikka/contract/AltinnExternalVarsling$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class no/nav/budstikka/contract/BrevFallback {
 	public static final field Companion Lno/nav/budstikka/contract/BrevFallback$Companion;
 	public fun <init> (Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;)V
