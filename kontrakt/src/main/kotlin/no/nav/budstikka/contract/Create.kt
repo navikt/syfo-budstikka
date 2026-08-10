@@ -111,10 +111,8 @@ data class ArbeidsgivervarselCreate(
 sealed interface ArbeidsgiverRecipient
 
 /**
- * Personal Arbeidsgivervarsel path. No adapter delivers this variant yet; resolving Nærmeste leder
- * from [sykmeldt] is future work, not current behaviour.
- *
- * The generated `toString` is safe because [PersonIdentifier] masks itself.
+ * Personal Arbeidsgivervarsel path. Budstikka resolves the active Nærmeste leder from [sykmeldt]
+ * at delivery time.
  */
 @InternalBudstikkaWire
 @Serializable
@@ -122,7 +120,10 @@ sealed interface ArbeidsgiverRecipient
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
     val externalVarsling: NarmesteLederExternalVarsling? = null,
-) : ArbeidsgiverRecipient
+) : ArbeidsgiverRecipient {
+    /** Omits the person identifier and external notification text. */
+    override fun toString(): String = "NarmesteLeder(hasExternalVarsling=${externalVarsling != null})"
+}
 
 /** Everyone with the selected Altinn role at the organisation. */
 @InternalBudstikkaWire
@@ -131,7 +132,10 @@ data class NarmesteLeder(
 data class AltinnResource(
     val resource: AltinnResourceId,
     val externalVarsling: AltinnExternalVarsling? = null,
-) : ArbeidsgiverRecipient
+) : ArbeidsgiverRecipient {
+    /** Omits external notification text. */
+    override fun toString(): String = "AltinnResource(resource=$resource, hasExternalVarsling=${externalVarsling != null})"
+}
 
 /** External notification texts required by the Altinn-resource delivery path. */
 @InternalBudstikkaWire
@@ -140,7 +144,10 @@ data class AltinnExternalVarsling(
     val emailTitle: String,
     val emailText: String,
     val smsText: String,
-)
+) {
+    /** Omits all notification text. */
+    override fun toString(): String = "AltinnExternalVarsling()"
+}
 
 /** External notification texts required by the Nærmeste leder email delivery path. */
 @InternalBudstikkaWire
@@ -148,7 +155,10 @@ data class AltinnExternalVarsling(
 data class NarmesteLederExternalVarsling(
     val emailTitle: String,
     val emailText: String,
-)
+) {
+    /** Omits all notification text. */
+    override fun toString(): String = "NarmesteLederExternalVarsling()"
+}
 
 @OptIn(InternalBudstikkaWire::class)
 private fun ArbeidsgiverRecipient.hasExternalVarsling(): Boolean =

@@ -53,7 +53,8 @@ enum class ExternalChannel {
  *
  * The Kotlin type name is [ExternalNotification]; the serialized field on the wire is
  * `externalVarsling` (unaffected by this class having no discriminator) and is not renamed here — see
- * [BrukervarselCreate.externalVarsling] and [ArbeidsgivervarselCreate.externalVarsling].
+ * [BrukervarselCreate.externalVarsling]. Arbeidsgivervarsel uses recipient-specific external
+ * notification types instead.
  *
  * @property channels External carriers that may receive the notification.
  * @property smsText Optional SMS body.
