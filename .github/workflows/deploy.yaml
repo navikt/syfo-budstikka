@@ -75,5 +75,5 @@ jobs:
     uses: ./.github/workflows/deploy-nais.yaml
     with:
       cluster: prod-gcp
-      resource: nais/nais-prod.yaml
+      resource: nais/nais-prod.yaml,nais/alerts-prod.yaml
       image: ${{ needs.build.outputs.image }}
