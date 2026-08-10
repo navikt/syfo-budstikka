@@ -111,6 +111,12 @@ were reviewed on 2026-07-31 and adopted only in the narrow form recorded here:
 | [`mattpocock/skills#299`](https://github.com/mattpocock/skills/issues/299) | Unresolved choices remain in the issue, plan, or decision map; a deliberately persisted proposal is status-marked, with no mandatory promotion or backlink protocol |
 | [`mattpocock/skills#306`](https://github.com/mattpocock/skills/issues/306) | `/handoff` separates freshly verified state from unverified claims and asks the receiver to recheck branch, HEAD, and status; no fingerprint or persistence framework was adopted |
 
+## External contract schemas
+
+| Local path | Source | Revision | Local handling |
+|---|---|---|---|
+| `src/main/graphql/fager/schema.graphqls` | `navikt/arbeidsgiver-notifikasjon-produsent-api/app/src/main/resources/produsent.graphql` | `5c9251d6aaa850e08c559560bc6fed941842d5ea` | Copied unchanged as the Apollo code-generation schema for the fager producer API |
+
 ## Import rule
 
 When repository content is copied or substantially adapted, record the

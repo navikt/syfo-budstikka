@@ -1,5 +1,11 @@
 package no.nav.budstikka.infrastructure.client
 
+import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.Optional
+import com.apollographql.apollo.api.composeJsonRequest
+import com.apollographql.apollo.api.json.buildJsonString
+import com.apollographql.apollo.api.json.jsonReader
+import com.apollographql.apollo.api.parseResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
@@ -11,10 +17,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import no.nav.budstikka.application.port.AltinnExternalVarsling
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
@@ -26,31 +28,70 @@ import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
+import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
+import no.nav.budstikka.infrastructure.client.fager.generated.NyOppgaveMutation
+import no.nav.budstikka.infrastructure.client.fager.generated.type.AltinnRessursMottakerInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselAltinnressursInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselEpostInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.EpostKontaktInfoInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.EpostMottakerInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.FutureTemporalInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.MetadataInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.MottakerInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NaermesteLederMottakerInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NotifikasjonInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NyOppgaveInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.SendetidspunktInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.Sendevindu
+import okio.Buffer
 
 /**
- * GraphQL anti-corruption adapter for arbeidsgiver-notifikasjon-produsent-api. It always uses
- * `LOEPENDE`, because SendingWindowGate has already enforced budstikka's window. Altinn 3 ignores
- * the contract's external-notification channels and uses its platform-defined delivery preference.
- * Email body is escaped from consumer-provided plain text before it becomes downstream HTML.
+ * GraphQL anti-corruption adapter for arbeidsgiver-notifikasjon-produsent-api. Apollo generates the
+ * operation and input models from fager's pinned schema, while the shared Ktor client retains
+ * ownership of transport, authentication and status handling. External notifications always use
+ * `LOEPENDE`, because SendingWindowGate has already enforced budstikka's window. Email body is
+ * escaped from consumer-provided plain text before it becomes downstream HTML. Fager schedules
+ * hard deletion four calendar months after receipt, matching esyfovarsel's retention period.
  */
 class ArbeidsgiverNotifikasjonClient(
     private val httpClient: HttpClient,
     private val config: ArbeidsgiverNotifikasjonConfig,
     private val tokenProvider: TokenProvider,
 ) : ArbeidsgiverNotificationPublisher {
-    override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
+    override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
+        when (request.meldingstype) {
+            ArbeidsgiverMeldingstype.BESKJED ->
+                execute(request, request.toNyBeskjedMutation()) { data ->
+                    data.nyBeskjed.toNotificationResponse()
+                }
+            ArbeidsgiverMeldingstype.OPPGAVE ->
+                execute(request, request.toNyOppgaveMutation()) { data ->
+                    data.nyOppgave.toNotificationResponse()
+                }
+        }
+
+    private suspend fun <D : Operation.Data> execute(
+        request: ArbeidsgiverNotificationRequest,
+        operation: Operation<D>,
+        classify: (D) -> ArbeidsgiverNotificationResponse,
+    ): ArbeidsgiverNotificationResponse {
         val credential = tokenProvider.token(config.scope)
         val response =
             httpClient.post(config.url) {
                 contentType(ContentType.Application.Json)
                 bearerAuth(credential)
-                header(NAV_CALL_ID_HEADER, request.eksternId)
-                setBody(json.encodeToString(request.toGraphqlRequest()))
+                header(X_REQUEST_ID_HEADER, request.eksternId)
+                setBody(operation.requestBody())
             }
-        return response.toNotificationResponse()
+        return response.toNotificationResponse(operation, classify)
     }
 
-    private suspend fun HttpResponse.toNotificationResponse(): ArbeidsgiverNotificationResponse {
+    private suspend fun <D : Operation.Data> HttpResponse.toNotificationResponse(
+        operation: Operation<D>,
+        classify: (D) -> ArbeidsgiverNotificationResponse,
+    ): ArbeidsgiverNotificationResponse {
         if (status == HttpStatusCode.BadRequest) {
             return ArbeidsgiverNotificationResponse.Rejected(
                 "Arbeidsgiver notification API rejected request with status ${status.value}",
@@ -64,68 +105,78 @@ class ArbeidsgiverNotifikasjonClient(
 
         val responseBody = bodyAsText()
         val payload =
-            try {
-                json.decodeFromString<NotificationGraphqlResponse>(responseBody)
-            } catch (_: SerializationException) {
-                error("Arbeidsgiver notification API returned an invalid response")
-            }
-        if (!payload.errors.isNullOrEmpty()) error("Arbeidsgiver notification API returned GraphQL errors")
-        val result = payload.data?.result ?: error("Arbeidsgiver notification API returned no result")
-        return when (result.type) {
-            NotificationResultType.NY_BESKJED_VELLYKKET,
-            NotificationResultType.NY_OPPGAVE_VELLYKKET,
-            NotificationResultType.DUPLIKAT_EKSTERN_ID_OG_MERKELAPP,
-            ->
-                ArbeidsgiverNotificationResponse.Published
-            NotificationResultType.UGYLDIG_MERKELAPP,
-            NotificationResultType.UGYLDIG_MOTTAKER,
-            NotificationResultType.UKJENT_PRODUSENT,
-            NotificationResultType.UKJENT_ROLLE,
-            NotificationResultType.UGYLDIG_PAAMINNELSE_TIDSPUNKT,
-            ->
-                ArbeidsgiverNotificationResponse.Rejected(
-                    "Arbeidsgiver notification API rejected request: ${result.type.wireName}",
-                )
+            Buffer()
+                .writeUtf8(responseBody)
+                .jsonReader()
+                .use { jsonReader ->
+                    operation.parseResponse(jsonReader)
+                }
+        if (payload.exception != null) {
+            error("Arbeidsgiver notification API returned an invalid response")
         }
+        if (!payload.errors.isNullOrEmpty()) error("Arbeidsgiver notification API returned GraphQL errors")
+        return classify(payload.data ?: error("Arbeidsgiver notification API returned no result"))
     }
 
-    private fun ArbeidsgiverNotificationRequest.toGraphqlRequest(): NotificationGraphqlRequest =
-        NotificationGraphqlRequest(
-            query =
-                when (meldingstype) {
-                    ArbeidsgiverMeldingstype.BESKJED -> NY_BESKJED_MUTATION
-                    ArbeidsgiverMeldingstype.OPPGAVE -> NY_OPPGAVE_MUTATION
-                },
-            variables =
-                when (meldingstype) {
-                    ArbeidsgiverMeldingstype.BESKJED -> NotificationGraphqlVariables(nyBeskjed = toGraphqlInput())
-                    ArbeidsgiverMeldingstype.OPPGAVE -> NotificationGraphqlVariables(nyOppgave = toGraphqlInput())
-                },
+    private fun ArbeidsgiverNotificationRequest.toNyBeskjedMutation() =
+        NyBeskjedMutation(
+            input =
+                NyBeskjedInput(
+                    mottakere = Optional.present(listOf(recipient.toGraphqlRecipient())),
+                    notifikasjon = toGraphqlNotification(),
+                    metadata = toGraphqlMetadata(),
+                    eksterneVarsler = recipient.toGraphqlExternalVarsler().toOptional(),
+                ),
         )
 
-    private fun ArbeidsgiverNotificationRequest.toGraphqlInput() =
-        NotificationInput(
-            mottakere = listOf(recipient.toGraphqlRecipient()),
-            notifikasjon = NotificationContent(tag.toWireValue(), tekst, lenke),
-            metadata = NotificationMetadata(virksomhetsnummer, eksternId, grupperingsid),
-            eksterneVarsler = recipient.toGraphqlExternalVarsler(),
+    private fun ArbeidsgiverNotificationRequest.toNyOppgaveMutation() =
+        NyOppgaveMutation(
+            input =
+                NyOppgaveInput(
+                    mottakere = Optional.present(listOf(recipient.toGraphqlRecipient())),
+                    notifikasjon = toGraphqlNotification(),
+                    metadata = toGraphqlMetadata(),
+                    eksterneVarsler = recipient.toGraphqlExternalVarsler().toOptional(),
+                ),
+        )
+
+    private fun ArbeidsgiverNotificationRequest.toGraphqlNotification() =
+        NotifikasjonInput(
+            merkelapp = tag.toWireValue(),
+            tekst = tekst,
+            lenke = lenke,
+        )
+
+    private fun ArbeidsgiverNotificationRequest.toGraphqlMetadata() =
+        MetadataInput(
+            virksomhetsnummer = virksomhetsnummer,
+            eksternId = eksternId,
+            grupperingsid = grupperingsid.toOptional(),
+            hardDelete =
+                Optional.present(
+                    FutureTemporalInput(om = Optional.present(HARD_DELETE_AFTER_FOUR_MONTHS)),
+                ),
         )
 
     private fun ArbeidsgiverNotificationRecipient.toGraphqlRecipient() =
         when (this) {
             is ArbeidsgiverNotificationRecipient.AltinnRessurs ->
-                NotificationRecipient(altinnRessurs = AltinnRessursInput(resource.toWireValue()))
+                MottakerInput(
+                    altinnRessurs = Optional.present(AltinnRessursMottakerInput(resource.toWireValue())),
+                )
             is ArbeidsgiverNotificationRecipient.NarmesteLeder ->
-                NotificationRecipient(
+                MottakerInput(
                     naermesteLeder =
-                        NarmesteLederInput(
-                            naermesteLederFnr = narmesteLederFnr.value,
-                            ansattFnr = ansattFnr.value,
+                        Optional.present(
+                            NaermesteLederMottakerInput(
+                                naermesteLederFnr = narmesteLederFnr.value,
+                                ansattFnr = ansattFnr.value,
+                            ),
                         ),
                 )
         }
 
-    private fun ArbeidsgiverNotificationRecipient.toGraphqlExternalVarsler(): List<ExternalNotificationInput>? =
+    private fun ArbeidsgiverNotificationRecipient.toGraphqlExternalVarsler(): List<EksterntVarselInput>? =
         when (this) {
             is ArbeidsgiverNotificationRecipient.AltinnRessurs ->
                 externalVarsling?.let { listOf(it.toGraphqlExternalVarsling(resource)) }
@@ -138,26 +189,79 @@ class ArbeidsgiverNotifikasjonClient(
         }
 
     private fun AltinnExternalVarsling.toGraphqlExternalVarsling(resource: AltinnResourceId) =
-        ExternalNotificationInput(
+        EksterntVarselInput(
             altinnressurs =
-                AltinnResourceExternalNotification(
-                    mottaker = AltinnRessursInput(resource.toWireValue()),
-                    epostTittel = epostTittel,
-                    epostHtmlBody = epostTekst.toEscapedHtml(),
-                    smsTekst = smsTekst,
-                    sendetidspunkt = SendetidspunktInput(sendevindu = "LOEPENDE"),
+                Optional.present(
+                    EksterntVarselAltinnressursInput(
+                        mottaker = AltinnRessursMottakerInput(resource.toWireValue()),
+                        epostTittel = epostTittel,
+                        epostHtmlBody = epostTekst.toEscapedHtml(),
+                        smsTekst = smsTekst,
+                        sendetidspunkt = ongoingSendTime(),
+                    ),
                 ),
         )
 
     private fun NarmesteLederExternalVarsling.toGraphqlExternalVarsling(epostadresse: String) =
-        ExternalNotificationInput(
+        EksterntVarselInput(
             epost =
-                EpostExternalNotification(
-                    mottaker = EpostMottakerInput(kontaktinfo = EpostKontaktinfoInput(epostadresse = epostadresse)),
-                    epostTittel = epostTittel,
-                    epostHtmlBody = epostTekst.toEscapedHtml(),
-                    sendetidspunkt = SendetidspunktInput(sendevindu = "LOEPENDE"),
+                Optional.present(
+                    EksterntVarselEpostInput(
+                        mottaker =
+                            EpostMottakerInput(
+                                kontaktinfo =
+                                    Optional.present(
+                                        EpostKontaktInfoInput(epostadresse = epostadresse),
+                                    ),
+                            ),
+                        epostTittel = epostTittel,
+                        epostHtmlBody = epostTekst.toEscapedHtml(),
+                        sendetidspunkt = ongoingSendTime(),
+                    ),
                 ),
+        )
+
+    private fun NyBeskjedMutation.NyBeskjed.toNotificationResponse(): ArbeidsgiverNotificationResponse =
+        when {
+            onNyBeskjedVellykket != null ->
+                ArbeidsgiverNotificationResponse.Published
+            onDuplikatEksternIdOgMerkelapp != null ->
+                rejected("DuplikatEksternIdOgMerkelapp")
+            onUgyldigMerkelapp != null ->
+                rejected("UgyldigMerkelapp")
+            onUgyldigMottaker != null ->
+                rejected("UgyldigMottaker")
+            onUkjentProdusent != null ->
+                rejected("UkjentProdusent")
+            onUkjentRolle != null ->
+                rejected("UkjentRolle")
+            else ->
+                error("Arbeidsgiver notification API returned an unexpected NyBeskjed result")
+        }
+
+    private fun NyOppgaveMutation.NyOppgave.toNotificationResponse(): ArbeidsgiverNotificationResponse =
+        when {
+            onNyOppgaveVellykket != null ->
+                ArbeidsgiverNotificationResponse.Published
+            onDuplikatEksternIdOgMerkelapp != null ->
+                rejected("DuplikatEksternIdOgMerkelapp")
+            onUgyldigMerkelapp != null ->
+                rejected("UgyldigMerkelapp")
+            onUgyldigMottaker != null ->
+                rejected("UgyldigMottaker")
+            onUkjentProdusent != null ->
+                rejected("UkjentProdusent")
+            onUkjentRolle != null ->
+                rejected("UkjentRolle")
+            onUgyldigPaaminnelseTidspunkt != null ->
+                rejected("UgyldigPaaminnelseTidspunkt")
+            else ->
+                error("Arbeidsgiver notification API returned an unexpected NyOppgave result")
+        }
+
+    private fun rejected(resultType: String) =
+        ArbeidsgiverNotificationResponse.Rejected(
+            "Arbeidsgiver notification API rejected request: $resultType",
         )
 
     private fun Tag.toWireValue(): String =
@@ -191,153 +295,25 @@ class ArbeidsgiverNotifikasjonClient(
                 }
         }
 
+    private fun <T : Any> T?.toOptional(): Optional<T?> = if (this == null) Optional.Absent else Optional.present(this)
+
+    private fun <T : Any> List<T>?.toOptional(): Optional<List<T>> = if (this == null) Optional.Absent else Optional.present(this)
+
+    private fun ongoingSendTime() =
+        SendetidspunktInput(
+            sendevindu = Optional.present(Sendevindu.LOEPENDE),
+        )
+
+    private fun <D : Operation.Data> Operation<D>.requestBody(): String =
+        buildJsonString {
+            this@requestBody.composeJsonRequest(this)
+        }
+
     private companion object {
-        private const val NAV_CALL_ID_HEADER = "Nav-Call-Id"
-        private const val NY_BESKJED_MUTATION =
-            "mutation nyBeskjed(\$nyBeskjed: NyBeskjedInput!) { nyBeskjed(nyBeskjed: \$nyBeskjed) { __typename } }"
-        private const val NY_OPPGAVE_MUTATION =
-            "mutation nyOppgave(\$nyOppgave: NyOppgaveInput!) { nyOppgave(nyOppgave: \$nyOppgave) { __typename } }"
-        private val json =
-            Json {
-                encodeDefaults = false
-                ignoreUnknownKeys = true
-            }
+        private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
+
+        // Fager documents X-Request-ID as an accepted correlation header in docs/gql/intro.html
+        // at the pinned revision.
+        private const val X_REQUEST_ID_HEADER = "X-Request-ID"
     }
-}
-
-@Serializable
-private data class NotificationGraphqlRequest(
-    val query: String,
-    val variables: NotificationGraphqlVariables,
-)
-
-@Serializable
-private data class NotificationGraphqlVariables(
-    val nyBeskjed: NotificationInput? = null,
-    val nyOppgave: NotificationInput? = null,
-)
-
-@Serializable
-private data class NotificationInput(
-    val mottakere: List<NotificationRecipient>,
-    val notifikasjon: NotificationContent,
-    val metadata: NotificationMetadata,
-    val eksterneVarsler: List<ExternalNotificationInput>? = null,
-)
-
-@Serializable
-private data class NotificationRecipient(
-    @SerialName("altinnRessurs") val altinnRessurs: AltinnRessursInput? = null,
-    @SerialName("naermesteLeder") val naermesteLeder: NarmesteLederInput? = null,
-)
-
-@Serializable
-private data class AltinnRessursInput(
-    val ressursId: String,
-)
-
-@Serializable
-private data class NarmesteLederInput(
-    val naermesteLederFnr: String,
-    val ansattFnr: String,
-)
-
-@Serializable
-private data class NotificationContent(
-    val merkelapp: String,
-    val tekst: String,
-    val lenke: String,
-)
-
-@Serializable
-private data class NotificationMetadata(
-    val virksomhetsnummer: String,
-    val eksternId: String,
-    val grupperingsid: String? = null,
-)
-
-@Serializable
-private data class ExternalNotificationInput(
-    val altinnressurs: AltinnResourceExternalNotification? = null,
-    val epost: EpostExternalNotification? = null,
-)
-
-@Serializable
-private data class AltinnResourceExternalNotification(
-    val mottaker: AltinnRessursInput,
-    val epostTittel: String,
-    val epostHtmlBody: String,
-    val smsTekst: String,
-    val sendetidspunkt: SendetidspunktInput,
-)
-
-@Serializable
-private data class EpostExternalNotification(
-    val mottaker: EpostMottakerInput,
-    val epostTittel: String,
-    val epostHtmlBody: String,
-    val sendetidspunkt: SendetidspunktInput,
-)
-
-@Serializable
-private data class EpostMottakerInput(
-    val kontaktinfo: EpostKontaktinfoInput,
-)
-
-@Serializable
-private data class EpostKontaktinfoInput(
-    val epostadresse: String,
-)
-
-@Serializable
-private data class SendetidspunktInput(
-    val sendevindu: String,
-)
-
-@Serializable
-private data class NotificationGraphqlResponse(
-    val data: NotificationData? = null,
-    val errors: List<GraphqlError>? = null,
-)
-
-@Serializable
-private data class NotificationData(
-    val nyBeskjed: NotificationResult? = null,
-    val nyOppgave: NotificationResult? = null,
-) {
-    val result: NotificationResult? get() = nyBeskjed ?: nyOppgave
-}
-
-@Serializable
-private data class NotificationResult(
-    @SerialName("__typename") val type: NotificationResultType,
-)
-
-@Serializable
-private enum class NotificationResultType(
-    val wireName: String,
-) {
-    @SerialName("NyBeskjedVellykket")
-    NY_BESKJED_VELLYKKET("NyBeskjedVellykket"),
-
-    @SerialName("NyOppgaveVellykket")
-    NY_OPPGAVE_VELLYKKET("NyOppgaveVellykket"),
-
-    @SerialName("DuplikatEksternIdOgMerkelapp")
-    DUPLIKAT_EKSTERN_ID_OG_MERKELAPP("DuplikatEksternIdOgMerkelapp"),
-
-    @SerialName("UgyldigMerkelapp")
-    UGYLDIG_MERKELAPP("UgyldigMerkelapp"),
-
-    @SerialName("UgyldigMottaker")
-    UGYLDIG_MOTTAKER("UgyldigMottaker"),
-
-    @SerialName("UkjentProdusent")
-    UKJENT_PRODUSENT("UkjentProdusent"),
-
-    @SerialName("UkjentRolle")
-    UKJENT_ROLLE("UkjentRolle"),
-
-    @SerialName("UgyldigPaaminnelseTidspunkt")
-    UGYLDIG_PAAMINNELSE_TIDSPUNKT("UgyldigPaaminnelseTidspunkt"),
 }

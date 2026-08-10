@@ -1,6 +1,8 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType
 import com.google.cloud.tools.jib.gradle.JibExtension
 import org.gradle.api.tasks.Exec
+import org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask
+import java.net.URI
 
 buildscript {
     dependencies {
@@ -15,6 +17,7 @@ plugins {
     alias(libs.plugins.ktlint)
     alias(libs.plugins.flyway)
     alias(libs.plugins.test.logger)
+    alias(libs.plugins.apollo)
 }
 
 group = "no.nav.syfo"
@@ -119,6 +122,7 @@ dependencies {
     implementation(libs.kafka.clients)
     implementation(libs.tms.varsel.java.builder)
     implementation(libs.tms.mikrofrontend.selector.builder)
+    implementation(libs.apollo.api)
 
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)
@@ -131,7 +135,89 @@ dependencies {
     testImplementation(libs.kotlin.test)
 }
 
+apollo {
+    service("fager") {
+        packageName.set("no.nav.budstikka.infrastructure.client.fager.generated")
+        srcDir("src/main/graphql/fager")
+        schemaFiles.from("src/main/graphql/fager/schema.graphqls")
+        codegenModels.set("operationBased")
+        generateAsInternal.set(true)
+        generateMethods.set(emptyList())
+        mapScalarToKotlinString("ISO8601Duration")
+        failOnWarnings.set(true)
+    }
+}
+
+val fagerRepository = "https://raw.githubusercontent.com/navikt/arbeidsgiver-notifikasjon-produsent-api"
+val fagerSchemaPath = "app/src/main/resources/produsent.graphql"
+val pinnedFagerRevision = "5c9251d6aaa850e08c559560bc6fed941842d5ea"
+
+fun registerFagerSchemaCheck(
+    taskName: String,
+    revision: String,
+    taskDescription: String,
+) {
+    tasks.register<Exec>(taskName) {
+        group = "apollo"
+        description = taskDescription
+
+        val localSchema = layout.projectDirectory.file("src/main/graphql/fager/schema.graphqls")
+        val downloadedSchema = layout.buildDirectory.file("fager-schema/$taskName/schema.graphqls")
+
+        inputs.file(localSchema)
+        outputs.upToDateWhen { false }
+
+        doFirst {
+            val destination = downloadedSchema.get().asFile
+            destination.parentFile.mkdirs()
+            URI("$fagerRepository/$revision/$fagerSchemaPath")
+                .toURL()
+                .openConnection()
+                .apply {
+                    connectTimeout = 10_000
+                    readTimeout = 30_000
+                }.getInputStream()
+                .use { input ->
+                    destination.outputStream().use(input::copyTo)
+                }
+        }
+
+        commandLine(
+            "diff",
+            "-u",
+            localSchema.asFile.absolutePath,
+            downloadedSchema.get().asFile.absolutePath,
+        )
+    }
+}
+
+registerFagerSchemaCheck(
+    taskName = "verifyFagerSchema",
+    revision = pinnedFagerRevision,
+    taskDescription = "Verifies the local Fager schema against its pinned upstream revision.",
+)
+registerFagerSchemaCheck(
+    taskName = "checkFagerSchemaUpdate",
+    revision = "main",
+    taskDescription = "Checks the local Fager schema for changes on the upstream main branch.",
+)
+
 tasks {
+    named<BaseKtLintCheckTask>("runKtlintCheckOverMainSourceSet") {
+        setSource(
+            fileTree("src/main/kotlin") {
+                include("**/*.kt")
+            },
+        )
+    }
+    named<BaseKtLintCheckTask>("runKtlintFormatOverMainSourceSet") {
+        setSource(
+            fileTree("src/main/kotlin") {
+                include("**/*.kt")
+            },
+        )
+    }
+
     register("printVersion") {
         description = "Print the version of the app"
         doLast {
