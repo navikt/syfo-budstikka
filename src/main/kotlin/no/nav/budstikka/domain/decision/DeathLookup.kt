@@ -1,4 +1,4 @@
-package no.nav.budstikka.domain.foundation
+package no.nav.budstikka.domain.decision
 
 import no.nav.budstikka.contract.PersonIdentifier
 

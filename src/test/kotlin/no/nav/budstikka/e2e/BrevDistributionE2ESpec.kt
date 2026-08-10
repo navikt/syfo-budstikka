@@ -10,7 +10,7 @@ import no.nav.budstikka.contract.BrevCreate
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchHeader
 import no.nav.budstikka.contract.dispatchJson
-import no.nav.budstikka.domain.foundation.DeathLookup
+import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.fakes.TEST_SYKMELDT
