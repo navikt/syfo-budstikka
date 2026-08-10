@@ -23,6 +23,7 @@ plugins {
 // outside both gates.
 val rawWireGeneratedClassPatterns =
     listOf(
+        "no.nav.budstikka.contract.AltinnExternalVarsling**",
         "no.nav.budstikka.contract.AltinnResource**",
         "no.nav.budstikka.contract.ArbeidsgiverMeldingstype",
         "no.nav.budstikka.contract.ArbeidsgiverRecipient**",

@@ -29,8 +29,9 @@ settes sammen i en produsent.
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
 
-`DittSykefravaer` og `Arbeidsgivervarsel` er ikke funksjoner på fasaden. Budstikka har ikke
-runtime-støtte for dem ennå, og en produsent skal derfor ikke sende dem.
+`DittSykefravaer` og `Arbeidsgivervarsel` er ikke funksjoner på fasaden, og en produsent skal derfor
+ikke sende dem ennå. `DittSykefravaer` mangler runtime-støtte. `Arbeidsgivervarsel` kan leveres i
+runtime, men produsentkontrakten er ikke ferdig og er derfor fortsatt skjult bak rå wire-typer.
 
 ## Opprett og lukk
 
