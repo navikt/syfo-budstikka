@@ -36,3 +36,34 @@ is_alive:       er lastPoll fersk?  → 200 : 503
 - Consumeren lagt inn i readiness-sjekken.
 - Heartbeat som tikker videre etter at loopen er død.
 - Consumer-lag behandlet som liveness-feil.
+
+## Consumer-lag-alarm
+
+Liveness fanger bare en død loop. En poison record, et kanalutfall eller en
+hengende partisjon holder loopen i live mens køen vokser — det fanges av
+lag-alarmen i `nais/alerts-dev.yaml`/`nais/alerts-prod.yaml`
+(`PrometheusRule`, deployes sammen med appmanifestet):
+
+- **Warning:** over 100 meldinger lag på `team-esyfo.budstikka.v1` i 15
+  minutter (consumer-gruppe `syfo-budstikka-budstikka-v1`, metrikk
+  `kafka_consumer_fetch_manager_records_lag_max`).
+- **Critical:** laget har ikke vært nede på null på en time — en partisjon er
+  trolig blokkert uansett volum.
+
+### Runbook ved alarm
+
+Ingen av stegene skal logge eller lime inn nøkler, payload eller
+personidentifikatorer.
+
+1. **Se laget:** bekreft i Grafana/Prometheus at laget fortsatt vokser, og
+   hvilken partisjon det gjelder.
+2. **Sjekk dead letters:** rader i `dead_letter_message` betyr at meldinger
+   avvises ved inntak — se [dead-letter-replay](dead-letter-replay.md) for
+   replay etter retting.
+3. **Sjekk inbox-feil:** vekst i `FAILED`-rader i `inbox_message`/`delivery`
+   (poison-gaten) tyder på en deterministisk feil i behandling eller kanal.
+4. **Les loggene:** feil fra `ConsumerRunner`, workerne eller kanaladapterne
+   forteller om det er inntak, beslutning eller levering som står.
+5. **Ikke restart i blinde:** en restart løser hverken poison records eller
+   backlogg — den er bare riktig når loggene viser en fastlåst loop som
+   liveness ikke har tatt.
