@@ -1,13 +1,16 @@
 package no.nav.budstikka.infrastructure.client
 
+import com.apollographql.apollo.api.Optional
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import no.nav.budstikka.application.port.AltinnExternalVarsling
@@ -20,22 +23,24 @@ import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
+import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
+import no.nav.budstikka.infrastructure.client.fager.generated.type.MetadataInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.MottakerInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NaermesteLederMottakerInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NotifikasjonInput
+import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInput
 
 class ArbeidsgiverNotifikasjonClientTest :
     FunSpec({
-        val config =
-            ArbeidsgiverNotifikasjonConfig(
-                url = "https://ag-notifikasjon-produsent-api/api/graphql",
-                scope = "api://dev-gcp.fager.notifikasjon-produsent-api/.default",
-            )
-
         test("sends nyBeskjed with mapped wire values, optional grouping id and Altinn external notification") {
             var body = ""
-            var callId = ""
+            var correlationId = ""
+            var authorization = ""
             val client =
                 client { request ->
                     body = (request.body as TextContent).text
-                    callId = request.headers["Nav-Call-Id"].orEmpty()
+                    correlationId = request.headers["X-Request-ID"].orEmpty()
+                    authorization = request.headers[HttpHeaders.Authorization].orEmpty()
                     respond("""{"data":{"nyBeskjed":{"__typename":"NyBeskjedVellykket","id":"1"}}}""", HttpStatusCode.OK)
                 }
 
@@ -53,14 +58,19 @@ class ArbeidsgiverNotifikasjonClientTest :
             ) shouldBe ArbeidsgiverNotificationResponse.Published
 
             body shouldContain "nyBeskjed"
-            body shouldContain """"nyBeskjed":{"mottakere":[{"altinnRessurs":{"ressursId":"nav_syfo_dialogmote"}}]"""
+            body shouldContain """"input":{"mottakere":[{"altinnRessurs":{"ressursId":"nav_syfo_dialogmote"}}]"""
             body shouldContain """"merkelapp":"Oppfølging""""
+            body shouldContain """"tekst":"Tekst""""
+            body shouldContain """"lenke":"https://nav.no""""
+            body shouldContain """"eksternId":"external-id""""
             body shouldContain """"grupperingsid":"sak-1""""
+            body shouldContain """"hardDelete":{"om":"P4M"}"""
             body shouldContain """"sendevindu":"LOEPENDE""""
             body shouldContain """"epostHtmlBody":"A &amp; &lt;B&gt;<br>&quot;C&quot; &#39;D&#39;""""
             body shouldContain """"epostTittel":"Tittel <rå>""""
             body shouldContain """"smsTekst":"SMS <rå>""""
-            callId shouldBe "external-id"
+            correlationId shouldBe "external-id"
+            authorization shouldBe "Bearer token"
         }
 
         test("sends nyOppgave and omits null grouping id") {
@@ -75,6 +85,7 @@ class ArbeidsgiverNotifikasjonClientTest :
 
             body shouldContain "nyOppgave"
             body shouldContain """"merkelapp":"Dialogmøte""""
+            body shouldContain """"hardDelete":{"om":"P4M"}"""
             body.contains("grupperingsid") shouldBe false
         }
 
@@ -133,21 +144,77 @@ class ArbeidsgiverNotifikasjonClientTest :
             body.contains("altinnRessurs") shouldBe false
         }
 
-        test("maps duplicate to Published and documented business errors to Rejected") {
+        test("maps every nyBeskjed business result") {
             val expected =
                 mapOf(
-                    "DuplikatEksternIdOgMerkelapp" to ArbeidsgiverNotificationResponse.Published,
+                    "DuplikatEksternIdOgMerkelapp" to
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request: DuplikatEksternIdOgMerkelapp",
+                        ),
                     "UgyldigMerkelapp" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMerkelapp"),
                     "UgyldigMottaker" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMottaker"),
                     "UkjentProdusent" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UkjentProdusent"),
+                    "UkjentRolle" to
+                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UkjentRolle"),
                 )
             expected.forEach { (typeName, response) ->
                 client {
                     respond("""{"data":{"nyBeskjed":{"__typename":"$typeName"}}}""", HttpStatusCode.OK)
                 }.publish(request()) shouldBe response
+            }
+        }
+
+        test("maps every nyOppgave business result") {
+            val expected =
+                mapOf(
+                    "DuplikatEksternIdOgMerkelapp" to
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request: DuplikatEksternIdOgMerkelapp",
+                        ),
+                    "UgyldigMerkelapp" to
+                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMerkelapp"),
+                    "UgyldigMottaker" to
+                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMottaker"),
+                    "UkjentProdusent" to
+                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UkjentProdusent"),
+                    "UkjentRolle" to
+                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UkjentRolle"),
+                    "UgyldigPaaminnelseTidspunkt" to
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request: UgyldigPaaminnelseTidspunkt",
+                        ),
+                )
+            expected.forEach { (typeName, response) ->
+                client {
+                    respond("""{"data":{"nyOppgave":{"__typename":"$typeName"}}}""", HttpStatusCode.OK)
+                }.publish(request(meldingstype = ArbeidsgiverMeldingstype.OPPGAVE)) shouldBe response
+            }
+        }
+
+        test("generated Apollo request models omit payloads from toString") {
+            val sensitiveText = "sensitive notification content"
+            val input =
+                NyBeskjedInput(
+                    notifikasjon = NotifikasjonInput("Dialogmøte", sensitiveText, "https://nav.no/sensitive"),
+                    metadata = MetadataInput("123456789", "sensitive-external-id"),
+                )
+            val recipient =
+                NaermesteLederMottakerInput(
+                    naermesteLederFnr = "00000000000",
+                    ansattFnr = "00000000000",
+                )
+            val wrappedRecipient =
+                MottakerInput(
+                    naermesteLeder = Optional.present(recipient),
+                )
+
+            listOf(input, NyBeskjedMutation(input), recipient, wrappedRecipient).forEach {
+                it.toString() shouldNotContain sensitiveText
+                it.toString() shouldNotContain "sensitive-external-id"
+                it.toString() shouldNotContain "00000000000"
             }
         }
 
@@ -184,6 +251,20 @@ class ArbeidsgiverNotifikasjonClientTest :
                         HttpStatusCode.OK,
                     )
                 }.publish(request())
+            }
+        }
+
+        test("sanitizes malformed Apollo responses") {
+            listOf(
+                "",
+                """{"data":{"nyBeskjed":null}}""",
+                """{"data":{"nyBeskjed":{}}}""",
+            ).forEach { responseBody ->
+                val error =
+                    shouldThrow<IllegalStateException> {
+                        client { respond(responseBody, HttpStatusCode.OK) }.publish(request())
+                    }
+                error.message shouldBe "Arbeidsgiver notification API returned an invalid response"
             }
         }
     })
