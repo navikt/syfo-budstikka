@@ -32,10 +32,12 @@ deterministic verification. More complex work retains the full loop.
 
 Implementation delegation uses a concise human-readable task brief, not a
 baseline digest, manifest, generated patch artifact, or global state protocol.
-Inspector receives the task criteria, task-scoped diff, deterministic evidence,
-and only named relevant decisions. When Kokk implemented the change, its brief
-and result are also supplied as provenance. The current-diff verdict and waiver
-rules live once in `.github/copilot-instructions.md`.
+Inspector receives the task criteria, only named relevant decisions, and either
+the task-scoped diff with deterministic evidence or an explicit accessible
+branch, base, and worktree scope. It can obtain read-only primary evidence from
+that scope. When Kokk implemented the change, its brief and result are also
+supplied as provenance. The current-diff verdict and waiver rules live once in
+`.github/copilot-instructions.md`.
 
 ## Context and documentation
 
@@ -54,7 +56,9 @@ repository gates, and an authenticated bounded pilot. Historical setup prose
 does not prove which configuration the runtime applied.
 
 Grill-inspektor's tool grants use the reviewer runtime's vocabulary (`view`,
-`grep`, `glob`); every other agent uses `read`/`search`. The divergence is
+`grep`, `glob`, `execute`); its `execute` use is constrained by the Inspector
+contract to repository inspection and deterministic verification, with no
+`edit` grant. Every other agent uses `read`/`search`. The divergence is
 deliberate and pinned per agent in `scripts/validate-agent-models.sh`.
 
 Sources, reviewed revisions, and local adaptations are recorded in
