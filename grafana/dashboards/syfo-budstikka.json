@@ -570,12 +570,12 @@
                   "hidden": false,
                   "query": {
                     "datasource": {
-                      "name": "000000021"
+                      "name": "${loki}"
                     },
-                    "group": "prometheus",
+                    "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{app=\"syfo-budstikka\"}",
+                      "expr": "sum(count_over_time({app=\"syfo-budstikka\"} | json | level=\"ERROR\" [1m]))",
                       "range": true
                     },
                     "version": "v0"
@@ -698,7 +698,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{app=\"syfo-budstikka\"} | json | level=\"error\""
+                      "expr": "{app=\"syfo-budstikka\"} | json | level=\"ERROR\""
                     },
                     "version": "v0"
                   },
@@ -761,7 +761,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{app=\"syfo-budstikka\"} | json | event_id=\"$traceId\" or reference=\"$traceId\""
+                      "expr": "{app=\"syfo-budstikka\"} |~ \"\\\"(event_id|reference)\\\":\\\"${traceId:regex}\\\"\""
                     },
                     "version": "v0"
                   },
