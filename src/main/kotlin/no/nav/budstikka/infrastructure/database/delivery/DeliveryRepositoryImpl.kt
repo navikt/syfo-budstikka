@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
 import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel

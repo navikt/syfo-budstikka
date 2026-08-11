@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.inbox
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

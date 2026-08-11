@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.worker
 
 import kotlin.time.Duration
 

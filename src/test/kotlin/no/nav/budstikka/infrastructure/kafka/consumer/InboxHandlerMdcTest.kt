@@ -7,7 +7,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import org.slf4j.LoggerFactory
 
 class InboxHandlerMdcTest :
@@ -30,7 +31,7 @@ class InboxHandlerMdcTest :
             val eventId = "00000000-0000-0000-0000-000000000042"
             val handler = InboxMessageHandler(FakeInboxMessageRepository(), FakeDeadLetterRepository())
             val payload =
-                """{"reference":"ref-1","content":{"type":"MicrofrontendEnable","personIdentifier":"12345678901","microfrontendId":"mf-1"}}"""
+                """{"reference":"ref-1","content":{"type":"MicrofrontendEnable","personIdentifier":"${TEST_SYKMELDT.value}","microfrontendId":"mf-1"}}"""
 
             handler.handleBatch(listOf(testRecord(value = payload, eventId = eventId)))
 

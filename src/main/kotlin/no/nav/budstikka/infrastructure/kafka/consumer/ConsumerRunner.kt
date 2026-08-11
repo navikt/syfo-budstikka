@@ -11,7 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
