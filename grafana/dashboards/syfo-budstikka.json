@@ -575,7 +575,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(count_over_time({app=\"syfo-budstikka\"} | json | level=\"ERROR\" [1m]))",
+                      "expr": "sum(count_over_time({service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\"} | json | level=\"ERROR\" [$__interval]))",
                       "range": true
                     },
                     "version": "v0"
@@ -606,11 +606,11 @@
                   "axisBorderShow": false,
                   "axisCenteredZero": false,
                   "axisColorMode": "text",
-                  "axisLabel": "errors/min",
+                  "axisLabel": "errors / interval",
                   "axisPlacement": "auto",
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
-                  "drawStyle": "line",
+                  "drawStyle": "bars",
                   "fillOpacity": 20,
                   "gradientMode": "none",
                   "hideFrom": {
@@ -619,7 +619,7 @@
                     "viz": false
                   },
                   "insertNulls": false,
-                  "lineInterpolation": "smooth",
+                  "lineInterpolation": "linear",
                   "lineWidth": 2,
                   "pointSize": 5,
                   "scaleDistribution": {
@@ -667,7 +667,7 @@
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
-                "showLegend": true
+                "showLegend": false
               },
               "tooltip": {
                 "hideZeros": false,
