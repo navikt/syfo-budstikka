@@ -40,9 +40,9 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
-import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.domain.decision.FerdigstillMatch
 import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.domain.decision.SendingWindowGate
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
 import no.nav.budstikka.fakes.FakeDeathLookup
