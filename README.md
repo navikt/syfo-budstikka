@@ -1,5 +1,11 @@
 # Budstikka – send varsler fra sykefraværsappene
 
+[![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Ktor](https://img.shields.io/badge/Ktor-087CFA?logo=ktor&logoColor=white)](https://ktor.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Gradle](https://img.shields.io/badge/Gradle-02303A?logo=gradle&logoColor=white)](https://gradle.org/)
+[![Java](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+
 Budstikka gir sykefraværsappene en felles Kafka-kontrakt for å sende varsler. Appen bygger en
 ferdig `EncodedDispatch` med fasaden og publiserer den med sin egen Kafka-producer.
 
@@ -56,6 +62,34 @@ deduplisering. Ikke logg nøkkel, payload eller varseltekst.
 Se [producerguiden](docs/sende-varsler.md) for støttede funksjoner, retry og versjonering.
 
 ## Arkitektur
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant producer as Domeneapp
+    participant kafka as Kafka-topic team-esyfo.budstikka.v1
+    participant consumer as Inbox-consumer<br/>(ConsumerRunner + InboxMessageHandler)
+    participant inbox as inbox_message (db)
+    participant iworker as InboxMessageWorker
+    participant decision as Decision + effectuate<br/>(in-process komponent)
+    participant delivery as delivery (db)
+    participant dworker as DeliveryWorker
+    participant channel as Channel<br/>(via ChannelHandler)
+    participant target as Channel endpoint
+
+    producer->>kafka: publish header:eventId + Dispatch(reference, content)
+    consumer->>kafka: consume records
+    consumer->>inbox: saveBatch (batchInsert, dedup på eventId)
+    iworker->>inbox: claim(limit, lease)
+    iworker->>decision: process(dispatch) + effectuate(eventId, decision)
+    decision->>inbox: markProcessed/markDropped/markFailed
+    decision->>delivery: saveInTransaction(...) ved Processed
+    dworker->>delivery: claim(limit, lease, channels)
+    dworker->>channel: deliver(claimed delivery)
+    channel->>target: send
+    channel-->>dworker: Sent | Failed(reason)
+    dworker->>delivery: markSent | markFailed
+```
 
 Budstikka konsumerer kontrakten fra Kafka, lagrer meldingen og sender den videre til riktig kanal.
 Den interne flyten eies av [docs/flyt.md](docs/flyt.md).
