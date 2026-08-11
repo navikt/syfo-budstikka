@@ -23,11 +23,23 @@ object DeliveryTable : Table("delivery") {
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val errorMessage = text("error_message").nullable()
+    val createExternalId = text("create_external_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 
     init {
         index("delivery_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("delivery_inbox_event_id_idx", false, inboxEventId)
+        index(
+            "delivery_ferdigstill_match_idx",
+            false,
+            reference,
+            operation,
+            channel,
+            recipientType,
+            recipientId,
+            createdAt,
+            id,
+        )
     }
 }

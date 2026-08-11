@@ -1,0 +1,16 @@
+mutation HardDeleteNotifikasjonByEksternIdV2($merkelapp: String!, $eksternId: String!) {
+  hardDeleteNotifikasjonByEksternId_V2(merkelapp: $merkelapp, eksternId: $eksternId) {
+    ... on HardDeleteNotifikasjonVellykket {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on NotifikasjonFinnesIkke {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+  }
+}

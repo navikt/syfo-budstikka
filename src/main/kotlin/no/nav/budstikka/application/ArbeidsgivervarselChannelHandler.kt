@@ -1,6 +1,7 @@
 package no.nav.budstikka.application
 
 import no.nav.budstikka.application.port.AltinnExternalVarsling
+import no.nav.budstikka.application.port.ArbeidsgiverNotificationCloseRequest
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
@@ -14,6 +15,7 @@ import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
@@ -22,7 +24,8 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
  * has already waited for budstikka's delivery window. A requested external notification without a
  * leader email fails the entire delivery terminally; it does not degrade to in-app only. Closing
- * remains a permanent failure.
+ * uses frozen stored CREATE data and its external id. A malformed thin payload or missing frozen
+ * external id fails terminally.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
@@ -33,9 +36,22 @@ class ArbeidsgivervarselChannelHandler(
         val create =
             delivery.payload as? ArbeidsgivervarselCreate
                 ?: return payloadFailure(delivery)
+        return when (delivery.operation) {
+            Operation.CREATE -> publishCreate(delivery, create)
+            Operation.INACTIVATE -> closeCreate(delivery, create)
+        }
+    }
+
+    private suspend fun publishCreate(
+        delivery: ClaimedDelivery,
+        create: ArbeidsgivervarselCreate,
+    ): DeliveryOutcome {
         if (create.link.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         }
+        val externalId =
+            delivery.createExternalId
+                ?: (delivery.inboxEventId ?: delivery.id).toString()
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource -> recipient.toNotificationRecipient()
@@ -72,12 +88,36 @@ class ArbeidsgivervarselChannelHandler(
                     publisher.publish(
                         ArbeidsgiverNotificationRequest(
                             virksomhetsnummer = create.orgnummer.value,
-                            eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
+                            eksternId = externalId,
                             grupperingsid = create.sakstilknytning?.sakId,
                             tag = create.tag,
                             tekst = create.text,
                             lenke = create.link,
                             recipient = notificationRecipient,
+                            meldingstype = create.meldingstype,
+                        ),
+                    )
+                }
+        ) {
+            ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
+            is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
+        }
+    }
+
+    private suspend fun closeCreate(
+        delivery: ClaimedDelivery,
+        create: ArbeidsgivervarselCreate,
+    ): DeliveryOutcome {
+        val externalId =
+            delivery.createExternalId
+                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate is missing frozen external id")
+        return when (
+            val response =
+                withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "closing notification") {
+                    publisher.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = externalId,
+                            tag = create.tag,
                             meldingstype = create.meldingstype,
                         ),
                     )
@@ -107,7 +147,7 @@ class ArbeidsgivervarselChannelHandler(
     private fun payloadFailure(delivery: ClaimedDelivery): DeliveryOutcome =
         when (delivery.payload) {
             is ArbeidsgivervarselInactivate ->
-                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate is not implemented")
+                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate must use stored create payload")
             else ->
                 DeliveryOutcome.Failed(
                     "Payload does not match ARBEIDSGIVERVARSEL channel: ${delivery.payload::class.simpleName}",

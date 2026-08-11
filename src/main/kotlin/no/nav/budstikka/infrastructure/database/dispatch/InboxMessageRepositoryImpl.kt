@@ -4,6 +4,8 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.matchesCreate
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -11,6 +13,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
@@ -164,6 +167,50 @@ class InboxMessageRepositoryImpl(
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean =
         terminate(eventId, state = InboxMessageState.PROCESSED, dropReason = null, errorMessage = null)
+
+    override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean =
+        InboxMessageTable
+            .select(InboxMessageTable.eventId)
+            .where {
+                (InboxMessageTable.eventId eq eventId) and
+                    (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+            }.forUpdate(ForUpdateOption.PostgreSQL.ForUpdate())
+            .singleOrNull() != null
+
+    override fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> =
+        InboxMessageTable
+            .select(InboxMessageTable.eventId, InboxMessageTable.content)
+            .where {
+                (InboxMessageTable.reference eq match.reference) and
+                    (
+                        (InboxMessageTable.state eq InboxMessageState.WAIT.name) or
+                            (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+                    ) and
+                    InboxMessageTable.waitReason.isNotNull()
+            }.orderBy(InboxMessageTable.eventId to SortOrder.ASC)
+            .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate())
+            .mapNotNull { row ->
+                row
+                    .takeIf { it[InboxMessageTable.content].matchesCreate(match) }
+                    ?.get(InboxMessageTable.eventId)
+            }
+
+    override fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean =
+        InboxMessageTable.update({
+            (InboxMessageTable.eventId eq eventId) and
+                (
+                    (InboxMessageTable.state eq InboxMessageState.WAIT.name) or
+                        (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+                ) and
+                InboxMessageTable.waitReason.isNotNull()
+        }) {
+            it[state] = InboxMessageState.PROCESSED.name
+            it[dropReason] = null
+            it[errorMessage] = null
+            it[waitReason] = null
+            it[nextAttemptTime] = null
+            it[processedAt] = Clock.System.now()
+        } > 0
 
     override fun markDroppedInTransaction(
         eventId: UUID,

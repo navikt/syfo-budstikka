@@ -17,11 +17,12 @@ import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.NoDispatchMetrics
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.MicrofrontendEnable
-import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.FerdigstillMatch
 import no.nav.budstikka.fakes.RecordingDispatchMetrics
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import org.slf4j.LoggerFactory
@@ -332,6 +333,8 @@ private class PollingDeliveryRepository(
         draft: List<DeliveryDraft>,
     ) = Unit
 
+    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) = null
+
     override suspend fun claim(
         limit: Int,
         lease: Duration,
@@ -377,7 +380,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
         channel = Channel.MICROFRONTEND,
         payload =
             MicrofrontendEnable(
-                personIdentifier = PersonIdentifier("12345678901"),
+                personIdentifier = TEST_SYKMELDT_2,
                 microfrontendId = "syfo-microfrontend",
             ),
     )
@@ -390,7 +393,7 @@ private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
         channel = Channel.MICROFRONTEND,
         payload =
             BrukervarselCreate(
-                personIdentifier = PersonIdentifier("12345678901"),
+                personIdentifier = TEST_SYKMELDT_2,
                 varseltype = Varseltype.BESKJED,
                 text = "Hei",
             ),

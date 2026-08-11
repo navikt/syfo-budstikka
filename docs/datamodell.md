@@ -37,6 +37,7 @@ erDiagram
         timestamptz next_attempt_time "nullable"
         timestamptz created_at
         text        error_message "nullable"
+        text        create_external_id "nullable, stabil Fager-eksternId eid av AG-OPPRETT"
     }
 
     dead_letter_message {
@@ -60,9 +61,10 @@ erDiagram
   `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
   FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
   utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
-  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Hold-plasseringen er
-  avgjort til inbox-hold ([ADR 0014](adr/0014-inbox-hold-for-sendevindu.md)); ytterligere
-  match-kolonner legges til med det FERDIGSTILL-mot-inbox-arbeidet.
+  avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Hold-plasseringen er avgjort til
+  inbox-hold ([ADR 0014](adr/0014-inbox-hold-for-sendevindu.md)). FERDIGSTILL bruker
+  `reference`-indeksen til å finne og radlåse alle aktuelle hold; kanal og partisjonsanker
+  verifiseres mot det hydrerte innholdet.
 - `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
   content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
@@ -96,10 +98,16 @@ kan jobbe parallelt uten dobbelt-claim:
 
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
   `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
-- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
-  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)`
-  av delivery-rader bare hvis CAS lykkes. `DeliveryRepository.saveInTransaction`
-  bruker `batchInsert(draft)` for 0..N rader for samme inbox-melding.
+- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon og låser først den
+  claimede inbox-raden med `FOR UPDATE`. `markProcessedInTransaction(eventId)` (CAS) skjer før
+  `saveInTransaction(...)`, og delivery-rader skrives bare hvis CAS lykkes.
+  `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader for samme
+  inbox-melding. Ved FERDIGSTILL låses alle matchende `WAIT`/oppvåknede `CLAIMED` OPPRETT-er med
+  `wait_reason`, også når første delivery-oppslag allerede fant en CREATE. Delivery leses på nytt
+  etter låsene for å serialisere oppvåkning mot kansellering; alle låste hold-kopier avsluttes
+  `PROCESSED` i samme transaksjon. `delivery_ferdigstill_match_idx` avgrenser delivery-oppslaget
+  på match-nøkkelen og henter den nyeste OPPRETT-en etter `created_at` og `id` mens transaksjonen
+  holder radlåsene.
 
 ### `inbox_message.state`
 
@@ -142,14 +150,13 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 ## Indekser
 
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
+- `inbox_message_reference_idx` på `(reference)` for FERDIGSTILL-matching mot inbox-hold
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
+- `delivery_ferdigstill_match_idx` på
+  `(reference, operation, channel, recipient_type, recipient_id, created_at, id)` for
+  FERDIGSTILL-matching mot delivery
 - `dead_letter_message_received_at_idx` på `(received_at)`
-
-> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox.
-> Hold-plasseringen er avgjort til inbox-hold i
-> [ADR 0014](adr/0014-inbox-hold-for-sendevindu.md), så indeksen hører til det arbeidet.
-> Kolonnen finnes fra starten (ADR 0008).
 
 ## Id-generering
 
@@ -160,9 +167,18 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   retensjons-`DELETE`.
 - `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
   budstikkas database.
+- En ARBEIDSGIVERVARSEL-`OPPRETT` fryser Fagers stabile eksternId i
+  `delivery.create_external_id` ved materialisering: create-radens `inbox_event_id`, eller
+  create-deliveryens `id` som beste tilgjengelige migreringsverdi for eldre rader der FK-en
+  allerede er null. Det opprinnelig brukte inbox-event-id-et kan da ikke gjenopprettes, og ingen
+  retention-jobb finnes i dag. Samme verdi brukes ved publisering og kopieres til avledet
+  `INAKTIVER`, så den overlever inbox-retensjon.
 
 ## Observability-koblinger
 
 - Primær korrelasjon er `eventId`.
 - For delivery brukes også `delivery.id` for sporing av ett konkret sendeforsøk.
 - Metrikklabels holdes lavkardinale; detaljer går i logger/traces.
+- Terminale FERDIGSTILL-no-op-er telles med `ferdigstill_uten_treff`,
+  `ferdigstill_uten_runtime_kanal` eller `ferdigstill_lagret_opprett_ugyldig`; de har ingen
+  identifikator- eller payload-label.

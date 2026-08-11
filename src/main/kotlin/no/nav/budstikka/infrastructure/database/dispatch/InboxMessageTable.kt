@@ -26,5 +26,6 @@ object InboxMessageTable : Table("inbox_message") {
 
     init {
         index("inbox_message_state_next_attempt_time_idx", false, state, nextAttemptTime)
+        index("inbox_message_reference_idx", false, reference)
     }
 }

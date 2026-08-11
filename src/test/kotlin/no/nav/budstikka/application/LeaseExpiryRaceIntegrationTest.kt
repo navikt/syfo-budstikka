@@ -64,7 +64,8 @@ class LeaseExpiryRaceIntegrationTest :
                     deliveryRepository = DeliveryRepositoryImpl(fixture.database),
                 )
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
-            inbox.saveBatch(listOf(inboxMessage(eventId)))
+            val message = inboxMessage(eventId)
+            inbox.saveBatch(listOf(message))
 
             // Replica A claims and starts enrichment (PDL/KRR), which outlives the lease.
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
@@ -75,8 +76,8 @@ class LeaseExpiryRaceIntegrationTest :
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
 
             // Both replicas now effectuate the same message.
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref"))))
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref"))))
+            effectuate.effectuate(message, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref"))))
+            effectuate.effectuate(message, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref"))))
 
             // CLAIMED->PROCESSED is a one-shot transition, so only the first effectuation writes.
             fixture.database.transact {

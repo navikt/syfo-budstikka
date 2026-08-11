@@ -29,6 +29,9 @@ class MicrometerDispatchMetrics(
     private val inboxProcessed = counter(INBOX_MESSAGE_PROCESSED)
     private val inboxFailed = counter(INBOX_MESSAGE_FAILED)
     private val inboxOutsideSendingWindow = counter(INBOX_OUTSIDE_SENDING_WINDOW)
+    private val ferdigstillWithoutMatch = counter(FERDIGSTILL_WITHOUT_MATCH)
+    private val ferdigstillWithoutSupportedRuntimeChannel = counter(FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL)
+    private val ferdigstillWithInvalidStoredCreate = counter(FERDIGSTILL_WITH_INVALID_STORED_CREATE)
     private val deliveryClaimed = counter(DELIVERY_CLAIMED)
     private val deliveryEmptyPolls = counter(DELIVERY_EMPTY_POLLS)
 
@@ -48,6 +51,12 @@ class MicrometerDispatchMetrics(
     override fun inboxFailed() = inboxFailed.increment()
 
     override fun inboxOutsideSendingWindow(reason: String) = inboxOutsideSendingWindow.increment()
+
+    override fun ferdigstillWithoutMatch() = ferdigstillWithoutMatch.increment()
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() = ferdigstillWithoutSupportedRuntimeChannel.increment()
+
+    override fun ferdigstillWithInvalidStoredCreate() = ferdigstillWithInvalidStoredCreate.increment()
 
     override fun deliveryClaimed(count: Int) = deliveryClaimed.increment(count.toDouble())
 
@@ -88,6 +97,9 @@ class MicrometerDispatchMetrics(
         const val INBOX_MESSAGE_DROPPED = "inbox.message.dropped"
         const val INBOX_MESSAGE_FAILED = "inbox.message.failed"
         const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
+        const val FERDIGSTILL_WITHOUT_MATCH = "ferdigstill.uten.treff"
+        const val FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL = "ferdigstill.uten.runtime.kanal"
+        const val FERDIGSTILL_WITH_INVALID_STORED_CREATE = "ferdigstill.lagret.opprett.ugyldig"
 
         const val DELIVERY_CLAIMED = "delivery.claimed"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
