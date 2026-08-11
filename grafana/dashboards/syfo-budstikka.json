@@ -310,11 +310,17 @@
               "overrides": []
             },
             "options": {
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
+              },
               "legend": {
                 "calcs": [
                   "mean"
                 ],
                 "displayMode": "table",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
                 "placement": "bottom",
                 "showLegend": true
               },
@@ -325,7 +331,7 @@
               }
             }
           },
-          "version": "12.4.2"
+          "version": "13.1.2"
         }
       }
     },
@@ -425,11 +431,17 @@
               "overrides": []
             },
             "options": {
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
+              },
               "legend": {
                 "calcs": [
                   "mean"
                 ],
                 "displayMode": "table",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
                 "placement": "bottom",
                 "showLegend": true
               },
@@ -440,7 +452,7 @@
               }
             }
           },
-          "version": "12.4.2"
+          "version": "13.1.2"
         }
       }
     },
@@ -540,9 +552,15 @@
               "overrides": []
             },
             "options": {
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
+              },
               "legend": {
                 "calcs": [],
                 "displayMode": "list",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
                 "placement": "bottom",
                 "showLegend": true
               },
@@ -553,7 +571,7 @@
               }
             }
           },
-          "version": "12.4.2"
+          "version": "13.1.2"
         }
       }
     },
@@ -2183,7 +2201,7 @@
                         "name": "panel-7"
                       },
                       "height": 8,
-                      "width": 8,
+                      "width": 11,
                       "x": 0,
                       "y": 0
                     }
@@ -2196,8 +2214,8 @@
                         "name": "panel-9"
                       },
                       "height": 8,
-                      "width": 8,
-                      "x": 16,
+                      "width": 13,
+                      "x": 11,
                       "y": 0
                     }
                   }
