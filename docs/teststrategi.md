@@ -28,7 +28,7 @@ kun konsumeres av egne tester, er `src/test` enklere og gir alle de samme prod-g
 
 ### Prod-grensen er garantien
 
-Prod-artefakten (fat-jar / Docker-image) bygges **kun** fra `src/main`. Alt i `src/test`
+Prod-artefakten bygges **kun** fra `src/main`. Alt i `src/test`
 er fysisk fraværende fra prod-jaren. Det gjør det **umulig** å wire en fake i prod
 — håndhevet av Gradle/kompilatoren, ikke av menneskelig disiplin.
 
