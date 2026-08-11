@@ -10,7 +10,6 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.util.Base64
 
 @Tags("E2E")
 class GrafanaDashboardE2ESpec :
@@ -23,8 +22,7 @@ class GrafanaDashboardE2ESpec :
                             .newHttpClient()
                             .send(
                                 HttpRequest
-                                    .newBuilder(URI.create(grafana.dashboardApiUrl))
-                                    .header("Authorization", "Basic ${Base64.getEncoder().encodeToString("admin:admin".toByteArray())}")
+                                    .newBuilder(URI.create("${grafana.dashboardApiUrl}/dto"))
                                     .GET()
                                     .build(),
                                 HttpResponse.BodyHandlers.ofString(),

@@ -23,7 +23,7 @@ class GrafanaContainer(
             .withEnv("GF_SECURITY_ADMIN_USER", "admin")
             .withEnv("GF_SECURITY_ADMIN_PASSWORD", "admin")
             .withEnv("GF_AUTH_ANONYMOUS_ENABLED", "true")
-            .withEnv("GF_AUTH_ANONYMOUS_ORG_ROLE", "Viewer")
+            .withEnv("GF_AUTH_ANONYMOUS_ORG_ROLE", "Admin")
             .withFileSystemBind(
                 "$provisioning/datasources",
                 "/etc/grafana/provisioning/datasources",
