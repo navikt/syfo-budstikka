@@ -2,7 +2,6 @@ package no.nav.budstikka.domain.decision
 
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.Dispatch
-import no.nav.budstikka.domain.foundation.ReservationLookup
 
 /** Removes external varsling and adds any reserve Brev when KRR says the person cannot be notified. */
 internal class ReservationGate(

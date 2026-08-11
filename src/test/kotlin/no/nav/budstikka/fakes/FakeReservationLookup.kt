@@ -1,7 +1,7 @@
 package no.nav.budstikka.fakes
 
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.domain.foundation.ReservationLookup
+import no.nav.budstikka.domain.decision.ReservationLookup
 import java.util.concurrent.atomic.AtomicInteger
 
 /**

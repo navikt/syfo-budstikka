@@ -12,7 +12,7 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.domain.foundation.ReservationLookup
+import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.KrrConfig
 import sharedJson

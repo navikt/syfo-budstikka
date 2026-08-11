@@ -1,8 +1,8 @@
 package no.nav.budstikka
 
 import no.nav.budstikka.application.port.DocumentDistributor
-import no.nav.budstikka.domain.foundation.DeathLookup
-import no.nav.budstikka.domain.foundation.ReservationLookup
+import no.nav.budstikka.domain.decision.DeathLookup
+import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.fakes.FakeReservationLookup

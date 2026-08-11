@@ -15,8 +15,8 @@ import no.nav.budstikka.contract.DispatchHeader
 import no.nav.budstikka.contract.ExternalNotification
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.contract.dispatchJson
-import no.nav.budstikka.domain.foundation.DeathLookup
-import no.nav.budstikka.domain.foundation.ReservationLookup
+import no.nav.budstikka.domain.decision.DeathLookup
+import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.fakes.TEST_SYKMELDT
