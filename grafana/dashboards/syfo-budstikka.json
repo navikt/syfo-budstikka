@@ -698,7 +698,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{app=\"syfo-budstikka\"} | json | level=\"ERROR\""
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\"} | json | level=\"ERROR\""
                     },
                     "version": "v0"
                   },
@@ -761,7 +761,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{app=\"syfo-budstikka\"} |~ \"\\\"(event_id|reference)\\\":\\\"${traceId:regex}\\\"\""
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\"} |~ \"\\\"(event_id|reference)\\\":\\\"${traceId:regex}\\\"\""
                     },
                     "version": "v0"
                   },
