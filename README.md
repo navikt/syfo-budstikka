@@ -1,10 +1,11 @@
 # Budstikka – send varsler fra sykefraværsappene
 
+[![CI](https://github.com/navikt/syfo-budstikka/actions/workflows/ci.yaml/badge.svg)](https://github.com/navikt/syfo-budstikka/actions/workflows/ci.yaml)
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Ktor](https://img.shields.io/badge/Ktor-087CFA?logo=ktor&logoColor=white)](https://ktor.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-02303A?logo=gradle&logoColor=white)](https://gradle.org/)
-[![Java](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Java](https://img.shields.io/badge/Java-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
 
 Budstikka gir sykefraværsappene en felles Kafka-kontrakt for å sende varsler. Appen bygger en
 ferdig `EncodedDispatch` med fasaden og publiserer den med sin egen Kafka-producer.
