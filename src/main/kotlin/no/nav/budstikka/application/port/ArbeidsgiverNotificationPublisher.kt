@@ -20,6 +20,14 @@ data class ArbeidsgiverNotificationRequest(
             "hasGrupperingsid=${grupperingsid != null}, recipient=$recipient)"
 }
 
+data class ArbeidsgiverNotificationCloseRequest(
+    val eksternId: String,
+    val tag: Tag,
+    val meldingstype: ArbeidsgiverMeldingstype,
+) {
+    override fun toString(): String = "ArbeidsgiverNotificationCloseRequest(tag=$tag, meldingstype=$meldingstype)"
+}
+
 sealed interface ArbeidsgiverNotificationRecipient {
     data class AltinnRessurs(
         val resource: AltinnResourceId,
@@ -63,4 +71,6 @@ sealed interface ArbeidsgiverNotificationResponse {
 
 interface ArbeidsgiverNotificationPublisher {
     suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse
+
+    suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse
 }

@@ -38,13 +38,6 @@ class DispatchDraftMappingTest :
                     Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
-                    "BrukervarselInactivate",
-                    BrukervarselInactivate("ref-1", TEST_SYKMELDT),
-                    Channel.BRUKERVARSEL,
-                    Operation.INACTIVATE,
-                    Recipient.Person(TEST_SYKMELDT),
-                ),
-                Case(
                     "DittSykefravaer",
                     DittSykefravaerCreate(TEST_SYKMELDT, "text"),
                     Channel.DITT_SYKEFRAVAER,
@@ -90,12 +83,16 @@ class DispatchDraftMappingTest :
 
         cases.forEach { case ->
             test("${case.name} -> ${case.channel}/${case.operation}") {
-                val draft = case.content.toDeliveryDraft("ref-1")
+                val draft = requireNotNull(case.content.toDeliveryDraft("ref-1"))
                 draft.channel shouldBe case.channel
                 draft.operation shouldBe case.operation
                 draft.recipient shouldBe case.recipient
                 draft.reference shouldBe "ref-1"
                 draft.content shouldBe case.content
             }
+        }
+
+        test("thin inactivate is not directly mapped to a delivery draft") {
+            BrukervarselInactivate("ref-1", TEST_SYKMELDT).toDeliveryDraft("ref-1") shouldBe null
         }
     })

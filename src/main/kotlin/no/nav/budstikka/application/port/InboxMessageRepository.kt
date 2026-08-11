@@ -1,6 +1,7 @@
 package no.nav.budstikka.application.port
 
 import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.domain.decision.FerdigstillMatch
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -55,6 +56,24 @@ interface InboxMessageRepository {
      * so this compare-and-set does not distinguish a stale worker from a later reclaimer.
      */
     fun markProcessedInTransaction(eventId: UUID): Boolean
+
+    /**
+     * Acquires a PostgreSQL row lock for a currently claimed inbox row. Effectuation holds this lock
+     * through its terminal transition and any delivery write so a FERDIGSTILL cancellation cannot
+     * race a waking CREATE into materializing a delivery.
+     */
+    fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean
+
+    /**
+     * Locks every matching CREATE that is either waiting for the sending window or has been woken
+     * but still carries its wait reason. The caller must re-check materialized deliveries after
+     * this call because a CREATE effectuation may have won while this transaction waited for a
+     * lock.
+     */
+    fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
+
+    /** Marks a locked WAIT/awakened-WAIT CREATE as terminal without materializing a delivery. */
+    fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean
 
     fun markDroppedInTransaction(
         eventId: UUID,

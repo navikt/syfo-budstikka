@@ -29,6 +29,12 @@ interface DispatchMetrics {
     fun narmesteLederMissing(reason: NarmesteLederMissingReason)
 
     fun inboxOutsideSendingWindow(reason: String)
+
+    fun ferdigstillWithoutMatch()
+
+    fun ferdigstillWithoutSupportedRuntimeChannel()
+
+    fun ferdigstillWithInvalidStoredCreate()
 }
 
 object NoDispatchMetrics : DispatchMetrics {
@@ -53,6 +59,12 @@ object NoDispatchMetrics : DispatchMetrics {
     override fun narmesteLederMissing(reason: NarmesteLederMissingReason) = Unit
 
     override fun inboxOutsideSendingWindow(reason: String) = Unit
+
+    override fun ferdigstillWithoutMatch() = Unit
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() = Unit
+
+    override fun ferdigstillWithInvalidStoredCreate() = Unit
 }
 
 /**

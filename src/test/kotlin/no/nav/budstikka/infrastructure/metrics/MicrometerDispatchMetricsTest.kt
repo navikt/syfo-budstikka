@@ -10,6 +10,9 @@ import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY_CLAIMED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.DELIVERY_EMPTY_POLLS
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.FERDIGSTILL_WITHOUT_MATCH
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL
+import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.FERDIGSTILL_WITH_INVALID_STORED_CREATE
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_CLAIMED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_DROPPED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDispatchMetrics.Companion.INBOX_MESSAGE_EMPTY_POLLS
@@ -33,6 +36,9 @@ class MicrometerDispatchMetricsTest :
             metrics.inboxProcessed()
             metrics.inboxDropped(DropReason.DEAD)
             metrics.inboxFailed()
+            metrics.ferdigstillWithoutMatch()
+            metrics.ferdigstillWithoutSupportedRuntimeChannel()
+            metrics.ferdigstillWithInvalidStoredCreate()
             metrics.deliveryClaimed(2)
             metrics.deliveryEmptyPoll()
             metrics.deliverySent(Channel.MICROFRONTEND)
@@ -48,6 +54,9 @@ class MicrometerDispatchMetricsTest :
                 .counter()
                 .count() shouldBe 1.0
             registry.get(INBOX_MESSAGE_FAILED).counter().count() shouldBe 1.0
+            registry.get(FERDIGSTILL_WITHOUT_MATCH).counter().count() shouldBe 1.0
+            registry.get(FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL).counter().count() shouldBe 1.0
+            registry.get(FERDIGSTILL_WITH_INVALID_STORED_CREATE).counter().count() shouldBe 1.0
             registry.get(DELIVERY_CLAIMED).counter().count() shouldBe 2.0
             registry.get(DELIVERY_EMPTY_POLLS).counter().count() shouldBe 1.0
             registry

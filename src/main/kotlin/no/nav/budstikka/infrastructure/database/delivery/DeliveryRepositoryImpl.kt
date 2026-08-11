@@ -4,8 +4,13 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.StoredCreateDelivery
+import no.nav.budstikka.contract.Orgnummer
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.domain.decision.Recipient
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -49,8 +54,46 @@ class DeliveryRepositoryImpl(
             this[DeliveryTable.recipientType] = type
             this[DeliveryTable.recipientId] = id
             this[DeliveryTable.payload] = draftEntry.content
+            this[DeliveryTable.createExternalId] =
+                if (draftEntry.operation == Operation.CREATE && draftEntry.channel == Channel.ARBEIDSGIVERVARSEL) {
+                    inboxEventId.toString()
+                } else {
+                    draftEntry.createExternalId
+                }
             this[DeliveryTable.createdAt] = Clock.System.now()
         }
+    }
+
+    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch): StoredCreateDelivery? {
+        val (recipientType, recipientId) = match.recipient.toColumns()
+        return DeliveryTable
+            .select(
+                DeliveryTable.createExternalId,
+                DeliveryTable.reference,
+                DeliveryTable.channel,
+                DeliveryTable.recipientType,
+                DeliveryTable.recipientId,
+                DeliveryTable.payload,
+            ).where {
+                (DeliveryTable.reference eq match.reference) and
+                    (DeliveryTable.operation eq Operation.CREATE.name) and
+                    (DeliveryTable.channel eq match.channel.name) and
+                    (DeliveryTable.recipientType eq recipientType) and
+                    (DeliveryTable.recipientId eq recipientId)
+            }.orderBy(
+                DeliveryTable.createdAt to SortOrder.DESC,
+                DeliveryTable.id to SortOrder.DESC,
+            ).limit(1)
+            .singleOrNull()
+            ?.let { row ->
+                StoredCreateDelivery(
+                    createExternalId = row[DeliveryTable.createExternalId],
+                    reference = row[DeliveryTable.reference],
+                    channel = Channel.valueOf(row[DeliveryTable.channel]),
+                    recipient = recipientFromColumns(row[DeliveryTable.recipientType], row[DeliveryTable.recipientId]),
+                    payload = row[DeliveryTable.payload],
+                )
+            }
     }
 
     override suspend fun claim(
@@ -72,8 +115,10 @@ class DeliveryRepositoryImpl(
                         DeliveryTable.id,
                         DeliveryTable.inboxEventId,
                         DeliveryTable.reference,
+                        DeliveryTable.operation,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
+                        DeliveryTable.createExternalId,
                     ).where {
                         (
                             (DeliveryTable.state eq DeliveryState.READY.name) or
@@ -96,6 +141,8 @@ class DeliveryRepositoryImpl(
                             reference = row[DeliveryTable.reference],
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
+                            operation = Operation.valueOf(row[DeliveryTable.operation]),
+                            createExternalId = row[DeliveryTable.createExternalId],
                         )
                     }
             if (claimed.isNotEmpty()) {
@@ -234,4 +281,14 @@ private fun Recipient.toColumns(): Pair<String, String> =
     when (this) {
         is Recipient.Person -> "PERSON" to ident.value
         is Recipient.Virksomhet -> "VIRKSOMHET" to orgnummer.value
+    }
+
+private fun recipientFromColumns(
+    type: String,
+    id: String,
+): Recipient =
+    when (type) {
+        "PERSON" -> Recipient.Person(PersonIdentifier(id))
+        "VIRKSOMHET" -> Recipient.Virksomhet(Orgnummer(id))
+        else -> error("Unknown delivery recipient type")
     }

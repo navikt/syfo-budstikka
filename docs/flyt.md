@@ -29,7 +29,7 @@ flowchart TB
         INBOX[("inbox_message")]
         IWORK["InboxMessageWorker<br/>claim + lease"]
         DEC["DecisionProcess<br/>resolve i parallell<br/>apply sekvensielt"]
-        EFF["EffectuateDecision<br/>1 DB-transaksjon"]
+        EFF["EffectuateDecision<br/>radlås + 1 DB-transaksjon"]
         OUTBOX[("delivery")]
         DWORK["DeliveryWorker<br/>claim + lease<br/>channels = handlers.keys"]
         MAP["Map<Channel, ChannelHandler><br/>bootstrap"]
@@ -39,7 +39,7 @@ flowchart TB
     CONS -->|"saveBatch + batchInsert(ignore=true)"| INBOX
     INBOX --> IWORK
     IWORK --> DEC --> EFF
-    EFF -->|"markProcessed CAS + saveInTransaction(batchInsert)"| OUTBOX
+    EFF -->|"FOR UPDATE + markProcessed CAS + saveInTransaction(batchInsert)"| OUTBOX
     OUTBOX --> DWORK
     MAP --> DWORK
 
@@ -105,47 +105,56 @@ og går gjennom **samme flyt og samme delivery-maskineri**. En lukking er bare e
 
 ### Lukkeoperasjon avledes fra lagret rad
 
-FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Beslutningen finner
-matchende OPPRETT-leveranse, fryser lukkeparametrene (`meldingstype`, sti NL/Altinn,
-`ekstern_respons_id`, `grupperingsid`) på INAKTIVER-leveransen, og kanalhandleren
-dispatcher på disse lagrede tekniske attributtene — aldri på domenetype. Migreringens
-klebrige eierskap (se [migrering.md](migrering.md)) gjør at budstikka kun mottar
-FERDIGSTILL for OPPRETT den selv laget, så lagret rad finnes alltid.
+FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Runtime slår først opp
+matchende lagret OPPRETT-leveranse og lager deretter én ordinær
+`delivery(operation=INAKTIVER)`. For BRUKERVARSEL og LEDERVARSEL er den thin
+INAKTIVER-payloaden avledet fra create-raden. For ARBEIDSGIVERVARSEL beholdes
+create-payloaden som frosset lukkegrunnlag, sammen med den stabile create-eksternId-en.
+Kanalhandleren bruker
+bare disse lagrede dataene ved lukking, aldri et nytt Nærmeste leder-oppslag.
 
-Dette er designretningen; selve oppslaget er ikke implementert i runtime ennå —
-`*Inactivate` mappes i dag til nye `DeliveryDraft`-rader direkte.
+Runtime gjør første delivery-oppslag, men låser deretter alltid **alle** matchende OPPRETT-er som
+er `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` — også når oppslaget allerede fant en
+delivery. Etter låsene leses delivery på nytt: vant opprettelsen, avledes vanlig INAKTIVER; alle
+låste hold-kopier markeres samtidig `PROCESSED` uten å materialisere. Ellers markeres de låste
+OPPRETT-ene og FERDIGSTILL `PROCESSED` uten delivery. Opprettelsen låser også sin egen inbox-rad
+før terminal overgang og delivery-write, slik at bare én av disse to utfallene kan vinne.
 
 ### Kantsituasjoner
 
 | Situasjon | Handling |
 | --- | --- |
-| OPPRETT funnet, `SENT` | Normal: skriv `delivery(operation=INAKTIVER)` → outbox lukker på kanalen |
-| OPPRETT funnet, fortsatt `READY` (ikke sendt) | Dagens modell har ingen egen `CANCELLED`-state. OPPRETT og FERDIGSTILL håndteres som egne delivery-rader i samme claim/lease-flyt. |
-| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. (Partisjonsordning gjør «OPPRETT kommer senere» usannsynlig når begge faktisk sendes) |
+| OPPRETT-delivery funnet | Skriv én `delivery(operation=INAKTIVER)` → outbox lukker på kanalen; alle matchende `WAIT`/oppvåknede hold-kopier kanselleres samtidig |
+| Én eller flere matchende OPPRETT-er fortsatt `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` | Lås alle radene og avslutt hver OPPRETT direkte som `PROCESSED`; ingen delivery og ingen egen `CANCELLED`-state |
+| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. Låsen dekker bare `WAIT`/oppvåknet `CLAIMED` med `wait_reason`; en ordinær `RECEIVED` eller vanlig `CLAIMED` OPPRETT (ikke en WAIT-oppvåkning) kan fortsatt materialiseres etter den låste no-match-avgjørelsen. Kafka-partisjonsrekkefølge garanterer ikke workernes tidsrekkefølge på tvers av replikaer. |
+| Lagret OPPRETT har ugyldig payload-/kanal-/mottaker-kombinasjon | FERDIGSTILL og alle låste hold-kopier blir `PROCESSED` uten delivery, med PII-fri logg + metrikk `ferdigstill_lagret_opprett_ugyldig`; dette er ikke en manglende runtime-kanal eller en manglende match. |
 
 ### Lukkbarhet per kanal
 
 | Kanal                     | Kan lukkes? | Mekanisme (INAKTIVER) |
 |---------------------------| --- | --- |
-| Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
+| Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme `reference` som `varselId`) |
 | Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
-| Ditt Sykefravær           | Ja | Lukk/erstatt-melding |
-| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` |
+| Ditt Sykefravær           | **Nei, ikke i dette snittet** | Downstream-adapter og godkjent kontrakt mangler; FERDIGSTILL blir terminal no-op |
+| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret create: BESKJED→`hardDeleteNotifikasjonByEksternId_V2`, OPPGAVE→`oppgaveUtfoertByEksternId_V2`; stabil eksternId kommer fra create-handleren. Fagers `NotifikasjonFinnesIkke` fra en lukking betyr allerede lukket og behandles som vellykket; publiseringsklassifiseringen er uendret. |
 | Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
 | Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
 
-### Ugyldige kombinasjoner
+### Ikke-støttet runtime-kanal
 
 - Ulovlige kombinasjoner (f.eks. FERDIGSTILL + BREV) gjøres **urepresenterbare** i
   den typede kontrakten (sealed types) → produsent får feil ved bygg/validering,
   ikke i drift.
-- Runtime er **defense-in-depth**: skulle en ugyldig kombinasjon likevel nå inbox
-  (schema-drift, gammel produsent) → inbox `PROCESSED`, ingen delivery-rad,
-  logg + metrikk `ugyldig_kombinasjon`. Ingen alert-storm, ingen `FAILED`.
+- DITT_SYKEFRAVAER er den eneste representerbare FERDIGSTILL-varianten uten støttet
+  runtime-kanal i dette snittet. Den blir `PROCESSED` uten delivery-rad, med PII-fri logg og
+  metrikk `ferdigstill_uten_runtime_kanal`. Ingen alert-storm, ingen `FAILED`.
+
+Dette er et første snitt av #26. Ditt Sykefravær er uttrykkelig ikke ende-til-ende implementert
+og blokkerer full ferdigstillelse av issue #26.
 
 ### Kafka-semantikk
 
 Konsumenten skriver hendelsen til inbox og **committer offset umiddelbart**. All
 validering/forretningslogikk skjer senere i beslutnings-workeren på DB-raden, frakoblet
-Kafka. En terminal DB-status (`FAILED`/`DROPPED`/«ugyldig») **blokkerer aldri partisjonen**
+Kafka. En terminal DB-status (`FAILED`/`DROPPED`/no-op) **blokkerer aldri partisjonen**
 og gir ingen redelivery-loop.

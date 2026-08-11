@@ -3,6 +3,9 @@ package no.nav.budstikka.application.port
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.Recipient
 import java.util.UUID
 import kotlin.time.Duration
 
@@ -11,6 +14,16 @@ data class ClaimedDelivery(
     val inboxEventId: UUID?,
     val reference: String,
     val channel: Channel,
+    val payload: DispatchContent,
+    val operation: Operation = Operation.CREATE,
+    val createExternalId: String? = null,
+)
+
+data class StoredCreateDelivery(
+    val createExternalId: String?,
+    val reference: String,
+    val channel: Channel,
+    val recipient: Recipient,
     val payload: DispatchContent,
 )
 
@@ -24,6 +37,9 @@ interface DeliveryRepository {
         inboxEventId: UUID,
         draft: List<DeliveryDraft>,
     )
+
+    /** Reads the latest matching CREATE row. The caller owns serialization through the source inbox lock. */
+    fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch): StoredCreateDelivery?
 
     suspend fun claim(
         limit: Int,

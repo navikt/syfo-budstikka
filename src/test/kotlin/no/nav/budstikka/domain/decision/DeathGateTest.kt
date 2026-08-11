@@ -29,7 +29,7 @@ class DeathGateTest :
 
         suspend fun DeathGate.decide(content: DispatchContent): Decision {
             val event = envelope(content)
-            return resolve(event).apply(listOf(content.toDeliveryDraft(event.reference)))
+            return resolve(event).apply(listOfNotNull(content.toDeliveryDraft(event.reference)))
         }
 
         val gatedCreates =
