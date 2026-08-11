@@ -825,7 +825,8 @@
                     "kind": "DataQuery",
                     "spec": {
                       "expr": "ceil(sum by (channel) (increase(delivery_total{result=\"sent\"}[$__range])))",
-                      "legendFormat": "{{channel}}"
+                      "legendFormat": "{{channel}}",
+                      "range": false
                     },
                     "version": "v0"
                   },
