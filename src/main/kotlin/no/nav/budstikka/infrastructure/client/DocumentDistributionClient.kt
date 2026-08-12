@@ -13,9 +13,9 @@ import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import no.nav.budstikka.application.port.DistributionRequest
-import no.nav.budstikka.application.port.DistributionResponse
-import no.nav.budstikka.application.port.DocumentDistributor
+import no.nav.budstikka.application.delivery.DistributionRequest
+import no.nav.budstikka.application.delivery.DistributionResponse
+import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.DocumentDistributorConfig
 import no.nav.budstikka.infrastructure.config.PlatformConfig

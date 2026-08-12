@@ -2,7 +2,7 @@ package no.nav.budstikka.infrastructure.kafka.producer
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import no.nav.budstikka.application.port.LedervarselPublisher
+import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.contract.Ledervarsel
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate

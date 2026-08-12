@@ -1,6 +1,6 @@
 package no.nav.budstikka.infrastructure.kafka.producer
 
-import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
+import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.contract.Brukervarsel
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.BrukervarselInactivate

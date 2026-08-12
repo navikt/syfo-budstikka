@@ -1,6 +1,5 @@
 package no.nav.budstikka.application.delivery
 
-import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.contract.Brukervarsel
 
 internal data class PublishedBrukervarsel(

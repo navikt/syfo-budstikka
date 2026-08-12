@@ -1,7 +1,6 @@
 package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.application.port.ClaimedDelivery
-import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.contract.Microfrontend
 import no.nav.budstikka.domain.decision.Channel
 

@@ -1,6 +1,6 @@
 package no.nav.budstikka.infrastructure.kafka.producer
 
-import no.nav.budstikka.application.port.MicrofrontendPublisher
+import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.contract.Microfrontend
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable

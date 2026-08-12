@@ -3,10 +3,10 @@ package no.nav.budstikka.infrastructure.kafka.config
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.delivery.LedervarselPublisher
+import no.nav.budstikka.application.delivery.MicrofrontendPublisher
+import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.LedervarselPublisher
-import no.nav.budstikka.application.port.MicrofrontendPublisher
-import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.BatchMessageHandler
