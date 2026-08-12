@@ -9,7 +9,7 @@ import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
-import no.nav.budstikka.application.AlreadyLoggedWorkerFailure
+import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.infrastructure.Heartbeat
 import no.nav.budstikka.infrastructure.MutableClock
 import org.slf4j.LoggerFactory

@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.contract.Ledervarsel

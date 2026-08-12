@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.delivery
 
 import kotlinx.coroutines.CancellationException
 import no.nav.budstikka.domain.decision.Channel

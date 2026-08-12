@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.replay
 
 import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository

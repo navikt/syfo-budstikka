@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.logging
 
 import net.logstash.logback.argument.StructuredArgument
 

@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.worker.config
 
 import io.ktor.server.config.ApplicationConfig
-import no.nav.budstikka.application.LeaseDrainConfig
+import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.configFor
 import no.nav.budstikka.infrastructure.config.validate
 import kotlin.time.Duration.Companion.seconds

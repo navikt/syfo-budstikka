@@ -1,4 +1,4 @@
-package no.nav.budstikka.infrastructure.worker
+package no.nav.budstikka.application.worker
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -8,10 +8,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import no.nav.budstikka.application.AlreadyLoggedWorkerFailure
-import no.nav.budstikka.application.LeaseBudgetDrainer
-import no.nav.budstikka.application.LeaseDrainConfig
-import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.infrastructure.MutableClock
 import org.slf4j.MDC
 import kotlin.time.Clock

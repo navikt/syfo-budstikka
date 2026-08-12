@@ -1,10 +1,12 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.worker
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.withPlaceholders
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import kotlin.time.Clock

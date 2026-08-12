@@ -6,7 +6,7 @@ import io.ktor.server.plugins.di.dependencies
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.MdcKeys
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.infrastructure.replay.DeadLetterReplayer
 import no.nav.budstikka.infrastructure.replay.config.toDeadLetterReplayConfig
 

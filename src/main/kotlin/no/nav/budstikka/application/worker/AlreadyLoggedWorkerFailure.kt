@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.worker
 
 internal class AlreadyLoggedWorkerFailure(
     cause: Throwable,

@@ -1,8 +1,11 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.worker
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.application.delivery.ChannelHandler
+import no.nav.budstikka.application.delivery.DeliveryOutcome
+import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.port.NoDispatchMetrics
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.inboxMessage

@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.logging
 
 object MdcKeys {
     const val BACKOFF_MILLIS = "backoff_millis"
