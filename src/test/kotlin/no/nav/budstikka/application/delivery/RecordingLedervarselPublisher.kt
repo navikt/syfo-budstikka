@@ -1,6 +1,5 @@
 package no.nav.budstikka.application.delivery
 
-import no.nav.budstikka.application.port.LedervarselPublisher
 import no.nav.budstikka.contract.Ledervarsel
 
 internal data class PublishedLedervarsel(

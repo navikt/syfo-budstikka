@@ -8,16 +8,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
-import no.nav.budstikka.application.port.DistributionRequest
-import no.nav.budstikka.application.port.DistributionResponse
-import no.nav.budstikka.application.port.DocumentDistributor
 import no.nav.budstikka.contract.BrevCreate
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
 import java.util.UUID
-import no.nav.budstikka.application.port.DistributionType as PortDistributionType
+import no.nav.budstikka.application.delivery.DistributionType as PortDistributionType
 import no.nav.budstikka.contract.DistributionType as BrevDistributionType
 
 class BrevChannelHandlerTest :

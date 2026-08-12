@@ -3,9 +3,9 @@ package no.nav.budstikka.fakes
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.application.port.DistributionRequest
-import no.nav.budstikka.application.port.DistributionResponse
-import no.nav.budstikka.application.port.DistributionType
+import no.nav.budstikka.application.delivery.DistributionRequest
+import no.nav.budstikka.application.delivery.DistributionResponse
+import no.nav.budstikka.application.delivery.DistributionType
 import java.util.UUID
 
 class FakeDocumentDistributorTest :

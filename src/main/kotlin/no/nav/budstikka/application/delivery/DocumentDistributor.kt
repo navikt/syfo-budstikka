@@ -1,4 +1,4 @@
-package no.nav.budstikka.application.port
+package no.nav.budstikka.application.delivery
 
 import java.util.UUID
 

@@ -8,7 +8,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
-import no.nav.budstikka.application.port.MicrofrontendPublisher
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.Microfrontend

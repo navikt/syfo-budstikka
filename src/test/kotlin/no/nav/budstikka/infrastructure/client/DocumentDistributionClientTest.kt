@@ -12,9 +12,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
-import no.nav.budstikka.application.port.DistributionRequest
-import no.nav.budstikka.application.port.DistributionResponse
-import no.nav.budstikka.application.port.DistributionType
+import no.nav.budstikka.application.delivery.DistributionRequest
+import no.nav.budstikka.application.delivery.DistributionResponse
+import no.nav.budstikka.application.delivery.DistributionType
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.DocumentDistributorConfig
 import no.nav.budstikka.infrastructure.config.PlatformConfig

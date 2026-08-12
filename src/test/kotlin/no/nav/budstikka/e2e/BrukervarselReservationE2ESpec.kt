@@ -5,9 +5,9 @@ import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.application.delivery.DocumentDistributor
+import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.delivery.RecordingMinSideBrukervarselPublisher
-import no.nav.budstikka.application.port.DocumentDistributor
-import no.nav.budstikka.application.port.MinSideBrukervarselPublisher
 import no.nav.budstikka.contract.BrevFallback
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.Dispatch

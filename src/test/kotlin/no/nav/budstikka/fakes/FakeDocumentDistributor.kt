@@ -1,8 +1,8 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.application.port.DistributionRequest
-import no.nav.budstikka.application.port.DistributionResponse
-import no.nav.budstikka.application.port.DocumentDistributor
+import no.nav.budstikka.application.delivery.DistributionRequest
+import no.nav.budstikka.application.delivery.DistributionResponse
+import no.nav.budstikka.application.delivery.DocumentDistributor
 
 class FakeDocumentDistributor : DocumentDistributor {
     val requests = mutableListOf<DistributionRequest>()
