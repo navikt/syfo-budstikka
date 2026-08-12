@@ -1,4 +1,4 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.delivery
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -6,14 +6,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.port.ClaimedDelivery
-import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.NarmesteLederMissingReason
-import no.nav.budstikka.application.port.NarmesteLederRelasjon
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
@@ -71,7 +65,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                 ArbeidsgiverNotificationRecipient.NarmesteLeder(
                     LEDER,
                     TEST_SYKMELDT,
-                    no.nav.budstikka.application.port.NarmesteLederExternalVarsling(
+                    NarmesteLederExternalVarsling(
                         "Tittel",
                         "Tekst",
                         listOf("first@example.test", "second@example.test"),

@@ -1,4 +1,4 @@
-package no.nav.budstikka.application.port
+package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier

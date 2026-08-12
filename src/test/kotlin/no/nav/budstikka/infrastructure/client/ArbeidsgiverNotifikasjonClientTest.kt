@@ -13,10 +13,10 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
-import no.nav.budstikka.application.port.AltinnExternalVarsling
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
+import no.nav.budstikka.application.delivery.AltinnExternalVarsling
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
@@ -126,7 +126,7 @@ class ArbeidsgiverNotifikasjonClientTest :
                             narmesteLederFnr = PersonIdentifier("00000000000"),
                             ansattFnr = PersonIdentifier("00000000000"),
                             externalVarsling =
-                                no.nav.budstikka.application.port.NarmesteLederExternalVarsling(
+                                no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling(
                                     "Tittel",
                                     "A & <B>",
                                     listOf("first@example.test", "second@example.test"),

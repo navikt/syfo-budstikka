@@ -5,10 +5,10 @@ import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
-import no.nav.budstikka.application.port.NarmesteLederLookup
-import no.nav.budstikka.application.port.NarmesteLederRelasjon
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
+import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.NarmesteLederRelasjon
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate

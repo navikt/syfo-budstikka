@@ -3,9 +3,9 @@ package no.nav.budstikka.infrastructure.client
 import io.ktor.client.HttpClient
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
-import no.nav.budstikka.application.port.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider

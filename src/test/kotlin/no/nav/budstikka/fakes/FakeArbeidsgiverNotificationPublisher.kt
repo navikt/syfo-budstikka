@@ -1,8 +1,8 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import java.util.concurrent.CopyOnWriteArrayList
 
 class FakeArbeidsgiverNotificationPublisher : ArbeidsgiverNotificationPublisher {

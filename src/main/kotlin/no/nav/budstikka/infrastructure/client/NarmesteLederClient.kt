@@ -12,8 +12,8 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import no.nav.budstikka.application.port.NarmesteLederLookup
-import no.nav.budstikka.application.port.NarmesteLederRelasjon
+import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.NarmesteLederRelasjon
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.infrastructure.auth.TokenProvider

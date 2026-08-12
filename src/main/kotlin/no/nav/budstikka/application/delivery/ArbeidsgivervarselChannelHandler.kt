@@ -1,14 +1,7 @@
-package no.nav.budstikka.application
+package no.nav.budstikka.application.delivery
 
-import no.nav.budstikka.application.port.AltinnExternalVarsling
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRecipient
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationRequest
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DispatchMetrics
-import no.nav.budstikka.application.port.NarmesteLederExternalVarsling
-import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate

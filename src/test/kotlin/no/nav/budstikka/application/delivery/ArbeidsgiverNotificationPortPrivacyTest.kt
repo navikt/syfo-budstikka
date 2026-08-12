@@ -1,4 +1,4 @@
-package no.nav.budstikka.application.port
+package no.nav.budstikka.application.delivery
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldNotContain

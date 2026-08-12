@@ -3,7 +3,8 @@ package no.nav.budstikka.bootstrap
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
-import no.nav.budstikka.application.ArbeidsgivervarselChannelHandler
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
 import no.nav.budstikka.application.delivery.ChannelHandler
@@ -14,13 +15,12 @@ import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
+import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
-import no.nav.budstikka.application.port.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.NarmesteLederLookup
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.domain.decision.Channel

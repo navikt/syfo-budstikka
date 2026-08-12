@@ -1,7 +1,7 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.application.port.NarmesteLederLookup
-import no.nav.budstikka.application.port.NarmesteLederRelasjon
+import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.NarmesteLederRelasjon
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import java.util.concurrent.ConcurrentHashMap
