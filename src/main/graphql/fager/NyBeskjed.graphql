@@ -1,0 +1,22 @@
+mutation NyBeskjed($input: NyBeskjedInput!) {
+  nyBeskjed(nyBeskjed: $input) {
+    ... on NyBeskjedVellykket {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on UgyldigMottaker {
+      __typename
+    }
+    ... on DuplikatEksternIdOgMerkelapp {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+    ... on UkjentRolle {
+      __typename
+    }
+  }
+}

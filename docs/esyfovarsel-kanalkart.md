@@ -21,7 +21,7 @@ microfrontend som førsteklasses variant og har dermed allerede tettet den asymm
 | `BRUKERNOTIFIKASJON` | Kafka `min-side.aapen-brukervarsel-v1` (tms varsel-builder) | `BrukervarselCreate` |
 | `DINE_SYKMELDTE` | Kafka `team-esyfo.dinesykmeldte-hendelser-v2` | `LedervarselCreate` (fasade: `dineSykmeldteVarselCreate`) |
 | `DITT_SYKEFRAVAER` | Kafka `flex.ditt-sykefravaer-melding` | `DittSykefravaerCreate` (ikke sendbar ennå) |
-| `ARBEIDSGIVERNOTIFIKASJON` | GraphQL mot `notifikasjon-produsent-api` (fager) | `ArbeidsgivervarselCreate` (ikke sendbar ennå) |
+| `ARBEIDSGIVERNOTIFIKASJON` | GraphQL mot `notifikasjon-produsent-api` (fager) | `ArbeidsgivervarselCreate` (runtime-støttet, ikke i produsentfasaden) |
 | `BREV` | REST `dokdistfordeling` `/rest/v1/distribuerjournalpost` | `BrevCreate` |
 | (microfrontend, utenfor `Kanal`) | Kafka `min-side.aapen-microfrontend-v1` | `MicrofrontendEnable`/`-Disable` |
 
@@ -31,6 +31,10 @@ Altinn-ressurs-mottaker), **sak** (`nySak`, `nyStatusSakByGrupperingsid`) og
 **kalenderavtale** (opprett/oppdater, med leders e-post). Sak og kalenderavtale er
 stateful objekter, ikke engangsvarsler; kontraktens dekning av disse er en egen
 beslutning.
+
+Budstikka slår opp aktiv nærmeste leder ved utsending. Når produsenten har bedt om
+ekstern varsling og den aktive lederen mangler e-postadresse, feiler hele leveransen
+terminalt. Den degraderes ikke til bare in-app-varsel.
 
 ## Dokumentdistribusjon: kallsteder og tvingKanal
 

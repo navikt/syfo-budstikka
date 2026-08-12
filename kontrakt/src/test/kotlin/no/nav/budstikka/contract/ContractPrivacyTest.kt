@@ -50,6 +50,17 @@ class ContractPrivacyTest :
             )
         val brevFallback = BrevFallback(journalpostId = SYNTHETIC_JOURNALPOST_ID)
         val sakstilknytning = Sakstilknytning(sakId = SYNTHETIC_SAK_ID)
+        val narmesteLederExternalVarsling =
+            NarmesteLederExternalVarsling(
+                emailTitle = SYNTHETIC_EMAIL_TITLE,
+                emailText = SYNTHETIC_EMAIL_TEXT,
+            )
+        val altinnExternalVarsling =
+            AltinnExternalVarsling(
+                emailTitle = SYNTHETIC_EMAIL_TITLE,
+                emailText = SYNTHETIC_EMAIL_TEXT,
+                smsText = SYNTHETIC_SMS_TEXT,
+            )
 
         context("identifiers mask themselves") {
             test("PersonIdentifier") {
@@ -91,11 +102,14 @@ class ContractPrivacyTest :
                     DittSykefravaerInactivate(reference = SYNTHETIC_REFERENCE, sykmeldt = SYNTHETIC_SYKMELDT),
                     ArbeidsgivervarselCreate(
                         orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
+                        recipient =
+                            NarmesteLeder(
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                externalVarsling = narmesteLederExternalVarsling,
+                            ),
                         tag = Tag.DIALOGMOETE,
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
-                        externalVarsling = externalVarsling,
                         sakstilknytning = sakstilknytning,
                     ),
                     ArbeidsgivervarselInactivate(reference = SYNTHETIC_REFERENCE, orgnummer = SYNTHETIC_ORGNUMMER),
@@ -132,10 +146,20 @@ class ContractPrivacyTest :
         context("toString of an identifier-bearing helper type stays clean") {
             listOf<Pair<String, Any>>(
                 "ExternalNotification" to externalVarsling,
+                "NarmesteLederExternalVarsling" to narmesteLederExternalVarsling,
+                "AltinnExternalVarsling" to altinnExternalVarsling,
                 "BrevFallback" to brevFallback,
                 "Sakstilknytning" to sakstilknytning,
-                "NarmesteLeder" to NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
-                "AltinnResource" to AltinnResource(resource = AltinnResourceId.DIALOGMOETE),
+                "NarmesteLeder" to
+                    NarmesteLeder(
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        externalVarsling = narmesteLederExternalVarsling,
+                    ),
+                "AltinnResource" to
+                    AltinnResource(
+                        resource = AltinnResourceId.DIALOGMOETE,
+                        externalVarsling = altinnExternalVarsling,
+                    ),
             ).forEach { (name, value) ->
                 test(name) {
                     value.toString().shouldNotLeak()

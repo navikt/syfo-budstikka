@@ -88,7 +88,6 @@ data class ArbeidsgivervarselCreate(
     val tag: Tag,
     val text: String,
     val link: String,
-    val externalVarsling: ExternalNotification? = null,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
@@ -103,7 +102,7 @@ data class ArbeidsgivervarselCreate(
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
     override fun toString(): String =
         "ArbeidsgivervarselCreate(tag=$tag, meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
-            "hasExternalVarsling=${externalVarsling != null}, hasSakstilknytning=${sakstilknytning != null})"
+            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null})"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
@@ -112,17 +111,19 @@ data class ArbeidsgivervarselCreate(
 sealed interface ArbeidsgiverRecipient
 
 /**
- * Personal Arbeidsgivervarsel path. No adapter delivers this variant yet; resolving Nærmeste leder
- * from [sykmeldt] is future work, not current behaviour.
- *
- * The generated `toString` is safe because [PersonIdentifier] masks itself.
+ * Personal Arbeidsgivervarsel path. Budstikka resolves the active Nærmeste leder from [sykmeldt]
+ * at delivery time.
  */
 @InternalBudstikkaWire
 @Serializable
 @SerialName("NarmesteLeder")
 data class NarmesteLeder(
     val sykmeldt: PersonIdentifier,
-) : ArbeidsgiverRecipient
+    val externalVarsling: NarmesteLederExternalVarsling? = null,
+) : ArbeidsgiverRecipient {
+    /** Omits the person identifier and external notification text. */
+    override fun toString(): String = "NarmesteLeder(hasExternalVarsling=${externalVarsling != null})"
+}
 
 /** Everyone with the selected Altinn role at the organisation. */
 @InternalBudstikkaWire
@@ -130,7 +131,41 @@ data class NarmesteLeder(
 @SerialName("AltinnRessurs")
 data class AltinnResource(
     val resource: AltinnResourceId,
-) : ArbeidsgiverRecipient
+    val externalVarsling: AltinnExternalVarsling? = null,
+) : ArbeidsgiverRecipient {
+    /** Omits external notification text. */
+    override fun toString(): String = "AltinnResource(resource=$resource, hasExternalVarsling=${externalVarsling != null})"
+}
+
+/** External notification texts required by the Altinn-resource delivery path. */
+@InternalBudstikkaWire
+@Serializable
+data class AltinnExternalVarsling(
+    val emailTitle: String,
+    val emailText: String,
+    val smsText: String,
+) {
+    /** Omits all notification text. */
+    override fun toString(): String = "AltinnExternalVarsling()"
+}
+
+/** External notification texts required by the Nærmeste leder email delivery path. */
+@InternalBudstikkaWire
+@Serializable
+data class NarmesteLederExternalVarsling(
+    val emailTitle: String,
+    val emailText: String,
+) {
+    /** Omits all notification text. */
+    override fun toString(): String = "NarmesteLederExternalVarsling()"
+}
+
+@OptIn(InternalBudstikkaWire::class)
+private fun ArbeidsgiverRecipient.hasExternalVarsling(): Boolean =
+    when (this) {
+        is AltinnResource -> externalVarsling != null
+        is NarmesteLeder -> externalVarsling != null
+    }
 
 /**
  * A document distributed to the Sykmeldt through dokumentdistribusjon. By default dokdist picks

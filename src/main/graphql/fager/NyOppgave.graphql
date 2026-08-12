@@ -1,0 +1,25 @@
+mutation NyOppgave($input: NyOppgaveInput!) {
+  nyOppgave(nyOppgave: $input) {
+    ... on NyOppgaveVellykket {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on UgyldigMottaker {
+      __typename
+    }
+    ... on DuplikatEksternIdOgMerkelapp {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+    ... on UkjentRolle {
+      __typename
+    }
+    ... on UgyldigPaaminnelseTidspunkt {
+      __typename
+    }
+  }
+}
