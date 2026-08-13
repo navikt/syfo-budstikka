@@ -57,8 +57,10 @@ Kafka-nøkkelen og `EventId` har ulike roller:
 - `EventId` ligger i headeren `eventId` og brukes til deduplisering og korrelasjon. Den finnes ikke i
   JSON-payloaden.
 
-`EncodedDispatch.value` inneholder varseltekst og identifikatorer. Ikke logg payload, nøkkel,
-referanse eller fritekst.
+`EncodedDispatch.value` inneholder varseltekst og identifikatorer. Ikke logg payload, nøkkel eller
+fritekst. `reference` er produsentens korrelasjons-id og kan logges når produsenten har et konkret
+operasjonelt behov og har vurdert innhold, tilgang og oppbevaringstid. Bruk en ugjennomsiktig intern
+id; aldri fødselsnummer, andre direkte personidentifikatorer eller sammensatte forretningsverdier.
 
 ## Ekstern varsling og brev
 
@@ -78,8 +80,10 @@ Fasaden validerer obligatoriske felt og kaster `IllegalArgumentException` med pa
 aldri verdien. Rett data og bruk fortsatt samme lagrede `EventId` når den samme dispatchen forsøkes
 på nytt.
 
-Identifikatorer, referanser, journalpost-id-er og varseltekst kan være persondata. Ikke legg dem i
-logger, exceptions eller metrics. Eksempler og tester skal bruke tydelig syntetiske verdier.
+Identifikatorer, referanser, journalpost-id-er og varseltekst kan være persondata. En `reference` som
+logges etter regelen over, skal behandles som pseudonyme personopplysninger. Andre identifikatorer,
+payload, varseltekst og fritekst skal ikke legges i logger, exceptions eller metrics. Eksempler og
+tester skal bruke tydelig syntetiske verdier.
 
 ## Versjonering og utvikling
 
