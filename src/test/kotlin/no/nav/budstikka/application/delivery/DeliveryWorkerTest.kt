@@ -379,7 +379,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
         channel = Channel.MICROFRONTEND,
         payload =
             MicrofrontendEnable(
-                personIdentifier = PersonIdentifier("00000000000"),
+                personIdentifier = PersonIdentifier("12345678901"),
                 microfrontendId = "syfo-microfrontend",
             ),
     )
@@ -392,7 +392,7 @@ private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
         channel = Channel.MICROFRONTEND,
         payload =
             BrukervarselCreate(
-                personIdentifier = PersonIdentifier("00000000000"),
+                personIdentifier = PersonIdentifier("12345678901"),
                 varseltype = Varseltype.BESKJED,
                 text = "Hei",
             ),

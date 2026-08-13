@@ -144,7 +144,7 @@ class ArbeidsgivervarselChannelHandlerTest :
         }
     })
 
-private val LEDER = PersonIdentifier("00000000000")
+private val LEDER = PersonIdentifier("22222222222")
 
 private fun handler(
     publisher: RecordingPublisher,
