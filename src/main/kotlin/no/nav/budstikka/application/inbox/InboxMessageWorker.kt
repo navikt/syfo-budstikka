@@ -6,7 +6,6 @@ import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.logging.withPlaceholders
-import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
@@ -29,7 +28,7 @@ class InboxMessageWorker(
     private val decisionProcess: DecisionProcess,
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
-    private val metrics: DispatchMetrics,
+    private val metrics: InboxMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(InboxMessageWorker::class.java)
 
@@ -39,7 +38,7 @@ class InboxMessageWorker(
             eventId = { it.eventId.toString() },
             claim = {
                 repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts).also { claimed ->
-                    if (claimed.isEmpty()) metrics.inboxEmptyPoll() else metrics.inboxClaimed(claimed.size)
+                    if (claimed.isEmpty()) metrics.emptyPoll() else metrics.claimed(claimed.size)
                 }
             },
             process = { message -> processClaimed(message) },
@@ -73,12 +72,12 @@ class InboxMessageWorker(
         )
     }
 
-    private fun DispatchMetrics.record(decision: Decision) {
+    private fun InboxMetrics.record(decision: Decision) {
         when (decision) {
-            is Decision.Processed -> inboxProcessed()
-            is Decision.Dropped -> inboxDropped(decision.reason)
-            is Decision.Failed -> inboxFailed()
-            is Decision.NotInSendingWindow -> inboxOutsideSendingWindow(decision.reason)
+            is Decision.Processed -> processed()
+            is Decision.Dropped -> dropped(decision.reason)
+            is Decision.Failed -> failed()
+            is Decision.NotInSendingWindow -> outsideSendingWindow(decision.reason)
         }
     }
 

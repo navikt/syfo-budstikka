@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.DeliveryWorker
-import no.nav.budstikka.application.port.NoDispatchMetrics
+import no.nav.budstikka.application.delivery.NoDeliveryMetrics
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
@@ -88,7 +88,7 @@ class PoisonAttemptSemanticsIntegrationTest :
                             maxAttempts = maxAttempts,
                             maxConsecutiveItemFailures = 3,
                         ),
-                    metrics = NoDispatchMetrics,
+                    metrics = NoDeliveryMetrics,
                 )
 
             // Every round claims all five rows, then aborts on the three consecutive failures at the

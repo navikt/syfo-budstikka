@@ -21,10 +21,8 @@ import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
-import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.NoDispatchMetrics
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.bootstrap.gateModule
@@ -45,7 +43,7 @@ import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.FakeDocumentDistributor
 import no.nav.budstikka.fakes.FakeReservationLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
-import no.nav.budstikka.fakes.RecordingDispatchMetrics
+import no.nav.budstikka.fakes.RecordingInboxMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.deadLookupFor
 import no.nav.budstikka.fakes.inboxMessage
@@ -155,14 +153,14 @@ class InboxMessageWorkerTest :
                 PollingInboxMessageRepository(
                     messages = listOf(inboxMessage(eventId1), inboxMessage(eventId2)),
                 )
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingInboxMetrics()
 
             workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
 
-            metrics.inboxClaimed.get() shouldBe 2
-            metrics.inboxProcessed.get() shouldBe 2
-            metrics.inboxFailed.get() shouldBe 0
-            metrics.inboxEmptyPolls.get() shouldBe 0
+            metrics.claimedCount.get() shouldBe 2
+            metrics.processedCount.get() shouldBe 2
+            metrics.failedCount.get() shouldBe 0
+            metrics.emptyPollCount.get() shouldBe 0
         }
 
         test("runOnce records a dropped metric when a gate drops the message") {
@@ -172,7 +170,7 @@ class InboxMessageWorkerTest :
                 PollingInboxMessageRepository(
                     messages = listOf(inboxMessage(eventId, content = deadContent)),
                 )
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingInboxMetrics()
 
             workerWith(
                 repository,
@@ -180,18 +178,18 @@ class InboxMessageWorkerTest :
                 decisionProcess = DecisionProcess(listOf(DeathGate(deadLookupFor(TEST_SYKMELDT)))),
             ).runOnce()
 
-            metrics.inboxDropped[DropReason.DEAD]?.get() shouldBe 1
-            metrics.inboxProcessed.get() shouldBe 0
+            metrics.droppedCounts[DropReason.DEAD]?.get() shouldBe 1
+            metrics.processedCount.get() shouldBe 0
         }
 
         test("runOnce records an empty poll when nothing is claimed") {
             val repository = PollingInboxMessageRepository(messages = emptyList())
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingInboxMetrics()
 
             workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
 
-            metrics.inboxEmptyPolls.get() shouldBe 1
-            metrics.inboxClaimed.get() shouldBe 0
+            metrics.emptyPollCount.get() shouldBe 1
+            metrics.claimedCount.get() shouldBe 0
         }
 
         test("runOnce stops draining when the lease budget is exhausted") {
@@ -361,7 +359,7 @@ private fun workerWith(
     leaseBudgetFraction: Double = 0.8,
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
-    metrics: DispatchMetrics = NoDispatchMetrics,
+    metrics: InboxMetrics = NoInboxMetrics,
     decisionProcess: DecisionProcess,
 ): InboxMessageWorker =
     InboxMessageWorker(

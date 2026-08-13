@@ -14,8 +14,6 @@ import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
-import no.nav.budstikka.application.port.DispatchMetrics
-import no.nav.budstikka.application.port.NoDispatchMetrics
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
@@ -25,7 +23,7 @@ import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.fakes.RecordingDispatchMetrics
+import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import org.slf4j.LoggerFactory
@@ -210,7 +208,7 @@ class DeliveryWorkerTest :
                         ),
                 )
             val publisher = RecordingMicrofrontendPublisher()
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingDeliveryMetrics()
 
             workerWith(repository, publisher, metrics = metrics).runOnce()
 
@@ -223,7 +221,7 @@ class DeliveryWorkerTest :
         test("runOnce records an empty poll when nothing is claimed") {
             val repository = PollingDeliveryRepository(deliveries = emptyList())
             val publisher = RecordingMicrofrontendPublisher()
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingDeliveryMetrics()
 
             workerWith(repository, publisher, metrics = metrics).runOnce()
 
@@ -291,7 +289,7 @@ private fun workerWith(
     leaseBudgetFraction: Double = 0.8,
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
-    metrics: DispatchMetrics = NoDispatchMetrics,
+    metrics: DeliveryMetrics = NoDeliveryMetrics,
     handlers: Map<Channel, ChannelHandler> = mapOf(Channel.MICROFRONTEND to MicrofrontendChannelHandler(publisher)),
 ): DeliveryWorker =
     DeliveryWorker(
