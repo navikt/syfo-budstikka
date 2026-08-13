@@ -6,8 +6,8 @@ import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.DeliveryWorker
-import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.delivery.NoDeliveryMetrics
+import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.fakes.inboxMessage

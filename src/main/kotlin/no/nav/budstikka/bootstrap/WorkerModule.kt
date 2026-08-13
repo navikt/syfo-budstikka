@@ -8,8 +8,8 @@ import no.nav.budstikka.application.delivery.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
 import no.nav.budstikka.application.delivery.ChannelHandler
-import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.DeliveryMetrics
+import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
