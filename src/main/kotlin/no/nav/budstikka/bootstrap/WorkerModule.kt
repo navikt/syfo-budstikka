@@ -9,6 +9,7 @@ import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
 import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryWorker
+import no.nav.budstikka.application.delivery.DeliveryMetrics
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
@@ -18,8 +19,8 @@ import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
+import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.application.port.DeliveryRepository
-import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
@@ -48,13 +49,14 @@ fun DependencyRegistry.workerModule() {
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
-                    metrics = resolve<DispatchMetrics>(),
+                    metrics = resolve<DeliveryMetrics>(),
                 ),
         )
     }
     provide<List<BackgroundLoop>> {
         val workerConfig = resolve<WorkerConfig>()
-        val metrics = resolve<DispatchMetrics>()
+        val inboxMetrics = resolve<InboxMetrics>()
+        val deliveryMetrics = resolve<DeliveryMetrics>()
         val meterRegistry = resolve<PrometheusMeterRegistry>()
         val inboxMessageWorker =
             InboxMessageWorker(
@@ -67,7 +69,7 @@ fun DependencyRegistry.workerModule() {
                         maxConsecutiveItemFailures = workerConfig.inboxMessage.maxConsecutiveItemFailures,
                     ),
                 config = workerConfig.inboxMessage,
-                metrics = metrics,
+                metrics = inboxMetrics,
             )
         val deliveryWorker =
             DeliveryWorker(
@@ -79,7 +81,7 @@ fun DependencyRegistry.workerModule() {
                         maxConsecutiveItemFailures = workerConfig.delivery.maxConsecutiveItemFailures,
                     ),
                 config = workerConfig.delivery,
-                metrics = metrics,
+                metrics = deliveryMetrics,
             )
         listOf(
             BackgroundLoop(

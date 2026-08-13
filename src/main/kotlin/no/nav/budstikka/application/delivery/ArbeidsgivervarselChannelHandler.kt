@@ -1,8 +1,6 @@
 package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.application.port.ClaimedDelivery
-import no.nav.budstikka.application.port.DispatchMetrics
-import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
@@ -20,7 +18,7 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
     private val narmesteLederLookup: NarmesteLederLookup,
-    private val metrics: DispatchMetrics,
+    private val metrics: DeliveryMetrics,
 ) : ChannelHandler {
     override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
         val create =

@@ -8,7 +8,6 @@ import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.logging.withPlaceholders
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
-import no.nav.budstikka.application.port.DispatchMetrics
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.domain.decision.Channel
@@ -20,7 +19,7 @@ class DeliveryWorker(
     private val handlers: Map<Channel, ChannelHandler>,
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
-    private val metrics: DispatchMetrics,
+    private val metrics: DeliveryMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(DeliveryWorker::class.java)
 
@@ -33,7 +32,7 @@ class DeliveryWorker(
                 repository
                     .claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys)
                     .also { claimed ->
-                        if (claimed.isEmpty()) metrics.deliveryEmptyPoll() else metrics.deliveryClaimed(claimed.size)
+                        if (claimed.isEmpty()) metrics.emptyPoll() else metrics.claimed(claimed.size)
                     }
             },
             process = { dispatch(it) },
@@ -87,7 +86,7 @@ class DeliveryWorker(
 
     private suspend fun markSent(delivery: ClaimedDelivery) {
         if (repository.markSent(delivery.id)) {
-            metrics.deliverySent(delivery.channel)
+            metrics.sent(delivery.channel)
             val fields = delivery.logFields()
             logger.info(withPlaceholders("Delivery sent successfully", fields), *fields.toTypedArray())
         } else {
@@ -100,7 +99,7 @@ class DeliveryWorker(
         reason: String,
     ) {
         if (repository.markFailed(delivery.id, reason)) {
-            metrics.deliveryFailed(delivery.channel)
+            metrics.failed(delivery.channel)
             val fields = delivery.logFields() + kv(MdcKeys.REASON, reason)
             logger.warn(withPlaceholders("Marked delivery as FAILED", fields), *fields.toTypedArray())
         } else {

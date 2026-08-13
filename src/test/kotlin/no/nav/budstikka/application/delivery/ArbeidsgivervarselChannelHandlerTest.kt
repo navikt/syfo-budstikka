@@ -7,7 +7,6 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
-import no.nav.budstikka.application.port.NarmesteLederMissingReason
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
@@ -17,7 +16,7 @@ import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.fakes.RecordingDispatchMetrics
+import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
@@ -74,7 +73,7 @@ class ArbeidsgivervarselChannelHandlerTest :
         }
 
         test("fails terminally with an identifier-free active leader reason") {
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingDeliveryMetrics()
             val outcome =
                 handler(RecordingPublisher(), FakeNarmesteLederLookup(null), metrics).handle(
                     delivery(
@@ -101,7 +100,7 @@ class ArbeidsgivervarselChannelHandlerTest :
         }
 
         test("fails terminally with an identifier-free missing email reason") {
-            val metrics = RecordingDispatchMetrics()
+            val metrics = RecordingDeliveryMetrics()
             val outcome =
                 handler(
                     RecordingPublisher(),
@@ -145,12 +144,12 @@ class ArbeidsgivervarselChannelHandlerTest :
         }
     })
 
-private val LEDER = PersonIdentifier("22222222222")
+private val LEDER = PersonIdentifier("00000000000")
 
 private fun handler(
     publisher: RecordingPublisher,
     lookup: NarmesteLederLookup = FakeNarmesteLederLookup(null),
-    metrics: RecordingDispatchMetrics = RecordingDispatchMetrics(),
+    metrics: RecordingDeliveryMetrics = RecordingDeliveryMetrics(),
 ) = ArbeidsgivervarselChannelHandler(publisher, lookup, metrics)
 
 private fun create(recipient: ArbeidsgiverRecipient = AltinnResource(AltinnResourceId.DIALOGMOETE)) =
