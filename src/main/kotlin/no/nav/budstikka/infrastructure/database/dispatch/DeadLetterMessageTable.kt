@@ -22,6 +22,6 @@ object DeadLetterMessageTable : Table("dead_letter_message") {
     override val primaryKey = PrimaryKey(id)
 
     init {
-        index("dead_letter_message_received_at_idx", false, receivedAt)
+        index("dead_letter_message_received_at_id_idx", false, receivedAt, id)
     }
 }

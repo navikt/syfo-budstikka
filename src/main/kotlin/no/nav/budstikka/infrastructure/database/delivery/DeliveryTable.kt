@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.database.delivery
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -29,5 +30,12 @@ object DeliveryTable : Table("delivery") {
     init {
         index("delivery_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("delivery_inbox_event_id_idx", false, inboxEventId)
+        index(
+            "delivery_created_at_id_sent_failed_idx",
+            false,
+            createdAt,
+            id,
+            filterCondition = { state inList listOf(DeliveryState.SENT.name, DeliveryState.FAILED.name) },
+        )
     }
 }

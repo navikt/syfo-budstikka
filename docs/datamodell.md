@@ -142,9 +142,11 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 ## Indekser
 
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
+- `inbox_message_received_at_event_id_idx` på `(received_at, event_id)`
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
-- `dead_letter_message_received_at_idx` på `(received_at)`
+- `delivery_created_at_id_sent_failed_idx` på `(created_at, id)` der `state IN ('SENT', 'FAILED')`
+- `dead_letter_message_received_at_id_idx` på `(received_at, id)`
 
 > Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox.
 > Hold-plasseringen er avgjort til inbox-hold i
