@@ -72,7 +72,7 @@ erDiagram
   dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
 - **Retensjon:** Oppryddingen er implementert og styres av
   `workers.retentionCleanup.enabled`. Workeren er aktivert i dev, men deaktivert i prod.
-  Prodaktivering og policyverdiene 100/180 dager krever Jussteamets godkjenning. Når den er
+  Prodaktivering og policyverdiene 100/180 dager krever juridisk godkjenning. Når den er
   aktivert, sletter workeren hardt de 100 eldste kandidatene per tabell hver time
   (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
