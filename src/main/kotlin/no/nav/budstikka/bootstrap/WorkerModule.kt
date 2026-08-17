@@ -23,12 +23,14 @@ import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
+import no.nav.budstikka.application.retention.RetentionCleanupRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
+import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker
 
 fun DependencyRegistry.workerModule() {
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
@@ -58,6 +60,12 @@ fun DependencyRegistry.workerModule() {
         val inboxMetrics = resolve<InboxMetrics>()
         val deliveryMetrics = resolve<DeliveryMetrics>()
         val meterRegistry = resolve<PrometheusMeterRegistry>()
+        val retentionCleanupWorker =
+            RetentionCleanupWorker(
+                cleanup = resolve<RetentionCleanupRepository>(),
+                batchSize = workerConfig.retentionCleanup.batchSize,
+                meterRegistry = meterRegistry,
+            )
         val inboxMessageWorker =
             InboxMessageWorker(
                 repository = resolve<InboxMessageRepository>(),
@@ -95,6 +103,12 @@ fun DependencyRegistry.workerModule() {
                 interval = workerConfig.delivery.interval,
                 meterRegistry = meterRegistry,
                 iteration = deliveryWorker::runOnce,
+            ),
+            BackgroundLoop(
+                name = "retention-cleanup",
+                interval = workerConfig.retentionCleanup.interval,
+                meterRegistry = meterRegistry,
+                iteration = retentionCleanupWorker::runOnce,
             ),
         )
     }.cleanup { loops ->
