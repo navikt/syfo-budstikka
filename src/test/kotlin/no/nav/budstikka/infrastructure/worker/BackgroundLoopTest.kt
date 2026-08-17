@@ -58,7 +58,7 @@ class BackgroundLoopTest :
             loop.close()
         }
 
-        test("failing iteration log carries error type without stacktrace") {
+        test("failing iteration log carries error type and stacktrace") {
             val failed = CountDownLatch(1)
             val loop =
                 BackgroundLoop("failing-worker", 10.milliseconds) {
@@ -79,7 +79,7 @@ class BackgroundLoopTest :
 
             val event = appender.list.single { it.formattedMessage.contains("Worker failed in iteration") }
             event.formattedMessage shouldContain "IllegalStateException"
-            event.throwableProxy shouldBe null
+            event.throwableProxy?.stackTraceElementProxyArray?.isNotEmpty() shouldBe true
         }
 
         test("already logged iteration failure is not logged again") {
