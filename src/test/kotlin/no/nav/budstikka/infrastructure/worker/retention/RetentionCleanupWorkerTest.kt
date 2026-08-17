@@ -2,21 +2,15 @@ package no.nav.budstikka.infrastructure.worker.retention
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import no.nav.budstikka.application.retention.RetentionCleanupCounts
+import no.nav.budstikka.application.retention.RetentionCleanupMetrics
 import no.nav.budstikka.application.retention.RetentionCleanupRepository
 import no.nav.budstikka.application.retention.RetentionCleanupResult
-import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker.Companion.COMPLETED_RUNS
-import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker.Companion.DELETED_ROWS
-import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker.Companion.LOCK_CONTENTIONS
-import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker.Companion.TABLE_DELIVERY
-import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker.Companion.TABLE_INBOX
-import no.nav.budstikka.infrastructure.worker.retention.RetentionCleanupWorker.Companion.TAG_TABLE
 
 class RetentionCleanupWorkerTest :
     FunSpec({
-        test("records completed cleanup rows with fixed PII-free table labels") {
-            val registry = SimpleMeterRegistry()
+        test("reports completed cleanup counts to the metrics port") {
+            val metrics = RecordingRetentionCleanupMetrics()
             val worker =
                 RetentionCleanupWorker(
                     cleanup =
@@ -26,35 +20,39 @@ class RetentionCleanupWorkerTest :
                             )
                         },
                     batchSize = 100,
-                    meterRegistry = registry,
+                    metrics = metrics,
                 )
 
             worker.runOnce()
 
-            registry.get(COMPLETED_RUNS).counter().count() shouldBe 1.0
-            registry
-                .get(DELETED_ROWS)
-                .tag(TAG_TABLE, TABLE_INBOX)
-                .counter()
-                .count() shouldBe 2.0
-            registry
-                .get(DELETED_ROWS)
-                .tag(TAG_TABLE, TABLE_DELIVERY)
-                .counter()
-                .count() shouldBe 4.0
+            metrics.completedCounts shouldBe
+                listOf(RetentionCleanupCounts(inboxMessages = 2, deadLetterMessages = 3, deliveries = 4))
         }
 
-        test("records advisory-lock contention as a skipped cleanup outcome") {
-            val registry = SimpleMeterRegistry()
+        test("reports advisory-lock contention to the metrics port") {
+            val metrics = RecordingRetentionCleanupMetrics()
             val worker =
                 RetentionCleanupWorker(
                     cleanup = RetentionCleanupRepository { RetentionCleanupResult.SkippedDueToLockContention },
                     batchSize = 100,
-                    meterRegistry = registry,
+                    metrics = metrics,
                 )
 
             worker.runOnce()
 
-            registry.get(LOCK_CONTENTIONS).counter().count() shouldBe 1.0
+            metrics.lockContentions shouldBe 1
         }
-    })
+    }) {
+    private class RecordingRetentionCleanupMetrics : RetentionCleanupMetrics {
+        val completedCounts = mutableListOf<RetentionCleanupCounts>()
+        var lockContentions = 0
+
+        override fun completed(counts: RetentionCleanupCounts) {
+            completedCounts += counts
+        }
+
+        override fun lockContention() {
+            lockContentions++
+        }
+    }
+}

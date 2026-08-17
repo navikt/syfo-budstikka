@@ -23,6 +23,7 @@ import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
+import no.nav.budstikka.application.retention.RetentionCleanupMetrics
 import no.nav.budstikka.application.retention.RetentionCleanupRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.domain.decision.Channel
@@ -59,12 +60,13 @@ fun DependencyRegistry.workerModule() {
         val workerConfig = resolve<WorkerConfig>()
         val inboxMetrics = resolve<InboxMetrics>()
         val deliveryMetrics = resolve<DeliveryMetrics>()
+        val retentionCleanupMetrics = resolve<RetentionCleanupMetrics>()
         val meterRegistry = resolve<PrometheusMeterRegistry>()
         val retentionCleanupWorker =
             RetentionCleanupWorker(
                 cleanup = resolve<RetentionCleanupRepository>(),
                 batchSize = workerConfig.retentionCleanup.batchSize,
-                meterRegistry = meterRegistry,
+                metrics = retentionCleanupMetrics,
             )
         val inboxMessageWorker =
             InboxMessageWorker(
