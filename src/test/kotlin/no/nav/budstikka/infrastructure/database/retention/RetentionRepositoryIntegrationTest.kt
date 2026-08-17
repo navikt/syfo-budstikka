@@ -5,8 +5,8 @@ import com.zaxxer.hikari.HikariDataSource
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.application.retention.RetentionCleanupCounts
-import no.nav.budstikka.application.retention.RetentionCleanupResult
+import no.nav.budstikka.application.retention.RetentionCounts
+import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
@@ -26,11 +26,11 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-class RetentionCleanupRepositoryIntegrationTest :
+class RetentionRepositoryIntegrationTest :
     FunSpec({
         val fixture = PostgresTestFixture()
         val clock = MutableClock(Instant.parse("2026-08-14T08:00:00Z"))
-        val cleanup = RetentionCleanupRepositoryImpl(fixture.database, clock)
+        val cleanup = RetentionRepositoryImpl(fixture.database, clock)
 
         beforeSpec { fixture.migrate() }
         afterTest { fixture.reset() }
@@ -96,7 +96,7 @@ class RetentionCleanupRepositoryIntegrationTest :
 
         suspend fun rowCounts() =
             fixture.database.transact {
-                RetentionCleanupCounts(
+                RetentionCounts(
                     inboxMessages = InboxMessageTable.selectAll().count().toInt(),
                     deadLetterMessages = DeadLetterMessageTable.selectAll().count().toInt(),
                     deliveries = DeliveryTable.selectAll().count().toInt(),
@@ -164,8 +164,8 @@ class RetentionCleanupRepositoryIntegrationTest :
             val expiredClaimed = delivery(deliveryCutoff - 1.seconds, DeliveryState.CLAIMED)
 
             cleanup.run(batchSize = 100) shouldBe
-                RetentionCleanupResult.Completed(
-                    RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 1, deliveries = 2),
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 1, deadLetterMessages = 1, deliveries = 2),
                 )
 
             fixture.database.transact {
@@ -189,10 +189,10 @@ class RetentionCleanupRepositoryIntegrationTest :
             val deliveryIds = (1..101).map { delivery(deliveryCutoff - (102 - it).seconds, DeliveryState.SENT) }
 
             cleanup.run(batchSize = 100) shouldBe
-                RetentionCleanupResult.Completed(
-                    RetentionCleanupCounts(inboxMessages = 100, deadLetterMessages = 100, deliveries = 100),
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 100, deadLetterMessages = 100, deliveries = 100),
                 )
-            rowCounts() shouldBe RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 1, deliveries = 1)
+            rowCounts() shouldBe RetentionCounts(inboxMessages = 1, deadLetterMessages = 1, deliveries = 1)
 
             fixture.database.transact {
                 InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq inboxIds.first() }.count() shouldBe 0
@@ -204,10 +204,10 @@ class RetentionCleanupRepositoryIntegrationTest :
             }
 
             cleanup.run(batchSize = 100) shouldBe
-                RetentionCleanupResult.Completed(
-                    RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 1, deliveries = 1),
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 1, deadLetterMessages = 1, deliveries = 1),
                 )
-            rowCounts() shouldBe RetentionCleanupCounts(inboxMessages = 0, deadLetterMessages = 0, deliveries = 0)
+            rowCounts() shouldBe RetentionCounts(inboxMessages = 0, deadLetterMessages = 0, deliveries = 0)
         }
 
         test("skips safely while another database session holds the advisory lock") {
@@ -217,30 +217,30 @@ class RetentionCleanupRepositoryIntegrationTest :
                 connection
                     .prepareStatement("SELECT pg_try_advisory_lock(?, ?)")
                     .use { statement ->
-                        statement.setInt(1, RetentionCleanupRepositoryImpl.RETENTION_CLEANUP_LOCK_NAMESPACE)
-                        statement.setInt(2, RetentionCleanupRepositoryImpl.RETENTION_CLEANUP_LOCK_KEY)
+                        statement.setInt(1, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_NAMESPACE)
+                        statement.setInt(2, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_KEY)
                         statement.executeQuery().use { resultSet ->
                             resultSet.next() shouldBe true
                             resultSet.getBoolean(1) shouldBe true
                         }
                     }
                 try {
-                    cleanup.run(batchSize = 100) shouldBe RetentionCleanupResult.SkippedDueToLockContention
-                    rowCounts() shouldBe RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0)
+                    cleanup.run(batchSize = 100) shouldBe RetentionResult.SkippedDueToLockContention
+                    rowCounts() shouldBe RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0)
                 } finally {
                     connection
                         .prepareStatement("SELECT pg_advisory_unlock(?, ?)")
                         .use { statement ->
-                            statement.setInt(1, RetentionCleanupRepositoryImpl.RETENTION_CLEANUP_LOCK_NAMESPACE)
-                            statement.setInt(2, RetentionCleanupRepositoryImpl.RETENTION_CLEANUP_LOCK_KEY)
+                            statement.setInt(1, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_NAMESPACE)
+                            statement.setInt(2, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_KEY)
                             statement.executeQuery().close()
                         }
                 }
             }
 
             cleanup.run(batchSize = 100) shouldBe
-                RetentionCleanupResult.Completed(
-                    RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
                 )
         }
 
@@ -249,8 +249,8 @@ class RetentionCleanupRepositoryIntegrationTest :
 
             retentionCleanupDataSource().use { failingDataSource ->
                 retentionCleanupDataSource().use { followingDataSource ->
-                    val failingCleanup = RetentionCleanupRepositoryImpl(Database.connect(failingDataSource), clock)
-                    val followingCleanup = RetentionCleanupRepositoryImpl(Database.connect(followingDataSource), clock)
+                    val failingCleanup = RetentionRepositoryImpl(Database.connect(failingDataSource), clock)
+                    val followingCleanup = RetentionRepositoryImpl(Database.connect(followingDataSource), clock)
                     installInboxDeletionFailure()
                     try {
                         shouldThrow<ExposedSQLException> {
@@ -261,8 +261,8 @@ class RetentionCleanupRepositoryIntegrationTest :
                     }
 
                     followingCleanup.run(batchSize = 100) shouldBe
-                        RetentionCleanupResult.Completed(
-                            RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
+                        RetentionResult.Completed(
+                            RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
                         )
                 }
             }
@@ -273,8 +273,8 @@ class RetentionCleanupRepositoryIntegrationTest :
             val deliveryId = delivery(clock.now(), DeliveryState.READY, inboxEventId)
 
             cleanup.run(batchSize = 100) shouldBe
-                RetentionCleanupResult.Completed(
-                    RetentionCleanupCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
                 )
 
             fixture.database.transact {

@@ -1,8 +1,8 @@
 package no.nav.budstikka.infrastructure.database.retention
 
-import no.nav.budstikka.application.retention.RetentionCleanupCounts
-import no.nav.budstikka.application.retention.RetentionCleanupRepository
-import no.nav.budstikka.application.retention.RetentionCleanupResult
+import no.nav.budstikka.application.retention.RetentionCounts
+import no.nav.budstikka.application.retention.RetentionRepository
+import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
@@ -20,22 +20,22 @@ import java.sql.Connection
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 
-class RetentionCleanupRepositoryImpl(
+class RetentionRepositoryImpl(
     private val database: Database,
     private val clock: Clock = Clock.System,
-) : RetentionCleanupRepository {
-    override suspend fun run(batchSize: Int): RetentionCleanupResult {
+) : RetentionRepository {
+    override suspend fun run(batchSize: Int): RetentionResult {
         require(batchSize in 1..MAXIMUM_BATCH_SIZE) {
             "batchSize must be between 1 and $MAXIMUM_BATCH_SIZE"
         }
         return database.transact {
             val connection = TransactionManager.current().connection.connection as Connection
             if (!connection.tryAcquireCleanupLock()) {
-                return@transact RetentionCleanupResult.SkippedDueToLockContention
+                return@transact RetentionResult.SkippedDueToLockContention
             }
             val now = clock.now()
-            RetentionCleanupResult.Completed(
-                RetentionCleanupCounts(
+            RetentionResult.Completed(
+                RetentionCounts(
                     inboxMessages = deleteOldInboxMessages(now - INBOX_AND_DEAD_LETTER_RETENTION, batchSize),
                     deadLetterMessages =
                         deleteOldDeadLetterMessages(now - INBOX_AND_DEAD_LETTER_RETENTION, batchSize),

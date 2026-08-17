@@ -2,16 +2,16 @@ package no.nav.budstikka.infrastructure.metrics
 
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
-import no.nav.budstikka.application.retention.RetentionCleanupCounts
-import no.nav.budstikka.application.retention.RetentionCleanupMetrics
+import no.nav.budstikka.application.retention.RetentionCounts
+import no.nav.budstikka.application.retention.RetentionMetrics
 
 /**
- * Micrometer adapter for [RetentionCleanupMetrics]. Counts cleanup outcomes in the shared registry.
+ * Micrometer adapter for [RetentionMetrics]. Counts cleanup outcomes in the shared registry.
  * Labels are fixed, low-cardinality, and PII-free.
  */
-class MicrometerRetentionCleanupMetrics(
+class MicrometerRetentionMetrics(
     private val registry: MeterRegistry,
-) : RetentionCleanupMetrics {
+) : RetentionMetrics {
     private val completedRuns = counter(COMPLETED_RUNS)
     private val lockContentions = counter(LOCK_CONTENTIONS)
     private val deletedRows =
@@ -21,7 +21,7 @@ class MicrometerRetentionCleanupMetrics(
             TABLE_DELIVERY to deletedRowsCounter(TABLE_DELIVERY),
         )
 
-    override fun completed(counts: RetentionCleanupCounts) {
+    override fun completed(counts: RetentionCounts) {
         completedRuns.increment()
         deletedRows.getValue(TABLE_INBOX).increment(counts.inboxMessages.toDouble())
         deletedRows.getValue(TABLE_DEAD_LETTER).increment(counts.deadLetterMessages.toDouble())

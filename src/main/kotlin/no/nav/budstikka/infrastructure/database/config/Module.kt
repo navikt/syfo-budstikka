@@ -9,13 +9,13 @@ import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
-import no.nav.budstikka.application.retention.RetentionCleanupRepository
+import no.nav.budstikka.application.retention.RetentionRepository
 import no.nav.budstikka.infrastructure.HealthCheck
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
-import no.nav.budstikka.infrastructure.database.retention.RetentionCleanupRepositoryImpl
+import no.nav.budstikka.infrastructure.database.retention.RetentionRepositoryImpl
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -32,7 +32,7 @@ fun DependencyRegistry.databaseModule() {
     provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
     provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
     provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
-    provide<RetentionCleanupRepository> { RetentionCleanupRepositoryImpl(resolve()) }
+    provide<RetentionRepository> { RetentionRepositoryImpl(resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

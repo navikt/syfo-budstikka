@@ -4,13 +4,13 @@ import io.ktor.server.config.ApplicationConfig
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.configFor
 import no.nav.budstikka.infrastructure.config.validate
-import no.nav.budstikka.infrastructure.database.retention.RetentionCleanupRepositoryImpl
+import no.nav.budstikka.infrastructure.database.retention.RetentionRepositoryImpl
 import kotlin.time.Duration.Companion.seconds
 
 data class WorkerConfig(
     val inboxMessage: LeaseDrainConfig,
     val delivery: LeaseDrainConfig,
-    val retentionCleanup: RetentionCleanupConfig,
+    val retentionCleanup: RetentionConfig,
 )
 
 fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
@@ -20,19 +20,19 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
         retentionCleanup = retentionCleanupConfig(),
     )
 
-data class RetentionCleanupConfig(
+data class RetentionConfig(
     val interval: kotlin.time.Duration,
     val batchSize: Int,
 )
 
 private fun ApplicationConfig.retentionCleanupConfig() =
     with(configFor("workers.retentionCleanup")) {
-        RetentionCleanupConfig(
+        RetentionConfig(
             interval =
                 this("intervalSeconds").toLongOrNull()?.takeIf { it > 0 }?.seconds
                     ?: DEFAULT_RETENTION_CLEANUP_INTERVAL_SECONDS.seconds,
             batchSize =
-                this("batchSize").toIntOrNull()?.takeIf { it in 1..RetentionCleanupRepositoryImpl.MAXIMUM_BATCH_SIZE }
+                this("batchSize").toIntOrNull()?.takeIf { it in 1..RetentionRepositoryImpl.MAXIMUM_BATCH_SIZE }
                     ?: DEFAULT_RETENTION_CLEANUP_BATCH_SIZE,
         ).validate {
             buildList {
@@ -47,11 +47,11 @@ private fun ApplicationConfig.retentionCleanupConfig() =
                 if (raw("batchSize").isNotBlank() &&
                     raw("batchSize")
                         .toIntOrNull()
-                        ?.takeIf { it in 1..RetentionCleanupRepositoryImpl.MAXIMUM_BATCH_SIZE } == null
+                        ?.takeIf { it in 1..RetentionRepositoryImpl.MAXIMUM_BATCH_SIZE } == null
                 ) {
                     add(
                         "workers.retentionCleanup.batchSize must be an integer between 1 and " +
-                            RetentionCleanupRepositoryImpl.MAXIMUM_BATCH_SIZE,
+                            RetentionRepositoryImpl.MAXIMUM_BATCH_SIZE,
                     )
                 }
             }
@@ -113,4 +113,4 @@ private fun ApplicationConfig.leaseDrainConfig(prefix: String) =
     }
 
 private const val DEFAULT_RETENTION_CLEANUP_INTERVAL_SECONDS = 3600L
-private const val DEFAULT_RETENTION_CLEANUP_BATCH_SIZE = RetentionCleanupRepositoryImpl.MAXIMUM_BATCH_SIZE
+private const val DEFAULT_RETENTION_CLEANUP_BATCH_SIZE = RetentionRepositoryImpl.MAXIMUM_BATCH_SIZE

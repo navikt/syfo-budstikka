@@ -4,22 +4,22 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
-import no.nav.budstikka.application.retention.RetentionCleanupCounts
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.COMPLETED_RUNS
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.DELETED_ROWS
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.LOCK_CONTENTIONS
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.TABLE_DEAD_LETTER
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.TABLE_DELIVERY
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.TABLE_INBOX
-import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionCleanupMetrics.Companion.TAG_TABLE
+import no.nav.budstikka.application.retention.RetentionCounts
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.COMPLETED_RUNS
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.DELETED_ROWS
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.LOCK_CONTENTIONS
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TABLE_DEAD_LETTER
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TABLE_DELIVERY
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TABLE_INBOX
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TAG_TABLE
 
-class MicrometerRetentionCleanupMetricsTest :
+class MicrometerRetentionMetricsTest :
     FunSpec({
         test("counts completed cleanup rows under established names and fixed PII-free table labels") {
             val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
-            val metrics = MicrometerRetentionCleanupMetrics(registry)
+            val metrics = MicrometerRetentionMetrics(registry)
 
-            metrics.completed(RetentionCleanupCounts(inboxMessages = 2, deadLetterMessages = 3, deliveries = 4))
+            metrics.completed(RetentionCounts(inboxMessages = 2, deadLetterMessages = 3, deliveries = 4))
 
             registry.get(COMPLETED_RUNS).counter().count() shouldBe 1.0
             registry
@@ -41,7 +41,7 @@ class MicrometerRetentionCleanupMetricsTest :
 
         test("counts advisory-lock contention under the established meter name") {
             val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
-            val metrics = MicrometerRetentionCleanupMetrics(registry)
+            val metrics = MicrometerRetentionMetrics(registry)
 
             metrics.lockContention()
 
