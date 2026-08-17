@@ -25,13 +25,13 @@ import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.retention.RetentionMetrics
 import no.nav.budstikka.application.retention.RetentionRepository
+import no.nav.budstikka.application.retention.RetentionWorker
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
-import no.nav.budstikka.infrastructure.worker.retention.RetentionWorker
 
 fun DependencyRegistry.workerModule() {
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }

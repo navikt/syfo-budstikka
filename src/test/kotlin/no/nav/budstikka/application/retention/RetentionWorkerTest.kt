@@ -1,11 +1,7 @@
-package no.nav.budstikka.infrastructure.worker.retention
+package no.nav.budstikka.application.retention
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.application.retention.RetentionCounts
-import no.nav.budstikka.application.retention.RetentionMetrics
-import no.nav.budstikka.application.retention.RetentionRepository
-import no.nav.budstikka.application.retention.RetentionResult
 
 class RetentionWorkerTest :
     FunSpec({

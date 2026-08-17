@@ -1,9 +1,6 @@
-package no.nav.budstikka.infrastructure.worker.retention
+package no.nav.budstikka.application.retention
 
 import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.retention.RetentionMetrics
-import no.nav.budstikka.application.retention.RetentionRepository
-import no.nav.budstikka.application.retention.RetentionResult
 import org.slf4j.LoggerFactory
 
 class RetentionWorker(
