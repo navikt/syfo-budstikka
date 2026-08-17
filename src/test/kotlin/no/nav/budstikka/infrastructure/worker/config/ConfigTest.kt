@@ -134,6 +134,13 @@ class ConfigTest :
                 "Invalid configuration: workers.retentionCleanup.batchSize must be an integer between 1 and 100"
         }
 
+        test("toWorkerConfig accepts the maximum retention cleanup batch size") {
+            config(retentionCleanupBatchSize = RetentionConfig.MAXIMUM_BATCH_SIZE.toString())
+                .toWorkerConfig()
+                .retentionCleanup
+                .batchSize shouldBe RetentionConfig.MAXIMUM_BATCH_SIZE
+        }
+
         test("toWorkerConfig validates retention cleanup enabled is a boolean") {
             shouldThrow<IllegalStateException> {
                 config(retentionCleanupEnabled = "yes").toWorkerConfig()

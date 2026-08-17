@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.database.retention
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.retention.RetentionCounts
@@ -20,6 +21,16 @@ class BatchingIntegrationTest :
         beforeSpec { support.migrate() }
         afterTest { support.reset() }
         afterSpec { support.close() }
+
+        test("rejects batch sizes outside the defensive limit") {
+            shouldThrow<IllegalArgumentException> {
+                support.run(batchSize = 0)
+            }.message shouldBe "batchSize must be between 1 and 100"
+
+            shouldThrow<IllegalArgumentException> {
+                support.run(batchSize = 101)
+            }.message shouldBe "batchSize must be between 1 and 100"
+        }
 
         test("deletes the oldest 100 candidates per table and continues on the next run") {
             val inboxCutoff = support.clock.now() - support.policy.inboxAndDeadLetterRetention

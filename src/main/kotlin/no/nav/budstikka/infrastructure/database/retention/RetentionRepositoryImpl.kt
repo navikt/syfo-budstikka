@@ -8,6 +8,7 @@ import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import no.nav.budstikka.infrastructure.worker.config.RetentionConfig
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.inList
@@ -25,8 +26,8 @@ class RetentionRepositoryImpl(
     private val clock: Clock = Clock.System,
 ) : RetentionRepository {
     override suspend fun run(batchSize: Int): RetentionResult {
-        require(batchSize in 1..MAXIMUM_BATCH_SIZE) {
-            "batchSize must be between 1 and $MAXIMUM_BATCH_SIZE"
+        require(batchSize in 1..RetentionConfig.MAXIMUM_BATCH_SIZE) {
+            "batchSize must be between 1 and ${RetentionConfig.MAXIMUM_BATCH_SIZE}"
         }
         return database.transact {
             val connection = TransactionManager.current().connection.connection as Connection
@@ -103,8 +104,6 @@ class RetentionRepositoryImpl(
     }
 
     companion object {
-        const val MAXIMUM_BATCH_SIZE = 100
-
         internal const val RETENTION_CLEANUP_LOCK_NAMESPACE = 0x42554453
         internal const val RETENTION_CLEANUP_LOCK_KEY = 0x5245544e
 
