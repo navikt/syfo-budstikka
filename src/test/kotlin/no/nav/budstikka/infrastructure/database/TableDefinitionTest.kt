@@ -4,9 +4,11 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.vendors.currentDialectMetadata
 import org.jetbrains.exposed.v1.migration.jdbc.MigrationUtils
+import java.sql.DriverManager
 
 class TableDefinitionTest :
     FunSpec({
@@ -45,5 +47,31 @@ class TableDefinitionTest :
                     tablesInSchema shouldContainExactlyInAnyOrder registeredTables
                 }
             }
+        }
+
+        test("delivery retention index includes only terminal delivery states") {
+            DriverManager
+                .getConnection(fixture.jdbcUrl, fixture.username, fixture.password)
+                .use { connection ->
+                    connection
+                        .prepareStatement(
+                            """
+                            SELECT indexname, indexdef
+                            FROM pg_indexes
+                            WHERE schemaname = ?
+                              AND indexname = ?
+                            """.trimIndent(),
+                        ).use { statement ->
+                            statement.setString(1, fixture.schema)
+                            statement.setString(2, "delivery_created_at_id_sent_failed_idx")
+                            statement.executeQuery().use { resultSet ->
+                                check(resultSet.next()) {
+                                    "Delivery retention index was not found in schema '${fixture.schema}'"
+                                }
+                                resultSet.getString("indexdef")
+                            }
+                        }
+                }.substringAfter(" WHERE ", missingDelimiterValue = "") shouldBe
+                "(state = ANY (ARRAY['SENT'::text, 'FAILED'::text]))"
         }
     })

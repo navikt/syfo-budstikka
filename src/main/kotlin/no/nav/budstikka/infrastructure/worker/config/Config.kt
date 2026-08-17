@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.worker.config
 
 import io.ktor.server.config.ApplicationConfig
+import no.nav.budstikka.application.retention.RetentionConfig
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.configFor
 import no.nav.budstikka.infrastructure.config.validate
@@ -9,13 +10,53 @@ import kotlin.time.Duration.Companion.seconds
 data class WorkerConfig(
     val inboxMessage: LeaseDrainConfig,
     val delivery: LeaseDrainConfig,
+    val retentionCleanup: RetentionConfig,
 )
 
 fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
     WorkerConfig(
         inboxMessage = leaseDrainConfig("workers.inboxMessage"),
         delivery = leaseDrainConfig("workers.delivery"),
+        retentionCleanup = retentionCleanupConfig(),
     )
+
+private fun ApplicationConfig.retentionCleanupConfig() =
+    with(configFor("workers.retentionCleanup")) {
+        val enabled = this("enabled")
+        RetentionConfig(
+            enabled = enabled.equals("true", ignoreCase = true),
+            interval =
+                this("intervalSeconds").toLongOrNull()?.takeIf { it > 0 }?.seconds
+                    ?: RetentionConfig.DEFAULT_INTERVAL_SECONDS.seconds,
+            batchSize =
+                this("batchSize").toIntOrNull()?.takeIf { it in 1..RetentionConfig.MAXIMUM_BATCH_SIZE }
+                    ?: RetentionConfig.MAXIMUM_BATCH_SIZE,
+        ).validate {
+            buildList {
+                val raw = this@with
+                if (enabled.isNotEmpty() && !enabled.equals("true", ignoreCase = true) && !enabled.equals("false", ignoreCase = true)) {
+                    add("workers.retentionCleanup.enabled must be true or false")
+                }
+                if (raw("intervalSeconds").isNotBlank() &&
+                    raw("intervalSeconds")
+                        .toLongOrNull()
+                        ?.takeIf { it > 0 } == null
+                ) {
+                    add("workers.retentionCleanup.intervalSeconds must be a positive integer")
+                }
+                if (raw("batchSize").isNotBlank() &&
+                    raw("batchSize")
+                        .toIntOrNull()
+                        ?.takeIf { it in 1..RetentionConfig.MAXIMUM_BATCH_SIZE } == null
+                ) {
+                    add(
+                        "workers.retentionCleanup.batchSize must be an integer between 1 and " +
+                            RetentionConfig.MAXIMUM_BATCH_SIZE,
+                    )
+                }
+            }
+        }
+    }
 
 private fun ApplicationConfig.leaseDrainConfig(prefix: String) =
     with(configFor(prefix)) {

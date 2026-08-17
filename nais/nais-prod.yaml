@@ -83,6 +83,8 @@ spec:
             # application.conf reads BUDSTIKKA_DB_URL/_USERNAME/_PASSWORD/_SSLKEY_PK8
             envVarPrefix: BUDSTIKKA_DB
   env:
+    - name: WORKER_RETENTION_CLEANUP_ENABLED
+      value: "false"
     - name: PDL_URL
       value: https://pdl-api.prod-fss-pub.nais.io/graphql
     - name: PDL_SCOPE

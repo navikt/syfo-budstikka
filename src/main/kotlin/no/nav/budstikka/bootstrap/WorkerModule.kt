@@ -23,6 +23,9 @@ import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
+import no.nav.budstikka.application.retention.RetentionMetrics
+import no.nav.budstikka.application.retention.RetentionRepository
+import no.nav.budstikka.application.retention.RetentionWorker
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DecisionProcess
@@ -57,7 +60,14 @@ fun DependencyRegistry.workerModule() {
         val workerConfig = resolve<WorkerConfig>()
         val inboxMetrics = resolve<InboxMetrics>()
         val deliveryMetrics = resolve<DeliveryMetrics>()
+        val retentionMetrics = resolve<RetentionMetrics>()
         val meterRegistry = resolve<PrometheusMeterRegistry>()
+        val retentionWorker =
+            RetentionWorker(
+                repository = resolve<RetentionRepository>(),
+                batchSize = workerConfig.retentionCleanup.batchSize,
+                metrics = retentionMetrics,
+            )
         val inboxMessageWorker =
             InboxMessageWorker(
                 repository = resolve<InboxMessageRepository>(),
@@ -83,7 +93,7 @@ fun DependencyRegistry.workerModule() {
                 config = workerConfig.delivery,
                 metrics = deliveryMetrics,
             )
-        listOf(
+        listOfNotNull(
             BackgroundLoop(
                 name = "inbox-message",
                 interval = workerConfig.inboxMessage.interval,
@@ -96,6 +106,16 @@ fun DependencyRegistry.workerModule() {
                 meterRegistry = meterRegistry,
                 iteration = deliveryWorker::runOnce,
             ),
+            if (workerConfig.retentionCleanup.enabled) {
+                BackgroundLoop(
+                    name = "retention-cleanup",
+                    interval = workerConfig.retentionCleanup.interval,
+                    meterRegistry = meterRegistry,
+                    iteration = retentionWorker::runOnce,
+                )
+            } else {
+                null
+            },
         )
     }.cleanup { loops ->
         loops.forEach(AutoCloseable::close)
