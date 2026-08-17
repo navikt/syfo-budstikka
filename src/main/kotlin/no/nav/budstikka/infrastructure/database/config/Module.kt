@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
+import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionRepository
 import no.nav.budstikka.infrastructure.HealthCheck
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
@@ -32,7 +33,8 @@ fun DependencyRegistry.databaseModule() {
     provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
     provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
     provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
-    provide<RetentionRepository> { RetentionRepositoryImpl(resolve()) }
+    provide { RetentionPolicy() }
+    provide<RetentionRepository> { RetentionRepositoryImpl(resolve(), resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

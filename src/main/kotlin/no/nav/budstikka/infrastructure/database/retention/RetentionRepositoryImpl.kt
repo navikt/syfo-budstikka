@@ -1,10 +1,10 @@
 package no.nav.budstikka.infrastructure.database.retention
 
 import no.nav.budstikka.application.retention.RetentionCounts
+import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionRepository
 import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.infrastructure.database.config.transact
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
@@ -18,10 +18,10 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import java.sql.Connection
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 
 class RetentionRepositoryImpl(
     private val database: Database,
+    private val policy: RetentionPolicy,
     private val clock: Clock = Clock.System,
 ) : RetentionRepository {
     override suspend fun run(batchSize: Int): RetentionResult {
@@ -36,10 +36,10 @@ class RetentionRepositoryImpl(
             val now = clock.now()
             RetentionResult.Completed(
                 RetentionCounts(
-                    inboxMessages = deleteOldInboxMessages(now - INBOX_AND_DEAD_LETTER_RETENTION, batchSize),
+                    inboxMessages = deleteOldInboxMessages(now - policy.inboxAndDeadLetterRetention, batchSize),
                     deadLetterMessages =
-                        deleteOldDeadLetterMessages(now - INBOX_AND_DEAD_LETTER_RETENTION, batchSize),
-                    deliveries = deleteOldTerminalDeliveries(now - DELIVERY_RETENTION, batchSize),
+                        deleteOldDeadLetterMessages(now - policy.inboxAndDeadLetterRetention, batchSize),
+                    deliveries = deleteOldTerminalDeliveries(now - policy.deliveryRetention, batchSize),
                 ),
             )
         }
@@ -94,7 +94,7 @@ class RetentionRepositoryImpl(
                 .select(DeliveryTable.id)
                 .where {
                     (DeliveryTable.createdAt less cutoff) and
-                        (DeliveryTable.state inList listOf(DeliveryState.SENT.name, DeliveryState.FAILED.name))
+                        (DeliveryTable.state inList policy.eligibleDeliveryStates.toList())
                 }.orderBy(DeliveryTable.createdAt to SortOrder.ASC, DeliveryTable.id to SortOrder.ASC)
                 .limit(batchSize)
                 .map { it[DeliveryTable.id] }
@@ -104,8 +104,6 @@ class RetentionRepositoryImpl(
 
     companion object {
         const val MAXIMUM_BATCH_SIZE = 100
-        private val INBOX_AND_DEAD_LETTER_RETENTION = 100.days
-        private val DELIVERY_RETENTION = 180.days
 
         internal const val RETENTION_CLEANUP_LOCK_NAMESPACE = 0x42554453
         internal const val RETENTION_CLEANUP_LOCK_KEY = 0x5245544e
