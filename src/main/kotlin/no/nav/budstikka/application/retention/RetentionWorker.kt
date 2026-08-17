@@ -4,14 +4,14 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import org.slf4j.LoggerFactory
 
 class RetentionWorker(
-    private val cleanup: RetentionRepository,
+    private val repository: RetentionRepository,
     private val batchSize: Int,
     private val metrics: RetentionMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(RetentionWorker::class.java)
 
     suspend fun runOnce() {
-        when (val result = cleanup.run(batchSize)) {
+        when (val result = repository.run(batchSize)) {
             is RetentionResult.Completed -> {
                 metrics.completed(result.counts)
                 logger.info(

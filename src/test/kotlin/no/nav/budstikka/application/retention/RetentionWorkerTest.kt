@@ -9,7 +9,7 @@ class RetentionWorkerTest :
             val metrics = RecordingRetentionMetrics()
             val worker =
                 RetentionWorker(
-                    cleanup =
+                    repository =
                         RetentionRepository {
                             RetentionResult.Completed(
                                 RetentionCounts(inboxMessages = 2, deadLetterMessages = 3, deliveries = 4),
@@ -29,7 +29,7 @@ class RetentionWorkerTest :
             val metrics = RecordingRetentionMetrics()
             val worker =
                 RetentionWorker(
-                    cleanup = RetentionRepository { RetentionResult.SkippedDueToLockContention },
+                    repository = RetentionRepository { RetentionResult.SkippedDueToLockContention },
                     batchSize = 100,
                     metrics = metrics,
                 )
