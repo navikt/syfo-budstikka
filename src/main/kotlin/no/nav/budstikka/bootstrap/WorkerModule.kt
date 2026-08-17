@@ -64,7 +64,7 @@ fun DependencyRegistry.workerModule() {
         val meterRegistry = resolve<PrometheusMeterRegistry>()
         val retentionWorker =
             RetentionWorker(
-                cleanup = resolve<RetentionRepository>(),
+                repository = resolve<RetentionRepository>(),
                 batchSize = workerConfig.retentionCleanup.batchSize,
                 metrics = retentionMetrics,
             )
@@ -93,7 +93,7 @@ fun DependencyRegistry.workerModule() {
                 config = workerConfig.delivery,
                 metrics = deliveryMetrics,
             )
-        listOf(
+        listOfNotNull(
             BackgroundLoop(
                 name = "inbox-message",
                 interval = workerConfig.inboxMessage.interval,
@@ -106,12 +106,16 @@ fun DependencyRegistry.workerModule() {
                 meterRegistry = meterRegistry,
                 iteration = deliveryWorker::runOnce,
             ),
-            BackgroundLoop(
-                name = "retention-cleanup",
-                interval = workerConfig.retentionCleanup.interval,
-                meterRegistry = meterRegistry,
-                iteration = retentionWorker::runOnce,
-            ),
+            if (workerConfig.retentionCleanup.enabled) {
+                BackgroundLoop(
+                    name = "retention-cleanup",
+                    interval = workerConfig.retentionCleanup.interval,
+                    meterRegistry = meterRegistry,
+                    iteration = retentionWorker::runOnce,
+                )
+            } else {
+                null
+            },
         )
     }.cleanup { loops ->
         loops.forEach(AutoCloseable::close)

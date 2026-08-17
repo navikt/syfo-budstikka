@@ -21,13 +21,16 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
     )
 
 data class RetentionConfig(
+    val enabled: Boolean,
     val interval: kotlin.time.Duration,
     val batchSize: Int,
 )
 
 private fun ApplicationConfig.retentionCleanupConfig() =
     with(configFor("workers.retentionCleanup")) {
+        val enabled = this("enabled")
         RetentionConfig(
+            enabled = enabled.equals("true", ignoreCase = true),
             interval =
                 this("intervalSeconds").toLongOrNull()?.takeIf { it > 0 }?.seconds
                     ?: DEFAULT_RETENTION_CLEANUP_INTERVAL_SECONDS.seconds,
@@ -37,6 +40,9 @@ private fun ApplicationConfig.retentionCleanupConfig() =
         ).validate {
             buildList {
                 val raw = this@with
+                if (enabled.isNotEmpty() && !enabled.equals("true", ignoreCase = true) && !enabled.equals("false", ignoreCase = true)) {
+                    add("workers.retentionCleanup.enabled must be true or false")
+                }
                 if (raw("intervalSeconds").isNotBlank() &&
                     raw("intervalSeconds")
                         .toLongOrNull()

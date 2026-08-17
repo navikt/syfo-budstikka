@@ -24,6 +24,7 @@ class ConfigTest :
                     deliveryLeaseBudgetFraction = "0.6",
                     deliveryMaxAttempts = "8",
                     deliveryMaxConsecutiveItemFailures = "5",
+                    retentionCleanupEnabled = "true",
                     retentionCleanupIntervalSeconds = "360",
                     retentionCleanupBatchSize = "25",
                 ).toWorkerConfig(),
@@ -40,6 +41,7 @@ class ConfigTest :
                 delivery.leaseBudgetFraction shouldBe 0.6
                 delivery.maxAttempts shouldBe 8
                 delivery.maxConsecutiveItemFailures shouldBe 5
+                retentionCleanup.enabled shouldBe true
                 retentionCleanup.interval shouldBe 360.seconds
                 retentionCleanup.batchSize shouldBe 25
             }
@@ -60,6 +62,7 @@ class ConfigTest :
                     deliveryLeaseBudgetFraction = "",
                     deliveryMaxAttempts = "",
                     deliveryMaxConsecutiveItemFailures = "",
+                    retentionCleanupEnabled = "",
                     retentionCleanupIntervalSeconds = "",
                     retentionCleanupBatchSize = "",
                 ).toWorkerConfig(),
@@ -76,6 +79,7 @@ class ConfigTest :
                 delivery.leaseBudgetFraction shouldBe LeaseDrainConfig.DEFAULT_LEASE_BUDGET_FRACTION
                 delivery.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
                 delivery.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
+                retentionCleanup.enabled shouldBe false
                 retentionCleanup.interval shouldBe 3600.seconds
                 retentionCleanup.batchSize shouldBe 100
             }
@@ -129,6 +133,12 @@ class ConfigTest :
             }.message shouldBe
                 "Invalid configuration: workers.retentionCleanup.batchSize must be an integer between 1 and 100"
         }
+
+        test("toWorkerConfig validates retention cleanup enabled is a boolean") {
+            shouldThrow<IllegalStateException> {
+                config(retentionCleanupEnabled = "yes").toWorkerConfig()
+            }.message shouldBe "Invalid configuration: workers.retentionCleanup.enabled must be true or false"
+        }
     })
 
 private fun config(
@@ -144,6 +154,7 @@ private fun config(
     deliveryLeaseBudgetFraction: String = "",
     deliveryMaxAttempts: String = "",
     deliveryMaxConsecutiveItemFailures: String = "",
+    retentionCleanupEnabled: String = "",
     retentionCleanupIntervalSeconds: String = "",
     retentionCleanupBatchSize: String = "",
 ): MapApplicationConfig =
@@ -160,6 +171,7 @@ private fun config(
         "workers.delivery.leaseBudgetFraction" to deliveryLeaseBudgetFraction,
         "workers.delivery.maxAttempts" to deliveryMaxAttempts,
         "workers.delivery.maxConsecutiveItemFailures" to deliveryMaxConsecutiveItemFailures,
+        "workers.retentionCleanup.enabled" to retentionCleanupEnabled,
         "workers.retentionCleanup.intervalSeconds" to retentionCleanupIntervalSeconds,
         "workers.retentionCleanup.batchSize" to retentionCleanupBatchSize,
     )
