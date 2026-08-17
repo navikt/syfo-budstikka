@@ -4,6 +4,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.server.config.MapApplicationConfig
+import no.nav.budstikka.application.retention.RetentionConfig
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import kotlin.time.Duration.Companion.seconds
 
@@ -80,8 +81,8 @@ class ConfigTest :
                 delivery.maxAttempts shouldBe LeaseDrainConfig.DEFAULT_MAX_ATTEMPTS
                 delivery.maxConsecutiveItemFailures shouldBe LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES
                 retentionCleanup.enabled shouldBe false
-                retentionCleanup.interval shouldBe 3600.seconds
-                retentionCleanup.batchSize shouldBe 100
+                retentionCleanup.interval shouldBe RetentionConfig.DEFAULT_INTERVAL_SECONDS.seconds
+                retentionCleanup.batchSize shouldBe RetentionConfig.MAXIMUM_BATCH_SIZE
             }
         }
 

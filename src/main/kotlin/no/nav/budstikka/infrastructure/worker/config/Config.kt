@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.worker.config
 
 import io.ktor.server.config.ApplicationConfig
+import no.nav.budstikka.application.retention.RetentionConfig
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.infrastructure.config.configFor
 import no.nav.budstikka.infrastructure.config.validate
@@ -18,17 +19,6 @@ fun ApplicationConfig.toWorkerConfig(): WorkerConfig =
         delivery = leaseDrainConfig("workers.delivery"),
         retentionCleanup = retentionCleanupConfig(),
     )
-
-data class RetentionConfig(
-    val enabled: Boolean,
-    val interval: kotlin.time.Duration,
-    val batchSize: Int,
-) {
-    companion object {
-        const val DEFAULT_INTERVAL_SECONDS = 3600L
-        const val MAXIMUM_BATCH_SIZE = 100
-    }
-}
 
 private fun ApplicationConfig.retentionCleanupConfig() =
     with(configFor("workers.retentionCleanup")) {

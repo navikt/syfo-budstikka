@@ -70,8 +70,11 @@ erDiagram
   JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
   `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon
   dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
-- **Retensjon:** En in-process worker sletter hardt de 100 eldste kandidatene per tabell hver
-  time (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
+- **Retensjon:** Oppryddingen er implementert og styres av
+  `workers.retentionCleanup.enabled`. Workeren er aktivert i dev, men deaktivert i prod.
+  Prodaktivering og policyverdiene 100/180 dager krever Jussteamets godkjenning. Når den er
+  aktivert, sletter workeren hardt de 100 eldste kandidatene per tabell hver time
+  (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
   må ha samme slette-disiplin. Bare terminale `delivery`-rader (`SENT`/`FAILED`) med
   `created_at` strengt eldre enn 180 dager slettes. En PostgreSQL advisory lock lar én replika

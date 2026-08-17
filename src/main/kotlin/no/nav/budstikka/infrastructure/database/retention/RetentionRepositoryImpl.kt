@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.database.retention
 
+import no.nav.budstikka.application.retention.RetentionConfig
 import no.nav.budstikka.application.retention.RetentionCounts
 import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionRepository
@@ -8,7 +9,6 @@ import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
-import no.nav.budstikka.infrastructure.worker.config.RetentionConfig
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.inList
