@@ -54,9 +54,9 @@ class PdlClientTest :
         }
 
         test("GraphQL errors are thrown instead of being interpreted as not dead") {
-            val body = """{"errors":[{"message":"NON_PRODUCTION_SENTINEL_UPSTREAM_ERROR"}],"data":null}"""
+            val body = """{"errors":[{"message":"Ikke autentisert"}],"data":null}"""
             shouldThrow<IllegalStateException> { PdlClient.parseIsDead(body) }
-                .message shouldBe "PDL returned GraphQL errors"
+                .message shouldContain "Ikke autentisert"
         }
 
         test("unknown fields are ignored (forward compatible)") {

@@ -54,7 +54,7 @@ class PdlClient(
         internal fun parseIsDead(responseBody: String): Boolean {
             val response = sharedJson.decodeFromString<GraphqlResponse>(responseBody)
             if (!response.errors.isNullOrEmpty()) {
-                error("PDL returned GraphQL errors")
+                error("PDL responded with errors: ${response.errors.joinToString { it.message }}")
             }
             val deaths =
                 response.data
