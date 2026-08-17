@@ -112,7 +112,7 @@ class BackgroundLoop(
         } catch (error: Throwable) {
             failuresCounter?.increment()
             if (error !is AlreadyLoggedWorkerFailure) {
-                logger.error("Worker failed in iteration {}", kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName))
+                logger.error("Worker failed in iteration {}", kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName), error)
             }
         } finally {
             durationTimer?.record(start.elapsedNow().toJavaDuration())
