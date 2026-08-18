@@ -261,4 +261,28 @@ class DispatchSerializationTest :
                     ),
                 )
         }
+
+        test("an Arbeidsgivervarsel encoded by the producer facade decodes into the existing wire type") {
+            val encoded =
+                Budstikka.arbeidsgivervarselCreate(
+                    eventId = EventId(UUID.fromString("00000000-0000-4000-8000-000000000003")),
+                    reference = "ref-123",
+                    orgnummer = SYNTHETIC_ORGNUMMER,
+                    recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                    tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                    text = SYNTHETIC_TEXT,
+                    link = "https://nav.no/ag",
+                )
+
+            dispatchJson.decodeFromString<Dispatch>(encoded.value) shouldBe
+                envelope(
+                    ArbeidsgivervarselCreate(
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        tag = Tag.DIALOGMOETE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ),
+                )
+        }
     })

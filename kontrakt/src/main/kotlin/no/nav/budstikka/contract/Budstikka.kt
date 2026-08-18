@@ -24,8 +24,7 @@ import kotlin.time.Instant
  * ```
  *
  * Variants a Produsent cannot send through the facade yet are deliberately absent, even where the
- * wire type exists. DittSykefravaer has no registered channel. Arbeidsgivervarsel has runtime
- * delivery, but remains outside the producer facade until the producer contract is completed.
+ * wire type exists. DittSykefravaer has no registered channel.
  *
  * Every function validates required identifiers, references and explicitly constrained values before
  * encoding, and fails with [IllegalArgumentException] naming the offending parameter — never its
@@ -168,6 +167,60 @@ object Budstikka {
     }
 
     /**
+     * Sends an Arbeidsgivervarsel through either the Nærmeste leder or Altinn resource path.
+     * A missing active Nærmeste leder is terminal. When external notification was requested, a
+     * missing leader email address is also terminal.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this notification, used for correlation and bookkeeping.
+     * @param orgnummer the organisation that owns the notification and the partition anchor.
+     * @param recipient either the active Nærmeste leder for a Sykmeldt or everyone with an Altinn
+     *   resource. External notification is optional; when set, Nærmeste leder requires email title
+     *   and text, while Altinn resource also requires SMS text.
+     * @param tag the notification category used by the recipient channel; unlike [meldingstype], it
+     *   does not choose whether the notification is a beskjed or oppgave.
+     * @param text the notification text shown to the recipient.
+     * @param link required target for the notification.
+     * @param meldingstype whether the notification is a beskjed or oppgave; defaults to BESKJED.
+     * @param sakstilknytning optional producer-owned case identifier for downstream grouping.
+     * @param visibleUntil reserved for future expiry support. Expiry is not yet supported for
+     *   `arbeidsgivervarselCreate`; setting it throws [IllegalArgumentException].
+     * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
+     *   hours.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.Mottaker,
+        tag: Arbeidsgivervarsel.Tag,
+        text: String,
+        link: String,
+        meldingstype: Arbeidsgivervarsel.Meldingstype = Arbeidsgivervarsel.Meldingstype.BESKJED,
+        sakstilknytning: Arbeidsgivervarsel.Sakstilknytning? = null,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        requireNotBlank(text, "text")
+        requireNotBlank(link, "link")
+        sakstilknytning?.let { requireNotBlank(it.sakId, "sakstilknytning.sakId") }
+        require(visibleUntil == null) { "visibleUntil is not supported for arbeidsgivervarselCreate" }
+        return ArbeidsgivervarselCreate(
+            orgnummer = orgnummer,
+            recipient = recipient.toWireRecipient(),
+            tag = tag.toWireTag(),
+            text = text,
+            link = link,
+            meldingstype = meldingstype.toWireMeldingstype(),
+            sakstilknytning = sakstilknytning?.let { Sakstilknytning(it.sakId) },
+            visibleUntil = null,
+            sendingWindow = sendingWindow,
+        ).encode(eventId, reference)
+    }
+
+    /**
      * Brev: a document distributed to the Sykmeldt through dokumentdistribusjon. By default
      * dokdist picks the channel itself — digital mailbox (Digipost/e-Boks) for persons without
      * Reservasjon, central print otherwise. A Brev cannot be inactivated once sent, so there is
@@ -301,4 +354,46 @@ private fun PersonIdentifier.requirePersonIdentifier(parameter: String) =
 private fun Orgnummer.requireOrgnummer() =
     require(value.length == ORGNUMMER_LENGTH && value.all(Char::isDigit)) {
         "orgnummer must be $ORGNUMMER_LENGTH digits"
+    }
+
+private fun Arbeidsgivervarsel.Mottaker.toWireRecipient(): ArbeidsgiverRecipient =
+    when (this) {
+        is Arbeidsgivervarsel.NarmesteLeder -> {
+            sykmeldt.requirePersonIdentifier("recipient.sykmeldt")
+            NarmesteLeder(
+                sykmeldt = sykmeldt,
+                externalVarsling =
+                    externalVarsling?.let {
+                        requireNotBlank(it.emailTitle, "recipient.externalVarsling.emailTitle")
+                        requireNotBlank(it.emailText, "recipient.externalVarsling.emailText")
+                        NarmesteLederExternalVarsling(it.emailTitle, it.emailText)
+                    },
+            )
+        }
+        is Arbeidsgivervarsel.AltinnRessurs ->
+            AltinnResource(
+                resource =
+                    when (resource) {
+                        Arbeidsgivervarsel.Ressurs.DIALOGMOETE -> AltinnResourceId.DIALOGMOETE
+                    },
+                externalVarsling =
+                    externalVarsling?.let {
+                        requireNotBlank(it.emailTitle, "recipient.externalVarsling.emailTitle")
+                        requireNotBlank(it.emailText, "recipient.externalVarsling.emailText")
+                        requireNotBlank(it.smsText, "recipient.externalVarsling.smsText")
+                        AltinnExternalVarsling(it.emailTitle, it.emailText, it.smsText)
+                    },
+            )
+    }
+
+private fun Arbeidsgivervarsel.Tag.toWireTag(): Tag =
+    when (this) {
+        Arbeidsgivervarsel.Tag.DIALOGMOETE -> Tag.DIALOGMOETE
+        Arbeidsgivervarsel.Tag.OPPFOELGING -> Tag.OPPFOELGING
+    }
+
+private fun Arbeidsgivervarsel.Meldingstype.toWireMeldingstype(): ArbeidsgiverMeldingstype =
+    when (this) {
+        Arbeidsgivervarsel.Meldingstype.BESKJED -> ArbeidsgiverMeldingstype.BESKJED
+        Arbeidsgivervarsel.Meldingstype.OPPGAVE -> ArbeidsgiverMeldingstype.OPPGAVE
     }

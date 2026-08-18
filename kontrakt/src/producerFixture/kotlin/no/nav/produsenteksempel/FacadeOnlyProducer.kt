@@ -1,5 +1,6 @@
 package no.nav.produsenteksempel
 
+import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.BrevFallback
 import no.nav.budstikka.contract.Budstikka
 import no.nav.budstikka.contract.DistributionType
@@ -23,7 +24,7 @@ import kotlin.time.Instant
  * to the supported producer surface, so a compile error here is the gate having gone too far.
  */
 object FacadeOnlyProducer {
-    private val sykmeldt = PersonIdentifier("11111111111")
+    private val sykmeldt = PersonIdentifier("00000000000")
     private val orgnummer = Orgnummer("999999999")
     private val visibleUntil = Instant.parse("2026-01-01T00:00:00Z")
 
@@ -59,6 +60,28 @@ object FacadeOnlyProducer {
 
     fun dineSykmeldteVarselInactivate(eventId: EventId): EncodedDispatch =
         Budstikka.dineSykmeldteVarselInactivate(eventId = eventId, reference = "fixture-2", sykmeldt = sykmeldt)
+
+    fun arbeidsgivervarselTilNarmesteLeder(eventId: EventId): EncodedDispatch =
+        Budstikka.arbeidsgivervarselCreate(
+            eventId = eventId,
+            reference = "fixture-arbeidsgiver-1",
+            orgnummer = orgnummer,
+            recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
+            tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+            text = "SYNTETISK-VARSELTEKST",
+            link = "https://nav.no/ag",
+        )
+
+    fun arbeidsgivervarselTilAltinn(eventId: EventId): EncodedDispatch =
+        Budstikka.arbeidsgivervarselCreate(
+            eventId = eventId,
+            reference = "fixture-arbeidsgiver-2",
+            orgnummer = orgnummer,
+            recipient = Arbeidsgivervarsel.AltinnRessurs(Arbeidsgivervarsel.Ressurs.DIALOGMOETE),
+            tag = Arbeidsgivervarsel.Tag.OPPFOELGING,
+            text = "SYNTETISK-VARSELTEKST",
+            link = "https://nav.no/ag",
+        )
 
     fun brev(eventId: EventId): EncodedDispatch =
         Budstikka.brevCreate(

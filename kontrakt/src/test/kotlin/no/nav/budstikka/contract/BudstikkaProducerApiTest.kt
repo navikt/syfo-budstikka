@@ -36,7 +36,7 @@ class BudstikkaProducerApiTest :
                 encoded.headers shouldBe mapOf("eventId" to "00000000-0000-4000-8000-000000000001")
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrukervarselCreate",""" +
-                    """"personIdentifier":"11111111111","varseltype":"BESKJED","text":"SYNTETISK-VARSELTEKST",""" +
+                    """"personIdentifier":"00000000000","varseltype":"BESKJED","text":"SYNTETISK-VARSELTEKST",""" +
                     """"link":null,"visibleUntil":null,"externalVarsling":null,"brevFallback":null,""" +
                     """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             }
@@ -58,7 +58,7 @@ class BudstikkaProducerApiTest :
 
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrukervarselCreate",""" +
-                    """"personIdentifier":"11111111111","varseltype":"OPPGAVE","text":"SYNTETISK-VARSELTEKST",""" +
+                    """"personIdentifier":"00000000000","varseltype":"OPPGAVE","text":"SYNTETISK-VARSELTEKST",""" +
                     """"link":"https://nav.no/syk","visibleUntil":"2026-01-01T00:00:00Z",""" +
                     """"externalVarsling":{"channels":["SMS"],"smsText":"SYNTETISK-SMSTEKST",""" +
                     """"emailTitle":null,"emailText":null},""" +
@@ -98,7 +98,7 @@ class BudstikkaProducerApiTest :
                         ).key
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrukervarselInactivate",""" +
-                    """"referanse":"ref-1","sykmeldt":"11111111111"}}"""
+                    """"referanse":"ref-1","sykmeldt":"00000000000"}}"""
             }
         }
 
@@ -117,7 +117,7 @@ class BudstikkaProducerApiTest :
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"LedervarselCreate",""" +
-                    """"sykmeldt":"11111111111","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
+                    """"sykmeldt":"00000000000","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
                     """"text":"SYNTETISK-VARSELTEKST","link":null,"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
             }
 
@@ -137,7 +137,7 @@ class BudstikkaProducerApiTest :
 
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"LedervarselCreate",""" +
-                    """"sykmeldt":"11111111111","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
+                    """"sykmeldt":"00000000000","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
                     """"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/dine-sykmeldte",""" +
                     """"visibleUntil":"2026-01-01T00:00:00Z","sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             }
@@ -169,7 +169,60 @@ class BudstikkaProducerApiTest :
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"LedervarselInactivate",""" +
-                    """"referanse":"ref-1","sykmeldt":"11111111111"}}"""
+                    """"referanse":"ref-1","sykmeldt":"00000000000"}}"""
+            }
+        }
+
+        context("arbeidsgivervarselCreate") {
+            test("Nærmeste leder encodes the existing wire format and keys on orgnummer") {
+                val encoded =
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient =
+                            Arbeidsgivervarsel.NarmesteLeder(
+                                SYNTHETIC_SYKMELDT,
+                                Arbeidsgivervarsel.NarmesteLederExternalVarsling("Tittel", "E-post"),
+                            ),
+                        tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                        meldingstype = Arbeidsgivervarsel.Meldingstype.OPPGAVE,
+                        sakstilknytning = Arbeidsgivervarsel.Sakstilknytning("sak-1"),
+                        sendingWindow = SendingWindow.ONGOING,
+                    )
+
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"tag":"DIALOGMOETE",""" +
+                    """"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag","meldingstype":"OPPGAVE",""" +
+                    """"sakstilknytning":{"sakId":"sak-1"},"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
+            }
+
+            test("Altinn resource carries external notification fields and defaults") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient =
+                            Arbeidsgivervarsel.AltinnRessurs(
+                                Arbeidsgivervarsel.Ressurs.DIALOGMOETE,
+                                Arbeidsgivervarsel.AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                            ),
+                        tag = Arbeidsgivervarsel.Tag.OPPFOELGING,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"DIALOGMOETE",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post","smsText":"SMS"}},""" +
+                    """"tag":"OPPFOELGING","text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
+                    """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             }
         }
 
@@ -186,7 +239,7 @@ class BudstikkaProducerApiTest :
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrevCreate",""" +
-                    """"personIdentifier":"11111111111","journalpostId":"jp-1",""" +
+                    """"personIdentifier":"00000000000","journalpostId":"jp-1",""" +
                     """"distributionType":"IMPORTANT","tvingSentralPrint":false}}"""
             }
 
@@ -200,7 +253,7 @@ class BudstikkaProducerApiTest :
                         distributionType = DistributionType.OTHER,
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrevCreate",""" +
-                    """"personIdentifier":"11111111111","journalpostId":"jp-1",""" +
+                    """"personIdentifier":"00000000000","journalpostId":"jp-1",""" +
                     """"distributionType":"OTHER","tvingSentralPrint":false}}"""
             }
 
@@ -214,7 +267,7 @@ class BudstikkaProducerApiTest :
                         tvingSentralPrint = true,
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"BrevCreate",""" +
-                    """"personIdentifier":"11111111111","journalpostId":"jp-1",""" +
+                    """"personIdentifier":"00000000000","journalpostId":"jp-1",""" +
                     """"distributionType":"IMPORTANT","tvingSentralPrint":true}}"""
             }
         }
@@ -233,7 +286,7 @@ class BudstikkaProducerApiTest :
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendEnable",""" +
-                    """"personIdentifier":"11111111111","microfrontendId":"syk-dialog",""" +
+                    """"personIdentifier":"00000000000","microfrontendId":"syk-dialog",""" +
                     """"visibleUntil":"2026-01-01T00:00:00Z"}}"""
             }
 
@@ -246,7 +299,7 @@ class BudstikkaProducerApiTest :
                         microfrontendId = "syk-dialog",
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendEnable",""" +
-                    """"personIdentifier":"11111111111","microfrontendId":"syk-dialog","visibleUntil":null}}"""
+                    """"personIdentifier":"00000000000","microfrontendId":"syk-dialog","visibleUntil":null}}"""
             }
 
             test("disable is its own variant, not an inactivate") {
@@ -258,7 +311,7 @@ class BudstikkaProducerApiTest :
                         microfrontendId = "syk-dialog",
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendDisable",""" +
-                    """"personIdentifier":"11111111111","microfrontendId":"syk-dialog"}}"""
+                    """"personIdentifier":"00000000000","microfrontendId":"syk-dialog"}}"""
             }
         }
 
@@ -336,6 +389,7 @@ class BudstikkaProducerApiTest :
                     "brukervarselInactivate",
                     "dineSykmeldteVarselCreate",
                     "dineSykmeldteVarselInactivate",
+                    "arbeidsgivervarselCreate",
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",

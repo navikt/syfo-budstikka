@@ -21,7 +21,7 @@ microfrontend som førsteklasses variant og har dermed allerede tettet den asymm
 | `BRUKERNOTIFIKASJON` | Kafka `min-side.aapen-brukervarsel-v1` (tms varsel-builder) | `BrukervarselCreate` |
 | `DINE_SYKMELDTE` | Kafka `team-esyfo.dinesykmeldte-hendelser-v2` | `LedervarselCreate` (fasade: `dineSykmeldteVarselCreate`) |
 | `DITT_SYKEFRAVAER` | Kafka `flex.ditt-sykefravaer-melding` | `DittSykefravaerCreate` (ikke sendbar ennå) |
-| `ARBEIDSGIVERNOTIFIKASJON` | GraphQL mot `notifikasjon-produsent-api` (fager) | `ArbeidsgivervarselCreate` (runtime-støttet, ikke i produsentfasaden) |
+| `ARBEIDSGIVERNOTIFIKASJON` | GraphQL mot `notifikasjon-produsent-api` (fager) | `ArbeidsgivervarselCreate` (fasade: `arbeidsgivervarselCreate`) |
 | `BREV` | REST `dokdistfordeling` `/rest/v1/distribuerjournalpost` | `BrevCreate` |
 | (microfrontend, utenfor `Kanal`) | Kafka `min-side.aapen-microfrontend-v1` | `MicrofrontendEnable`/`-Disable` |
 

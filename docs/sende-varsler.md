@@ -25,13 +25,12 @@ settes sammen i en produsent.
 | `brukervarselInactivate` | Lukk et tidligere brukervarsel. |
 | `dineSykmeldteVarselCreate` | Opprett in-app-aktivitet i Dine Sykmeldte. |
 | `dineSykmeldteVarselInactivate` | Lukk en tidligere aktivitet i Dine Sykmeldte. |
+| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
 
-`DittSykefravaer` og `Arbeidsgivervarsel` er ikke funksjoner på fasaden, og en produsent skal derfor
-ikke sende dem ennå. `DittSykefravaer` mangler runtime-støtte. `Arbeidsgivervarsel` kan leveres i
-runtime, men produsentkontrakten er ikke ferdig og er derfor fortsatt skjult bak rå wire-typer.
+`DittSykefravaer` er ikke en funksjon på fasaden fordi den mangler runtime-støtte.
 
 ## Opprett og lukk
 
@@ -73,6 +72,13 @@ direkte. Dokumentdistribusjon velger normalt kanal selv; `tvingSentralPrint` er 
 for papir.
 
 Dine Sykmeldte har bare in-app-varsel. Ikke legg til SMS- eller e-postforventninger der.
+
+`arbeidsgivervarselCreate` bruker enten `Arbeidsgivervarsel.NarmesteLeder(sykmeldt)` eller
+`Arbeidsgivervarsel.AltinnRessurs(resource)`. Bruk mottakerspesifikke `externalVarsling`-verdier,
+ikke `ExternalNotification`. Nærmeste leder-oppslaget og e-postleveringen skjer i Budstikka.
+Leveringen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
+feiler leveringen også terminalt hvis lederen mangler e-postadresse. `visibleUntil` feiler
+valideringen fordi utløp ikke er implementert for denne kanalen.
 
 ## Feil og personvern
 
