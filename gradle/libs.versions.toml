@@ -2,7 +2,7 @@
 java = "25"
 kotlin = "2.4.10"
 ktor = "3.5.2"
-logback = "1.6.1"
+logback = "1.6.2"
 ktlint-gradle = "14.2.0"
 micrometer = "1.17.0"
 logstashLogbackEncoder = "9.0"
