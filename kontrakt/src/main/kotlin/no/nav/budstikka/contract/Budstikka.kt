@@ -26,7 +26,7 @@ import kotlin.time.Instant
  * Variants a Produsent cannot send through the facade yet are deliberately absent, even where the
  * wire type exists. DittSykefravaer has no registered channel.
  *
- * Every function validates required identifiers, references and explicitly constrained values before
+ * Every function validates required identifiers, references and mandatory values before
  * encoding, and fails with [IllegalArgumentException] naming the offending parameter — never its
  * value, since these values are person data and free text. Semantic constraints owned downstream
  * (for example whether a `reference` is actually unique) are not checked here.
@@ -178,7 +178,10 @@ object Budstikka {
      *   resource. External notification is optional; when set, Nærmeste leder requires email title
      *   and text, while Altinn resource also requires SMS text.
      * @param tag the notification category used by the recipient channel; unlike [meldingstype], it
-     *   does not choose whether the notification is a beskjed or oppgave.
+     *   does not choose whether the notification is a beskjed or oppgave. The producer selects the
+     *   downstream value, which must match its registered merkelapp in Arbeidsgivernotifikasjoner;
+     *   otherwise delivery fails terminally. For an Altinn recipient, its resource must likewise
+     *   match the producer's registered Altinn resource.
      * @param text the notification text shown to the recipient.
      * @param link required target for the notification.
      * @param meldingstype whether the notification is a beskjed or oppgave; defaults to BESKJED.
@@ -193,7 +196,7 @@ object Budstikka {
         reference: String,
         orgnummer: Orgnummer,
         recipient: Arbeidsgivervarsel.Mottaker,
-        tag: Arbeidsgivervarsel.Tag,
+        tag: String,
         text: String,
         link: String,
         meldingstype: Arbeidsgivervarsel.Meldingstype = Arbeidsgivervarsel.Meldingstype.BESKJED,
@@ -203,6 +206,7 @@ object Budstikka {
     ): EncodedDispatch {
         requireReference(reference)
         orgnummer.requireOrgnummer()
+        requireNotBlank(tag, "tag")
         requireNotBlank(text, "text")
         requireNotBlank(link, "link")
         sakstilknytning?.let { requireNotBlank(it.sakId, "sakstilknytning.sakId") }
@@ -210,7 +214,7 @@ object Budstikka {
         return ArbeidsgivervarselCreate(
             orgnummer = orgnummer,
             recipient = recipient.toWireRecipient(),
-            tag = tag.toWireTag(),
+            tag = tag,
             text = text,
             link = link,
             meldingstype = meldingstype.toWireMeldingstype(),
@@ -372,10 +376,7 @@ private fun Arbeidsgivervarsel.Mottaker.toWireRecipient(): ArbeidsgiverRecipient
         }
         is Arbeidsgivervarsel.AltinnRessurs ->
             AltinnResource(
-                resource =
-                    when (resource) {
-                        Arbeidsgivervarsel.Ressurs.DIALOGMOETE -> AltinnResourceId.DIALOGMOETE
-                    },
+                resource = resource.also { requireNotBlank(it, "recipient.resource") },
                 externalVarsling =
                     externalVarsling?.let {
                         requireNotBlank(it.emailTitle, "recipient.externalVarsling.emailTitle")
@@ -384,12 +385,6 @@ private fun Arbeidsgivervarsel.Mottaker.toWireRecipient(): ArbeidsgiverRecipient
                         AltinnExternalVarsling(it.emailTitle, it.emailText, it.smsText)
                     },
             )
-    }
-
-private fun Arbeidsgivervarsel.Tag.toWireTag(): Tag =
-    when (this) {
-        Arbeidsgivervarsel.Tag.DIALOGMOETE -> Tag.DIALOGMOETE
-        Arbeidsgivervarsel.Tag.OPPFOELGING -> Tag.OPPFOELGING
     }
 
 private fun Arbeidsgivervarsel.Meldingstype.toWireMeldingstype(): ArbeidsgiverMeldingstype =

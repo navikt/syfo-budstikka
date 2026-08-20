@@ -17,10 +17,8 @@ import no.nav.budstikka.application.delivery.AltinnExternalVarsling
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
 import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
@@ -32,7 +30,7 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInpu
 
 class ArbeidsgiverNotifikasjonClientTest :
     FunSpec({
-        test("sends nyBeskjed with mapped wire values, optional grouping id and Altinn external notification") {
+        test("sends nyBeskjed with producer strings, optional grouping id and Altinn external notification") {
             var body = ""
             var correlationId = ""
             var authorization = ""
@@ -46,7 +44,7 @@ class ArbeidsgiverNotifikasjonClientTest :
 
             client.publish(
                 request(
-                    tag = Tag.OPPFOELGING,
+                    tag = "producer-owned-tag",
                     groupingId = "sak-1",
                     externalVarsling =
                         AltinnExternalVarsling(
@@ -58,8 +56,8 @@ class ArbeidsgiverNotifikasjonClientTest :
             ) shouldBe ArbeidsgiverNotificationResponse.Published
 
             body shouldContain "nyBeskjed"
-            body shouldContain """"input":{"mottakere":[{"altinnRessurs":{"ressursId":"nav_syfo_dialogmote"}}]"""
-            body shouldContain """"merkelapp":"Oppfølging""""
+            body shouldContain """"input":{"mottakere":[{"altinnRessurs":{"ressursId":"producer-owned-resource"}}]"""
+            body shouldContain """"merkelapp":"producer-owned-tag""""
             body shouldContain """"tekst":"Tekst""""
             body shouldContain """"lenke":"https://nav.no""""
             body shouldContain """"eksternId":"external-id""""
@@ -282,12 +280,12 @@ private fun client(handler: MockRequestHandler) =
     )
 
 private fun request(
-    tag: Tag = Tag.DIALOGMOETE,
+    tag: String = "Dialogmøte",
     groupingId: String? = null,
     meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     externalVarsling: AltinnExternalVarsling? = null,
     recipient: ArbeidsgiverNotificationRecipient =
-        ArbeidsgiverNotificationRecipient.AltinnRessurs(AltinnResourceId.DIALOGMOETE, externalVarsling),
+        ArbeidsgiverNotificationRecipient.AltinnRessurs("producer-owned-resource", externalVarsling),
 ) = ArbeidsgiverNotificationRequest(
     virksomhetsnummer = "123456789",
     eksternId = "external-id",

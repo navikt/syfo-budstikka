@@ -85,7 +85,7 @@ data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,
     @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
-    val tag: Tag,
+    val tag: String,
     val text: String,
     val link: String,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
@@ -101,7 +101,7 @@ data class ArbeidsgivervarselCreate(
 
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
     override fun toString(): String =
-        "ArbeidsgivervarselCreate(tag=$tag, meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
+        "ArbeidsgivervarselCreate(meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
             "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null})"
 }
 
@@ -130,11 +130,11 @@ data class NarmesteLeder(
 @Serializable
 @SerialName("AltinnRessurs")
 data class AltinnResource(
-    val resource: AltinnResourceId,
+    val resource: String,
     val externalVarsling: AltinnExternalVarsling? = null,
 ) : ArbeidsgiverRecipient {
     /** Omits external notification text. */
-    override fun toString(): String = "AltinnResource(resource=$resource, hasExternalVarsling=${externalVarsling != null})"
+    override fun toString(): String = "AltinnResource(hasExternalVarsling=${externalVarsling != null})"
 }
 
 /** External notification texts required by the Altinn-resource delivery path. */

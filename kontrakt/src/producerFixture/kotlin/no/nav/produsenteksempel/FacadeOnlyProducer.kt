@@ -61,24 +61,24 @@ object FacadeOnlyProducer {
     fun dineSykmeldteVarselInactivate(eventId: EventId): EncodedDispatch =
         Budstikka.dineSykmeldteVarselInactivate(eventId = eventId, reference = "fixture-2", sykmeldt = sykmeldt)
 
-    fun arbeidsgivervarselTilNarmesteLeder(eventId: EventId): EncodedDispatch =
+    fun arbeidsgivervarselToNarmesteLeder(eventId: EventId): EncodedDispatch =
         Budstikka.arbeidsgivervarselCreate(
             eventId = eventId,
             reference = "fixture-arbeidsgiver-1",
             orgnummer = orgnummer,
             recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
-            tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+            tag = "Dialogmøte",
             text = "SYNTETISK-VARSELTEKST",
             link = "https://nav.no/ag",
         )
 
-    fun arbeidsgivervarselTilAltinn(eventId: EventId): EncodedDispatch =
+    fun arbeidsgivervarselToAltinn(eventId: EventId): EncodedDispatch =
         Budstikka.arbeidsgivervarselCreate(
             eventId = eventId,
             reference = "fixture-arbeidsgiver-2",
             orgnummer = orgnummer,
-            recipient = Arbeidsgivervarsel.AltinnRessurs(Arbeidsgivervarsel.Ressurs.DIALOGMOETE),
-            tag = Arbeidsgivervarsel.Tag.OPPFOELGING,
+            recipient = Arbeidsgivervarsel.AltinnRessurs("nav_syfo_dialogmote"),
+            tag = "Oppfølging",
             text = "SYNTETISK-VARSELTEKST",
             link = "https://nav.no/ag",
         )

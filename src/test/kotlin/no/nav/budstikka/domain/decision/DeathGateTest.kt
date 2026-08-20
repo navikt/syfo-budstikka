@@ -4,7 +4,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrevCreate
 import no.nav.budstikka.contract.BrukervarselCreate
@@ -16,7 +15,6 @@ import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.Oppgavetype
-import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -81,8 +79,8 @@ class DeathGateTest :
             val ag =
                 ArbeidsgivervarselCreate(
                     orgnummer = TEST_ORGNUMMER,
-                    recipient = AltinnResource(AltinnResourceId.DIALOGMOETE),
-                    tag = Tag.OPPFOELGING,
+                    recipient = AltinnResource("nav_syfo_dialogmote"),
+                    tag = "Oppfølging",
                     text = "t",
                     link = "https://nav.no",
                 )

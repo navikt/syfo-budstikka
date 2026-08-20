@@ -185,7 +185,7 @@ class BudstikkaProducerApiTest :
                                 SYNTHETIC_SYKMELDT,
                                 Arbeidsgivervarsel.NarmesteLederExternalVarsling("Tittel", "E-post"),
                             ),
-                        tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        tag = "Dialogmøte",
                         text = SYNTHETIC_TEXT,
                         link = "https://nav.no/ag",
                         meldingstype = Arbeidsgivervarsel.Meldingstype.OPPGAVE,
@@ -197,7 +197,7 @@ class BudstikkaProducerApiTest :
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
-                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"tag":"DIALOGMOETE",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"tag":"Dialogmøte",""" +
                     """"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag","meldingstype":"OPPGAVE",""" +
                     """"sakstilknytning":{"sakId":"sak-1"},"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
             }
@@ -210,17 +210,17 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         recipient =
                             Arbeidsgivervarsel.AltinnRessurs(
-                                Arbeidsgivervarsel.Ressurs.DIALOGMOETE,
+                                "nav_syfo_dialogmote",
                                 Arbeidsgivervarsel.AltinnExternalVarsling("Tittel", "E-post", "SMS"),
                             ),
-                        tag = Arbeidsgivervarsel.Tag.OPPFOELGING,
+                        tag = "Oppfølging",
                         text = SYNTHETIC_TEXT,
                         link = "https://nav.no/ag",
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
-                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"DIALOGMOETE",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post","smsText":"SMS"}},""" +
-                    """"tag":"OPPFOELGING","text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
+                    """"tag":"Oppfølging","text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
                     """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
                     """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             }

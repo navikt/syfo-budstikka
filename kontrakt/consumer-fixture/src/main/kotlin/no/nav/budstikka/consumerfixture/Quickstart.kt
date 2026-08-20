@@ -44,8 +44,8 @@ fun main() {
     listOf(
         Arbeidsgivervarsel.NarmesteLeder(PersonIdentifier("00000000000")) to
             """"mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""",
-        Arbeidsgivervarsel.AltinnRessurs(Arbeidsgivervarsel.Ressurs.DIALOGMOETE) to
-            """"mottaker":{"type":"AltinnRessurs","resource":"DIALOGMOETE",""",
+        Arbeidsgivervarsel.AltinnRessurs("nav_syfo_dialogmote") to
+            """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""",
     ).forEach { (recipient, recipientJson) ->
         val arbeidsgivervarsel =
             Budstikka.arbeidsgivervarselCreate(
@@ -53,7 +53,7 @@ fun main() {
                 reference = "synthetic-employer-reference",
                 orgnummer = Orgnummer("999999999"),
                 recipient = recipient,
-                tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                tag = "Dialogmøte",
                 text = "SYNTETISK-VARSELTEKST",
                 link = "https://nav.no/ag",
             )

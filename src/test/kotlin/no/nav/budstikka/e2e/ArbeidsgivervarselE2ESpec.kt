@@ -10,14 +10,12 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.delivery.NarmesteLederRelasjon
 import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchHeader
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.SendingWindow
-import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
@@ -49,14 +47,14 @@ class ArbeidsgivervarselE2ESpec :
                     val eventId = UUID.randomUUID()
                     app.produceArbeidsgivervarsel(
                         eventId,
-                        AltinnResource(AltinnResourceId.DIALOGMOETE),
+                        AltinnResource("nav_syfo_dialogmote"),
                     )
 
                     eventually(30.seconds) {
                         app.deliveryStateFor(eventId) shouldBe sentState()
                         publisher.requests.map { it.eksternId }.shouldContainExactly(eventId.toString())
                         publisher.requests.single().recipient shouldBe
-                            ArbeidsgiverNotificationRecipient.AltinnRessurs(AltinnResourceId.DIALOGMOETE)
+                            ArbeidsgiverNotificationRecipient.AltinnRessurs("nav_syfo_dialogmote")
                     }
                 }
         }
@@ -119,7 +117,7 @@ private fun BudstikkaTestApp.produceArbeidsgivervarsel(
                 ArbeidsgivervarselCreate(
                     orgnummer = TEST_ORGNUMMER,
                     recipient = recipient,
-                    tag = Tag.DIALOGMOETE,
+                    tag = "Dialogmøte",
                     text = "Du har en ny oppgave",
                     link = "https://nav.no/e2e/arbeidsgivervarsel",
                     sendingWindow = SendingWindow.ONGOING,

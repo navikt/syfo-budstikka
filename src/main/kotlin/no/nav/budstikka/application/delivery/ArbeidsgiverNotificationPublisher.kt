@@ -1,31 +1,29 @@
 package no.nav.budstikka.application.delivery
 
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Tag
 
 data class ArbeidsgiverNotificationRequest(
     val virksomhetsnummer: String,
     val eksternId: String,
     val grupperingsid: String?,
-    val tag: Tag,
+    val tag: String,
     val tekst: String,
     val lenke: String,
     val recipient: ArbeidsgiverNotificationRecipient,
     val meldingstype: ArbeidsgiverMeldingstype,
 ) {
     override fun toString(): String =
-        "ArbeidsgiverNotificationRequest(tag=$tag, meldingstype=$meldingstype, " +
+        "ArbeidsgiverNotificationRequest(meldingstype=$meldingstype, " +
             "hasGrupperingsid=${grupperingsid != null}, recipient=$recipient)"
 }
 
 sealed interface ArbeidsgiverNotificationRecipient {
     data class AltinnRessurs(
-        val resource: AltinnResourceId,
+        val resource: String,
         val externalVarsling: AltinnExternalVarsling? = null,
     ) : ArbeidsgiverNotificationRecipient {
-        override fun toString(): String = "AltinnRessurs(resource=$resource, hasExternalVarsling=${externalVarsling != null})"
+        override fun toString(): String = "AltinnRessurs(hasExternalVarsling=${externalVarsling != null})"
     }
 
     data class NarmesteLeder(

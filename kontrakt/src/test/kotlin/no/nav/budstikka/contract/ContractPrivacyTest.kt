@@ -38,6 +38,8 @@ class ContractPrivacyTest :
                 SYNTHETIC_SAK_ID,
                 SYNTHETIC_MICROFRONTEND_ID,
                 SYNTHETIC_LINK,
+                "SENSITIVE-PRODUCER-TAG",
+                "sensitive-producer-resource",
             )
 
         fun String.shouldNotLeak() = secrets.forEach { secret -> this shouldNotContain secret }
@@ -107,7 +109,7 @@ class ContractPrivacyTest :
                                 sykmeldt = SYNTHETIC_SYKMELDT,
                                 externalVarsling = narmesteLederExternalVarsling,
                             ),
-                        tag = Tag.DIALOGMOETE,
+                        tag = "SENSITIVE-PRODUCER-TAG",
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         sakstilknytning = sakstilknytning,
@@ -157,7 +159,7 @@ class ContractPrivacyTest :
                     ),
                 "AltinnResource" to
                     AltinnResource(
-                        resource = AltinnResourceId.DIALOGMOETE,
+                        resource = "sensitive-producer-resource",
                         externalVarsling = altinnExternalVarsling,
                     ),
             ).forEach { (name, value) ->
@@ -217,7 +219,7 @@ class ContractPrivacyTest :
                                             emailText = SYNTHETIC_EMAIL_TEXT,
                                         ),
                                 ),
-                            tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                            tag = "Dialogmøte",
                             text = SYNTHETIC_TEXT,
                             link = SYNTHETIC_LINK,
                         ),
@@ -268,7 +270,7 @@ class ContractPrivacyTest :
                 )
             val altinn =
                 Arbeidsgivervarsel.AltinnRessurs(
-                    Arbeidsgivervarsel.Ressurs.DIALOGMOETE,
+                    "nav_syfo_dialogmote",
                     Arbeidsgivervarsel.AltinnExternalVarsling(
                         SYNTHETIC_EMAIL_TITLE,
                         SYNTHETIC_EMAIL_TEXT,
@@ -276,7 +278,7 @@ class ContractPrivacyTest :
                     ),
                 )
 
-            test("producer-facing inputs do not leak person data or text") {
+            test("producer-facing inputs do not leak person data, text, tag or resource") {
                 listOf<Any>(
                     narmesteLeder,
                     altinn,
@@ -290,10 +292,49 @@ class ContractPrivacyTest :
                 shouldThrow<IllegalArgumentException> {
                     Budstikka.arbeidsgivervarselCreate(
                         EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        narmesteLeder,
+                        " ",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!
+                    .also { it shouldContain "tag" }
+                    .shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnRessurs(" "),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!
+                    .also { it shouldContain "recipient.resource" }
+                    .shouldNotLeak()
+
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnRessurs("sensitive-producer-resource"),
+                        "SENSITIVE-PRODUCER-TAG",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    ).value shouldContain """"resource":"sensitive-producer-resource""""
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
                         " ",
                         SYNTHETIC_ORGNUMMER,
                         narmesteLeder,
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -305,7 +346,7 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         Orgnummer("12"),
                         narmesteLeder,
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -317,7 +358,7 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         narmesteLeder,
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         " ",
                         SYNTHETIC_LINK,
                     )
@@ -329,7 +370,7 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         Arbeidsgivervarsel.NarmesteLeder(PersonIdentifier("1234")),
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -341,7 +382,7 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         altinn,
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         " ",
                     )
@@ -353,10 +394,10 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         Arbeidsgivervarsel.AltinnRessurs(
-                            Arbeidsgivervarsel.Ressurs.DIALOGMOETE,
+                            "nav_syfo_dialogmote",
                             Arbeidsgivervarsel.AltinnExternalVarsling(" ", SYNTHETIC_EMAIL_TEXT, SYNTHETIC_SMS_TEXT),
                         ),
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -371,7 +412,7 @@ class ContractPrivacyTest :
                             SYNTHETIC_SYKMELDT,
                             Arbeidsgivervarsel.NarmesteLederExternalVarsling(SYNTHETIC_EMAIL_TITLE, " "),
                         ),
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -386,7 +427,7 @@ class ContractPrivacyTest :
                             SYNTHETIC_SYKMELDT,
                             Arbeidsgivervarsel.NarmesteLederExternalVarsling(" ", SYNTHETIC_EMAIL_TEXT),
                         ),
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -398,10 +439,10 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         Arbeidsgivervarsel.AltinnRessurs(
-                            Arbeidsgivervarsel.Ressurs.DIALOGMOETE,
+                            "nav_syfo_dialogmote",
                             Arbeidsgivervarsel.AltinnExternalVarsling(SYNTHETIC_EMAIL_TITLE, " ", SYNTHETIC_SMS_TEXT),
                         ),
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -413,10 +454,10 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         Arbeidsgivervarsel.AltinnRessurs(
-                            Arbeidsgivervarsel.Ressurs.DIALOGMOETE,
+                            "nav_syfo_dialogmote",
                             Arbeidsgivervarsel.AltinnExternalVarsling(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT, " "),
                         ),
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                     )
@@ -428,7 +469,7 @@ class ContractPrivacyTest :
                         SYNTHETIC_REFERENCE,
                         SYNTHETIC_ORGNUMMER,
                         narmesteLeder,
-                        Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        "Dialogmøte",
                         SYNTHETIC_TEXT,
                         SYNTHETIC_LINK,
                         sakstilknytning = Arbeidsgivervarsel.Sakstilknytning(" "),
@@ -445,7 +486,7 @@ class ContractPrivacyTest :
                         reference = SYNTHETIC_REFERENCE,
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         recipient = narmesteLeder,
-                        tag = Arbeidsgivervarsel.Tag.DIALOGMOETE,
+                        tag = "Dialogmøte",
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         visibleUntil = visibleUntil,

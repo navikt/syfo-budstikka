@@ -3,25 +3,14 @@ package no.nav.budstikka.contract
 /**
  * Producer-facing inputs for an Arbeidsgivervarsel. Choose exactly one [Mottaker] path.
  *
- * These types deliberately describe only paths Budstikka can deliver. The facade maps them to its
- * internal wire representation.
+ * These types deliberately describe only paths Budstikka can deliver. Tags and Altinn resources are
+ * selected as plain strings by the producer and carried unchanged to the downstream recipient.
  */
 object Arbeidsgivervarsel {
-    /** Category used by the recipient channels. */
-    enum class Tag {
-        DIALOGMOETE,
-        OPPFOELGING,
-    }
-
     /** Presentation kind for an Arbeidsgivervarsel. */
     enum class Meldingstype {
         BESKJED,
         OPPGAVE,
-    }
-
-    /** Altinn resource that receives the notification. */
-    enum class Ressurs {
-        DIALOGMOETE,
     }
 
     /** Producer-owned case identifier used for downstream grouping. */
@@ -48,10 +37,10 @@ object Arbeidsgivervarsel {
 
     /** Sends to everyone with the selected Altinn resource at the organisation. */
     data class AltinnRessurs(
-        val resource: Ressurs,
+        val resource: String,
         val externalVarsling: AltinnExternalVarsling? = null,
     ) : Mottaker {
-        override fun toString(): String = "AltinnRessurs(resource=$resource, hasExternalVarsling=${externalVarsling != null})"
+        override fun toString(): String = "AltinnRessurs(hasExternalVarsling=${externalVarsling != null})"
     }
 
     /** External notification texts required by the Nærmeste leder email path. */
