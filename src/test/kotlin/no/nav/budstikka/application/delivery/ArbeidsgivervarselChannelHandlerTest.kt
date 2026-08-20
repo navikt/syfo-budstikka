@@ -188,14 +188,13 @@ private fun handler(
 private fun create(
     recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),
     tag: String = "producer-tag",
-) =
-    ArbeidsgivervarselCreate(
-        TEST_ORGNUMMER,
-        recipient,
-        tag,
-        "Tekst",
-        "https://nav.no/lenke",
-    )
+) = ArbeidsgivervarselCreate(
+    TEST_ORGNUMMER,
+    recipient,
+    tag,
+    "Tekst",
+    "https://nav.no/lenke",
+)
 
 private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
     ClaimedDelivery(
