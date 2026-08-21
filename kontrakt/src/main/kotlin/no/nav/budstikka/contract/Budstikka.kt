@@ -210,7 +210,6 @@ object Budstikka {
         requireNotBlank(text, "text")
         requireNotBlank(link, "link")
         sakstilknytning?.let { requireNotBlank(it.sakId, "sakstilknytning.sakId") }
-        require(visibleUntil == null) { "visibleUntil is not supported for arbeidsgivervarselCreate" }
         return ArbeidsgivervarselCreate(
             orgnummer = orgnummer,
             recipient = recipient.toWireRecipient(),
@@ -219,7 +218,7 @@ object Budstikka {
             link = link,
             meldingstype = meldingstype.toWireMeldingstype(),
             sakstilknytning = sakstilknytning?.let { Sakstilknytning(it.sakId) },
-            visibleUntil = null,
+            visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         ).encode(eventId, reference)
     }
