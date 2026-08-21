@@ -1,7 +1,7 @@
 package no.nav.budstikka.contract
 
 /**
- * Producer-facing inputs for an Arbeidsgivervarsel. Choose exactly one [Mottaker] path.
+ * Producer-facing inputs for an Arbeidsgivervarsel. Choose exactly one [Recipient] path.
  *
  * These types deliberately describe only paths Budstikka can deliver. Tags and Altinn resources are
  * selected as plain strings by the producer and carried unchanged to the downstream recipient.
@@ -21,7 +21,7 @@ object Arbeidsgivervarsel {
     }
 
     /** Exactly one delivery path for an Arbeidsgivervarsel. */
-    sealed interface Mottaker
+    sealed interface Recipient
 
     /**
      * Sends to the active Nærmeste leder for [sykmeldt]. Budstikka's delivery flow ends when no
@@ -31,7 +31,7 @@ object Arbeidsgivervarsel {
     data class NarmesteLeder(
         val sykmeldt: PersonIdentifier,
         val externalVarsling: NarmesteLederExternalVarsling? = null,
-    ) : Mottaker {
+    ) : Recipient {
         override fun toString(): String = "NarmesteLeder(hasExternalVarsling=${externalVarsling != null})"
     }
 
@@ -39,7 +39,7 @@ object Arbeidsgivervarsel {
     data class AltinnRessurs(
         val resource: String,
         val externalVarsling: AltinnExternalVarsling? = null,
-    ) : Mottaker {
+    ) : Recipient {
         override fun toString(): String = "AltinnRessurs(hasExternalVarsling=${externalVarsling != null})"
     }
 

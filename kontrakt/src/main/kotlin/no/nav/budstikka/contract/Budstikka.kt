@@ -195,7 +195,7 @@ object Budstikka {
         eventId: EventId,
         reference: String,
         orgnummer: Orgnummer,
-        recipient: Arbeidsgivervarsel.Mottaker,
+        recipient: Arbeidsgivervarsel.Recipient,
         tag: String,
         text: String,
         link: String,
@@ -359,7 +359,7 @@ private fun Orgnummer.requireOrgnummer() =
         "orgnummer must be $ORGNUMMER_LENGTH digits"
     }
 
-private fun Arbeidsgivervarsel.Mottaker.toWireRecipient(): ArbeidsgiverRecipient =
+private fun Arbeidsgivervarsel.Recipient.toWireRecipient(): ArbeidsgiverRecipient =
     when (this) {
         is Arbeidsgivervarsel.NarmesteLeder -> {
             sykmeldt.requirePersonIdentifier("recipient.sykmeldt")
