@@ -477,6 +477,25 @@ class ContractPrivacyTest :
                     )
                 }.message!!.also { it shouldContain "caseAssociation.caseId" }.shouldNotLeak()
             }
+
+            test("visibleUntil is encoded without changing privacy-safe string representations") {
+                val visibleUntil = Instant.parse("2026-02-03T04:05:06Z")
+
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = narmesteLeder,
+                        tag = "Dialogmøte",
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                        visibleUntil = visibleUntil,
+                    ).also {
+                        it.value shouldContain """"visibleUntil":"2026-02-03T04:05:06Z""""
+                        it.toString() shouldNotContain visibleUntil.toString()
+                    }.toString().shouldNotLeak()
+            }
         }
 
         context("validation failures name the parameter, never its value") {

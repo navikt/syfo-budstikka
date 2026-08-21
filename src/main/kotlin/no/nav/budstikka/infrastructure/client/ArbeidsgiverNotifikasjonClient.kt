@@ -17,6 +17,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
@@ -50,8 +53,9 @@ import okio.Buffer
  * operation and input models from fager's pinned schema, while the shared Ktor client retains
  * ownership of transport, authentication and status handling. External notifications always use
  * `LOEPENDE`, because SendingWindowGate has already enforced budstikka's window. Email body is
- * escaped from consumer-provided plain text before it becomes downstream HTML. Fager schedules
- * hard deletion four calendar months after receipt, matching esyfovarsel's retention period.
+ * escaped from consumer-provided plain text before it becomes downstream HTML. Fager uses an
+ * explicit Europe/Oslo hard-delete time when supplied; otherwise it schedules deletion four
+ * calendar months after receipt, matching esyfovarsel's retention period.
  */
 class ArbeidsgiverNotifikasjonClient(
     private val httpClient: HttpClient,
@@ -152,7 +156,11 @@ class ArbeidsgiverNotifikasjonClient(
             grupperingsid = grupperingsid.toOptional(),
             hardDelete =
                 Optional.present(
-                    FutureTemporalInput(om = Optional.present(HARD_DELETE_AFTER_FOUR_MONTHS)),
+                    visibleUntil?.let {
+                        FutureTemporalInput(
+                            den = Optional.present(HARD_DELETE_DATE_TIME.format(it.toLocalDateTime(OSLO_TIME_ZONE))),
+                        )
+                    } ?: FutureTemporalInput(om = Optional.present(HARD_DELETE_AFTER_FOUR_MONTHS)),
                 ),
         )
 
@@ -298,6 +306,21 @@ class ArbeidsgiverNotifikasjonClient(
 
     private companion object {
         private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
+        private val OSLO_TIME_ZONE = TimeZone.of("Europe/Oslo")
+        private val HARD_DELETE_DATE_TIME =
+            LocalDateTime.Format {
+                year()
+                chars("-")
+                monthNumber()
+                chars("-")
+                day()
+                chars("T")
+                hour()
+                chars(":")
+                minute()
+                chars(":")
+                second()
+            }
 
         // Fager documents X-Request-ID as an accepted correlation header in docs/gql/intro.html
         // at the pinned revision.

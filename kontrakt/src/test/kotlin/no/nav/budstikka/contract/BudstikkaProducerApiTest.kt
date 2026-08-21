@@ -190,6 +190,7 @@ class BudstikkaProducerApiTest :
                         link = "https://nav.no/ag",
                         messageType = Arbeidsgivervarsel.MessageType.OPPGAVE,
                         caseAssociation = Arbeidsgivervarsel.CaseAssociation("sak-1"),
+                        visibleUntil = VISIBLE_UNTIL,
                         sendingWindow = SendingWindow.ONGOING,
                     )
 
@@ -199,7 +200,7 @@ class BudstikkaProducerApiTest :
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"tag":"Dialogmøte",""" +
                     """"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag","meldingstype":"OPPGAVE",""" +
-                    """"sakstilknytning":{"sakId":"sak-1"},"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
+                    """"sakstilknytning":{"sakId":"sak-1"},"visibleUntil":"2026-01-01T00:00:00Z","sendingWindow":"ONGOING"}}"""
             }
 
             test("Altinn resource carries external notification fields and defaults") {
