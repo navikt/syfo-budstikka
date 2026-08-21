@@ -13,7 +13,7 @@ import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.time.Instant
 
-private val EVENT_ID = EventId(UUID.fromString("00000000-0000-4000-8000-000000000002"))
+private val EVENT_ID = EventId(UUID.fromString("00000000-0000-4000-8000-0000000000a2"))
 
 /**
  * The contract carries person data, ids that point at a person's case or document, and text written
@@ -38,6 +38,8 @@ class ContractPrivacyTest :
                 SYNTHETIC_SAK_ID,
                 SYNTHETIC_MICROFRONTEND_ID,
                 SYNTHETIC_LINK,
+                "SENSITIVE-PRODUCER-TAG",
+                "sensitive-producer-resource",
             )
 
         fun String.shouldNotLeak() = secrets.forEach { secret -> this shouldNotContain secret }
@@ -107,10 +109,11 @@ class ContractPrivacyTest :
                                 sykmeldt = SYNTHETIC_SYKMELDT,
                                 externalVarsling = narmesteLederExternalVarsling,
                             ),
-                        tag = Tag.DIALOGMOETE,
+                        tag = "SENSITIVE-PRODUCER-TAG",
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         sakstilknytning = sakstilknytning,
+                        visibleUntil = Instant.parse("2026-01-01T00:00:00Z"),
                     ),
                     ArbeidsgivervarselInactivate(reference = SYNTHETIC_REFERENCE, orgnummer = SYNTHETIC_ORGNUMMER),
                     BrevCreate(
@@ -157,7 +160,7 @@ class ContractPrivacyTest :
                     ),
                 "AltinnResource" to
                     AltinnResource(
-                        resource = AltinnResourceId.DIALOGMOETE,
+                        resource = "sensitive-producer-resource",
                         externalVarsling = altinnExternalVarsling,
                     ),
             ).forEach { (name, value) ->
@@ -203,6 +206,24 @@ class ContractPrivacyTest :
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                         ),
+                    "arbeidsgivervarselCreate" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                Arbeidsgivervarsel.NarmesteLeder(
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    externalNotification =
+                                        Arbeidsgivervarsel.NarmesteLederExternalNotification(
+                                            emailTitle = SYNTHETIC_EMAIL_TITLE,
+                                            emailText = SYNTHETIC_EMAIL_TEXT,
+                                        ),
+                                ),
+                            tag = "Dialogmøte",
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
                     "brevCreate" to
                         Budstikka.brevCreate(
                             eventId = EVENT_ID,
@@ -239,6 +260,222 @@ class ContractPrivacyTest :
                 brukervarsel.key shouldBe SYNTHETIC_SYKMELDT.value
                 brukervarsel.value shouldContain SYNTHETIC_TEXT
                 brukervarsel.value shouldContain SYNTHETIC_REFERENCE
+            }
+        }
+
+        context("Arbeidsgivervarsel facade") {
+            val narmesteLeder =
+                Arbeidsgivervarsel.NarmesteLeder(
+                    SYNTHETIC_SYKMELDT,
+                    Arbeidsgivervarsel.NarmesteLederExternalNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                )
+            val altinn =
+                Arbeidsgivervarsel.AltinnResource(
+                    "nav_syfo_dialogmote",
+                    Arbeidsgivervarsel.AltinnExternalNotification(
+                        SYNTHETIC_EMAIL_TITLE,
+                        SYNTHETIC_EMAIL_TEXT,
+                        SYNTHETIC_SMS_TEXT,
+                    ),
+                )
+
+            test("producer-facing inputs do not leak person data, text, tag or resource") {
+                listOf<Any>(
+                    narmesteLeder,
+                    altinn,
+                    narmesteLeder.externalNotification!!,
+                    altinn.externalNotification!!,
+                    Arbeidsgivervarsel.CaseAssociation(SYNTHETIC_SAK_ID),
+                ).forEach { it.toString().shouldNotLeak() }
+            }
+
+            test("validation failures name only the parameter") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        narmesteLeder,
+                        " ",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!
+                    .also { it shouldContain "tag" }
+                    .shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnResource(" "),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!
+                    .also { it shouldContain "recipient.resource" }
+                    .shouldNotLeak()
+
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnResource("sensitive-producer-resource"),
+                        "SENSITIVE-PRODUCER-TAG",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    ).value shouldContain """"resource":"sensitive-producer-resource""""
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        " ",
+                        SYNTHETIC_ORGNUMMER,
+                        narmesteLeder,
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "reference" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        Orgnummer("12"),
+                        narmesteLeder,
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "orgnummer" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        narmesteLeder,
+                        "Dialogmøte",
+                        " ",
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "text" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.NarmesteLeder(PersonIdentifier("1234")),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.sykmeldt" }.also { it shouldNotContain "1234" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        altinn,
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        " ",
+                    )
+                }.message!!.also { it shouldContain "link" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnResource(
+                            "nav_syfo_dialogmote",
+                            Arbeidsgivervarsel.AltinnExternalNotification(" ", SYNTHETIC_EMAIL_TEXT, SYNTHETIC_SMS_TEXT),
+                        ),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.externalNotification.emailTitle" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.NarmesteLeder(
+                            SYNTHETIC_SYKMELDT,
+                            Arbeidsgivervarsel.NarmesteLederExternalNotification(SYNTHETIC_EMAIL_TITLE, " "),
+                        ),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.externalNotification.emailText" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.NarmesteLeder(
+                            SYNTHETIC_SYKMELDT,
+                            Arbeidsgivervarsel.NarmesteLederExternalNotification(" ", SYNTHETIC_EMAIL_TEXT),
+                        ),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.externalNotification.emailTitle" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnResource(
+                            "nav_syfo_dialogmote",
+                            Arbeidsgivervarsel.AltinnExternalNotification(SYNTHETIC_EMAIL_TITLE, " ", SYNTHETIC_SMS_TEXT),
+                        ),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.externalNotification.emailText" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        Arbeidsgivervarsel.AltinnResource(
+                            "nav_syfo_dialogmote",
+                            Arbeidsgivervarsel.AltinnExternalNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT, " "),
+                        ),
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.externalNotification.smsText" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        EVENT_ID,
+                        SYNTHETIC_REFERENCE,
+                        SYNTHETIC_ORGNUMMER,
+                        narmesteLeder,
+                        "Dialogmøte",
+                        SYNTHETIC_TEXT,
+                        SYNTHETIC_LINK,
+                        caseAssociation = Arbeidsgivervarsel.CaseAssociation(" "),
+                    )
+                }.message!!.also { it shouldContain "caseAssociation.caseId" }.shouldNotLeak()
             }
         }
 

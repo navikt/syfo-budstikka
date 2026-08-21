@@ -29,7 +29,6 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.ArbeidsgiverRecipient**",
         "no.nav.budstikka.contract.ArbeidsgivervarselCreate**",
         "no.nav.budstikka.contract.ArbeidsgivervarselInactivate**",
-        "no.nav.budstikka.contract.AltinnResourceId",
         "no.nav.budstikka.contract.BrevCreate**",
         "no.nav.budstikka.contract.Brukervarsel**",
         "no.nav.budstikka.contract.DittSykefravaerCreate**",
@@ -40,7 +39,6 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.Microfrontend**",
         "no.nav.budstikka.contract.NarmesteLeder**",
         "no.nav.budstikka.contract.Sakstilknytning**",
-        "no.nav.budstikka.contract.Tag",
     )
 
 extensions.configure<KotlinJvmProjectExtension>("kotlin") {

@@ -23,9 +23,7 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
-import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
 import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
@@ -142,7 +140,7 @@ class ArbeidsgiverNotifikasjonClient(
 
     private fun ArbeidsgiverNotificationRequest.toGraphqlNotification() =
         NotifikasjonInput(
-            merkelapp = tag.toWireValue(),
+            merkelapp = tag,
             tekst = tekst,
             lenke = lenke,
         )
@@ -162,7 +160,7 @@ class ArbeidsgiverNotifikasjonClient(
         when (this) {
             is ArbeidsgiverNotificationRecipient.AltinnRessurs ->
                 MottakerInput(
-                    altinnRessurs = Optional.present(AltinnRessursMottakerInput(resource.toWireValue())),
+                    altinnRessurs = Optional.present(AltinnRessursMottakerInput(resource)),
                 )
             is ArbeidsgiverNotificationRecipient.NarmesteLeder ->
                 MottakerInput(
@@ -188,12 +186,12 @@ class ArbeidsgiverNotifikasjonClient(
                 }
         }
 
-    private fun AltinnExternalVarsling.toGraphqlExternalVarsling(resource: AltinnResourceId) =
+    private fun AltinnExternalVarsling.toGraphqlExternalVarsling(resource: String) =
         EksterntVarselInput(
             altinnressurs =
                 Optional.present(
                     EksterntVarselAltinnressursInput(
-                        mottaker = AltinnRessursMottakerInput(resource.toWireValue()),
+                        mottaker = AltinnRessursMottakerInput(resource),
                         epostTittel = epostTittel,
                         epostHtmlBody = epostTekst.toEscapedHtml(),
                         smsTekst = smsTekst,
@@ -263,17 +261,6 @@ class ArbeidsgiverNotifikasjonClient(
         ArbeidsgiverNotificationResponse.Rejected(
             "Arbeidsgiver notification API rejected request: $resultType",
         )
-
-    private fun Tag.toWireValue(): String =
-        when (this) {
-            Tag.DIALOGMOETE -> "Dialogmøte"
-            Tag.OPPFOELGING -> "Oppfølging"
-        }
-
-    private fun AltinnResourceId.toWireValue(): String =
-        when (this) {
-            AltinnResourceId.DIALOGMOETE -> "nav_syfo_dialogmote"
-        }
 
     private fun String.toEscapedHtml(): String =
         buildString {

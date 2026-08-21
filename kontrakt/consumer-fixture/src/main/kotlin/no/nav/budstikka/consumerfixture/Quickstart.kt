@@ -4,8 +4,10 @@ import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.Budstikka
 import no.nav.budstikka.contract.EventId
+import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Varseltype
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -38,4 +40,26 @@ fun main() {
     check(record.value() == expectedJson)
     check(Json.parseToJsonElement(record.value()).jsonObject["reference"]?.jsonPrimitive?.content == "synthetic-reference-0001")
     check(record.headers().lastHeader("eventId")?.value()?.toString(Charsets.UTF_8) == eventId.toString())
+
+    listOf(
+        Arbeidsgivervarsel.NarmesteLeder(PersonIdentifier("00000000000")) to
+            """"mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""",
+        Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote") to
+            """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""",
+    ).forEach { (recipient, recipientJson) ->
+        val arbeidsgivervarsel =
+            Budstikka.arbeidsgivervarselCreate(
+                eventId = eventId,
+                reference = "synthetic-employer-reference",
+                orgnummer = Orgnummer("999999999"),
+                recipient = recipient,
+                tag = "Dialogmøte",
+                text = "SYNTETISK-VARSELTEKST",
+                link = "https://nav.no/ag",
+            )
+        check(arbeidsgivervarsel.topic == "team-esyfo.budstikka.v1")
+        check(arbeidsgivervarsel.key == "999999999")
+        check(arbeidsgivervarsel.headers["eventId"] == eventId.toString())
+        check(arbeidsgivervarsel.value.contains(recipientJson))
+    }
 }

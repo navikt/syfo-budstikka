@@ -151,13 +151,6 @@ enum class SendingWindow {
     BUDSTIKKA_OPENING_HOURS,
 }
 
-/** Producer-selected category; budstikka does not branch on it. */
-@InternalBudstikkaWire
-enum class Tag { DIALOGMOETE, OPPFOELGING }
-
-@InternalBudstikkaWire
-enum class AltinnResourceId { DIALOGMOETE, }
-
 /** Message type for Arbeidsgivervarsel, distinct from [Varseltype]. */
 @InternalBudstikkaWire
 enum class ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }

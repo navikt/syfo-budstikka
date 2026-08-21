@@ -42,7 +42,7 @@ class DispatchSerializationTest :
                         ArbeidsgivervarselCreate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
-                            tag = Tag.DIALOGMOETE,
+                            tag = "Dialogmøte",
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                             meldingstype = ArbeidsgiverMeldingstype.OPPGAVE,
@@ -60,15 +60,15 @@ class DispatchSerializationTest :
                                             emailText = "E-posttekst",
                                         ),
                                 ),
-                            tag = Tag.DIALOGMOETE,
+                            tag = "Dialogmøte",
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                         ),
                     "ArbeidsgivervarselCreate-Altinn-without-external-varsling" to
                         ArbeidsgivervarselCreate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
-                            recipient = AltinnResource(resource = AltinnResourceId.DIALOGMOETE),
-                            tag = Tag.OPPFOELGING,
+                            recipient = AltinnResource(resource = "nav_syfo_dialogmote"),
+                            tag = "Oppfølging",
                             text = "Oppfølging",
                             link = "https://nav.no/ag",
                         ),
@@ -77,7 +77,7 @@ class DispatchSerializationTest :
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient =
                                 AltinnResource(
-                                    resource = AltinnResourceId.DIALOGMOETE,
+                                    resource = "nav_syfo_dialogmote",
                                     externalVarsling =
                                         AltinnExternalVarsling(
                                             emailTitle = "E-posttittel",
@@ -85,7 +85,7 @@ class DispatchSerializationTest :
                                             smsText = "SMS-tekst",
                                         ),
                                 ),
-                            tag = Tag.OPPFOELGING,
+                            tag = "Oppfølging",
                             text = "Oppfølging",
                             link = "https://nav.no/ag",
                         ),
@@ -143,10 +143,10 @@ class DispatchSerializationTest :
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient =
                                 AltinnResource(
-                                    AltinnResourceId.DIALOGMOETE,
+                                    "nav_syfo_dialogmote",
                                     AltinnExternalVarsling("Tittel", "E-post", "SMS"),
                                 ),
-                            tag = Tag.DIALOGMOETE,
+                            tag = "Dialogmøte",
                             text = "Tekst",
                             link = "https://nav.no",
                         ),
@@ -162,7 +162,7 @@ class DispatchSerializationTest :
                                     SYNTHETIC_SYKMELDT,
                                     NarmesteLederExternalVarsling("Tittel", "E-post"),
                                 ),
-                            tag = Tag.DIALOGMOETE,
+                            tag = "Dialogmøte",
                             text = "Tekst",
                             link = "https://nav.no",
                         ),
@@ -190,7 +190,7 @@ class DispatchSerializationTest :
 
             test("ArbeidsgivervarselCreate with sendingWindow: null maps to BUDSTIKKA_OPENING_HOURS") {
                 val payload =
-                    """{"reference":"ref-2","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"${SYNTHETIC_ORGNUMMER.value}","mottaker":{"type":"AltinnRessurs","resource":"DIALOGMOETE"},"tag":"DIALOGMOETE","text":"Hei","link":"https://nav.no","sendingWindow":null}}"""
+                    """{"reference":"ref-2","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"${SYNTHETIC_ORGNUMMER.value}","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote"},"tag":"Dialogmøte","text":"Hei","link":"https://nav.no","sendingWindow":null}}"""
                 val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
                 (dispatch.content as ArbeidsgivervarselCreate).sendingWindow shouldBe SendingWindow.BUDSTIKKA_OPENING_HOURS
             }
@@ -258,6 +258,30 @@ class DispatchSerializationTest :
                         varseltype = Varseltype.OPPGAVE,
                         text = SYNTHETIC_TEXT,
                         externalVarsling = ExternalNotification.smsAndEmail(smsText = SYNTHETIC_SMS_TEXT),
+                    ),
+                )
+        }
+
+        test("an Arbeidsgivervarsel encoded by the producer facade preserves arbitrary strings") {
+            val encoded =
+                Budstikka.arbeidsgivervarselCreate(
+                    eventId = EventId(UUID.fromString("00000000-0000-4000-8000-000000000003")),
+                    reference = "ref-123",
+                    orgnummer = SYNTHETIC_ORGNUMMER,
+                    recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                    tag = "producer-owned-tag",
+                    text = SYNTHETIC_TEXT,
+                    link = "https://nav.no/ag",
+                )
+
+            dispatchJson.decodeFromString<Dispatch>(encoded.value) shouldBe
+                envelope(
+                    ArbeidsgivervarselCreate(
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        tag = "producer-owned-tag",
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
                     ),
                 )
         }

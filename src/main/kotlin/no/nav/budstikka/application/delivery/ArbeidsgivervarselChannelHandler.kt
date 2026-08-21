@@ -27,9 +27,19 @@ class ArbeidsgivervarselChannelHandler(
         if (create.link.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         }
+        if (create.tag.isBlank()) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
+        }
         val notificationRecipient =
             when (val recipient = create.recipient) {
-                is AltinnResource -> recipient.toNotificationRecipient()
+                is AltinnResource ->
+                    if (recipient.resource.isBlank()) {
+                        return DeliveryOutcome.Failed(
+                            "ARBEIDSGIVERVARSEL recipient.resource must not be blank",
+                        )
+                    } else {
+                        recipient.toNotificationRecipient()
+                    }
                 is NarmesteLederRecipient -> {
                     val relation =
                         withChannelHandlerFailureContext(

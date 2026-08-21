@@ -25,13 +25,12 @@ settes sammen i en produsent.
 | `brukervarselInactivate` | Lukk et tidligere brukervarsel. |
 | `dineSykmeldteVarselCreate` | Opprett in-app-aktivitet i Dine Sykmeldte. |
 | `dineSykmeldteVarselInactivate` | Lukk en tidligere aktivitet i Dine Sykmeldte. |
+| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
 
-`DittSykefravaer` og `Arbeidsgivervarsel` er ikke funksjoner på fasaden, og en produsent skal derfor
-ikke sende dem ennå. `DittSykefravaer` mangler runtime-støtte. `Arbeidsgivervarsel` kan leveres i
-runtime, men produsentkontrakten er ikke ferdig og er derfor fortsatt skjult bak rå wire-typer.
+`DittSykefravaer` er ikke en funksjon på fasaden fordi den mangler runtime-støtte.
 
 ## Opprett og lukk
 
@@ -74,6 +73,16 @@ for papir.
 
 Dine Sykmeldte har bare in-app-varsel. Ikke legg til SMS- eller e-postforventninger der.
 
+`arbeidsgivervarselCreate` bruker enten `Arbeidsgivervarsel.NarmesteLeder(sykmeldt)` eller
+`Arbeidsgivervarsel.AltinnResource(resource)`. Bruk mottakerspesifikke `externalNotification`-verdier,
+ikke `ExternalNotification`. Nærmeste leder-oppslaget og e-postleveringen skjer i Budstikka.
+`tag` må samsvare med produsentens registrerte merkelapp, og Altinn `resource` må samsvare med
+produsentens registrerte Altinn-ressurs i Arbeidsgivernotifikasjoner. Ellers feiler leveringen
+terminalt.
+Leveringen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
+feiler leveringen også terminalt hvis lederen mangler e-postadresse. `visibleUntil` er valgfritt og
+angir når mottakerkanalen slutter å vise varselet.
+
 ## Feil og personvern
 
 Fasaden validerer obligatoriske felt og kaster `IllegalArgumentException` med parameterets navn,
@@ -98,9 +107,9 @@ eksplisitt, reviewet endring av kompatibilitetspolicyen eller -gaten i samme R3-
 ingen ordinær bypass-flag.
 
 Rå wire er utelatt fra JVM-sammenligningen av producer-API-et, men er fortsatt styrt av golden
-serialiseringstester og ny-topic-policyen. Endrer en wire-endring JSON, header, partisjonsnøkkel eller
-annen tolkning, krever den et nytt Kafka-topic, normalt `.v2`, med parallell migrering. Slike endringer
-skjer ikke innenfor denne kontraktversjonen.
+serialiseringstester og ny-topic-policyen. En Arbeidsgivervarsel-variant som verken er eksponert i et
+publisert producer-API eller sendt på topic-et, kan rettes på v1 før første bruk. Etter publisering
+eller bruk krever breaking wire-endringer et nytt Kafka-topic, normalt `.v2`, med parallell migrering.
 
 Hver ny release må ha et eget, kontrollert release-notat med riktig versjon og migrering. Publisering
 startes bare av en autorisert tagg `kontrakt/vX.Y.Z` fra `main`; workflowen avviser duplikatversjoner og
