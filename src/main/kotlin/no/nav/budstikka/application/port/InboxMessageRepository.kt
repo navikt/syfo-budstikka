@@ -1,6 +1,7 @@
 package no.nav.budstikka.application.port
 
 import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.domain.decision.FerdigstillMatch
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -24,7 +25,8 @@ interface InboxMessageRepository {
      * Claiming does NOT spend an attempt: a claimed row that is never processed (batch abort, spent
      * lease budget, crash) must not approach the poison gate. [beginAttempt] spends the attempt.
      * A row that started processing [maxAttempts] times without a terminal state becomes FAILED
-     * instead of being reclaimed forever.
+     * instead of being reclaimed forever. WAIT rows are scheduled resumes (sending-window holds or
+     * technical FERDIGSTILL rechecks), so waking them also leaves the attempt budget untouched.
      */
     suspend fun claim(
         limit: Int,
@@ -55,6 +57,34 @@ interface InboxMessageRepository {
      * so this compare-and-set does not distinguish a stale worker from a later reclaimer.
      */
     fun markProcessedInTransaction(eventId: UUID): Boolean
+
+    /**
+     * Acquires a PostgreSQL row lock for a currently claimed inbox row. Effectuation holds this lock
+     * through its terminal transition and any delivery write so a FERDIGSTILL cancellation cannot
+     * race a waking CREATE into materializing a delivery.
+     */
+    fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean
+
+    /**
+     * Locks every matching CREATE that is either waiting for the sending window or has been woken
+     * but still carries its wait reason. The caller must re-check materialized deliveries after
+     * this call because a CREATE effectuation may have won while this transaction waited for a
+     * lock.
+     */
+    fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
+
+    /** Marks a locked WAIT/awakened-WAIT CREATE as terminal without materializing a delivery. */
+    fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean
+
+    /**
+     * Holds a claimed FERDIGSTILL row in WAIT until the matching CREATE delivery reaches SENT. This
+     * reuses the same WAIT semantics as sending-window holds, including resetting the spent attempt
+     * budget.
+     */
+    fun markWaitingForCreateSentInTransaction(
+        eventId: UUID,
+        nextRetry: Instant,
+    ): Boolean
 
     fun markDroppedInTransaction(
         eventId: UUID,

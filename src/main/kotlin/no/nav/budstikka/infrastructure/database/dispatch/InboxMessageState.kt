@@ -8,9 +8,11 @@ package no.nav.budstikka.infrastructure.database.dispatch
  * - [CLAIMED]: claimed by the decision worker with a lease, invisible to other pollers
  *   until the lease expires or the row is effectuated.
  * - [PROCESSED] / [DROPPED] / [FAILED]: terminal effectuation outcomes.
- * - [WAIT]: held outside the sending window. `next_attempt_time` carries the next
- *   window opening; the row is re-claimed when it passes, and waking does NOT consume the attempt
- *   budget. The wait reason is stored in `wait_reason`, not `error_message`.
+ * - [WAIT]: held for a scheduled resume. This covers both sending-window holds and a short
+ *   FERDIGSTILL recheck while a matching CREATE delivery is not yet confirmed SENT.
+ *   `next_attempt_time` carries the resume point; the row is re-claimed when it passes, and waking
+ *   does NOT consume the attempt budget. The wait reason is stored in `wait_reason`, not
+ *   `error_message`.
  *
  * The delivery table has a similar but separate state series (READY/…/SENT). They share a shape, not
  * values, so states remain separate enums per table.

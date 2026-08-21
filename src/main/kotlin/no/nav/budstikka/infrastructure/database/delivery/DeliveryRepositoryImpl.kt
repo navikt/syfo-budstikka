@@ -2,10 +2,17 @@ package no.nav.budstikka.infrastructure.database.delivery
 
 import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.withPlaceholders
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.StoredCreateDelivery
+import no.nav.budstikka.application.port.StoredCreateDeliveryState
+import no.nav.budstikka.contract.Orgnummer
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.domain.decision.Recipient
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -49,8 +56,48 @@ class DeliveryRepositoryImpl(
             this[DeliveryTable.recipientType] = type
             this[DeliveryTable.recipientId] = id
             this[DeliveryTable.payload] = draftEntry.content
+            this[DeliveryTable.createExternalId] =
+                if (draftEntry.operation == Operation.CREATE && draftEntry.channel == Channel.ARBEIDSGIVERVARSEL) {
+                    inboxEventId.toString()
+                } else {
+                    draftEntry.createExternalId
+                }
             this[DeliveryTable.createdAt] = Clock.System.now()
         }
+    }
+
+    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch): StoredCreateDelivery? {
+        val (recipientType, recipientId) = match.recipient.toColumns()
+        return DeliveryTable
+            .select(
+                DeliveryTable.createExternalId,
+                DeliveryTable.reference,
+                DeliveryTable.channel,
+                DeliveryTable.recipientType,
+                DeliveryTable.recipientId,
+                DeliveryTable.payload,
+                DeliveryTable.state,
+            ).where {
+                (DeliveryTable.reference eq match.reference) and
+                    (DeliveryTable.operation eq Operation.CREATE.name) and
+                    (DeliveryTable.channel eq match.channel.name) and
+                    (DeliveryTable.recipientType eq recipientType) and
+                    (DeliveryTable.recipientId eq recipientId)
+            }.orderBy(
+                DeliveryTable.createdAt to SortOrder.DESC,
+                DeliveryTable.id to SortOrder.DESC,
+            ).limit(1)
+            .singleOrNull()
+            ?.let { row ->
+                StoredCreateDelivery(
+                    createExternalId = row[DeliveryTable.createExternalId],
+                    reference = row[DeliveryTable.reference],
+                    channel = Channel.valueOf(row[DeliveryTable.channel]),
+                    recipient = recipientFromColumns(row[DeliveryTable.recipientType], row[DeliveryTable.recipientId]),
+                    payload = row[DeliveryTable.payload],
+                    state = StoredCreateDeliveryState.valueOf(row[DeliveryTable.state]),
+                )
+            }
     }
 
     override suspend fun claim(
@@ -72,8 +119,10 @@ class DeliveryRepositoryImpl(
                         DeliveryTable.id,
                         DeliveryTable.inboxEventId,
                         DeliveryTable.reference,
+                        DeliveryTable.operation,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
+                        DeliveryTable.createExternalId,
                     ).where {
                         (
                             (DeliveryTable.state eq DeliveryState.READY.name) or
@@ -96,6 +145,8 @@ class DeliveryRepositoryImpl(
                             reference = row[DeliveryTable.reference],
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
+                            operation = Operation.valueOf(row[DeliveryTable.operation]),
+                            createExternalId = row[DeliveryTable.createExternalId],
                         )
                     }
             if (claimed.isNotEmpty()) {
@@ -181,15 +232,21 @@ class DeliveryRepositoryImpl(
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
         poisonRows.forEach { row ->
+            val fields =
+                buildList {
+                    add(kv(MdcKeys.DELIVERY_ID, row.id.toString()))
+                    add(kv(MdcKeys.EVENT_ID, row.inboxEventId?.toString()))
+                    if (!row.omitReferenceFromLogs()) {
+                        add(kv(MdcKeys.REFERENCE, row.reference))
+                    }
+                    add(kv(MdcKeys.OPERATION, row.operation))
+                    add(kv(MdcKeys.DELIVERY_CHANNEL, row.channel))
+                    add(kv(MdcKeys.DELIVERY_COUNT, row.attempt))
+                    add(kv(MdcKeys.MAX_ATTEMPTS, maxAttempts))
+                }
             logger.warn(
-                "Failed poison delivery row after reaching max attempts {} {} {} {} {} {} {}",
-                kv(MdcKeys.DELIVERY_ID, row.id.toString()),
-                kv(MdcKeys.EVENT_ID, row.inboxEventId?.toString()),
-                kv(MdcKeys.REFERENCE, row.reference),
-                kv(MdcKeys.OPERATION, row.operation),
-                kv(MdcKeys.DELIVERY_CHANNEL, row.channel),
-                kv(MdcKeys.DELIVERY_COUNT, row.attempt),
-                kv(MdcKeys.MAX_ATTEMPTS, maxAttempts),
+                withPlaceholders("Failed poison delivery row after reaching max attempts", fields),
+                *fields.toTypedArray(),
             )
         }
     }
@@ -201,7 +258,10 @@ class DeliveryRepositoryImpl(
         val operation: String,
         val channel: String,
         val attempt: Int,
-    )
+    ) {
+        fun omitReferenceFromLogs(): Boolean =
+            channel == Channel.ARBEIDSGIVERVARSEL.name && operation == Operation.INACTIVATE.name
+    }
 
     override suspend fun markSent(deliveryId: UUID): Boolean =
         markClaimedAsTerminal(deliveryId, state = DeliveryState.SENT, errorMessage = null)
@@ -234,4 +294,14 @@ private fun Recipient.toColumns(): Pair<String, String> =
     when (this) {
         is Recipient.Person -> "PERSON" to ident.value
         is Recipient.Virksomhet -> "VIRKSOMHET" to orgnummer.value
+    }
+
+private fun recipientFromColumns(
+    type: String,
+    id: String,
+): Recipient =
+    when (type) {
+        "PERSON" -> Recipient.Person(PersonIdentifier(id))
+        "VIRKSOMHET" -> Recipient.Virksomhet(Orgnummer(id))
+        else -> error("Unknown delivery recipient type")
     }

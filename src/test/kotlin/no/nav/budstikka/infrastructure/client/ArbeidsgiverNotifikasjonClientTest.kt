@@ -14,6 +14,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationCloseRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
@@ -87,6 +88,89 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"merkelapp":"Dialogmøte""""
             body shouldContain """"hardDelete":{"om":"P4M"}"""
             body.contains("grupperingsid") shouldBe false
+        }
+
+        test("closes BESKJED through hardDeleteNotifikasjonByEksternId_V2") {
+            var body = ""
+            client { request ->
+                body = (request.body as TextContent).text
+                respond(
+                    """{"data":{"hardDeleteNotifikasjonByEksternId_V2":{"__typename":"HardDeleteNotifikasjonVellykket"}}}""",
+                    HttpStatusCode.OK,
+                )
+            }.close(
+                ArbeidsgiverNotificationCloseRequest(
+                    eksternId = "stable-create-external-id",
+                    tag = Tag.OPPFOELGING,
+                    meldingstype = ArbeidsgiverMeldingstype.BESKJED,
+                ),
+            ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+            body shouldContain "hardDeleteNotifikasjonByEksternId_V2"
+            body shouldContain """"merkelapp":"Oppfølging""""
+            body shouldContain """"eksternId":"stable-create-external-id""""
+            body shouldNotContain "softDelete"
+        }
+
+        test("closes OPPGAVE through oppgaveUtfoertByEksternId_V2") {
+            var body = ""
+            client { request ->
+                body = (request.body as TextContent).text
+                respond(
+                    """{"data":{"oppgaveUtfoertByEksternId_V2":{"__typename":"OppgaveUtfoertVellykket"}}}""",
+                    HttpStatusCode.OK,
+                )
+            }.close(
+                ArbeidsgiverNotificationCloseRequest(
+                    eksternId = "stable-create-external-id",
+                    tag = Tag.DIALOGMOETE,
+                    meldingstype = ArbeidsgiverMeldingstype.OPPGAVE,
+                ),
+            ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+            body shouldContain "oppgaveUtfoertByEksternId_V2"
+            body shouldContain """"merkelapp":"Dialogmøte""""
+            body shouldContain """"eksternId":"stable-create-external-id""""
+        }
+
+        test("retries NotifikasjonFinnesIkke from close without leaking identifiers") {
+            listOf(
+                Triple(
+                    ArbeidsgiverMeldingstype.BESKJED,
+                    "hardDeleteNotifikasjonByEksternId_V2",
+                    "hardDeleteNotifikasjonByEksternId_V2",
+                ),
+                Triple(
+                    ArbeidsgiverMeldingstype.OPPGAVE,
+                    "oppgaveUtfoertByEksternId_V2",
+                    "oppgaveUtfoertByEksternId_V2",
+                ),
+            ).forEach { (meldingstype, responseField, requestField) ->
+                var body = ""
+                val error =
+                    shouldThrow<IllegalStateException> {
+                        client { request ->
+                            body = (request.body as TextContent).text
+                            respond(
+                                """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
+                                HttpStatusCode.OK,
+                            )
+                        }.close(
+                            ArbeidsgiverNotificationCloseRequest(
+                                eksternId = "stable-create-external-id",
+                                tag = Tag.DIALOGMOETE,
+                                meldingstype = meldingstype,
+                            ),
+                        )
+                    }
+
+                body shouldContain requestField
+                error.message shouldBe
+                    "Arbeidsgiver notification API could not confirm close because the notification was not found"
+                error.message shouldNotContain "stable-create-external-id"
+                error.message shouldNotContain responseField
+                error.message shouldNotContain "NotifikasjonFinnesIkke"
+            }
         }
 
         test("normalizes CRLF and CR before escaping external email text") {

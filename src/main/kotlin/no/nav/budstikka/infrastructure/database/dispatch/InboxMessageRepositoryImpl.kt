@@ -4,6 +4,8 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.matchesCreate
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -11,6 +13,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
@@ -25,6 +28,8 @@ import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
+
+private const val WAIT_REASON_AWAITING_MATCHING_CREATE_SENT = "AWAITING_MATCHING_CREATE_SENT"
 
 class InboxMessageRepositoryImpl(
     private val database: Database,
@@ -165,6 +170,50 @@ class InboxMessageRepositoryImpl(
     override fun markProcessedInTransaction(eventId: UUID): Boolean =
         terminate(eventId, state = InboxMessageState.PROCESSED, dropReason = null, errorMessage = null)
 
+    override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean =
+        InboxMessageTable
+            .select(InboxMessageTable.eventId)
+            .where {
+                (InboxMessageTable.eventId eq eventId) and
+                    (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+            }.forUpdate(ForUpdateOption.PostgreSQL.ForUpdate())
+            .singleOrNull() != null
+
+    override fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> =
+        InboxMessageTable
+            .select(InboxMessageTable.eventId, InboxMessageTable.content)
+            .where {
+                (InboxMessageTable.reference eq match.reference) and
+                    (
+                        (InboxMessageTable.state eq InboxMessageState.WAIT.name) or
+                            (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+                    ) and
+                    InboxMessageTable.waitReason.isNotNull()
+            }.orderBy(InboxMessageTable.eventId to SortOrder.ASC)
+            .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate())
+            .mapNotNull { row ->
+                row
+                    .takeIf { it[InboxMessageTable.content].matchesCreate(match) }
+                    ?.get(InboxMessageTable.eventId)
+            }
+
+    override fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean =
+        InboxMessageTable.update({
+            (InboxMessageTable.eventId eq eventId) and
+                (
+                    (InboxMessageTable.state eq InboxMessageState.WAIT.name) or
+                        (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+                ) and
+                InboxMessageTable.waitReason.isNotNull()
+        }) {
+            it[state] = InboxMessageState.PROCESSED.name
+            it[dropReason] = null
+            it[errorMessage] = null
+            it[waitReason] = null
+            it[nextAttemptTime] = null
+            it[processedAt] = Clock.System.now()
+        } > 0
+
     override fun markDroppedInTransaction(
         eventId: UUID,
         reason: String,
@@ -179,18 +228,12 @@ class InboxMessageRepositoryImpl(
         eventId: UUID,
         reason: String,
         nextRetry: Instant,
-    ): Boolean =
-        InboxMessageTable.update({
-            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
-        }) {
-            it[InboxMessageTable.state] = InboxMessageState.WAIT.name
-            it[InboxMessageTable.waitReason] = reason
-            it[InboxMessageTable.nextAttemptTime] = nextRetry
-            // Reaching a hold decision is a successful evaluation, not a failure. The attempt spent
-            // by beginAttempt is handed back, so repeated sending-window holds can never push a
-            // legitimately waiting message into the poison gate.
-            it[attempt] = 0
-        } > 0
+    ): Boolean = markWaitInTransaction(eventId, reason, nextRetry)
+
+    override fun markWaitingForCreateSentInTransaction(
+        eventId: UUID,
+        nextRetry: Instant,
+    ): Boolean = markWaitInTransaction(eventId, WAIT_REASON_AWAITING_MATCHING_CREATE_SENT, nextRetry)
 
     private fun terminate(
         eventId: UUID,
@@ -206,5 +249,23 @@ class InboxMessageRepositoryImpl(
             it[InboxMessageTable.errorMessage] = errorMessage
             it[InboxMessageTable.waitReason] = null
             it[processedAt] = Clock.System.now()
+        } > 0
+
+    private fun markWaitInTransaction(
+        eventId: UUID,
+        reason: String,
+        nextRetry: Instant,
+    ): Boolean =
+        InboxMessageTable.update({
+            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+        }) {
+            it[InboxMessageTable.state] = InboxMessageState.WAIT.name
+            it[InboxMessageTable.waitReason] = reason
+            it[InboxMessageTable.nextAttemptTime] = nextRetry
+            it[InboxMessageTable.errorMessage] = null
+            // Reaching a hold decision is a successful evaluation, not a failure. The attempt spent
+            // by beginAttempt is handed back, so repeated WAIT resumes can never push a legitimately
+            // deferred row into the poison gate.
+            it[attempt] = 0
         } > 0
 }

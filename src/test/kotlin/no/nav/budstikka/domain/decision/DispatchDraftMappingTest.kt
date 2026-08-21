@@ -3,12 +3,15 @@ package no.nav.budstikka.domain.decision
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.BrevCreate
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.DittSykefravaerCreate
+import no.nav.budstikka.contract.DittSykefravaerInactivate
 import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.LedervarselInactivate
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
@@ -35,13 +38,6 @@ class DispatchDraftMappingTest :
                     BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "text"),
                     Channel.BRUKERVARSEL,
                     Operation.CREATE,
-                    Recipient.Person(TEST_SYKMELDT),
-                ),
-                Case(
-                    "BrukervarselInactivate",
-                    BrukervarselInactivate("ref-1", TEST_SYKMELDT),
-                    Channel.BRUKERVARSEL,
-                    Operation.INACTIVATE,
                     Recipient.Person(TEST_SYKMELDT),
                 ),
                 Case(
@@ -90,12 +86,23 @@ class DispatchDraftMappingTest :
 
         cases.forEach { case ->
             test("${case.name} -> ${case.channel}/${case.operation}") {
-                val draft = case.content.toDeliveryDraft("ref-1")
+                val draft = requireNotNull(case.content.toDeliveryDraft("ref-1"))
                 draft.channel shouldBe case.channel
                 draft.operation shouldBe case.operation
                 draft.recipient shouldBe case.recipient
                 draft.reference shouldBe "ref-1"
                 draft.content shouldBe case.content
+            }
+        }
+
+        listOf(
+            BrukervarselInactivate("ref-1", TEST_SYKMELDT),
+            LedervarselInactivate("ref-1", TEST_SYKMELDT),
+            DittSykefravaerInactivate("ref-1", TEST_SYKMELDT),
+            ArbeidsgivervarselInactivate("ref-1", TEST_ORGNUMMER),
+        ).forEach { content ->
+            test("${content::class.simpleName} is derived from stored CREATE instead of its thin payload") {
+                content.toDeliveryDraft("ref-1") shouldBe null
             }
         }
     })

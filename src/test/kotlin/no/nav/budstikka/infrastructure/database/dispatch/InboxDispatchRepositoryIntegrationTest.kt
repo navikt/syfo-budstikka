@@ -220,6 +220,29 @@ class InboxDispatchRepositoryIntegrationTest :
             }
         }
 
+        test("markWaitingForCreateSentInTransaction holds a CLAIMED row as WAIT with a technical wait_reason") {
+            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000053")
+            val nextRetry = Clock.System.now() + 1.minutes
+            repository.saveBatch(listOf(inboxMessage(eventId)))
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+            repository.beginAttempt(eventId, maxAttempts = 10) shouldBe true
+
+            fixture.database.transact {
+                repository.markWaitingForCreateSentInTransaction(eventId, nextRetry)
+            } shouldBe true
+
+            fixture.database.transact {
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "WAIT"
+                row[InboxMessageTable.waitReason] shouldBe "AWAITING_MATCHING_CREATE_SENT"
+                row[InboxMessageTable.errorMessage] shouldBe null
+                row[InboxMessageTable.nextAttemptTime] shouldNotBe null
+                row[InboxMessageTable.processedAt] shouldBe null
+                row[InboxMessageTable.attempt] shouldBe 0
+            }
+        }
+
         test("claim reclaims a WAIT row after next_attempt_time without consuming the attempt budget") {
             val repository = InboxMessageRepositoryImpl(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000051")

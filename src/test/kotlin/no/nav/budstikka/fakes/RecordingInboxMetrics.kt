@@ -12,6 +12,11 @@ class RecordingInboxMetrics : InboxMetrics {
     val failedCount = AtomicInteger()
     val droppedCounts = ConcurrentHashMap<DropReason, AtomicInteger>()
     val outsideSendingWindowCounts = ConcurrentHashMap<String, AtomicInteger>()
+    val ferdigstillWithoutMatchCount = AtomicInteger()
+    val ferdigstillWithoutSupportedRuntimeChannelCount = AtomicInteger()
+    val ferdigstillWaitingForCreateSentCount = AtomicInteger()
+    val ferdigstillWithFailedCreateCount = AtomicInteger()
+    val ferdigstillWithInvalidStoredCreateCount = AtomicInteger()
 
     override fun claimed(count: Int) {
         claimedCount.addAndGet(count)
@@ -35,5 +40,25 @@ class RecordingInboxMetrics : InboxMetrics {
 
     override fun outsideSendingWindow(reason: String) {
         outsideSendingWindowCounts.computeIfAbsent(reason) { AtomicInteger() }.incrementAndGet()
+    }
+
+    override fun ferdigstillWithoutMatch() {
+        ferdigstillWithoutMatchCount.incrementAndGet()
+    }
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() {
+        ferdigstillWithoutSupportedRuntimeChannelCount.incrementAndGet()
+    }
+
+    override fun ferdigstillWaitingForCreateSent() {
+        ferdigstillWaitingForCreateSentCount.incrementAndGet()
+    }
+
+    override fun ferdigstillWithFailedCreate() {
+        ferdigstillWithFailedCreateCount.incrementAndGet()
+    }
+
+    override fun ferdigstillWithInvalidStoredCreate() {
+        ferdigstillWithInvalidStoredCreateCount.incrementAndGet()
     }
 }

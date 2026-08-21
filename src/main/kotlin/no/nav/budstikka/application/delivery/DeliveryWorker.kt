@@ -11,6 +11,7 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.Operation
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
@@ -40,24 +41,27 @@ class DeliveryWorker(
     }
 
     private fun ClaimedDelivery.failureFields() =
-        listOf(
-            kv(MdcKeys.DELIVERY_ID, id.toString()),
-            kv(MdcKeys.DELIVERY_CHANNEL, channel.toString()),
-            kv(MdcKeys.REFERENCE, reference),
-            kv(MdcKeys.HANDLER, handlers[channel]?.javaClass?.simpleName ?: "missing"),
-        )
+        buildList {
+            add(kv(MdcKeys.DELIVERY_ID, id.toString()))
+            add(kv(MdcKeys.DELIVERY_CHANNEL, channel.toString()))
+            referenceForLogs()?.let { add(kv(MdcKeys.REFERENCE, it)) }
+            add(kv(MdcKeys.HANDLER, handlers[channel]?.javaClass?.simpleName ?: "missing"))
+        }
 
     private fun ClaimedDelivery.logFields(): List<StructuredArgument> =
-        listOf(
-            kv(MdcKeys.EVENT_ID, (inboxEventId ?: id).toString()),
-            kv(MdcKeys.DELIVERY_ID, id.toString()),
-            kv(MdcKeys.REFERENCE, reference),
-        )
+        buildList {
+            add(kv(MdcKeys.EVENT_ID, (inboxEventId ?: id).toString()))
+            add(kv(MdcKeys.DELIVERY_ID, id.toString()))
+            referenceForLogs()?.let { add(kv(MdcKeys.REFERENCE, it)) }
+        }
+
+    private fun ClaimedDelivery.referenceForLogs(): String? =
+        reference.takeUnless { channel == Channel.ARBEIDSGIVERVARSEL && operation == Operation.INACTIVATE }
 
     private suspend fun dispatch(delivery: ClaimedDelivery) {
         // Keep delivery fields on MDC through suspend points during dispatch.
         MDC.putCloseable(MdcKeys.DELIVERY_CHANNEL, delivery.channel.toString()).use {
-            MDC.putCloseable(MdcKeys.REFERENCE, delivery.reference).use {
+            delivery.referenceForLogs()?.let { MDC.putCloseable(MdcKeys.REFERENCE, it) }.use {
                 withContext(MDCContext()) {
                     dispatchToHandler(delivery)
                 }

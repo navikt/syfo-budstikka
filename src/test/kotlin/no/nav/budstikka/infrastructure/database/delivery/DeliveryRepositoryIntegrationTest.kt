@@ -8,8 +8,16 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
@@ -229,6 +237,47 @@ class DeliveryRepositoryIntegrationTest :
             event.formattedMessage shouldContain "CREATE"
             event.formattedMessage shouldContain "MICROFRONTEND"
             event.formattedMessage shouldContain "max_attempts=2"
+        }
+
+        test("claim omits sensitive reference fields from AG close poison logs") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft(
+                "sensitive-close-ref",
+                DeliveryDraft(
+                    reference = "sensitive-close-ref",
+                    operation = Operation.INACTIVATE,
+                    channel = Channel.ARBEIDSGIVERVARSEL,
+                    recipient = Recipient.Virksomhet(TEST_ORGNUMMER),
+                    content =
+                        ArbeidsgivervarselCreate(
+                            orgnummer = TEST_ORGNUMMER,
+                            recipient = AltinnResource(AltinnResourceId.DIALOGMOETE),
+                            tag = Tag.DIALOGMOETE,
+                            text = "Tekst",
+                            link = "https://nav.no/lenke",
+                        ),
+                    createExternalId = "sensitive-create-external-id",
+                ),
+            )
+            val deliveryId = rowForReference("sensitive-close-ref")[DeliveryTable.id]
+            makePoison(deliveryId, attempt = 2)
+            val logbackLogger = LoggerFactory.getLogger(DeliveryRepositoryImpl::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                repository.claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.ARBEIDSGIVERVARSEL))
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            val event = appender.list.single { it.formattedMessage.contains("Failed poison delivery row") }
+            event.formattedMessage shouldContain deliveryId.toString()
+            event.formattedMessage shouldContain "INACTIVATE"
+            event.formattedMessage shouldContain "ARBEIDSGIVERVARSEL"
+            event.formattedMessage shouldContain "max_attempts=2"
+            event.formattedMessage shouldNotContain "sensitive-close-ref"
+            event.formattedMessage shouldNotContain "sensitive-create-external-id"
         }
 
         test("a poison delivery does not block a healthy newer delivery on the same channel") {

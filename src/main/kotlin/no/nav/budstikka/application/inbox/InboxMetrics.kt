@@ -18,6 +18,16 @@ interface InboxMetrics {
     fun failed()
 
     fun outsideSendingWindow(reason: String)
+
+    fun ferdigstillWithoutMatch()
+
+    fun ferdigstillWithoutSupportedRuntimeChannel()
+
+    fun ferdigstillWaitingForCreateSent()
+
+    fun ferdigstillWithFailedCreate()
+
+    fun ferdigstillWithInvalidStoredCreate()
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -32,4 +42,14 @@ object NoInboxMetrics : InboxMetrics {
     override fun failed() = Unit
 
     override fun outsideSendingWindow(reason: String) = Unit
+
+    override fun ferdigstillWithoutMatch() = Unit
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() = Unit
+
+    override fun ferdigstillWaitingForCreateSent() = Unit
+
+    override fun ferdigstillWithFailedCreate() = Unit
+
+    override fun ferdigstillWithInvalidStoredCreate() = Unit
 }

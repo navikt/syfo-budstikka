@@ -11,19 +11,28 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
+import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
+import no.nav.budstikka.fakes.FakeNarmesteLederLookup
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import org.slf4j.LoggerFactory
@@ -196,6 +205,53 @@ class DeliveryWorkerTest :
                 .shouldNotBeBlank()
         }
 
+        test("retryable AG close failures stay on the lease retry path without leaking reference or external id") {
+            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000217")
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries = listOf(retryableArbeidsgivervarselCloseDelivery(deliveryId)),
+                )
+            val publisher = CountingCloseFailurePublisher()
+            val handler =
+                ArbeidsgivervarselChannelHandler(
+                    publisher,
+                    FakeNarmesteLederLookup(),
+                    NoDeliveryMetrics,
+                )
+
+            val logbackLogger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(
+                    repository = repository,
+                    publisher = RecordingMicrofrontendPublisher(),
+                    handlers = mapOf(Channel.ARBEIDSGIVERVARSEL to handler),
+                ).runOnce()
+                workerWith(
+                    repository = repository,
+                    publisher = RecordingMicrofrontendPublisher(),
+                    handlers = mapOf(Channel.ARBEIDSGIVERVARSEL to handler),
+                ).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            repository.lastClaimChannels.single() shouldBe Channel.ARBEIDSGIVERVARSEL
+            publisher.closeAttempts shouldBe 2
+            repository.attemptedDeliveryIds shouldContainExactly listOf(deliveryId, deliveryId)
+            repository.sentDeliveryIds.shouldBeEmpty()
+            repository.failedDeliveries.shouldBeEmpty()
+            val failureLogs = appender.list.filter { it.formattedMessage.contains("Failed processing claimed row") }
+            failureLogs shouldHaveSize 2
+            failureLogs.forEach { event ->
+                event.formattedMessage shouldNotContain "close-ref"
+                event.formattedMessage shouldNotContain "sensitive-create-external-id"
+                event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe null
+            }
+        }
+
         test("runOnce records delivery metrics per channel and result") {
             val sentId = UUID.fromString("00000000-0000-0000-0000-000000000210")
             val failedId = UUID.fromString("00000000-0000-0000-0000-000000000211")
@@ -334,6 +390,8 @@ private class PollingDeliveryRepository(
         draft: List<DeliveryDraft>,
     ) = Unit
 
+    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) = null
+
     override suspend fun claim(
         limit: Int,
         lease: Duration,
@@ -397,3 +455,34 @@ private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
                 text = "Hei",
             ),
     )
+
+private fun retryableArbeidsgivervarselCloseDelivery(deliveryId: UUID): ClaimedDelivery =
+    ClaimedDelivery(
+        id = deliveryId,
+        inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000303"),
+        reference = "close-ref",
+        channel = Channel.ARBEIDSGIVERVARSEL,
+        payload =
+            ArbeidsgivervarselCreate(
+                orgnummer = TEST_ORGNUMMER,
+                recipient = AltinnResource(AltinnResourceId.DIALOGMOETE),
+                tag = Tag.DIALOGMOETE,
+                text = "Tekst",
+                link = "https://nav.no/lenke",
+            ),
+        operation = Operation.INACTIVATE,
+        createExternalId = "sensitive-create-external-id",
+    )
+
+private class CountingCloseFailurePublisher : ArbeidsgiverNotificationPublisher {
+    var closeAttempts = 0
+        private set
+
+    override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
+        ArbeidsgiverNotificationResponse.Published
+
+    override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse {
+        closeAttempts += 1
+        error("Arbeidsgiver notification API could not confirm close because the notification was not found")
+    }
+}

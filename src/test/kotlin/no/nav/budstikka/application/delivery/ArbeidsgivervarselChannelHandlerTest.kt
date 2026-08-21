@@ -9,6 +9,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.AltinnResourceId
+import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.NarmesteLeder
@@ -16,19 +17,112 @@ import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import java.util.UUID
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
-        test("publishes Altinn recipient unchanged") {
+        test("publishes Altinn recipient with the frozen CREATE external id") {
             val publisher = RecordingPublisher()
-            handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Sent
+            val frozenExternalId = "frozen-create-external-id"
+            handler(publisher).handle(delivery(create(), createExternalId = frozenExternalId)) shouldBe DeliveryOutcome.Sent
 
             publisher.requests.single().recipient shouldBe
                 ArbeidsgiverNotificationRecipient.AltinnRessurs(AltinnResourceId.DIALOGMOETE)
+            publisher.requests.single().eksternId shouldBe frozenExternalId
+        }
+
+        test("falls back to inboxEventId when the frozen external id is absent") {
+            val publisher = RecordingPublisher()
+
+            handler(publisher).handle(delivery(create(), createExternalId = null)) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000702"
+        }
+
+        test("fails CREATE when neither frozen external id nor inboxEventId is available") {
+            val publisher = RecordingPublisher()
+
+            val outcome =
+                handler(publisher).handle(
+                    delivery(
+                        create(),
+                        inboxEventId = null,
+                        createExternalId = null,
+                    ),
+                )
+
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL create is missing frozen external id"
+            publisher.requests shouldBe emptyList()
+        }
+
+        listOf(ArbeidsgiverMeldingstype.BESKJED, ArbeidsgiverMeldingstype.OPPGAVE).forEach { meldingstype ->
+            test("closes stored $meldingstype with frozen create data without a NarmesteLeder lookup") {
+                val publisher = RecordingPublisher()
+                val externalId = "00000000-0000-0000-0000-000000000703"
+
+                handler(publisher, ThrowingNarmesteLederLookup()).handle(
+                    delivery(
+                        create(meldingstype = meldingstype),
+                        operation = Operation.INACTIVATE,
+                        createExternalId = externalId,
+                    ),
+                ) shouldBe DeliveryOutcome.Sent
+
+                publisher.requests shouldBe emptyList()
+                publisher.closeRequests shouldBe
+                    listOf(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = externalId,
+                            tag = Tag.DIALOGMOETE,
+                            meldingstype = meldingstype,
+                        ),
+                    )
+            }
+        }
+
+        test("wraps retryable close failures without leaking the frozen external id") {
+            val externalId = "sensitive-frozen-external-id"
+
+            val error =
+                shouldThrow<ChannelHandlerFailure> {
+                    handler(ThrowingClosePublisher()).handle(
+                        delivery(
+                            create(),
+                            operation = Operation.INACTIVATE,
+                            createExternalId = externalId,
+                        ),
+                    )
+                }
+
+            error.message shouldContain "ARBEIDSGIVERVARSEL channel failed while closing notification"
+            error.message shouldNotContain externalId
+            error.cause.shouldBeInstanceOf<IllegalStateException>()
+            error.cause?.message shouldBe
+                "Arbeidsgiver notification API could not confirm close because the notification was not found"
+            error.cause?.message shouldNotContain externalId
+        }
+
+        test("fails to close when the frozen CREATE external id is absent") {
+            val publisher = RecordingPublisher()
+
+            val outcome =
+                handler(publisher).handle(
+                    delivery(
+                        create(),
+                        operation = Operation.INACTIVATE,
+                        createExternalId = null,
+                    ),
+                )
+
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL inactivate is missing frozen external id"
+            publisher.closeRequests shouldBe emptyList()
         }
 
         test("publishes NarmesteLeder without external notification when email is absent") {
@@ -144,31 +238,42 @@ class ArbeidsgivervarselChannelHandlerTest :
         }
     })
 
-private val LEDER = PersonIdentifier("22222222222")
+private val LEDER = TEST_SYKMELDT_2
 
 private fun handler(
-    publisher: RecordingPublisher,
+    publisher: ArbeidsgiverNotificationPublisher,
     lookup: NarmesteLederLookup = FakeNarmesteLederLookup(null),
     metrics: RecordingDeliveryMetrics = RecordingDeliveryMetrics(),
 ) = ArbeidsgivervarselChannelHandler(publisher, lookup, metrics)
 
-private fun create(recipient: ArbeidsgiverRecipient = AltinnResource(AltinnResourceId.DIALOGMOETE)) =
+private fun create(
+    recipient: ArbeidsgiverRecipient = AltinnResource(AltinnResourceId.DIALOGMOETE),
+    meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
+) =
     ArbeidsgivervarselCreate(
         TEST_ORGNUMMER,
         recipient,
         Tag.DIALOGMOETE,
         "Tekst",
         "https://nav.no/lenke",
+        meldingstype = meldingstype,
     )
 
-private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
-    ClaimedDelivery(
-        id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
-        inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
-        reference = "reference",
-        channel = Channel.ARBEIDSGIVERVARSEL,
-        payload = payload,
-    )
+private fun delivery(
+    payload: no.nav.budstikka.contract.DispatchContent,
+    id: UUID = UUID.fromString("00000000-0000-0000-0000-000000000701"),
+    inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
+    operation: Operation = Operation.CREATE,
+    createExternalId: String? = "00000000-0000-0000-0000-000000000702",
+) = ClaimedDelivery(
+    id = id,
+    inboxEventId = inboxEventId,
+    reference = "reference",
+    channel = Channel.ARBEIDSGIVERVARSEL,
+    payload = payload,
+    operation = operation,
+    createExternalId = createExternalId,
+)
 
 private class FakeNarmesteLederLookup(
     private val relation: NarmesteLederRelasjon?,
@@ -188,9 +293,23 @@ private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
 
 private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
+    val closeRequests = mutableListOf<ArbeidsgiverNotificationCloseRequest>()
 
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
         requests += request
         return ArbeidsgiverNotificationResponse.Published
     }
+
+    override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse {
+        closeRequests += request
+        return ArbeidsgiverNotificationResponse.Published
+    }
+}
+
+private class ThrowingClosePublisher : ArbeidsgiverNotificationPublisher {
+    override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
+        ArbeidsgiverNotificationResponse.Published
+
+    override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse =
+        error("Arbeidsgiver notification API could not confirm close because the notification was not found")
 }

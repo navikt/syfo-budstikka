@@ -50,28 +50,51 @@ class TableDefinitionTest :
         }
 
         test("delivery retention index includes only terminal delivery states") {
-            DriverManager
-                .getConnection(fixture.jdbcUrl, fixture.username, fixture.password)
-                .use { connection ->
-                    connection
-                        .prepareStatement(
-                            """
-                            SELECT indexname, indexdef
-                            FROM pg_indexes
-                            WHERE schemaname = ?
-                              AND indexname = ?
-                            """.trimIndent(),
-                        ).use { statement ->
-                            statement.setString(1, fixture.schema)
-                            statement.setString(2, "delivery_created_at_id_sent_failed_idx")
-                            statement.executeQuery().use { resultSet ->
-                                check(resultSet.next()) {
-                                    "Delivery retention index was not found in schema '${fixture.schema}'"
-                                }
-                                resultSet.getString("indexdef")
-                            }
-                        }
-                }.substringAfter(" WHERE ", missingDelimiterValue = "") shouldBe
+            indexDefinition(
+                fixture = fixture,
+                indexName = "delivery_created_at_id_sent_failed_idx",
+                failureMessage = "Delivery retention index was not found in schema '${fixture.schema}'",
+            ).substringAfter(" WHERE ", missingDelimiterValue = "") shouldBe
                 "(state = ANY (ARRAY['SENT'::text, 'FAILED'::text]))"
         }
+
+        test("FERDIGSTILL indexes exist on inbox reference and delivery match columns") {
+            indexDefinition(
+                fixture = fixture,
+                indexName = "inbox_message_reference_idx",
+                failureMessage = "Inbox FERDIGSTILL index was not found in schema '${fixture.schema}'",
+            ).contains("(reference)") shouldBe true
+
+            indexDefinition(
+                fixture = fixture,
+                indexName = "delivery_ferdigstill_match_idx",
+                failureMessage = "Delivery FERDIGSTILL index was not found in schema '${fixture.schema}'",
+            ).contains("(reference, operation, channel, recipient_type, recipient_id, created_at, id)") shouldBe true
+        }
     })
+
+private fun indexDefinition(
+    fixture: PostgresTestFixture,
+    indexName: String,
+    failureMessage: String,
+): String =
+    DriverManager
+        .getConnection(fixture.jdbcUrl, fixture.username, fixture.password)
+        .use { connection ->
+            connection
+                .prepareStatement(
+                    """
+                    SELECT indexdef
+                    FROM pg_indexes
+                    WHERE schemaname = ?
+                      AND indexname = ?
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setString(1, fixture.schema)
+                    statement.setString(2, indexName)
+                    statement.executeQuery().use { resultSet ->
+                        check(resultSet.next()) { failureMessage }
+                        resultSet.getString("indexdef")
+                    }
+                }
+        }

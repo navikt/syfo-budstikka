@@ -54,22 +54,80 @@ class InboxMessageWorker(
                     logger.warn("Skipping inbox message because the row is no longer claimable or has spent its attempts")
                     return@withContext
                 }
-                completeDecision(message.eventId, decisionProcess.process(dispatch))
+                completeDecision(message, decisionProcess.process(dispatch))
             }
         }
     }
 
     private suspend fun completeDecision(
-        eventId: UUID,
+        message: InboxMessage,
         decision: Decision,
     ) {
-        effectuator.effectuate(eventId, decision)
+        val effectuation = effectuator.effectuate(message, decision)
+        when (effectuation) {
+            EffectuationResult.FerdigstillWaitingForCreateSent -> {
+                metrics.ferdigstillWaitingForCreateSent()
+                logFerdigstillOutcome("Ferdigstill deferred while waiting for the matching create delivery to reach SENT")
+                return
+            }
+
+            EffectuationResult.FerdigstillWithoutMatch -> {
+                metrics.record(decision)
+                metrics.ferdigstillWithoutMatch()
+                logFerdigstillOutcome("Ferdigstill processed without matching create delivery")
+                return
+            }
+
+            EffectuationResult.FerdigstillWithoutSupportedRuntimeChannel -> {
+                metrics.record(decision)
+                metrics.ferdigstillWithoutSupportedRuntimeChannel()
+                logFerdigstillOutcome("Ferdigstill processed without a supported runtime channel")
+                return
+            }
+
+            EffectuationResult.FerdigstillWithFailedCreate -> {
+                metrics.record(decision)
+                metrics.ferdigstillWithFailedCreate()
+                logFerdigstillOutcome("Ferdigstill processed without close because the matching create delivery already failed")
+                return
+            }
+
+            EffectuationResult.FerdigstillWithInvalidStoredCreate -> {
+                metrics.record(decision)
+                metrics.ferdigstillWithInvalidStoredCreate()
+                logFerdigstillOutcome("Ferdigstill processed with an invalid stored create delivery")
+                return
+            }
+
+            EffectuationResult.Completed,
+            EffectuationResult.Skipped,
+            is EffectuationResult.FerdigstillWithDelivery,
+            -> Unit
+        }
         metrics.record(decision)
-        val fields = decision.logFields()
+        val fields =
+            decision.logFields(
+                deliveryCount = (effectuation as? EffectuationResult.FerdigstillWithDelivery)?.deliveryCount,
+            )
         logger.info(
             withPlaceholders("Inbox message processed", fields),
             *fields.toTypedArray(),
         )
+    }
+
+    /** FERDIGSTILL outcome logs carry only the low-cardinality outcome and the non-PII event MDC. */
+    private fun logFerdigstillOutcome(message: String) {
+        val reference = MDC.get(MdcKeys.REFERENCE)
+        MDC.remove(MdcKeys.REFERENCE)
+        try {
+            logger.info(message)
+        } finally {
+            if (reference == null) {
+                MDC.remove(MdcKeys.REFERENCE)
+            } else {
+                MDC.put(MdcKeys.REFERENCE, reference)
+            }
+        }
     }
 
     private fun InboxMetrics.record(decision: Decision) {
@@ -81,12 +139,12 @@ class InboxMessageWorker(
         }
     }
 
-    private fun Decision.logFields(): List<StructuredArgument> =
+    private fun Decision.logFields(deliveryCount: Int? = null): List<StructuredArgument> =
         when (this) {
             is Decision.Processed -> {
                 listOf(
                     kv(MdcKeys.RESULT, "PROCESSED"),
-                    kv(MdcKeys.DELIVERY_COUNT, deliveries.size),
+                    kv(MdcKeys.DELIVERY_COUNT, deliveryCount ?: deliveries.size),
                 )
             }
 

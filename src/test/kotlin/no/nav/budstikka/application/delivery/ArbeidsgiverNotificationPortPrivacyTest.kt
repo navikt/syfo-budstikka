@@ -41,6 +41,11 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 ),
                 leaderRecipient,
                 NarmesteLederRelasjon(leader, listOf(emailAddress)),
+                ArbeidsgiverNotificationCloseRequest(
+                    eksternId = "external-id",
+                    tag = Tag.DIALOGMOETE,
+                    meldingstype = ArbeidsgiverMeldingstype.BESKJED,
+                ),
                 ArbeidsgiverNotificationRequest(
                     virksomhetsnummer = "123456789",
                     eksternId = "external-id",

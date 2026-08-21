@@ -18,6 +18,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationCloseRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
@@ -28,8 +29,10 @@ import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
+import no.nav.budstikka.infrastructure.client.fager.generated.HardDeleteNotifikasjonByEksternIdV2Mutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NyOppgaveMutation
+import no.nav.budstikka.infrastructure.client.fager.generated.OppgaveUtfoertByEksternIdV2Mutation
 import no.nav.budstikka.infrastructure.client.fager.generated.type.AltinnRessursMottakerInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselAltinnressursInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselEpostInput
@@ -63,17 +66,41 @@ class ArbeidsgiverNotifikasjonClient(
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
             ArbeidsgiverMeldingstype.BESKJED ->
-                execute(request, request.toNyBeskjedMutation()) { data ->
+                execute(request.eksternId, request.toNyBeskjedMutation()) { data ->
                     data.nyBeskjed.toNotificationResponse()
                 }
             ArbeidsgiverMeldingstype.OPPGAVE ->
-                execute(request, request.toNyOppgaveMutation()) { data ->
+                execute(request.eksternId, request.toNyOppgaveMutation()) { data ->
                     data.nyOppgave.toNotificationResponse()
                 }
         }
 
+    override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse =
+        when (request.meldingstype) {
+            ArbeidsgiverMeldingstype.BESKJED ->
+                execute(
+                    request.eksternId,
+                    HardDeleteNotifikasjonByEksternIdV2Mutation(
+                        merkelapp = request.tag.toWireValue(),
+                        eksternId = request.eksternId,
+                    ),
+                ) { data ->
+                    hardDeleteNotificationResponse(data.hardDeleteNotifikasjonByEksternId_V2)
+                }
+            ArbeidsgiverMeldingstype.OPPGAVE ->
+                execute(
+                    request.eksternId,
+                    OppgaveUtfoertByEksternIdV2Mutation(
+                        merkelapp = request.tag.toWireValue(),
+                        eksternId = request.eksternId,
+                    ),
+                ) { data ->
+                    oppgaveUtfoertResponse(data.oppgaveUtfoertByEksternId_V2)
+                }
+        }
+
     private suspend fun <D : Operation.Data> execute(
-        request: ArbeidsgiverNotificationRequest,
+        correlationId: String,
         operation: Operation<D>,
         classify: (D) -> ArbeidsgiverNotificationResponse,
     ): ArbeidsgiverNotificationResponse {
@@ -82,7 +109,7 @@ class ArbeidsgiverNotifikasjonClient(
             httpClient.post(config.url) {
                 contentType(ContentType.Application.Json)
                 bearerAuth(credential)
-                header(X_REQUEST_ID_HEADER, request.eksternId)
+                header(X_REQUEST_ID_HEADER, correlationId)
                 setBody(operation.requestBody())
             }
         return response.toNotificationResponse(operation, classify)
@@ -259,10 +286,45 @@ class ArbeidsgiverNotifikasjonClient(
                 error("Arbeidsgiver notification API returned an unexpected NyOppgave result")
         }
 
+    private fun hardDeleteNotificationResponse(
+        response: HardDeleteNotifikasjonByEksternIdV2Mutation.HardDeleteNotifikasjonByEksternId_V2,
+    ): ArbeidsgiverNotificationResponse =
+        when {
+            response.onHardDeleteNotifikasjonVellykket != null ->
+                ArbeidsgiverNotificationResponse.Published
+            response.onUgyldigMerkelapp != null ->
+                rejected("UgyldigMerkelapp")
+            response.onNotifikasjonFinnesIkke != null ->
+                missingNotificationDuringClose()
+            response.onUkjentProdusent != null ->
+                rejected("UkjentProdusent")
+            else ->
+                error("Arbeidsgiver notification API returned an unexpected HardDeleteNotifikasjon result")
+        }
+
+    private fun oppgaveUtfoertResponse(
+        response: OppgaveUtfoertByEksternIdV2Mutation.OppgaveUtfoertByEksternId_V2,
+    ): ArbeidsgiverNotificationResponse =
+        when {
+            response.onOppgaveUtfoertVellykket != null ->
+                ArbeidsgiverNotificationResponse.Published
+            response.onUgyldigMerkelapp != null ->
+                rejected("UgyldigMerkelapp")
+            response.onNotifikasjonFinnesIkke != null ->
+                missingNotificationDuringClose()
+            response.onUkjentProdusent != null ->
+                rejected("UkjentProdusent")
+            else ->
+                error("Arbeidsgiver notification API returned an unexpected OppgaveUtfoert result")
+        }
+
     private fun rejected(resultType: String) =
         ArbeidsgiverNotificationResponse.Rejected(
             "Arbeidsgiver notification API rejected request: $resultType",
         )
+
+    private fun missingNotificationDuringClose(): Nothing =
+        error("Arbeidsgiver notification API could not confirm close because the notification was not found")
 
     private fun Tag.toWireValue(): String =
         when (this) {
