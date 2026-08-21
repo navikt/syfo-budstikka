@@ -77,7 +77,7 @@ object FacadeOnlyProducer {
             eventId = eventId,
             reference = "fixture-arbeidsgiver-2",
             orgnummer = orgnummer,
-            recipient = Arbeidsgivervarsel.AltinnRessurs("nav_syfo_dialogmote"),
+            recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
             tag = "Oppfølging",
             text = "SYNTETISK-VARSELTEKST",
             link = "https://nav.no/ag",

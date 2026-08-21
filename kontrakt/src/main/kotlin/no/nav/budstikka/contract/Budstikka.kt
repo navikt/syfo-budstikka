@@ -177,15 +177,15 @@ object Budstikka {
      * @param recipient either the active Nærmeste leder for a Sykmeldt or everyone with an Altinn
      *   resource. External notification is optional; when set, Nærmeste leder requires email title
      *   and text, while Altinn resource also requires SMS text.
-     * @param tag the notification category used by the recipient channel; unlike [meldingstype], it
+     * @param tag the notification category used by the recipient channel; unlike [messageType], it
      *   does not choose whether the notification is a beskjed or oppgave. The producer selects the
      *   downstream value, which must match its registered merkelapp in Arbeidsgivernotifikasjoner;
      *   otherwise delivery fails terminally. For an Altinn recipient, its resource must likewise
      *   match the producer's registered Altinn resource.
      * @param text the notification text shown to the recipient.
      * @param link required target for the notification.
-     * @param meldingstype whether the notification is a beskjed or oppgave; defaults to BESKJED.
-     * @param sakstilknytning optional producer-owned case identifier for downstream grouping.
+     * @param messageType whether the notification is a beskjed or oppgave; defaults to BESKJED.
+     * @param caseAssociation optional producer-owned case identifier for downstream grouping.
      * @param visibleUntil when the recipient channel stops showing the notification; omit to keep
      *   it until inactivated.
      * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
@@ -199,8 +199,8 @@ object Budstikka {
         tag: String,
         text: String,
         link: String,
-        meldingstype: Arbeidsgivervarsel.Meldingstype = Arbeidsgivervarsel.Meldingstype.BESKJED,
-        sakstilknytning: Arbeidsgivervarsel.Sakstilknytning? = null,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        caseAssociation: Arbeidsgivervarsel.CaseAssociation? = null,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
     ): EncodedDispatch {
@@ -209,15 +209,15 @@ object Budstikka {
         requireNotBlank(tag, "tag")
         requireNotBlank(text, "text")
         requireNotBlank(link, "link")
-        sakstilknytning?.let { requireNotBlank(it.sakId, "sakstilknytning.sakId") }
+        caseAssociation?.let { requireNotBlank(it.caseId, "caseAssociation.caseId") }
         return ArbeidsgivervarselCreate(
             orgnummer = orgnummer,
             recipient = recipient.toWireRecipient(),
             tag = tag,
             text = text,
             link = link,
-            meldingstype = meldingstype.toWireMeldingstype(),
-            sakstilknytning = sakstilknytning?.let { Sakstilknytning(it.sakId) },
+            meldingstype = messageType.toWireMessageType(),
+            sakstilknytning = caseAssociation?.let { Sakstilknytning(it.caseId) },
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         ).encode(eventId, reference)
@@ -366,28 +366,28 @@ private fun Arbeidsgivervarsel.Recipient.toWireRecipient(): ArbeidsgiverRecipien
             NarmesteLeder(
                 sykmeldt = sykmeldt,
                 externalVarsling =
-                    externalVarsling?.let {
-                        requireNotBlank(it.emailTitle, "recipient.externalVarsling.emailTitle")
-                        requireNotBlank(it.emailText, "recipient.externalVarsling.emailText")
+                    externalNotification?.let {
+                        requireNotBlank(it.emailTitle, "recipient.externalNotification.emailTitle")
+                        requireNotBlank(it.emailText, "recipient.externalNotification.emailText")
                         NarmesteLederExternalVarsling(it.emailTitle, it.emailText)
                     },
             )
         }
-        is Arbeidsgivervarsel.AltinnRessurs ->
+        is Arbeidsgivervarsel.AltinnResource ->
             AltinnResource(
                 resource = resource.also { requireNotBlank(it, "recipient.resource") },
                 externalVarsling =
-                    externalVarsling?.let {
-                        requireNotBlank(it.emailTitle, "recipient.externalVarsling.emailTitle")
-                        requireNotBlank(it.emailText, "recipient.externalVarsling.emailText")
-                        requireNotBlank(it.smsText, "recipient.externalVarsling.smsText")
+                    externalNotification?.let {
+                        requireNotBlank(it.emailTitle, "recipient.externalNotification.emailTitle")
+                        requireNotBlank(it.emailText, "recipient.externalNotification.emailText")
+                        requireNotBlank(it.smsText, "recipient.externalNotification.smsText")
                         AltinnExternalVarsling(it.emailTitle, it.emailText, it.smsText)
                     },
             )
     }
 
-private fun Arbeidsgivervarsel.Meldingstype.toWireMeldingstype(): ArbeidsgiverMeldingstype =
+private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeldingstype =
     when (this) {
-        Arbeidsgivervarsel.Meldingstype.BESKJED -> ArbeidsgiverMeldingstype.BESKJED
-        Arbeidsgivervarsel.Meldingstype.OPPGAVE -> ArbeidsgiverMeldingstype.OPPGAVE
+        Arbeidsgivervarsel.MessageType.BESKJED -> ArbeidsgiverMeldingstype.BESKJED
+        Arbeidsgivervarsel.MessageType.OPPGAVE -> ArbeidsgiverMeldingstype.OPPGAVE
     }

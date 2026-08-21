@@ -8,16 +8,16 @@ package no.nav.budstikka.contract
  */
 object Arbeidsgivervarsel {
     /** Presentation kind for an Arbeidsgivervarsel. */
-    enum class Meldingstype {
+    enum class MessageType {
         BESKJED,
         OPPGAVE,
     }
 
     /** Producer-owned case identifier used for downstream grouping. */
-    data class Sakstilknytning(
-        val sakId: String,
+    data class CaseAssociation(
+        val caseId: String,
     ) {
-        override fun toString(): String = "Sakstilknytning()"
+        override fun toString(): String = "CaseAssociation()"
     }
 
     /** Exactly one delivery path for an Arbeidsgivervarsel. */
@@ -30,33 +30,33 @@ object Arbeidsgivervarsel {
      */
     data class NarmesteLeder(
         val sykmeldt: PersonIdentifier,
-        val externalVarsling: NarmesteLederExternalVarsling? = null,
+        val externalNotification: NarmesteLederExternalNotification? = null,
     ) : Recipient {
-        override fun toString(): String = "NarmesteLeder(hasExternalVarsling=${externalVarsling != null})"
+        override fun toString(): String = "NarmesteLeder(hasExternalNotification=${externalNotification != null})"
     }
 
     /** Sends to everyone with the selected Altinn resource at the organisation. */
-    data class AltinnRessurs(
+    data class AltinnResource(
         val resource: String,
-        val externalVarsling: AltinnExternalVarsling? = null,
+        val externalNotification: AltinnExternalNotification? = null,
     ) : Recipient {
-        override fun toString(): String = "AltinnRessurs(hasExternalVarsling=${externalVarsling != null})"
+        override fun toString(): String = "AltinnResource(hasExternalNotification=${externalNotification != null})"
     }
 
     /** External notification texts required by the Nærmeste leder email path. */
-    data class NarmesteLederExternalVarsling(
+    data class NarmesteLederExternalNotification(
         val emailTitle: String,
         val emailText: String,
     ) {
-        override fun toString(): String = "NarmesteLederExternalVarsling()"
+        override fun toString(): String = "NarmesteLederExternalNotification()"
     }
 
     /** External notification texts required by the Altinn-resource path. */
-    data class AltinnExternalVarsling(
+    data class AltinnExternalNotification(
         val emailTitle: String,
         val emailText: String,
         val smsText: String,
     ) {
-        override fun toString(): String = "AltinnExternalVarsling()"
+        override fun toString(): String = "AltinnExternalNotification()"
     }
 }

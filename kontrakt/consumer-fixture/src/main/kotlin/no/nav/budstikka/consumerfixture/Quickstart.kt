@@ -44,7 +44,7 @@ fun main() {
     listOf(
         Arbeidsgivervarsel.NarmesteLeder(PersonIdentifier("00000000000")) to
             """"mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""",
-        Arbeidsgivervarsel.AltinnRessurs("nav_syfo_dialogmote") to
+        Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote") to
             """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""",
     ).forEach { (recipient, recipientJson) ->
         val arbeidsgivervarsel =

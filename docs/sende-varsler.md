@@ -74,7 +74,7 @@ for papir.
 Dine Sykmeldte har bare in-app-varsel. Ikke legg til SMS- eller e-postforventninger der.
 
 `arbeidsgivervarselCreate` bruker enten `Arbeidsgivervarsel.NarmesteLeder(sykmeldt)` eller
-`Arbeidsgivervarsel.AltinnRessurs(resource)`. Bruk mottakerspesifikke `externalVarsling`-verdier,
+`Arbeidsgivervarsel.AltinnResource(resource)`. Bruk mottakerspesifikke `externalNotification`-verdier,
 ikke `ExternalNotification`. Nærmeste leder-oppslaget og e-postleveringen skjer i Budstikka.
 `tag` må samsvare med produsentens registrerte merkelapp, og Altinn `resource` må samsvare med
 produsentens registrerte Altinn-ressurs i Arbeidsgivernotifikasjoner. Ellers feiler leveringen

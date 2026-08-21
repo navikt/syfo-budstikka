@@ -183,13 +183,13 @@ class BudstikkaProducerApiTest :
                         recipient =
                             Arbeidsgivervarsel.NarmesteLeder(
                                 SYNTHETIC_SYKMELDT,
-                                Arbeidsgivervarsel.NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                Arbeidsgivervarsel.NarmesteLederExternalNotification("Tittel", "E-post"),
                             ),
                         tag = "Dialogmøte",
                         text = SYNTHETIC_TEXT,
                         link = "https://nav.no/ag",
-                        meldingstype = Arbeidsgivervarsel.Meldingstype.OPPGAVE,
-                        sakstilknytning = Arbeidsgivervarsel.Sakstilknytning("sak-1"),
+                        messageType = Arbeidsgivervarsel.MessageType.OPPGAVE,
+                        caseAssociation = Arbeidsgivervarsel.CaseAssociation("sak-1"),
                         sendingWindow = SendingWindow.ONGOING,
                     )
 
@@ -209,9 +209,9 @@ class BudstikkaProducerApiTest :
                         reference = REFERENCE,
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         recipient =
-                            Arbeidsgivervarsel.AltinnRessurs(
+                            Arbeidsgivervarsel.AltinnResource(
                                 "nav_syfo_dialogmote",
-                                Arbeidsgivervarsel.AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                Arbeidsgivervarsel.AltinnExternalNotification("Tittel", "E-post", "SMS"),
                             ),
                         tag = "Oppfølging",
                         text = SYNTHETIC_TEXT,
