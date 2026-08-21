@@ -88,8 +88,9 @@ Budstikka saniterer ikke HTML-en: overloaden er en eksplisitt tillitsgrense mot 
 produsentens registrerte Altinn-ressurs i Arbeidsgivernotifikasjoner. Ellers feiler leveringen
 terminalt.
 Leveringen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
-feiler leveringen også terminalt hvis lederen mangler e-postadresse. `visibleUntil` er valgfritt og
-angir når mottakerkanalen slutter å vise varselet.
+feiler leveringen også terminalt hvis lederen mangler e-postadresse. `visibleUntil` planlegger
+absolutt hard sletting i Fager/Arbeidsgivernotifikasjoner. Uten `visibleUntil` brukes fortsatt
+reserveperioden på fire måneder.
 
 ## Feil og personvern
 

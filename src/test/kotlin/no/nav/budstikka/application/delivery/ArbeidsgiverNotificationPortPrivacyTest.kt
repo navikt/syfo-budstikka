@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
+import kotlin.time.Instant
 
 class ArbeidsgiverNotificationPortPrivacyTest :
     FunSpec({
@@ -15,6 +16,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
         val smsText = "Sensitive SMS text"
         val notificationText = "Sensitive notification text"
         val link = "https://nav.no/sensitive-link"
+        val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
 
         val altinnExternalVarsling = AltinnExternalVarsling(emailTitle, emailHtmlBody, smsText)
         val leaderExternalVarsling =
@@ -48,6 +50,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                     lenke = link,
                     recipient = leaderRecipient,
                     meldingstype = ArbeidsgiverMeldingstype.BESKJED,
+                    visibleUntil = visibleUntil,
                 ),
             )
         val sensitiveValues =
@@ -65,6 +68,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 "grouping-id",
                 "sensitive-resource",
                 "sensitive-tag",
+                visibleUntil.toString(),
             )
 
         values.forEach { value ->

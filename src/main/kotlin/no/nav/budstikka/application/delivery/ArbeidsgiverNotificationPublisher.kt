@@ -2,6 +2,7 @@ package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
+import kotlin.time.Instant
 
 data class ArbeidsgiverNotificationRequest(
     val virksomhetsnummer: String,
@@ -12,6 +13,7 @@ data class ArbeidsgiverNotificationRequest(
     val lenke: String,
     val recipient: ArbeidsgiverNotificationRecipient,
     val meldingstype: ArbeidsgiverMeldingstype,
+    val visibleUntil: Instant?,
 ) {
     override fun toString(): String =
         "ArbeidsgiverNotificationRequest(meldingstype=$meldingstype, " +

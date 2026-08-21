@@ -93,6 +93,7 @@ class ArbeidsgivervarselChannelHandler(
                             lenke = create.link,
                             recipient = notificationRecipient,
                             meldingstype = create.meldingstype,
+                            visibleUntil = create.visibleUntil,
                         ),
                     )
                 }
