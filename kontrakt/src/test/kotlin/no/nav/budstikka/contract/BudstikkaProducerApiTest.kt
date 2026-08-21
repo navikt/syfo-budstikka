@@ -224,6 +224,25 @@ class BudstikkaProducerApiTest :
                     """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
                     """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             }
+
+            test("visibleUntil is encoded on the wire") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        tag = "Dialogmøte",
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                        visibleUntil = VISIBLE_UNTIL,
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":null},"tag":"Dialogmøte","text":"SYNTETISK-VARSELTEKST",""" +
+                    """"link":"https://nav.no/ag","meldingstype":"BESKJED","sakstilknytning":null,""" +
+                    """"visibleUntil":"2026-01-01T00:00:00Z","sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+            }
         }
 
         context("brevCreate") {

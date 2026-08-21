@@ -113,6 +113,7 @@ class ContractPrivacyTest :
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         sakstilknytning = sakstilknytning,
+                        visibleUntil = Instant.parse("2026-01-01T00:00:00Z"),
                     ),
                     ArbeidsgivervarselInactivate(reference = SYNTHETIC_REFERENCE, orgnummer = SYNTHETIC_ORGNUMMER),
                     BrevCreate(
@@ -475,27 +476,6 @@ class ContractPrivacyTest :
                         sakstilknytning = Arbeidsgivervarsel.Sakstilknytning(" "),
                     )
                 }.message!!.also { it shouldContain "sakstilknytning.sakId" }.shouldNotLeak()
-            }
-
-            test("visibleUntil is unsupported and its value stays private") {
-                val visibleUntil = Instant.parse("2026-02-03T04:05:06Z")
-
-                shouldThrow<IllegalArgumentException> {
-                    Budstikka.arbeidsgivervarselCreate(
-                        eventId = EVENT_ID,
-                        reference = SYNTHETIC_REFERENCE,
-                        orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = narmesteLeder,
-                        tag = "Dialogmøte",
-                        text = SYNTHETIC_TEXT,
-                        link = SYNTHETIC_LINK,
-                        visibleUntil = visibleUntil,
-                    )
-                }.message!!
-                    .also { it shouldContain "visibleUntil" }
-                    .also { it shouldContain "not supported for arbeidsgivervarselCreate" }
-                    .also { it shouldNotContain visibleUntil.toString() }
-                    .shouldNotLeak()
             }
         }
 

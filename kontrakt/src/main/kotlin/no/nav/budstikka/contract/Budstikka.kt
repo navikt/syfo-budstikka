@@ -186,8 +186,8 @@ object Budstikka {
      * @param link required target for the notification.
      * @param meldingstype whether the notification is a beskjed or oppgave; defaults to BESKJED.
      * @param sakstilknytning optional producer-owned case identifier for downstream grouping.
-     * @param visibleUntil reserved for future expiry support. Expiry is not yet supported for
-     *   `arbeidsgivervarselCreate`; setting it throws [IllegalArgumentException].
+     * @param visibleUntil when the recipient channel stops showing the notification; omit to keep
+     *   it until inactivated.
      * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
      *   hours.
      */
