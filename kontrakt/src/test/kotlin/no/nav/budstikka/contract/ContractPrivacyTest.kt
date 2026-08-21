@@ -542,7 +542,8 @@ class ContractPrivacyTest :
                     ).also {
                         it.value shouldContain """"visibleUntil":"2026-02-03T04:05:06Z""""
                         it.toString() shouldNotContain visibleUntil.toString()
-                    }.toString().shouldNotLeak()
+                    }.toString()
+                    .shouldNotLeak()
             }
         }
 
