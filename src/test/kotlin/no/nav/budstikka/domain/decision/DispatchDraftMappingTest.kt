@@ -13,7 +13,6 @@ import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.Oppgavetype
-import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
@@ -78,7 +77,7 @@ class DispatchDraftMappingTest :
                     ArbeidsgivervarselCreate(
                         orgnummer = TEST_ORGNUMMER,
                         recipient = NarmesteLeder(TEST_SYKMELDT),
-                        tag = Tag.DIALOGMOETE,
+                        tag = "Dialogmøte",
                         text = "text",
                         link = "https://nav.no",
                     ),

@@ -4,7 +4,7 @@ package no.nav.budstikka.contract
  * Obviously synthetic values, so a leak assertion fails loudly instead of matching something that
  * only looks harmless. None of these are, or resemble, a real personident, orgnummer or notification.
  */
-val SYNTHETIC_SYKMELDT = PersonIdentifier("11111111111")
+val SYNTHETIC_SYKMELDT = PersonIdentifier("00000000000")
 val SYNTHETIC_ORGNUMMER = Orgnummer("999999999")
 
 const val SYNTHETIC_TEXT = "SYNTETISK-VARSELTEKST"

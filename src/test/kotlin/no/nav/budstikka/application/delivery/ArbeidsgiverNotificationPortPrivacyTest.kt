@@ -2,10 +2,8 @@ package no.nav.budstikka.application.delivery
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldNotContain
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Tag
 
 class ArbeidsgiverNotificationPortPrivacyTest :
     FunSpec({
@@ -36,7 +34,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 altinnExternalVarsling,
                 leaderExternalVarsling,
                 ArbeidsgiverNotificationRecipient.AltinnRessurs(
-                    AltinnResourceId.DIALOGMOETE,
+                    "sensitive-resource",
                     altinnExternalVarsling,
                 ),
                 leaderRecipient,
@@ -45,7 +43,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                     virksomhetsnummer = "123456789",
                     eksternId = "external-id",
                     grupperingsid = "grouping-id",
-                    tag = Tag.DIALOGMOETE,
+                    tag = "sensitive-tag",
                     tekst = notificationText,
                     lenke = link,
                     recipient = leaderRecipient,
@@ -65,6 +63,8 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 "123456789",
                 "external-id",
                 "grouping-id",
+                "sensitive-resource",
+                "sensitive-tag",
             )
 
         values.forEach { value ->

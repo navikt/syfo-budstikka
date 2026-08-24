@@ -1,7 +1,6 @@
 package no.nav.produsenteksempel
 
 import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
@@ -22,13 +21,11 @@ import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.Sakstilknytning
-import no.nav.budstikka.contract.Tag
 
 // One declaration per line makes the negative compiler check fail if any individual raw type loses
 // its opt-in marker. Grouped constructor fixtures cannot prove that: another gated type on the same
 // line or in the same file could still make compilation fail.
 typealias RawAltinnResource = AltinnResource // opt-in-probe
-typealias RawAltinnResourceId = AltinnResourceId // opt-in-probe
 typealias RawArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype // opt-in-probe
 typealias RawArbeidsgiverRecipient = ArbeidsgiverRecipient // opt-in-probe
 typealias RawArbeidsgivervarselCreate = ArbeidsgivervarselCreate // opt-in-probe
@@ -49,4 +46,3 @@ typealias RawMicrofrontendDisable = MicrofrontendDisable // opt-in-probe
 typealias RawMicrofrontendEnable = MicrofrontendEnable // opt-in-probe
 typealias RawNarmesteLeder = NarmesteLeder // opt-in-probe
 typealias RawSakstilknytning = Sakstilknytning // opt-in-probe
-typealias RawTag = Tag // opt-in-probe

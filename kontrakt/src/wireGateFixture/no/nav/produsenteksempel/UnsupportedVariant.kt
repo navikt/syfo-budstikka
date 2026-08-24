@@ -1,7 +1,6 @@
 package no.nav.produsenteksempel
 
 import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
@@ -13,7 +12,6 @@ import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Sakstilknytning
-import no.nav.budstikka.contract.Tag
 
 /**
  * DittSykefravaer and Arbeidsgivervarsel have no registered channel: budstikka would accept these and
@@ -27,7 +25,7 @@ fun rawDittSykefravaerInactivate(sykmeldt: PersonIdentifier): DispatchContent =
 
 fun rawNarmesteLeder(sykmeldt: PersonIdentifier): ArbeidsgiverRecipient = NarmesteLeder(sykmeldt = sykmeldt)
 
-fun rawAltinnResource(): ArbeidsgiverRecipient = AltinnResource(resource = AltinnResourceId.DIALOGMOETE)
+fun rawAltinnResource(): ArbeidsgiverRecipient = AltinnResource(resource = "nav_syfo_dialogmote")
 
 fun rawArbeidsgivervarselCreate(
     orgnummer: Orgnummer,
@@ -36,7 +34,7 @@ fun rawArbeidsgivervarselCreate(
     ArbeidsgivervarselCreate(
         orgnummer = orgnummer,
         recipient = recipient,
-        tag = Tag.DIALOGMOETE,
+        tag = "Dialogmøte",
         text = "tekst",
         link = "https://nav.no/ag",
         meldingstype = ArbeidsgiverMeldingstype.BESKJED,

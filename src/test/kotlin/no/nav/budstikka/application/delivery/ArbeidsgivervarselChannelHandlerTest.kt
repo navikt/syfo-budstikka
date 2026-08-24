@@ -8,13 +8,11 @@ import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.AltinnResourceId
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Tag
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -23,12 +21,47 @@ import java.util.UUID
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
-        test("publishes Altinn recipient unchanged") {
+        test("publishes arbitrary nonblank Altinn recipient and tag unchanged") {
             val publisher = RecordingPublisher()
             handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Sent
 
-            publisher.requests.single().recipient shouldBe
-                ArbeidsgiverNotificationRecipient.AltinnRessurs(AltinnResourceId.DIALOGMOETE)
+            publisher.requests.single() shouldBe
+                ArbeidsgiverNotificationRequest(
+                    virksomhetsnummer = TEST_ORGNUMMER.value,
+                    eksternId = "00000000-0000-0000-0000-000000000702",
+                    grupperingsid = null,
+                    tag = "producer-tag",
+                    tekst = "Tekst",
+                    lenke = "https://nav.no/lenke",
+                    recipient = ArbeidsgiverNotificationRecipient.AltinnRessurs("producer-resource"),
+                    meldingstype = no.nav.budstikka.contract.ArbeidsgiverMeldingstype.BESKJED,
+                )
+        }
+
+        test("fails blank tag before lookup or publishing without leaking recipient data") {
+            val publisher = RecordingPublisher()
+            val outcome =
+                handler(publisher, ThrowingNarmesteLederLookup()).handle(
+                    delivery(create(NarmesteLeder(TEST_SYKMELDT), tag = " \t")),
+                )
+
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL tag must not be blank"
+            publisher.requests shouldBe emptyList()
+            outcome.reason shouldNotContain TEST_SYKMELDT.value
+        }
+
+        test("fails blank Altinn resource before publishing without leaking tag data") {
+            val publisher = RecordingPublisher()
+            val outcome =
+                handler(publisher).handle(
+                    delivery(create(AltinnResource(" \t"), tag = "sensitive-producer-tag")),
+                )
+
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL recipient.resource must not be blank"
+            publisher.requests shouldBe emptyList()
+            outcome.reason shouldNotContain "sensitive-producer-tag"
         }
 
         test("publishes NarmesteLeder without external notification when email is absent") {
@@ -152,14 +185,16 @@ private fun handler(
     metrics: RecordingDeliveryMetrics = RecordingDeliveryMetrics(),
 ) = ArbeidsgivervarselChannelHandler(publisher, lookup, metrics)
 
-private fun create(recipient: ArbeidsgiverRecipient = AltinnResource(AltinnResourceId.DIALOGMOETE)) =
-    ArbeidsgivervarselCreate(
-        TEST_ORGNUMMER,
-        recipient,
-        Tag.DIALOGMOETE,
-        "Tekst",
-        "https://nav.no/lenke",
-    )
+private fun create(
+    recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),
+    tag: String = "producer-tag",
+) = ArbeidsgivervarselCreate(
+    TEST_ORGNUMMER,
+    recipient,
+    tag,
+    "Tekst",
+    "https://nav.no/lenke",
+)
 
 private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
     ClaimedDelivery(
