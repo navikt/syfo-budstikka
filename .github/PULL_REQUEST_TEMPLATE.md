@@ -22,9 +22,8 @@
 
 - [ ] `./gradlew build` grønt (kompilering + ktlint + test)
 - [ ] Ingen sensitive data eksponert (tokens, credentials, fnr/PII) — heller ikke i logger
-- [ ] R3/R4 etter repoets policy? → siste `grill-inspektor`-verdikt gjelder
-      nåværende diff og er `APPROVED`; eventuelle `CONCERNS` er eksplisitt
-      akseptert i issue/PR; eller et eksplisitt menneskelig unntak er dokumentert der
+- [ ] R3/R4 etter repoets policy? → uavhengig gjennomgang gjelder nåværende
+      diff; eventuelle bekymringer eller menneskelig unntak er dokumentert og
+      akseptert i issue/PR
 - [ ] Endrede API-/event-kontrakter koordinert med berørte team
-- [ ] Dokumentert løp eksplisitt valgt for eventuelle nye glossar-/ADR-endringer;
-      `/domain-modeling` har kvalifisert ADR-kandidater
+- [ ] Eventuelle ADR-kandidater er vurdert etter `docs/agents/domain.md`

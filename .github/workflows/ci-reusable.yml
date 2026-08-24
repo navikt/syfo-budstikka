@@ -1,8 +1,8 @@
 name: Reusable CI
 
 # Gjenbrukbar CI-gate (workflow_call). Executes ci.yaml on PR and in merge queue. Shares the same
-# deterministic gates as the rest of the repository: agent model pins, compilation + ktlint + test, and
-# container-image build (Jib, without push). See .github/instructions/github-actions.instructions.md.
+# deterministic gates as the rest of the repository: compilation + ktlint + test, and container-image
+# build (Jib, without push). See .github/instructions/github-actions.instructions.md.
 on:
   workflow_call:
 
@@ -20,15 +20,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Deterministic gate 1: agent model pins on allowlist (hard fail).
-      - name: Validate agent model pins
-        run: bash scripts/validate-agent-models.sh .github/agents
-
-      # Deterministic gate: the agent corpus stays English, skill names stay
-      # valid invocation ids, and no reference points at a retired skill.
-      - name: Validate agent corpus
-        run: bash scripts/validate-agent-corpus.sh
-
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
@@ -42,7 +33,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: bash scripts/detect-contract-changes.sh
 
-      # Deterministic gate 2: compilation + ktlint + full test suite. E2E is opt-in and runs
+      # Deterministic gate 1: compilation + ktlint + full test suite. E2E is opt-in and runs
       # separately so deploys do not wait for slow full-boot specs (docs/teststrategi.md).
       - name: Build, lint and test
         run: ./gradlew build --no-daemon
@@ -85,7 +76,7 @@ jobs:
         with:
           team: team-esyfo
 
-      # Deterministic gate 3: build container-image with Jib WITHOUT push. Catches
+      # Deterministic gate 2: build container-image with Jib WITHOUT push. Catches
       # base-image-/Jib configuration errors in PR instead of on main-deploy. jibBuildTar pre-pulls
       # Chainguard base to the docker daemon (docker:// due to OCI 1.1 bug), which is available on the runner.
       - name: Build container-image (Jib, no-push)

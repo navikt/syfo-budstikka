@@ -117,11 +117,8 @@ Løpet starter appen mot Testcontainers med Postgres, Kafka og fakes for ekstern
 Se [teststrategien](docs/teststrategi.md) for testnivåer og lokal kjøring. Kjør `./gradlew tasks`
 for tilgjengelige Gradle-oppgaver.
 
-## Agentoppsett
+## Pre-commit-vakt for sensitive data
 
-Repoet er testbenk for Grillmester-agentoppsettet for GitHub Copilot CLI.
-[.github/GRILLMESTER.md](.github/GRILLMESTER.md) er kartet over agenter, skills og
-instruksjoner. `mise lint:agents` kjører de deterministiske agent-gatene lokalt.
 Aktiver pre-commit-vakten mot PII i stagede filer én gang per klon:
 
 ```sh

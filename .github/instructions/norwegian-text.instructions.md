@@ -1,14 +1,13 @@
 ---
-description: "Applies automatically to Norwegian README text; /klarsprak reads this file explicitly before editing other confirmed Norwegian text."
+description: "Applies automatically to Norwegian README text; consult it before polishing other confirmed Norwegian artifacts."
 applyTo: "README.md"
 ---
 
 # Norsk tekstkvalitet (lean)
 
 `docs/agents/language-policy.md` decides which artifacts are Norwegian. This
-file is injected automatically for `README.md` only. For other confirmed
-Norwegian text — ADRs, `.grill/` artifacts, PR and commit text — `/klarsprak`
-reads this file explicitly before applying the rules below.
+file is injected automatically for `README.md` only. Consult it before
+polishing other confirmed Norwegian text, including ADRs and PR or commit text.
 
 ## AI-markører å unngå
 
