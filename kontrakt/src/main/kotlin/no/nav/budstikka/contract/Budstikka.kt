@@ -207,8 +207,10 @@ object Budstikka {
      * @param link required target for the notification.
      * @param messageType whether the notification is a beskjed or oppgave; defaults to BESKJED.
      * @param caseAssociation optional producer-owned case identifier for downstream grouping.
-     * @param visibleUntil when Arbeidsgivernotifikasjoner hard-deletes the notification; omit to
-     *   use the existing four-month retention period.
+     * @param visibleUntil despite the name, the time when Arbeidsgivernotifikasjoner permanently
+     *   deletes the notification and its data from its database and Kafka. This cannot be undone
+     *   and does not cancel external notifications already scheduled. Omit to use the existing
+     *   four-month retention period.
      * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
      *   hours.
      */
