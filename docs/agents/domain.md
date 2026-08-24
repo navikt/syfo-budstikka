@@ -1,8 +1,7 @@
 # Documentation ownership
 
 This is the repository's only local policy for maintained documentation. It
-maps portable domain-modeling skills to this service. Skills may point here,
-but must not define competing local paths, ADR formats, or linking rules.
+defines the local paths, ADR format, and linking rules.
 
 ## Put each answer in one place
 
@@ -35,10 +34,9 @@ answer. Do not copy the explanation into more places.
 
 ## Before writing domain documentation
 
-Update the glossary or create an ADR only when the user asks for it, invokes
-`/domain-modeling` or `/grill-with-docs`, or accepts a recommendation to use
-that workflow. Finding a candidate does not by itself permit a repository
-change.
+Update the glossary or create an ADR only when the user explicitly authorizes
+it or accepts a recommendation to do so. Finding a candidate does not by
+itself permit a repository change.
 
 Until then, keep candidates in the conversation, active issue, plan, or an
 explicitly selected task-local scratch file. Routine contract or operator
@@ -67,8 +65,7 @@ it as accepted.
 
 ## ADR gate and local form
 
-`/domain-modeling` owns the eligibility check and writing workflow. Create an
-ADR only when the choice is all three:
+Before creating an ADR, assess whether the choice is all three:
 
 1. hard to reverse at meaningful cost;
 2. surprising without its context; and

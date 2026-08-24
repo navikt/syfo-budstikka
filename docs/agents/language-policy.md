@@ -18,7 +18,8 @@ Use language deliberately by artifact type.
 
 Issue, pull-request, and commit-message language is deliberately not settled
 here. It follows the producing workflow until a later change chooses a common
-language. `/klarsprak` may polish Norwegian prose without changing artifact
+language. For Norwegian prose polishing, consult
+`.github/instructions/norwegian-text.instructions.md` without changing artifact
 ownership or meaning.
 
 ## Incremental migration

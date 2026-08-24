@@ -31,6 +31,4 @@ This service processes sickness-absence data.
   requests. Reference:
   <https://sikkerhet.nav.no/docs/verktoy/chainguard-dockerimages>.
 
-Follow the R3/R4 gate in `.github/copilot-instructions.md`. Full detail:
-`/security-review` for procedure and evidence, `/auth-overview` for token
-validation, and `/nais-manifest` for configuration.
+Follow the R3/R4 gate in `.github/copilot-instructions.md`.
