@@ -125,9 +125,6 @@ Aktiver pre-commit-vakten mot PII i stagede filer én gang per klon:
 git config core.hooksPath .githooks
 ```
 
-Vakten kjører `scripts/scan-sensitive-data.sh` og skanner bare nye, kopierte og
-endrede filer i Git-indeksen.
-
 ## For Nav-ansatte
 
 Spørsmål om tjenesten kan tas i [#esyfo på Slack](https://nav-it.slack.com/archives/C012X796B4L).

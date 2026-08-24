@@ -75,6 +75,5 @@ These apply to all code assistance in this repository.
   lint, and build decide pass or fail. Never claim something "looks right"
   without fresh evidence — command, output, and exit code in the same message.
 - **Staged sensitive-data gate:** Before an authorized local commit, run
-  `bash scripts/scan-sensitive-data.sh`. It scans only staged
-  added/copied/modified files. Maintainers can enforce the same check as a local
-  pre-commit hook with `git config core.hooksPath .githooks`.
+  `bash scripts/scan-grill-pii.sh`. Maintainers can enforce the same check as a
+  local pre-commit hook with `git config core.hooksPath .githooks`.
