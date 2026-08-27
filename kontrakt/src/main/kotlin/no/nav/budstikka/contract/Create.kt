@@ -49,7 +49,6 @@ data class LedervarselCreate(
     val orgnummer: Orgnummer,
     val oppgavetype: Oppgavetype,
     val text: String,
-    val link: String? = null,
     val visibleUntil: Instant? = null,
     var sendingWindow: SendingWindow? = null,
 ) : DispatchContent,
@@ -61,7 +60,7 @@ data class LedervarselCreate(
     override val partitionKey: String get() = sykmeldt.value
 
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
-    override fun toString(): String = "LedervarselCreate(oppgavetype=$oppgavetype, sendingWindow=$sendingWindow, hasLink=${link != null})"
+    override fun toString(): String = "LedervarselCreate(oppgavetype=$oppgavetype, sendingWindow=$sendingWindow)"
 }
 
 /** Ditt Sykefravær notification. The downstream contract has only the INFO variant. */

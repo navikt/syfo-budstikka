@@ -231,6 +231,25 @@ class DispatchSerializationTest :
                 val dispatch = dispatchJson.decodeFromString<Dispatch>(payload)
                 (dispatch.content as LedervarselCreate).sendingWindow shouldBe SendingWindow.ONGOING
             }
+
+            test("legacy LedervarselCreate link is accepted and dropped") {
+                val legacyPayload =
+                    """{"reference":"ref-legacy","content":{"type":"LedervarselCreate",""" +
+                        """"sykmeldt":"${SYNTHETIC_SYKMELDT.value}","orgnummer":"${SYNTHETIC_ORGNUMMER.value}",""" +
+                        """"oppgavetype":"DIALOGMOTE_INNKALLING","text":"Hei","link":"https://nav.no/legacy",""" +
+                        """"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
+
+                val dispatch = dispatchJson.decodeFromString<Dispatch>(legacyPayload)
+
+                dispatch.content shouldBe
+                    LedervarselCreate(
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
+                        text = "Hei",
+                    )
+                dispatchJson.encodeToString(dispatch) shouldNotContain "\"link\""
+            }
         }
 
         context("ExternalVarsling -> ExternalNotification rename is invisible on the wire") {

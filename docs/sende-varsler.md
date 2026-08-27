@@ -72,6 +72,9 @@ direkte. Dokumentdistribusjon velger normalt kanal selv; `tvingSentralPrint` er 
 for papir.
 
 Dine Sykmeldte har bare in-app-varsel. Ikke legg til SMS- eller e-postforventninger der.
+`dineSykmeldteVarselCreate` tar heller ikke en lenke. Dine Sykmeldte plasserer aktiviteten fra
+`sykmeldt`, `orgnummer` og `oppgavetype`, og lager selv riktig lenke fra den gjeldende
+Nærmeste leder-relasjonen.
 
 `arbeidsgivervarselCreate` bruker enten `Arbeidsgivervarsel.NarmesteLeder(sykmeldt)` eller
 `Arbeidsgivervarsel.AltinnResource(resource)`. Bruk mottakerspesifikke `externalNotification`-verdier,
