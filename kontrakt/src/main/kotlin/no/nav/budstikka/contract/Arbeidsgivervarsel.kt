@@ -59,4 +59,16 @@ object Arbeidsgivervarsel {
     ) {
         override fun toString(): String = "AltinnExternalNotification()"
     }
+
+    /**
+     * Explicit HTML email content for the HTML overloads of [Budstikka.arbeidsgivervarselCreate].
+     * The body is forwarded unchanged to Arbeidsgivernotifikasjoner. Use static, reviewed markup;
+     * never interpolate untrusted values or personopplysninger.
+     */
+    data class HtmlEmailNotification(
+        val emailTitle: String,
+        val emailHtmlBody: String,
+    ) {
+        override fun toString(): String = "HtmlEmailNotification()"
+    }
 }

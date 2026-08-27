@@ -76,6 +76,11 @@ Dine Sykmeldte har bare in-app-varsel. Ikke legg til SMS- eller e-postforventnin
 `arbeidsgivervarselCreate` bruker enten `Arbeidsgivervarsel.NarmesteLeder(sykmeldt)` eller
 `Arbeidsgivervarsel.AltinnResource(resource)`. Bruk mottakerspesifikke `externalNotification`-verdier,
 ikke `ExternalNotification`. Nærmeste leder-oppslaget og e-postleveringen skjer i Budstikka.
+Den ordinære overloaden behandler `emailText` som ren tekst og escaper den før levering. For HTML,
+bruk mottakerens overload med `Arbeidsgivervarsel.HtmlEmailNotification`; Altinn-overloaden krever
+også `smsText`. `emailHtmlBody` videresendes da uendret til Arbeidsgivernotifikasjoner. Bruk bare
+statisk, reviewet markup; ikke interpoler personopplysninger eller andre ukontrollerte verdier.
+Budstikka saniterer ikke HTML-en: overloaden er en eksplisitt tillitsgrense mot produsenten.
 `tag` må samsvare med produsentens registrerte merkelapp, og Altinn `resource` må samsvare med
 produsentens registrerte Altinn-ressurs i Arbeidsgivernotifikasjoner. Ellers feiler leveringen
 terminalt.

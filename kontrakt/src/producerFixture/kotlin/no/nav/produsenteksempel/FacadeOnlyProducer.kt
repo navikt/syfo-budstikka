@@ -67,6 +67,11 @@ object FacadeOnlyProducer {
             reference = "fixture-arbeidsgiver-1",
             orgnummer = orgnummer,
             recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
+            htmlEmail =
+                Arbeidsgivervarsel.HtmlEmailNotification(
+                    emailTitle = "Syntetisk e-posttittel",
+                    emailHtmlBody = "<p>SYNTETISK-E-POSTTEKST</p>",
+                ),
             tag = "Dialogmøte",
             text = "SYNTETISK-VARSELTEKST",
             link = "https://nav.no/ag",

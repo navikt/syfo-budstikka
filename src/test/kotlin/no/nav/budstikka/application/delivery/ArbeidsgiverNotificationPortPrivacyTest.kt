@@ -11,16 +11,16 @@ class ArbeidsgiverNotificationPortPrivacyTest :
         val leader = PersonIdentifier("00000000000")
         val emailAddress = "sensitive@example.test"
         val emailTitle = "Sensitive title"
-        val emailText = "Sensitive email text"
+        val emailHtmlBody = "<p>Sensitive email body</p>"
         val smsText = "Sensitive SMS text"
         val notificationText = "Sensitive notification text"
         val link = "https://nav.no/sensitive-link"
 
-        val altinnExternalVarsling = AltinnExternalVarsling(emailTitle, emailText, smsText)
+        val altinnExternalVarsling = AltinnExternalVarsling(emailTitle, emailHtmlBody, smsText)
         val leaderExternalVarsling =
             NarmesteLederExternalVarsling(
                 emailTitle,
-                emailText,
+                emailHtmlBody,
                 listOf(emailAddress),
             )
         val leaderRecipient =
@@ -56,7 +56,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 leader.value,
                 emailAddress,
                 emailTitle,
-                emailText,
+                emailHtmlBody,
                 smsText,
                 notificationText,
                 link,

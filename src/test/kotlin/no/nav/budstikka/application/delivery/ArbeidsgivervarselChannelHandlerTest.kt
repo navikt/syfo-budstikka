@@ -10,6 +10,7 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
@@ -18,6 +19,7 @@ import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
+import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslingWire
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
@@ -87,7 +89,11 @@ class ArbeidsgivervarselChannelHandlerTest :
                     create(
                         NarmesteLeder(
                             TEST_SYKMELDT,
-                            NarmesteLederExternalVarsling("Tittel", "Tekst"),
+                            NarmesteLederExternalVarsling(
+                                emailTitle = "Tittel",
+                                emailText = "<p><strong>Tekst</strong></p>",
+                                emailBodyFormat = EmailBodyFormat.HTML,
+                            ),
                         ),
                     ),
                 ),
@@ -99,10 +105,106 @@ class ArbeidsgivervarselChannelHandlerTest :
                     TEST_SYKMELDT,
                     NarmesteLederExternalVarsling(
                         "Tittel",
-                        "Tekst",
+                        "<p><strong>Tekst</strong></p>",
                         listOf("first@example.test", "second@example.test"),
                     ),
                 )
+        }
+
+        test("escapes legacy plain-text email bodies from queued 0.2.0 payloads") {
+            val publisher = RecordingPublisher()
+            handler(
+                publisher,
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"))),
+            ).handle(
+                delivery(
+                    create(
+                        NarmesteLeder(
+                            TEST_SYKMELDT,
+                            NarmesteLederExternalVarsling(
+                                emailTitle = "Tittel",
+                                emailText = "A & <B>\nNeste",
+                            ),
+                        ),
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
+
+            val externalVarsling =
+                (publisher.requests.single().recipient as ArbeidsgiverNotificationRecipient.NarmesteLeder)
+                    .externalVarsling
+            externalVarsling?.epostHtmlBody shouldBe "A &amp; &lt;B&gt;<br>Neste"
+        }
+
+        test("forwards Altinn HTML unchanged and escapes legacy Altinn plain text") {
+            val publisher = RecordingPublisher()
+            val handler = handler(publisher)
+
+            handler.handle(
+                delivery(
+                    create(
+                        AltinnResource(
+                            "producer-resource",
+                            AltinnExternalVarslingWire(
+                                emailTitle = "Tittel",
+                                emailText = "<p><strong>HTML</strong></p>",
+                                smsText = "SMS",
+                                emailBodyFormat = EmailBodyFormat.HTML,
+                            ),
+                        ),
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
+            handler.handle(
+                delivery(
+                    create(
+                        AltinnResource(
+                            "producer-resource",
+                            AltinnExternalVarslingWire(
+                                emailTitle = "Tittel",
+                                emailText = "A & <B>\nNeste",
+                                smsText = "SMS",
+                            ),
+                        ),
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
+
+            val first = publisher.requests[0].recipient as ArbeidsgiverNotificationRecipient.AltinnRessurs
+            val second = publisher.requests[1].recipient as ArbeidsgiverNotificationRecipient.AltinnRessurs
+            first.externalVarsling?.epostHtmlBody shouldBe "<p><strong>HTML</strong></p>"
+            second.externalVarsling?.epostHtmlBody shouldBe "A &amp; &lt;B&gt;<br>Neste"
+        }
+
+        test("rejects blank external title and Altinn SMS before lookup or publishing") {
+            val publisher = RecordingPublisher()
+
+            val blankTitle =
+                handler(publisher, ThrowingNarmesteLederLookup()).handle(
+                    delivery(
+                        create(
+                            NarmesteLeder(
+                                TEST_SYKMELDT,
+                                NarmesteLederExternalVarsling(" ", "<p>HTML</p>", EmailBodyFormat.HTML),
+                            ),
+                        ),
+                    ),
+                ) as DeliveryOutcome.Failed
+            val blankSms =
+                handler(publisher).handle(
+                    delivery(
+                        create(
+                            AltinnResource(
+                                "producer-resource",
+                                AltinnExternalVarslingWire("Tittel", "<p>HTML</p>", " ", EmailBodyFormat.HTML),
+                            ),
+                        ),
+                    ),
+                ) as DeliveryOutcome.Failed
+
+            blankTitle.reason shouldBe "ARBEIDSGIVERVARSEL external notification emailTitle must not be blank"
+            blankSms.reason shouldBe "ARBEIDSGIVERVARSEL external notification smsText must not be blank"
+            publisher.requests shouldBe emptyList()
         }
 
         test("fails terminally with an identifier-free active leader reason") {
@@ -114,8 +216,9 @@ class ArbeidsgivervarselChannelHandlerTest :
                             NarmesteLeder(
                                 TEST_SYKMELDT,
                                 NarmesteLederExternalVarsling(
-                                    "sensitive title",
-                                    "sensitive text secret@example.test",
+                                    emailTitle = "sensitive title",
+                                    emailText = "<p>sensitive text secret@example.test</p>",
+                                    emailBodyFormat = EmailBodyFormat.HTML,
                                 ),
                             ),
                         ),
@@ -145,8 +248,9 @@ class ArbeidsgivervarselChannelHandlerTest :
                             NarmesteLeder(
                                 TEST_SYKMELDT,
                                 NarmesteLederExternalVarsling(
-                                    "sensitive title",
-                                    "sensitive text secret@example.test",
+                                    emailTitle = "sensitive title",
+                                    emailText = "<p>sensitive text secret@example.test</p>",
+                                    emailBodyFormat = EmailBodyFormat.HTML,
                                 ),
                             ),
                         ),
@@ -177,7 +281,7 @@ class ArbeidsgivervarselChannelHandlerTest :
         }
     })
 
-private val LEDER = PersonIdentifier("22222222222")
+private val LEDER = PersonIdentifier("2".repeat(11))
 
 private fun handler(
     publisher: RecordingPublisher,

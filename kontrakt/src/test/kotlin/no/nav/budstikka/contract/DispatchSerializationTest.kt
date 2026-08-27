@@ -57,7 +57,8 @@ class DispatchSerializationTest :
                                     externalVarsling =
                                         NarmesteLederExternalVarsling(
                                             emailTitle = "E-posttittel",
-                                            emailText = "E-posttekst",
+                                            emailText = "<p>E-posttekst</p>",
+                                            emailBodyFormat = EmailBodyFormat.HTML,
                                         ),
                                 ),
                             tag = "Dialogmøte",
@@ -81,8 +82,9 @@ class DispatchSerializationTest :
                                     externalVarsling =
                                         AltinnExternalVarsling(
                                             emailTitle = "E-posttittel",
-                                            emailText = "E-posttekst",
+                                            emailText = "<p>E-posttekst</p>",
                                             smsText = "SMS-tekst",
+                                            emailBodyFormat = EmailBodyFormat.HTML,
                                         ),
                                 ),
                             tag = "Oppfølging",
@@ -144,7 +146,11 @@ class DispatchSerializationTest :
                             recipient =
                                 AltinnResource(
                                     "nav_syfo_dialogmote",
-                                    AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                    AltinnExternalVarsling(
+                                        emailTitle = "Tittel",
+                                        smsText = "SMS",
+                                        emailText = "E-post",
+                                    ),
                                 ),
                             tag = "Dialogmøte",
                             text = "Tekst",
@@ -160,7 +166,10 @@ class DispatchSerializationTest :
                             recipient =
                                 NarmesteLeder(
                                     SYNTHETIC_SYKMELDT,
-                                    NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                    NarmesteLederExternalVarsling(
+                                        emailTitle = "Tittel",
+                                        emailText = "E-post",
+                                    ),
                                 ),
                             tag = "Dialogmøte",
                             text = "Tekst",
@@ -170,10 +179,31 @@ class DispatchSerializationTest :
                 )
 
             altinnPayload shouldContain "\"mottaker\":{\"type\":\"AltinnRessurs\""
-            altinnPayload shouldContain "\"externalVarsling\":{\"emailTitle\":\"Tittel\",\"emailText\":\"E-post\",\"smsText\":\"SMS\"}"
+            altinnPayload shouldContain
+                "\"externalVarsling\":{\"emailTitle\":\"Tittel\",\"emailText\":\"E-post\",\"smsText\":\"SMS\"}"
             narmesteLederPayload shouldContain "\"mottaker\":{\"type\":\"NarmesteLeder\""
-            narmesteLederPayload shouldContain "\"externalVarsling\":{\"emailTitle\":\"Tittel\",\"emailText\":\"E-post\"}"
+            narmesteLederPayload shouldContain
+                "\"externalVarsling\":{\"emailTitle\":\"Tittel\",\"emailText\":\"E-post\"}"
             narmesteLederPayload shouldNotContain "\"smsText\""
+        }
+
+        test("literal 0.2.0 Arbeidsgivervarsel payloads keep plain-text semantics") {
+            val narmesteLederPayload =
+                """{"reference":"legacy-nl","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000","externalVarsling":{"emailTitle":"Tittel","emailText":"A & <B>"}},"tag":"Oppfølging","text":"Tekst","link":"https://nav.no","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+            val altinnPayload =
+                """{"reference":"legacy-altinn","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote","externalVarsling":{"emailTitle":"Tittel","emailText":"A & <B>","smsText":"SMS"}},"tag":"Oppfølging","text":"Tekst","link":"https://nav.no","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+
+            val narmesteLeder =
+                (dispatchJson.decodeFromString<Dispatch>(narmesteLederPayload).content as ArbeidsgivervarselCreate)
+                    .recipient as NarmesteLeder
+            val altinn =
+                (dispatchJson.decodeFromString<Dispatch>(altinnPayload).content as ArbeidsgivervarselCreate)
+                    .recipient as AltinnResource
+
+            narmesteLeder.externalVarsling shouldBe
+                NarmesteLederExternalVarsling(emailTitle = "Tittel", emailText = "A & <B>")
+            altinn.externalVarsling shouldBe
+                AltinnExternalVarsling(emailTitle = "Tittel", emailText = "A & <B>", smsText = "SMS")
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {

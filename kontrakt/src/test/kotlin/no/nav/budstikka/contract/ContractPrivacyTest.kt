@@ -63,6 +63,8 @@ class ContractPrivacyTest :
                 emailText = SYNTHETIC_EMAIL_TEXT,
                 smsText = SYNTHETIC_SMS_TEXT,
             )
+        val htmlEmailNotification =
+            Arbeidsgivervarsel.HtmlEmailNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT)
 
         context("identifiers mask themselves") {
             test("PersonIdentifier") {
@@ -151,6 +153,7 @@ class ContractPrivacyTest :
                 "ExternalNotification" to externalVarsling,
                 "NarmesteLederExternalVarsling" to narmesteLederExternalVarsling,
                 "AltinnExternalVarsling" to altinnExternalVarsling,
+                "HtmlEmailNotification" to htmlEmailNotification,
                 "BrevFallback" to brevFallback,
                 "Sakstilknytning" to sakstilknytning,
                 "NarmesteLeder" to
@@ -463,6 +466,53 @@ class ContractPrivacyTest :
                         SYNTHETIC_LINK,
                     )
                 }.message!!.also { it shouldContain "recipient.externalNotification.smsText" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification(SYNTHETIC_EMAIL_TITLE, " "),
+                        tag = "Dialogmøte",
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "htmlEmail.emailHtmlBody" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient =
+                            Arbeidsgivervarsel.NarmesteLeder(
+                                SYNTHETIC_SYKMELDT,
+                                Arbeidsgivervarsel.NarmesteLederExternalNotification(
+                                    SYNTHETIC_EMAIL_TITLE,
+                                    SYNTHETIC_EMAIL_TEXT,
+                                ),
+                            ),
+                        htmlEmail = htmlEmailNotification,
+                        tag = "Dialogmøte",
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "recipient.externalNotification" }.shouldNotLeak()
+
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                        htmlEmail = htmlEmailNotification,
+                        smsText = " ",
+                        tag = "Dialogmøte",
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                    )
+                }.message!!.also { it shouldContain "smsText" }.shouldNotLeak()
 
                 shouldThrow<IllegalArgumentException> {
                     Budstikka.arbeidsgivervarselCreate(
