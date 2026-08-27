@@ -117,8 +117,8 @@ object Budstikka {
      * @param orgnummer the organisation the employment belongs to.
      * @param oppgavetype required by Dine Sykmeldte to group and deduplicate the notification.
      * @param text the activity notification text.
-     * @param visibleUntil when Dine Sykmeldte stops showing the notification; omit to keep it visible.
      * @param sendingWindow when the notification may leave Budstikka.
+     * @param visibleUntil when Dine Sykmeldte stops showing the notification; omit to keep it visible.
      */
     fun dineSykmeldteVarselCreate(
         eventId: EventId,
@@ -127,8 +127,8 @@ object Budstikka {
         orgnummer: Orgnummer,
         oppgavetype: Oppgavetype,
         text: String,
-        visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.ONGOING,
+        visibleUntil: Instant? = null,
     ): EncodedDispatch =
         encodeDineSykmeldteVarselCreate(
             eventId = eventId,
