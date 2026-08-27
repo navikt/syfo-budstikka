@@ -4,6 +4,7 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
+import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
@@ -37,10 +38,22 @@ class ArbeidsgivervarselChannelHandler(
                         return DeliveryOutcome.Failed(
                             "ARBEIDSGIVERVARSEL recipient.resource must not be blank",
                         )
+                    } else if (recipient.externalVarsling?.emailTitle?.isBlank() == true) {
+                        return invalidExternalNotification("emailTitle")
+                    } else if (recipient.externalVarsling?.smsText?.isBlank() == true) {
+                        return invalidExternalNotification("smsText")
+                    } else if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
+                        return invalidExternalEmailBody()
                     } else {
                         recipient.toNotificationRecipient()
                     }
                 is NarmesteLederRecipient -> {
+                    if (recipient.externalVarsling?.emailTitle?.isBlank() == true) {
+                        return invalidExternalNotification("emailTitle")
+                    }
+                    if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
+                        return invalidExternalEmailBody()
+                    }
                     val relation =
                         withChannelHandlerFailureContext(
                             Channel.ARBEIDSGIVERVARSEL,
@@ -58,9 +71,9 @@ class ArbeidsgivervarselChannelHandler(
                         externalVarsling =
                             recipient.externalVarsling?.let {
                                 NarmesteLederExternalVarsling(
-                                    it.emailTitle,
-                                    it.emailText,
-                                    relation.epostadresser,
+                                    epostTittel = it.emailTitle,
+                                    epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
+                                    epostadresser = relation.epostadresser,
                                 )
                             },
                     )
@@ -94,9 +107,21 @@ class ArbeidsgivervarselChannelHandler(
             resource = resource,
             externalVarsling =
                 externalVarsling?.let {
-                    AltinnExternalVarsling(it.emailTitle, it.emailText, it.smsText)
+                    AltinnExternalVarsling(
+                        epostTittel = it.emailTitle,
+                        epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
+                        smsTekst = it.smsText,
+                    )
                 },
         )
+
+    private fun invalidExternalEmailBody() =
+        DeliveryOutcome.Failed(
+            "ARBEIDSGIVERVARSEL external notification emailText must not be blank",
+        )
+
+    private fun invalidExternalNotification(field: String) =
+        DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL external notification $field must not be blank")
 
     private fun narmesteLederFailure(reason: NarmesteLederMissingReason): DeliveryOutcome.Failed {
         metrics.narmesteLederMissing(reason)
@@ -115,3 +140,40 @@ class ArbeidsgivervarselChannelHandler(
                 )
         }
 }
+
+private fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
+    resolveEmailHtmlBody(emailText, emailBodyFormat)
+
+private fun no.nav.budstikka.contract.AltinnExternalVarsling.resolvedEmailHtmlBody(): String? =
+    resolveEmailHtmlBody(emailText, emailBodyFormat)
+
+private fun resolveEmailHtmlBody(
+    emailText: String,
+    emailBodyFormat: EmailBodyFormat?,
+): String? {
+    if (emailText.isBlank()) return null
+    return when (emailBodyFormat) {
+        EmailBodyFormat.HTML -> emailText
+        null -> emailText.toEscapedHtml()
+    }
+}
+
+private fun String.toEscapedHtml(): String =
+    buildString {
+        this@toEscapedHtml
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .forEach { character ->
+                append(
+                    when (character) {
+                        '&' -> "&amp;"
+                        '<' -> "&lt;"
+                        '>' -> "&gt;"
+                        '"' -> "&quot;"
+                        '\'' -> "&#39;"
+                        '\n' -> "<br>"
+                        else -> character
+                    },
+                )
+            }
+    }

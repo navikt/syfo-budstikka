@@ -37,7 +37,7 @@ sealed interface ArbeidsgiverNotificationRecipient {
 
 data class AltinnExternalVarsling(
     val epostTittel: String,
-    val epostTekst: String,
+    val epostHtmlBody: String,
     val smsTekst: String,
 ) {
     override fun toString(): String = "AltinnExternalVarsling()"
@@ -45,7 +45,7 @@ data class AltinnExternalVarsling(
 
 data class NarmesteLederExternalVarsling(
     val epostTittel: String,
-    val epostTekst: String,
+    val epostHtmlBody: String,
     val epostadresser: List<String>,
 ) {
     override fun toString(): String = "NarmesteLederExternalVarsling()"

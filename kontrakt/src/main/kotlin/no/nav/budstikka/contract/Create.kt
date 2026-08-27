@@ -1,5 +1,8 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package no.nav.budstikka.contract
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
@@ -137,24 +140,35 @@ data class AltinnResource(
     override fun toString(): String = "AltinnResource(hasExternalVarsling=${externalVarsling != null})"
 }
 
-/** External notification texts required by the Altinn-resource delivery path. */
+/** How Budstikka interprets [AltinnExternalVarsling.emailText] before forwarding it. */
+@InternalBudstikkaWire
+@Serializable
+enum class EmailBodyFormat {
+    HTML,
+}
+
+/** External notification content for the Altinn-resource delivery path. */
 @InternalBudstikkaWire
 @Serializable
 data class AltinnExternalVarsling(
     val emailTitle: String,
     val emailText: String,
     val smsText: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val emailBodyFormat: EmailBodyFormat? = null,
 ) {
     /** Omits all notification text. */
     override fun toString(): String = "AltinnExternalVarsling()"
 }
 
-/** External notification texts required by the Nærmeste leder email delivery path. */
+/** External notification content for the Nærmeste leder email delivery path. */
 @InternalBudstikkaWire
 @Serializable
 data class NarmesteLederExternalVarsling(
     val emailTitle: String,
     val emailText: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val emailBodyFormat: EmailBodyFormat? = null,
 ) {
     /** Omits all notification text. */
     override fun toString(): String = "NarmesteLederExternalVarsling()"

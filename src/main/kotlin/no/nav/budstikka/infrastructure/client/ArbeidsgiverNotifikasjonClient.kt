@@ -49,9 +49,10 @@ import okio.Buffer
  * GraphQL anti-corruption adapter for arbeidsgiver-notifikasjon-produsent-api. Apollo generates the
  * operation and input models from fager's pinned schema, while the shared Ktor client retains
  * ownership of transport, authentication and status handling. External notifications always use
- * `LOEPENDE`, because SendingWindowGate has already enforced budstikka's window. Email body is
- * escaped from consumer-provided plain text before it becomes downstream HTML. Fager schedules
- * hard deletion four calendar months after receipt, matching esyfovarsel's retention period.
+ * `LOEPENDE`, because SendingWindowGate has already enforced budstikka's window. The application
+ * supplies a downstream-ready HTML body: explicit HTML is unchanged, while legacy plain text was
+ * escaped by the channel handler. Fager schedules hard deletion four calendar months after receipt,
+ * matching esyfovarsel's retention period.
  */
 class ArbeidsgiverNotifikasjonClient(
     private val httpClient: HttpClient,
@@ -193,7 +194,7 @@ class ArbeidsgiverNotifikasjonClient(
                     EksterntVarselAltinnressursInput(
                         mottaker = AltinnRessursMottakerInput(resource),
                         epostTittel = epostTittel,
-                        epostHtmlBody = epostTekst.toEscapedHtml(),
+                        epostHtmlBody = epostHtmlBody,
                         smsTekst = smsTekst,
                         sendetidspunkt = ongoingSendTime(),
                     ),
@@ -213,7 +214,7 @@ class ArbeidsgiverNotifikasjonClient(
                                     ),
                             ),
                         epostTittel = epostTittel,
-                        epostHtmlBody = epostTekst.toEscapedHtml(),
+                        epostHtmlBody = epostHtmlBody,
                         sendetidspunkt = ongoingSendTime(),
                     ),
                 ),
@@ -261,26 +262,6 @@ class ArbeidsgiverNotifikasjonClient(
         ArbeidsgiverNotificationResponse.Rejected(
             "Arbeidsgiver notification API rejected request: $resultType",
         )
-
-    private fun String.toEscapedHtml(): String =
-        buildString {
-            this@toEscapedHtml
-                .replace("\r\n", "\n")
-                .replace('\r', '\n')
-                .forEach { character ->
-                    append(
-                        when (character) {
-                            '&' -> "&amp;"
-                            '<' -> "&lt;"
-                            '>' -> "&gt;"
-                            '"' -> "&quot;"
-                            '\'' -> "&#39;"
-                            '\n' -> "<br>"
-                            else -> character
-                        },
-                    )
-                }
-        }
 
     private fun <T : Any> T?.toOptional(): Optional<T?> = if (this == null) Optional.Absent else Optional.present(this)
 

@@ -30,7 +30,7 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInpu
 
 class ArbeidsgiverNotifikasjonClientTest :
     FunSpec({
-        test("sends nyBeskjed with producer strings, optional grouping id and Altinn external notification") {
+        test("sends nyBeskjed with producer HTML, optional grouping id and Altinn external notification") {
             var body = ""
             var correlationId = ""
             var authorization = ""
@@ -49,7 +49,7 @@ class ArbeidsgiverNotifikasjonClientTest :
                     externalVarsling =
                         AltinnExternalVarsling(
                             epostTittel = "Tittel <rå>",
-                            epostTekst = "A & <B>\n\"C\" 'D'",
+                            epostHtmlBody = "<p>A &amp; <strong>B</strong></p>",
                             smsTekst = "SMS <rå>",
                         ),
                 ),
@@ -64,7 +64,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"grupperingsid":"sak-1""""
             body shouldContain """"hardDelete":{"om":"P4M"}"""
             body shouldContain """"sendevindu":"LOEPENDE""""
-            body shouldContain """"epostHtmlBody":"A &amp; &lt;B&gt;<br>&quot;C&quot; &#39;D&#39;""""
+            body shouldContain """"epostHtmlBody":"<p>A &amp; <strong>B</strong></p>""""
             body shouldContain """"epostTittel":"Tittel <rå>""""
             body shouldContain """"smsTekst":"SMS <rå>""""
             correlationId shouldBe "external-id"
@@ -87,7 +87,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             body.contains("grupperingsid") shouldBe false
         }
 
-        test("normalizes CRLF and CR before escaping external email text") {
+        test("forwards external email HTML unchanged") {
             var body = ""
             val client =
                 client { request ->
@@ -100,13 +100,13 @@ class ArbeidsgiverNotifikasjonClientTest :
                     externalVarsling =
                         AltinnExternalVarsling(
                             epostTittel = "Tittel",
-                            epostTekst = "før\r\netter\ralene",
+                            epostHtmlBody = "<p>Før</p>\r\n<p><strong>Etter</strong></p>",
                             smsTekst = "SMS",
                         ),
                 ),
             ) shouldBe ArbeidsgiverNotificationResponse.Published
 
-            body shouldContain """"epostHtmlBody":"før<br>etter<br>alene""""
+            body shouldContain """"epostHtmlBody":"<p>Før</p>\r\n<p><strong>Etter</strong></p>""""
         }
 
         test("sends NarmesteLeder recipient and one email notification per address") {
@@ -126,7 +126,7 @@ class ArbeidsgiverNotifikasjonClientTest :
                             externalVarsling =
                                 no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling(
                                     "Tittel",
-                                    "A & <B>",
+                                    "<p>A &amp; <strong>B</strong></p>",
                                     listOf("first@example.test", "second@example.test"),
                                 ),
                         ),
@@ -137,7 +137,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"virksomhetsnummer":"123456789""""
             body shouldContain """"epostadresse":"first@example.test""""
             body shouldContain """"epostadresse":"second@example.test""""
-            body shouldContain """"epostHtmlBody":"A &amp; &lt;B&gt;""""
+            body shouldContain """"epostHtmlBody":"<p>A &amp; <strong>B</strong></p>""""
             body shouldContain """"sendevindu":"LOEPENDE""""
             body.contains("altinnRessurs") shouldBe false
         }

@@ -225,6 +225,51 @@ class BudstikkaProducerApiTest :
                     """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             }
 
+            test("Nærmeste leder HTML overload opts in without changing the legacy emailText field") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        htmlEmail =
+                            Arbeidsgivervarsel.HtmlEmailNotification(
+                                emailTitle = "Tittel",
+                                emailHtmlBody = "<p>E-post</p>",
+                            ),
+                        tag = "Oppfølging",
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","emailBodyFormat":"HTML"}},""" +
+                    """"tag":"Oppfølging","text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
+                    """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+            }
+
+            test("Altinn HTML overload carries HTML, SMS and the explicit format marker") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                        htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification("Tittel", "<p>E-post</p>"),
+                        smsText = "SMS",
+                        tag = "Oppfølging",
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","smsText":"SMS",""" +
+                    """"emailBodyFormat":"HTML"}},"tag":"Oppfølging","text":"SYNTETISK-VARSELTEKST",""" +
+                    """"link":"https://nav.no/ag","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+            }
+
             test("visibleUntil is encoded on the wire") {
                 Budstikka
                     .arbeidsgivervarselCreate(

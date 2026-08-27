@@ -35,6 +35,7 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.DittSykefravaerInactivate**",
         "no.nav.budstikka.contract.DispatchKt",
         "no.nav.budstikka.contract.Dispatch**",
+        "no.nav.budstikka.contract.EmailBodyFormat**",
         "no.nav.budstikka.contract.Ledervarsel**",
         "no.nav.budstikka.contract.Microfrontend**",
         "no.nav.budstikka.contract.NarmesteLeder**",

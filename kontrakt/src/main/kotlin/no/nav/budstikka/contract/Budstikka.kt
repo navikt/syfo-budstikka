@@ -176,7 +176,8 @@ object Budstikka {
      * @param orgnummer the organisation that owns the notification and the partition anchor.
      * @param recipient either the active Nærmeste leder for a Sykmeldt or everyone with an Altinn
      *   resource. External notification is optional; when set, Nærmeste leder requires email title
-     *   and text, while Altinn resource also requires SMS text.
+     *   and plain-text email body, while Altinn resource also requires SMS text. Use the overloads
+     *   with [Arbeidsgivervarsel.HtmlEmailNotification] for an explicit HTML email body.
      * @param tag the notification category used by the recipient channel; unlike [messageType], it
      *   does not choose whether the notification is a beskjed or oppgave. The producer selects the
      *   downstream value, which must match its registered merkelapp in Arbeidsgivernotifikasjoner;
@@ -222,6 +223,75 @@ object Budstikka {
             sendingWindow = sendingWindow,
         ).encode(eventId, reference)
     }
+
+    /**
+     * Creates an Arbeidsgivervarsel for Nærmeste leder with an explicitly trusted HTML email.
+     * [htmlEmail] is forwarded unchanged to Arbeidsgivernotifikasjoner. The ordinary overload keeps
+     * its existing plain-text-and-escaping semantics. Create [recipient] without its optional
+     * `externalNotification`; the two alternatives cannot be combined.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.NarmesteLeder,
+        htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
+        tag: String,
+        text: String,
+        link: String,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        caseAssociation: Arbeidsgivervarsel.CaseAssociation? = null,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarsel(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = recipient.toHtmlWireRecipient(htmlEmail),
+            tag = tag,
+            text = text,
+            link = link,
+            messageType = messageType,
+            caseAssociation = caseAssociation,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
+
+    /**
+     * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email
+     * and the required [smsText]. The ordinary overload keeps its existing plain-text-and-escaping
+     * semantics. Create [recipient] without its optional `externalNotification`; the two
+     * alternatives cannot be combined.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.AltinnResource,
+        htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
+        smsText: String,
+        tag: String,
+        text: String,
+        link: String,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        caseAssociation: Arbeidsgivervarsel.CaseAssociation? = null,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarsel(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = recipient.toHtmlWireRecipient(htmlEmail, smsText),
+            tag = tag,
+            text = text,
+            link = link,
+            messageType = messageType,
+            caseAssociation = caseAssociation,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
 
     /**
      * Brev: a document distributed to the Sykmeldt through dokumentdistribusjon. By default
@@ -359,6 +429,38 @@ private fun Orgnummer.requireOrgnummer() =
         "orgnummer must be $ORGNUMMER_LENGTH digits"
     }
 
+private fun encodeArbeidsgivervarsel(
+    eventId: EventId,
+    reference: String,
+    orgnummer: Orgnummer,
+    recipient: ArbeidsgiverRecipient,
+    tag: String,
+    text: String,
+    link: String,
+    messageType: Arbeidsgivervarsel.MessageType,
+    caseAssociation: Arbeidsgivervarsel.CaseAssociation?,
+    visibleUntil: Instant?,
+    sendingWindow: SendingWindow,
+): EncodedDispatch {
+    requireReference(reference)
+    orgnummer.requireOrgnummer()
+    requireNotBlank(tag, "tag")
+    requireNotBlank(text, "text")
+    requireNotBlank(link, "link")
+    caseAssociation?.let { requireNotBlank(it.caseId, "caseAssociation.caseId") }
+    return ArbeidsgivervarselCreate(
+        orgnummer = orgnummer,
+        recipient = recipient,
+        tag = tag,
+        text = text,
+        link = link,
+        meldingstype = messageType.toWireMessageType(),
+        sakstilknytning = caseAssociation?.let { Sakstilknytning(it.caseId) },
+        visibleUntil = visibleUntil,
+        sendingWindow = sendingWindow,
+    ).encode(eventId, reference)
+}
+
 private fun Arbeidsgivervarsel.Recipient.toWireRecipient(): ArbeidsgiverRecipient =
     when (this) {
         is Arbeidsgivervarsel.NarmesteLeder -> {
@@ -385,6 +487,47 @@ private fun Arbeidsgivervarsel.Recipient.toWireRecipient(): ArbeidsgiverRecipien
                     },
             )
     }
+
+private fun Arbeidsgivervarsel.NarmesteLeder.toHtmlWireRecipient(htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification): NarmesteLeder {
+    require(externalNotification == null) {
+        "recipient.externalNotification must be null when htmlEmail is set"
+    }
+    sykmeldt.requirePersonIdentifier("recipient.sykmeldt")
+    requireNotBlank(htmlEmail.emailTitle, "htmlEmail.emailTitle")
+    requireNotBlank(htmlEmail.emailHtmlBody, "htmlEmail.emailHtmlBody")
+    return NarmesteLeder(
+        sykmeldt = sykmeldt,
+        externalVarsling =
+            NarmesteLederExternalVarsling(
+                emailTitle = htmlEmail.emailTitle,
+                emailText = htmlEmail.emailHtmlBody,
+                emailBodyFormat = EmailBodyFormat.HTML,
+            ),
+    )
+}
+
+private fun Arbeidsgivervarsel.AltinnResource.toHtmlWireRecipient(
+    htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
+    smsText: String,
+): AltinnResource {
+    require(externalNotification == null) {
+        "recipient.externalNotification must be null when htmlEmail is set"
+    }
+    requireNotBlank(resource, "recipient.resource")
+    requireNotBlank(htmlEmail.emailTitle, "htmlEmail.emailTitle")
+    requireNotBlank(htmlEmail.emailHtmlBody, "htmlEmail.emailHtmlBody")
+    requireNotBlank(smsText, "smsText")
+    return AltinnResource(
+        resource = resource,
+        externalVarsling =
+            AltinnExternalVarsling(
+                emailTitle = htmlEmail.emailTitle,
+                emailText = htmlEmail.emailHtmlBody,
+                smsText = smsText,
+                emailBodyFormat = EmailBodyFormat.HTML,
+            ),
+    )
+}
 
 private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeldingstype =
     when (this) {
