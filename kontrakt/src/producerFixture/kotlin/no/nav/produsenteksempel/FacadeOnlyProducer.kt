@@ -53,7 +53,6 @@ object FacadeOnlyProducer {
             orgnummer = orgnummer,
             oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
             text = "SYNTETISK-VARSELTEKST",
-            link = "https://nav.no/dine-sykmeldte",
             visibleUntil = visibleUntil,
             sendingWindow = SendingWindow.ONGOING,
         )

@@ -94,7 +94,6 @@ class ContractPrivacyTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                         text = SYNTHETIC_TEXT,
-                        link = SYNTHETIC_LINK,
                         visibleUntil = Instant.parse("2026-01-01T00:00:00Z"),
                     ),
                     LedervarselInactivate(reference = SYNTHETIC_REFERENCE, sykmeldt = SYNTHETIC_SYKMELDT),
@@ -201,7 +200,6 @@ class ContractPrivacyTest :
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                             text = SYNTHETIC_TEXT,
-                            link = SYNTHETIC_LINK,
                         ),
                     "dineSykmeldteVarselInactivate" to
                         Budstikka.dineSykmeldteVarselInactivate(
@@ -583,20 +581,6 @@ class ContractPrivacyTest :
                     .also { it shouldContain "orgnummer" }
                     .also { it shouldNotContain "12" }
                     .shouldNotLeak()
-            }
-
-            test("blank link when a link is given") {
-                shouldThrow<IllegalArgumentException> {
-                    Budstikka.dineSykmeldteVarselCreate(
-                        eventId = EVENT_ID,
-                        reference = SYNTHETIC_REFERENCE,
-                        sykmeldt = SYNTHETIC_SYKMELDT,
-                        orgnummer = SYNTHETIC_ORGNUMMER,
-                        oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
-                        text = SYNTHETIC_TEXT,
-                        link = " ",
-                    )
-                }.message!!.also { it shouldContain "link" }.shouldNotLeak()
             }
 
             test("blank journalpostId") {

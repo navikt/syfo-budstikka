@@ -28,7 +28,6 @@ class LedervarselPublisherTest :
                             orgnummer = TEST_ORGNUMMER,
                             oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                             text = "Din ansatte er innkalt til dialogmøte",
-                            link = "https://nav.no/dm/1",
                             visibleUntil = Instant.parse("2026-08-01T00:00:00Z"),
                         ),
                 )
@@ -48,14 +47,14 @@ class LedervarselPublisherTest :
                     // The value currently matches the enum name, so this cannot detect accidental use of `.name`.
                     opprett["oppgavetype"]!!.jsonPrimitive.content shouldBe "DIALOGMOTE_INNKALLING"
                     opprett["tekst"]!!.jsonPrimitive.content shouldBe "Din ansatte er innkalt til dialogmøte"
-                    opprett["lenke"]!!.jsonPrimitive.content shouldBe "https://nav.no/dm/1"
+                    opprett["lenke"].shouldBeNull()
                     opprett["timestamp"]!!.jsonPrimitive.content shouldBe "2026-07-17T08:30:00Z"
                     opprett["utlopstidspunkt"]!!.jsonPrimitive.content shouldBe "2026-08-01T00:00:00Z"
                 }
             }
         }
 
-        test("omits optional fields when absent (consumer nullable contract)") {
+        test("omits optional lifecycle fields when absent (consumer nullable contract)") {
             with(PublisherFixture()) {
                 ledervarselPublisher(topic, recording, MutableClock(now)).publish(
                     reference = reference,
@@ -64,7 +63,7 @@ class LedervarselPublisherTest :
                             sykmeldt = TEST_SYKMELDT,
                             orgnummer = TEST_ORGNUMMER,
                             oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
-                            text = "Uten lenke",
+                            text = "Uten utløpstidspunkt",
                         ),
                 )
 

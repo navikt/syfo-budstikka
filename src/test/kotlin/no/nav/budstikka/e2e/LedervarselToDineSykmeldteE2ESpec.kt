@@ -37,7 +37,6 @@ class LedervarselToDineSykmeldteE2ESpec :
                                 orgnummer = Orgnummer(orgnummer),
                                 oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                                 text = "Din ansatte er innkalt til dialogmøte",
-                                link = "https://nav.no/dm/1",
                             ),
                     )
 

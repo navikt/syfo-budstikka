@@ -118,10 +118,10 @@ class BudstikkaProducerApiTest :
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"LedervarselCreate",""" +
                     """"sykmeldt":"00000000000","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
-                    """"text":"SYNTETISK-VARSELTEKST","link":null,"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
+                    """"text":"SYNTETISK-VARSELTEKST","visibleUntil":null,"sendingWindow":"ONGOING"}}"""
             }
 
-            test("optional fields are carried through unchanged") {
+            test("optional lifecycle fields are carried through unchanged") {
                 val encoded =
                     Budstikka.dineSykmeldteVarselCreate(
                         eventId = EVENT_ID,
@@ -130,7 +130,6 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
                         text = SYNTHETIC_TEXT,
-                        link = "https://nav.no/dine-sykmeldte",
                         visibleUntil = VISIBLE_UNTIL,
                         sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
                     )
@@ -138,8 +137,27 @@ class BudstikkaProducerApiTest :
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"LedervarselCreate",""" +
                     """"sykmeldt":"00000000000","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
-                    """"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/dine-sykmeldte",""" +
-                    """"visibleUntil":"2026-01-01T00:00:00Z","sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+                    """"text":"SYNTETISK-VARSELTEKST","visibleUntil":"2026-01-01T00:00:00Z",""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
+            }
+
+            @Suppress("DEPRECATION")
+            test("legacy positional null link remains source-compatible and is dropped") {
+                val encoded =
+                    Budstikka.dineSykmeldteVarselCreate(
+                        EVENT_ID,
+                        REFERENCE,
+                        SYNTHETIC_SYKMELDT,
+                        SYNTHETIC_ORGNUMMER,
+                        Oppgavetype.DIALOGMOTE_INNKALLING,
+                        SYNTHETIC_TEXT,
+                        null,
+                    )
+
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"LedervarselCreate",""" +
+                    """"sykmeldt":"00000000000","orgnummer":"999999999","oppgavetype":"DIALOGMOTE_INNKALLING",""" +
+                    """"text":"SYNTETISK-VARSELTEKST","visibleUntil":null,"sendingWindow":"ONGOING"}}"""
             }
 
             test("encodes OPPFOLGINGSPLAN_PAAMINNELSE as its exact wire value") {

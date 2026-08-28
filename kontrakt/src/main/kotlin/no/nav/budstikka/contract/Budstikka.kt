@@ -117,9 +117,8 @@ object Budstikka {
      * @param orgnummer the organisation the employment belongs to.
      * @param oppgavetype required by Dine Sykmeldte to group and deduplicate the notification.
      * @param text the activity notification text.
-     * @param link target for the activity notification; omit when it has no target.
-     * @param visibleUntil when Dine Sykmeldte stops showing the notification; omit to keep it visible.
      * @param sendingWindow when the notification may leave Budstikka.
+     * @param visibleUntil when Dine Sykmeldte stops showing the notification; omit to keep it visible.
      */
     fun dineSykmeldteVarselCreate(
         eventId: EventId,
@@ -128,25 +127,46 @@ object Budstikka {
         orgnummer: Orgnummer,
         oppgavetype: Oppgavetype,
         text: String,
-        link: String? = null,
-        visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.ONGOING,
-    ): EncodedDispatch {
-        requireReference(reference)
-        sykmeldt.requirePersonIdentifier("sykmeldt")
-        orgnummer.requireOrgnummer()
-        requireNotBlank(text, "text")
-        requireNullOrNotBlank(link, "link")
-        return LedervarselCreate(
+        visibleUntil: Instant? = null,
+    ): EncodedDispatch =
+        encodeDineSykmeldteVarselCreate(
+            eventId = eventId,
+            reference = reference,
             sykmeldt = sykmeldt,
             orgnummer = orgnummer,
             oppgavetype = oppgavetype,
             text = text,
-            link = link,
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
-        ).encode(eventId, reference)
-    }
+        )
+
+    /** Compatibility overload for producers on 0.1.0–0.3.0. The ignored link was never used by Dine Sykmeldte. */
+    @Deprecated(
+        message = "Dine Sykmeldte ignores link; use the overload without link",
+    )
+    @Suppress("UNUSED_PARAMETER")
+    fun dineSykmeldteVarselCreate(
+        eventId: EventId,
+        reference: String,
+        sykmeldt: PersonIdentifier,
+        orgnummer: Orgnummer,
+        oppgavetype: Oppgavetype,
+        text: String,
+        link: String?,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.ONGOING,
+    ): EncodedDispatch =
+        encodeDineSykmeldteVarselCreate(
+            eventId = eventId,
+            reference = reference,
+            sykmeldt = sykmeldt,
+            orgnummer = orgnummer,
+            oppgavetype = oppgavetype,
+            text = text,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
 
     /**
      * Closes a Dine Sykmeldte varsel created earlier with [dineSykmeldteVarselCreate].
@@ -381,6 +401,30 @@ object Budstikka {
             microfrontendId = microfrontendId,
         ).encode(eventId, reference)
     }
+}
+
+private fun encodeDineSykmeldteVarselCreate(
+    eventId: EventId,
+    reference: String,
+    sykmeldt: PersonIdentifier,
+    orgnummer: Orgnummer,
+    oppgavetype: Oppgavetype,
+    text: String,
+    visibleUntil: Instant?,
+    sendingWindow: SendingWindow,
+): EncodedDispatch {
+    requireReference(reference)
+    sykmeldt.requirePersonIdentifier("sykmeldt")
+    orgnummer.requireOrgnummer()
+    requireNotBlank(text, "text")
+    return LedervarselCreate(
+        sykmeldt = sykmeldt,
+        orgnummer = orgnummer,
+        oppgavetype = oppgavetype,
+        text = text,
+        visibleUntil = visibleUntil,
+        sendingWindow = sendingWindow,
+    ).encode(eventId, reference)
 }
 
 /**
