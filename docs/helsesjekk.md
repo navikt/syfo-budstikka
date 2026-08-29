@@ -70,3 +70,24 @@ personidentifikatorer.
 5. **Ikke restart i blinde:** en restart løser hverken poison records eller
    backlogg — den er bare riktig når loggene viser en fastlåst loop som
    liveness ikke har tatt.
+
+## Spor én hendelse
+
+Lim en `event_id` inn i **Event ID**-feltet i Budstikka-dashboardet. Feltet
+synkroniseres ikke til URL-en. Panelet viser en avgrenset loggkorrelasjon:
+
+- `PRODUCER_ATTEMPT`: oppfølgingsplan-backend startet Kafka-kallet; dette er
+  ikke en Kafka-kvittering.
+- `PRODUCER_ERROR`: produsenten feilet eller fikk timeout. Ved klient-timeout
+  kan utfallet være ukjent, og Kafka kan ha mottatt meldingen.
+- `INGESTED`: Budstikka fullførte inntakssteget etter lagringsforsøket; dette
+  er ikke bevis på offset-commit. Gjentakelser kan forekomme ved retry og dedup.
+- `DECIDED`: Budstikka effektuerte en beslutning. Noen beslutninger er
+  ikke-terminale.
+- `DOWNSTREAM_ACCEPTED` og `DELIVERY_FAILED`: Budstikka lagret utfallet fra
+  kanaloverleveringen. Akseptert betyr ikke levert til sluttbrukeren.
+
+Sporet er feilsøkingsstøtte for én ID, ikke regnskap, SLI eller SLO. Manglende
+steg er ikke alene bevis på feil; tidsvindu, best-effort-logger og klokker på
+ulike poder påvirker visningen. Råmeldinger, referanser og personidentifikatorer
+vises ikke.

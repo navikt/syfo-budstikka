@@ -839,13 +839,31 @@
                   },
                   "refId": "D"
                 }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "${loki}"
+                    },
+                    "group": "loki",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "expr": "{service_name=\"syfo-oppfolgingsplan-backend\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} |~ \"Publiserer Budstikka dispatch|Publisert til akkumulator, timeout på get|Publisering av Budstikka dispatch timet ut|Feilet ved publisering av Budstikka dispatch til\" | json event_id, level, type, topic, logger_name | logger_name=\"no.nav.syfo.varsel.budstikka.infrastructure.BudstikkaProducer\" | level=~\"INFO|ERROR\" | event_id!=\"\" | event_id=${eventId:doublequote} | type!=\"\" | topic!=\"\" | line_format `{{if eq .level \"ERROR\"}}PRODUCER_ERROR{{else}}PRODUCER_ATTEMPT{{end}} level={{.level}} event_id={{.event_id}} type={{.type}} topic={{.topic}}`"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "E"
+                }
               }
             ],
             "queryOptions": {},
             "transformations": []
           }
         },
-        "description": "Safe lifecycle trace for one Event ID. Output is projected to bounded operational fields; sensitive correlation fields and raw messages are omitted.",
+        "description": "Safe diagnostic trace for one Event ID across the producer and Budstikka. Producer stages show an attempt or error boundary, not a Kafka acknowledgement; some producer errors have an unknown outcome. Repeated stages are expected on retry and an absent stage is inconclusive. Output is projected to bounded operational fields; sensitive correlation fields and raw messages are omitted.",
         "id": 15,
         "links": [],
         "title": "Event Trace",
@@ -1360,7 +1378,7 @@
                 "language": "plaintext",
                 "mirrorPreview": false
               },
-              "content": "## syfo-budstikka Dashboard\n\n**Pipeline flow:** Kafka topic -> Inbox (ingest) -> Decision (process) -> Delivery (downstream handoff)\n\n| Row | What it shows | How to read it |\n|-----|---------------|----------------|\n| **Domain Pipeline** | Recorded processing signals and downstream handoffs | Counters show operational trends, not authoritative database state or a one-to-one accounting. A formidling can create zero or several deliveries. DROPPED currently means an expected death-gate outcome, not deduplication. Persisted dead letters count completed dead-letter writes by bounded failure reason; they are not the current backlog. |\n| **Worker Health** | Background worker runs, failures and iteration duration | Runs are a heartbeat. Failure signals should normally be zero. Rising duration can indicate slow work. |\n| **Kafka Topic Health** | Budstikka consumer lag and consumed records | Increasing lag means the consumer is falling behind. Lag alone does not prove whether internal inbox or delivery work is progressing. |\n| **Logs** | Error volume and a bounded, safe error projection | Raw messages, exceptions and references are intentionally omitted from the dashboard. |\n| **Event Trace** | Safe lifecycle stages for one Event ID | Shows ingest, decision and downstream handoff stages. Downstream accepted does not prove end-user delivery. |\n\n**No data is not green:** missing time series remain No observations; queries are not zero-filled.\n\n**Units:** Rates are events/sec. Duration is seconds. Lag is records.\n",
+              "content": "## syfo-budstikka Dashboard\n\n**Pipeline flow:** Producer attempt -> Kafka topic -> Inbox (ingest) -> Decision (process) -> Delivery (downstream handoff)\n\n| Row | What it shows | How to read it |\n|-----|---------------|----------------|\n| **Domain Pipeline** | Recorded processing signals and downstream handoffs | Counters show operational trends, not authoritative database state or a one-to-one accounting. A formidling can create zero or several deliveries. DROPPED currently means an expected death-gate outcome, not deduplication. Persisted dead letters count completed dead-letter writes by bounded failure reason; they are not the current backlog. |\n| **Worker Health** | Background worker runs, failures and iteration duration | Runs are a heartbeat. Failure signals should normally be zero. Rising duration can indicate slow work. |\n| **Kafka Topic Health** | Budstikka consumer lag and consumed records | Increasing lag means the consumer is falling behind. Lag alone does not prove whether internal inbox or delivery work is progressing. |\n| **Logs** | Error volume and a bounded, safe error projection | Raw messages, exceptions and references are intentionally omitted from the dashboard. |\n| **Event Trace** | Safe diagnostic stages for one Event ID | Correlates producer attempt/error with ingest, decision and downstream handoff. Producer attempt is not Kafka acknowledgement, and downstream accepted does not prove end-user delivery. |\n\n**No data is not green:** missing time series remain No observations; queries are not zero-filled.\n\n**Units:** Rates are events/sec. Duration is seconds. Lag is records.\n",
               "mode": "markdown",
               "size": {
                 "height": "grow"

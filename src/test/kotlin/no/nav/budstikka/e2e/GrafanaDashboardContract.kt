@@ -44,9 +44,21 @@ internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
 
     lokiQueries shouldNotBe emptyList<String>()
     lokiQueries.forEach { expression ->
-        expression shouldContain """service_name="syfo-budstikka""""
         expression shouldContain """service_namespace="team-esyfo""""
         expression shouldContain "k8s_cluster_name=\"\$environment\""
+    }
+    val producerLokiQueries = lokiQueries.filter { it.startsWith(PRODUCER_LOKI_SCOPE) }
+    producerLokiQueries shouldHaveSize 1
+    producerLokiQueries.forEach { expression ->
+        expression shouldContain
+            """logger_name="no.nav.syfo.varsel.budstikka.infrastructure.BudstikkaProducer"""
+    }
+    val budstikkaLokiQueries = lokiQueries.filter { it.contains(BUDSTIKKA_LOKI_SCOPE) }
+    budstikkaLokiQueries shouldHaveSize lokiQueries.size - producerLokiQueries.size
+    lokiQueries.forEach { expression ->
+        val isBudstikkaQuery = expression.contains(BUDSTIKKA_LOKI_SCOPE)
+        val isProducerQuery = expression.startsWith(PRODUCER_LOKI_SCOPE)
+        (isBudstikkaQuery xor isProducerQuery).shouldBeTrue()
     }
 
     assertNoDataSemantics(panels)
@@ -276,10 +288,13 @@ private fun assertSafeEventTrace(
     val tracePanel = panels.single { it.id() == 15 }
     tracePanel.title() shouldBe "Event Trace"
     tracePanel.description().lowercase() shouldNotContain "reference"
+    tracePanel.description() shouldContain "not a Kafka acknowledgement"
+    tracePanel.description() shouldContain "Repeated stages are expected on retry"
+    tracePanel.description() shouldContain "absent stage is inconclusive"
     tracePanel.logDetailsEnabled().shouldBeFalse()
 
     val traceQueries = tracePanel.queries("loki")
-    traceQueries shouldHaveSize 4
+    traceQueries shouldHaveSize 5
     traceQueries.forEach { expression ->
         expression shouldContain "event_id!=\"\""
         expression shouldContain "event_id=\${eventId:doublequote}"
@@ -287,15 +302,36 @@ private fun assertSafeEventTrace(
         expression shouldContain "| line_format"
         expression shouldNotContain "reference"
         expression shouldNotContain ":regex"
+    }
 
+    val producerTraceQuery = traceQueries.single { it.startsWith(PRODUCER_LOKI_SCOPE) }
+    producerTraceQuery shouldContain
+        """logger_name="no.nav.syfo.varsel.budstikka.infrastructure.BudstikkaProducer"""
+    producerTraceQuery shouldContain
+        """|~ "Publiserer Budstikka dispatch|Publisert til akkumulator, timeout på get|Publisering av Budstikka dispatch timet ut|Feilet ved publisering av Budstikka dispatch til""""
+    producerTraceQuery shouldContain """level=~"INFO|ERROR""""
+    producerTraceQuery shouldContain "type!=\"\""
+    producerTraceQuery shouldContain "topic!=\"\""
+    producerTraceQuery shouldContain "PRODUCER_ATTEMPT"
+    producerTraceQuery shouldContain "PRODUCER_ERROR"
+    producerTraceQuery shouldContain "{{if eq .level \"ERROR\"}}"
+    producerTraceQuery shouldNotContain "message,"
+    producerTraceQuery shouldNotContain "__line__"
+    producerTraceQuery.jsonProjectionFields() shouldBe PRODUCER_TRACE_LOG_FIELDS
+    assertSafeLineFormat(
+        producerTraceQuery.substringAfter("| line_format"),
+        PRODUCER_TRACE_RETURNED_FIELDS,
+    )
+
+    val budstikkaTraceQueries = traceQueries.filter { it.startsWith(BUDSTIKKA_LOKI_SCOPE) }
+    budstikkaTraceQueries shouldHaveSize 4
+    budstikkaTraceQueries.forEach { expression ->
         val projectedFields = expression.jsonProjectionFields()
         projectedFields shouldNotBe emptyList<String>()
         projectedFields.forEach { field ->
             TRACE_LOG_FIELDS.contains(field).shouldBeTrue()
         }
-
-        val projection = expression.substringAfter("| line_format")
-        assertSafeLineFormat(projection)
+        assertSafeLineFormat(expression.substringAfter("| line_format"), TRACE_LOG_FIELDS)
     }
 
     val eventTraceRow =
@@ -329,12 +365,6 @@ private fun assertSafeErrorProjection(panels: List<JsonObject>) {
         panel.queries("loki").forEach { query ->
             query shouldContain "| json "
             query shouldContain "| line_format"
-            val projectedFields = query.jsonProjectionFields()
-            projectedFields shouldNotBe emptyList<String>()
-            projectedFields.forEach { field ->
-                SAFE_LOG_FIELDS.contains(field).shouldBeTrue()
-            }
-            assertSafeLineFormat(query.substringAfter("| line_format"))
         }
     }
 
@@ -344,6 +374,7 @@ private fun assertSafeErrorProjection(panels: List<JsonObject>) {
     query shouldContain "| line_format"
     query shouldNotContain "reference"
     query.jsonProjectionFields() shouldBe ERROR_LOG_FIELDS
+    assertSafeLineFormat(query.substringAfter("| line_format"), ERROR_LOG_FIELDS.toSet())
 }
 
 private fun assertVariables(dashboard: JsonObject) {
@@ -485,7 +516,10 @@ private fun String.jsonProjectionFields(): List<String> =
         .map(String::trim)
         .filter(String::isNotEmpty)
 
-private fun assertSafeLineFormat(lineFormat: String) {
+private fun assertSafeLineFormat(
+    lineFormat: String,
+    allowedFields: Set<String>,
+) {
     val returnedFields =
         Regex("""\{\{\.([a-zA-Z0-9_]+)}}""")
             .findAll(lineFormat)
@@ -493,13 +527,19 @@ private fun assertSafeLineFormat(lineFormat: String) {
             .toList()
     returnedFields shouldNotBe emptyList<String>()
     returnedFields.forEach { field ->
-        SAFE_LOG_FIELDS.contains(field).shouldBeTrue()
+        allowedFields.contains(field).shouldBeTrue()
     }
     lineFormat shouldNotContain "__line__"
 }
 
 private const val PROMETHEUS_SCOPE =
     """app="syfo-budstikka", namespace="team-esyfo", k8s_cluster_name="${'$'}environment""""
+
+private const val BUDSTIKKA_LOKI_SCOPE =
+    """{service_name="syfo-budstikka", service_namespace="team-esyfo", k8s_cluster_name="${'$'}environment"}"""
+
+private const val PRODUCER_LOKI_SCOPE =
+    """{service_name="syfo-oppfolgingsplan-backend", service_namespace="team-esyfo", k8s_cluster_name="${'$'}environment"}"""
 
 private val BUDSTIKKA_METRIC_SELECTOR =
     Regex("""(?:[a-zA-Z_:][a-zA-Z0-9_:]*)?\{[^{}]*}""")
@@ -527,4 +567,13 @@ private val TRACE_LOG_FIELDS =
         "delivery_channel",
     )
 
-private val SAFE_LOG_FIELDS = ERROR_LOG_FIELDS.toSet() + TRACE_LOG_FIELDS
+private val PRODUCER_TRACE_LOG_FIELDS =
+    listOf(
+        "event_id",
+        "level",
+        "type",
+        "topic",
+        "logger_name",
+    )
+
+private val PRODUCER_TRACE_RETURNED_FIELDS = setOf("level", "event_id", "type", "topic")
