@@ -39,16 +39,19 @@ is_alive:       er lastPoll fersk?  → 200 : 503
 
 ## Consumer-lag-alarm
 
-Liveness fanger bare en død loop. En poison record, et kanalutfall eller en
-hengende partisjon holder loopen i live mens køen vokser — det fanges av
-lag-alarmen i `nais/alerts-dev.yaml`/`nais/alerts-prod.yaml`
-(`PrometheusRule`, deployes sammen med appmanifestet):
+Liveness fanger bare en død loop. Kafka-lag er et diagnostisk signal om at
+consumer-inntaket har vedvarende backlogg; det måler ikke senere behandling i
+inbox/delivery eller brukerimpact. Warning-regelen i
+`nais/alerts-dev.yaml`/`nais/alerts-prod.yaml` (`PrometheusRule`) deployes
+sammen med appmanifestet:
 
 - **Warning:** over 100 meldinger lag på `team-esyfo.budstikka.v1` i 15
   minutter (consumer-gruppe `syfo-budstikka-budstikka-v1`, metrikk
   `kafka_consumer_fetch_manager_records_lag_max`).
-- **Critical:** laget har ikke vært nede på null på en time — en partisjon er
-  trolig blokkert uansett volum.
+
+Det finnes ingen critical-regel basert bare på at laget er større enn null.
+Det signalet er ikke nok til å fastslå en blokkert partisjon eller stans i
+leveranser.
 
 ### Runbook ved alarm
 
