@@ -41,7 +41,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(rate(inbox_message_processed_total[5m]))",
+                      "expr": "sum(rate(inbox_message_processed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "processed"
                     },
                     "version": "v0"
@@ -60,7 +60,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (reason)(rate(inbox_message_dropped_total[5m]))",
+                      "expr": "sum by (reason) (rate(inbox_message_dropped_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "dropped {{reason}}"
                     },
                     "version": "v0"
@@ -79,7 +79,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(rate(inbox_message_failed_total[5m]))",
+                      "expr": "sum(rate(inbox_message_failed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "failed"
                     },
                     "version": "v0"
@@ -92,10 +92,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Rates of emitted inbox processing signals. These counters are operational signals, not authoritative database state or accounting.",
         "id": 1,
         "links": [],
-        "title": "Inbox: Processed / Dropped / Failed",
+        "title": "Recorded Inbox Outcomes / sec",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -232,7 +232,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(rate(inbox_message_empty_polls_total[5m])) / (sum(rate(inbox_message_empty_polls_total[5m])) + sum(rate(inbox_message_claimed_total[5m]))) or vector(0)",
+                      "expr": "sum(rate(inbox_message_empty_polls_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m])) / (sum(rate(inbox_message_empty_polls_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m])) + sum(rate(inbox_message_claimed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m])))",
                       "legendFormat": "empty poll ratio"
                     },
                     "version": "v0"
@@ -245,7 +245,7 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Ratio of empty inbox polls to empty polls plus claim attempts. Missing telemetry remains unknown rather than a healthy zero.",
         "id": 10,
         "links": [],
         "title": "Empty Poll Ratio",
@@ -353,7 +353,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(rate(inbox_message_claimed_total[5m]))",
+                      "expr": "sum(rate(inbox_message_claimed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "claimed (throughput)"
                     },
                     "version": "v0"
@@ -366,10 +366,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Claim attempts per second, including possible reclaims. This is not a count of unique formidlinger.",
         "id": 11,
         "links": [],
-        "title": "Inbox Claimed Rate",
+        "title": "Inbox Claim Attempts / sec",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -474,7 +474,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(increase(worker_failures_total{worker=\"inbox-message\"}[1h]))",
+                      "expr": "sum(increase(worker_failures_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", worker=\"inbox-message\"}[1h]))",
                       "legendFormat": "inbox-message iterasjonsfeil"
                     },
                     "version": "v0"
@@ -593,7 +593,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(count_over_time({service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\"} | json | level=\"ERROR\" [$__interval]))",
+                      "expr": "sum(count_over_time({service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} | json level | level=\"ERROR\" [$__interval]))",
                       "range": true
                     },
                     "version": "v0"
@@ -716,7 +716,7 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\"} | json | level=\"ERROR\""
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} | json level, logger_name, event_id, worker, consumer, delivery_channel, error_type, cause_type | level=\"ERROR\" | line_format \"level={{.level}} logger={{.logger_name}} event_id={{.event_id}} worker={{.worker}} consumer={{.consumer}} channel={{.delivery_channel}} error_type={{.error_type}} cause_type={{.cause_type}}\""
                     },
                     "version": "v0"
                   },
@@ -728,7 +728,7 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Shows a safe projection of ERROR logs. Raw messages, exceptions and references are intentionally omitted; use access-controlled Explore for deeper investigation.",
         "id": 14,
         "links": [],
         "title": "Error Logs",
@@ -743,7 +743,7 @@
             "options": {
               "dedupStrategy": "none",
               "enableInfiniteScrolling": false,
-              "enableLogDetails": true,
+              "enableLogDetails": false,
               "prettifyLogMessage": false,
               "showCommonLabels": false,
               "showControls": false,
@@ -779,11 +779,65 @@
                     "group": "loki",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\"} |~ \"\\\"(event_id|reference)\\\":\\\"${traceId:regex}\\\"\""
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} |= \"Inbox message handled\" | json event_id, topic, partition, kafka_offset | event_id!=\"\" | event_id=${eventId:doublequote} | line_format \"INGESTED event_id={{.event_id}} topic={{.topic}} partition={{.partition}} kafka_offset={{.kafka_offset}}\""
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "${loki}"
+                    },
+                    "group": "loki",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} |= \"Inbox message processed\" | json event_id, result, delivery_count | event_id!=\"\" | event_id=${eventId:doublequote} | line_format \"DECIDED event_id={{.event_id}} result={{.result}} deliveries={{.delivery_count}}\""
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "${loki}"
+                    },
+                    "group": "loki",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} |= \"Delivery sent successfully\" | json event_id, delivery_channel | event_id!=\"\" | event_id=${eventId:doublequote} | line_format \"DOWNSTREAM_ACCEPTED event_id={{.event_id}} channel={{.delivery_channel}}\""
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "${loki}"
+                    },
+                    "group": "loki",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "expr": "{service_name=\"syfo-budstikka\", service_namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"} |= \"Marked delivery as FAILED\" | json event_id, delivery_channel | event_id!=\"\" | event_id=${eventId:doublequote} | line_format \"DELIVERY_FAILED event_id={{.event_id}} channel={{.delivery_channel}}\""
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "D"
                 }
               }
             ],
@@ -791,10 +845,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Safe lifecycle trace for one Event ID. Output is projected to bounded operational fields; sensitive correlation fields and raw messages are omitted.",
         "id": 15,
         "links": [],
-        "title": "Message Trace: $traceId",
+        "title": "Event Trace",
         "vizConfig": {
           "group": "logs",
           "kind": "VizConfig",
@@ -806,7 +860,7 @@
             "options": {
               "dedupStrategy": "none",
               "enableInfiniteScrolling": false,
-              "enableLogDetails": true,
+              "enableLogDetails": false,
               "prettifyLogMessage": false,
               "showCommonLabels": false,
               "showControls": false,
@@ -842,7 +896,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "ceil(sum by (channel) (increase(delivery_total{result=\"sent\"}[$__range])))",
+                      "expr": "sum by (channel) (increase(delivery_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", result=\"sent\"}[$__range]))",
                       "legendFormat": "{{channel}}",
                       "range": false
                     },
@@ -856,10 +910,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Recorded handoffs acknowledged by the downstream channel in the selected time range. This does not prove end-user delivery.",
         "id": 16,
         "links": [],
-        "title": "Deliveries per Channel",
+        "title": "Downstream-accepted Handoffs by Channel",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -927,8 +981,8 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (channel)(rate(delivery_total{result=\"sent\"}[5m]))",
-                      "legendFormat": "{{channel}} sent"
+                      "expr": "sum by (channel) (rate(delivery_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", result=\"sent\"}[5m]))",
+                      "legendFormat": "{{channel}} accepted"
                     },
                     "version": "v0"
                   },
@@ -946,7 +1000,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (channel)(rate(delivery_total{result=\"failed\"}[5m]))",
+                      "expr": "sum by (channel) (rate(delivery_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", result=\"failed\"}[5m]))",
                       "legendFormat": "{{channel}} failed"
                     },
                     "version": "v0"
@@ -959,10 +1013,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Rate of recorded downstream handoff outcomes. Accepted means the next system acknowledged the request; it does not prove recipient delivery.",
         "id": 2,
         "links": [],
-        "title": "Delivery by Channel",
+        "title": "Downstream Handoff Outcomes / sec",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1084,8 +1138,8 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "round(100 * sum(increase(delivery_total{result=\"sent\"}[$__range])) / (sum(increase(delivery_total[$__range])) > 0)) or vector(100)",
-                      "legendFormat": "success rate"
+                      "expr": "100 * (sum(increase(delivery_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", result=\"sent\"}[$__range])) or on() vector(0)) / (sum(increase(delivery_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range])) > 0)",
+                      "legendFormat": "recorded downstream acceptance"
                     },
                     "version": "v0"
                   },
@@ -1097,10 +1151,10 @@
             "transformations": []
           }
         },
-        "description": "Percentage of deliveries that succeeded. Green ≥99%, yellow ≥95%, red <95%.",
+        "description": "Share of recorded delivery signals stored as SENT after the downstream system acknowledged the handoff. Not an accounting source and not proof of end-user delivery. Missing observations remain No observations.",
         "id": 20,
         "links": [],
-        "title": "Delivery Success Rate %",
+        "title": "Recorded Downstream Acceptance %",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -1110,8 +1164,10 @@
                 "color": {
                   "mode": "thresholds"
                 },
+                "decimals": 1,
                 "max": 100,
                 "min": 0,
+                "noValue": "No observations",
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1184,7 +1240,7 @@
                 "language": "plaintext",
                 "mirrorPreview": false
               },
-              "content": "## syfo-budstikka Dashboard\n\n**Pipeline flow:** Kafka topic -> Inbox (ingest) -> Decision (process) -> Delivery (send to channel)\n\n| Row | What it shows | High is... |\n|-----|---------------|------------|\n| **Domain Pipeline** | Messages flowing through the system: ingested, processed, dropped, delivered per channel | Processed/Delivered = good (throughput). Dropped = expected if dedup. Failed = investigate. |\n| **Worker Health** | Background worker runs, failures, and iteration duration | Runs = steady heartbeat (good). Failures = 0 is ideal. Duration: low is fast, spikes = slow. |\n| **Kafka Topic Health** | Consumer lag, records consumed, poll ratio | Lag increasing = falling behind (bad). Consumed rate tracks throughput. Empty poll = idle. |\n| **Logs** | Error log rate and raw error lines | Fewer is better. |\n| **Message Trace** | Search by event ID or reference to trace a single message through the system | Use for debugging individual messages. |\n\n**Units:** Rates are in events/sec. Duration in seconds. Lag in number of messages.\n",
+              "content": "## syfo-budstikka Dashboard\n\n**Pipeline flow:** Kafka topic -> Inbox (ingest) -> Decision (process) -> Delivery (downstream handoff)\n\n| Row | What it shows | How to read it |\n|-----|---------------|----------------|\n| **Domain Pipeline** | Recorded processing signals and downstream handoffs | Counters show operational trends, not authoritative database state or a one-to-one accounting. A formidling can create zero or several deliveries. DROPPED currently means an expected death-gate outcome, not deduplication. |\n| **Worker Health** | Background worker runs, failures and iteration duration | Runs are a heartbeat. Failure signals should normally be zero. Rising duration can indicate slow work. |\n| **Kafka Topic Health** | Budstikka consumer lag and consumed records | Increasing lag means the consumer is falling behind. Lag alone does not prove whether internal inbox or delivery work is progressing. |\n| **Logs** | Error volume and a bounded, safe error projection | Raw messages, exceptions and references are intentionally omitted from the dashboard. |\n| **Event Trace** | Safe lifecycle stages for one Event ID | Shows ingest, decision and downstream handoff stages. Downstream accepted does not prove end-user delivery. |\n\n**No data is not green:** ratio panels remain No observations when no terminal signals were recorded.\n\n**Units:** Rates are events/sec. Duration is seconds. Lag is records.\n",
               "mode": "markdown",
               "size": {
                 "height": "grow"
@@ -1213,8 +1269,8 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "round(100 * sum(increase(inbox_message_processed_total[$__range])) / ((sum(increase(inbox_message_processed_total[$__range])) + sum(increase(inbox_message_dropped_total[$__range])) + sum(increase(inbox_message_failed_total[$__range]))) > 0)) or vector(100)",
-                      "legendFormat": "health ratio"
+                      "expr": "100 * (sum(increase(inbox_message_processed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range])) + (sum(increase(inbox_message_dropped_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range])) or on() vector(0))) / ((sum(increase(inbox_message_processed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range])) + (sum(increase(inbox_message_dropped_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range])) or on() vector(0)) + sum(increase(inbox_message_failed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range]))) > 0)",
+                      "legendFormat": "recorded outcomes without failure"
                     },
                     "version": "v0"
                   },
@@ -1226,10 +1282,10 @@
             "transformations": []
           }
         },
-        "description": "Percentage of inbox messages that were processed successfully (not dropped or failed). Green ≥99%, yellow ≥95%, red <95%.",
+        "description": "Share of recorded terminal inbox signals that were processed or expectedly dropped instead of failed. WAIT, retries and repository poison transitions are not represented. Missing observations remain No observations.",
         "id": 22,
         "links": [],
-        "title": "Inbox Health Ratio",
+        "title": "Recorded Inbox Outcomes without Failure %",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -1239,8 +1295,10 @@
                 "color": {
                   "mode": "thresholds"
                 },
+                "decimals": 1,
                 "max": 100,
                 "min": 0,
+                "noValue": "No observations",
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1302,7 +1360,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "topk(5, sum by (reason) (increase(inbox_message_dropped_total[$__range])))",
+                      "expr": "topk(5, sum by (reason) (increase(inbox_message_dropped_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range])))",
                       "legendFormat": "{{reason}}"
                     },
                     "version": "v0"
@@ -1395,7 +1453,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (worker)(rate(worker_runs_total[5m]))",
+                      "expr": "sum by (worker) (rate(worker_runs_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "{{worker}}"
                     },
                     "version": "v0"
@@ -1516,7 +1574,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (worker)(rate(worker_failures_total[5m]))",
+                      "expr": "sum by (worker) (rate(worker_failures_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "{{worker}}"
                     },
                     "version": "v0"
@@ -1639,7 +1697,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (worker)(rate(worker_duration_seconds_sum[5m])) / sum by (worker)(rate(worker_duration_seconds_count[5m]))",
+                      "expr": "sum by (worker) (rate(worker_duration_seconds_sum{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m])) / sum by (worker) (rate(worker_duration_seconds_count{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[5m]))",
                       "legendFormat": "avg {{worker}}"
                     },
                     "version": "v0"
@@ -1658,7 +1716,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "max by (worker)(worker_duration_seconds_max)",
+                      "expr": "max by (worker) (worker_duration_seconds_max{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"})",
                       "legendFormat": "max {{worker}}"
                     },
                     "version": "v0"
@@ -1780,7 +1838,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (partition)(kafka_consumer_fetch_manager_records_lag_max{topic=\"team-esyfo.budstikka.v1\"})",
+                      "expr": "max by (partition) (kafka_consumer_fetch_manager_records_lag_max{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", topic=\"team-esyfo.budstikka.v1\", client_id=~\"consumer-syfo-budstikka-budstikka-v1-.+\"})",
                       "legendFormat": "partition {{partition}}"
                     },
                     "version": "v0"
@@ -1793,7 +1851,7 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Maximum lag per partition for Budstikka's consumer clients. Max avoids double-counting stale pod or rebalance series.",
         "id": 7,
         "links": [],
         "title": "Consumer Lag (team-esyfo.budstikka.v1)",
@@ -1905,8 +1963,8 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (partition)(rate(kafka_consumer_fetch_manager_records_consumed_total{topic=\"team-esyfo.budstikka.v1\"}[5m]))",
-                      "legendFormat": "consumed partition {{partition}}"
+                      "expr": "sum(rate(kafka_consumer_fetch_manager_records_consumed_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", topic=\"team-esyfo.budstikka.v1\", client_id=~\"consumer-syfo-budstikka-budstikka-v1-.+\"}[5m]))",
+                      "legendFormat": "consumer group total"
                     },
                     "version": "v0"
                   },
@@ -1918,10 +1976,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Total records consumed per second by Budstikka's consumer clients. The exported metric has no partition label.",
         "id": 9,
         "links": [],
-        "title": "Records Consumed/sec",
+        "title": "Records Consumed / sec (Budstikka Consumer)",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2268,7 +2326,7 @@
         {
           "kind": "RowsLayoutRow",
           "spec": {
-            "collapse": false,
+            "collapse": true,
             "layout": {
               "kind": "GridLayout",
               "spec": {
@@ -2289,7 +2347,7 @@
                 ]
               }
             },
-            "title": "Message Trace"
+            "title": "Event Trace"
           }
         },
         {
@@ -2379,7 +2437,7 @@
     {
       "kind": "DatasourceVariable",
       "spec": {
-        "allowCustomValue": true,
+        "allowCustomValue": false,
         "current": {
           "text": "prod-gcp",
           "value": "000000021"
@@ -2399,7 +2457,7 @@
     {
       "kind": "DatasourceVariable",
       "spec": {
-        "allowCustomValue": true,
+        "allowCustomValue": false,
         "current": {
           "text": "Logs",
           "value": "PEA2100DC89AE9FE2"
@@ -2417,6 +2475,42 @@
       }
     },
     {
+      "kind": "QueryVariable",
+      "spec": {
+        "allowCustomValue": false,
+        "current": {
+          "text": "prod",
+          "value": "prod"
+        },
+        "definition": "label_values(worker_runs_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\"}, k8s_cluster_name)",
+        "description": "Environment discovered from the selected Prometheus datasource and also used to scope Loki.",
+        "hide": "dontHide",
+        "includeAll": false,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": {
+          "datasource": {
+            "name": "${datasource}"
+          },
+          "group": "prometheus",
+          "kind": "DataQuery",
+          "spec": {
+            "qryType": 1,
+            "query": "label_values(worker_runs_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\"}, k8s_cluster_name)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "version": "v0"
+        },
+        "refresh": "onDashboardLoad",
+        "regex": "",
+        "regexApplyTo": "value",
+        "skipUrlSync": false,
+        "sort": "alphabeticalDesc"
+      }
+    },
+    {
       "kind": "TextVariable",
       "spec": {
         "current": {
@@ -2424,10 +2518,10 @@
           "value": ""
         },
         "hide": "dontHide",
-        "label": "Event ID or Reference",
-        "name": "traceId",
+        "label": "Event ID",
+        "name": "eventId",
         "query": "",
-        "skipUrlSync": false
+        "skipUrlSync": true
       }
     }
   ]
