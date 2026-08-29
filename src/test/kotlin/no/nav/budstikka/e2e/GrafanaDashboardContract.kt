@@ -60,6 +60,11 @@ private fun assertNoDataSemantics(panels: List<JsonObject>) {
     deliveryRatio.title() shouldBe "Recorded Downstream Acceptance %"
     deliveryRatio.noValue() shouldBe "No observations"
     deliveryRatio.description() shouldContain "not proof of end-user delivery"
+    assertNeutralNoObservations(deliveryRatio)
+    deliveryRatio
+        .vizOptions()
+        .getValue("colorMode")
+        .jsonPrimitive.content shouldBe "value"
     val deliveryRatioQuery = deliveryRatio.queries("prometheus").single()
     val deliverySentSum =
         """sum(increase(delivery_total{$PROMETHEUS_SCOPE, result="sent"}[${'$'}__range]))"""
@@ -72,6 +77,11 @@ private fun assertNoDataSemantics(panels: List<JsonObject>) {
     inboxRatio.title() shouldBe "Recorded Inbox Outcomes without Failure %"
     inboxRatio.noValue() shouldBe "No observations"
     inboxRatio.description() shouldContain "not represented"
+    assertNeutralNoObservations(inboxRatio)
+    inboxRatio
+        .vizOptions()
+        .getValue("colorMode")
+        .jsonPrimitive.content shouldBe "value"
     val inboxRatioQuery = inboxRatio.queries("prometheus").single()
     val droppedSum =
         """sum(increase(inbox_message_dropped_total{$PROMETHEUS_SCOPE}[${'$'}__range]))"""
@@ -85,6 +95,20 @@ private fun assertNoDataSemantics(panels: List<JsonObject>) {
         """sum(increase(inbox_message_failed_total{$PROMETHEUS_SCOPE}[${'$'}__range]))"""
     inboxRatioQuery shouldNotContain "$processedSum or on() vector(0)"
     inboxRatioQuery shouldNotContain "$failedSum or on() vector(0)"
+
+    val handoffCount = panels.single { it.id() == 16 }
+    assertNeutralNoObservations(handoffCount)
+    handoffCount
+        .vizOptions()
+        .getValue("colorMode")
+        .jsonPrimitive.content shouldBe "value"
+
+    val dropReasons = panels.single { it.id() == 3 }
+    assertNeutralNoObservations(dropReasons)
+    dropReasons
+        .vizOptions()
+        .getValue("valueMode")
+        .jsonPrimitive.content shouldBe "color"
 
     val help =
         panels
@@ -100,6 +124,24 @@ private fun assertNoDataSemantics(panels: List<JsonObject>) {
     help shouldContain "not authoritative database state"
     help shouldContain "No data is not green"
     help shouldNotContain "expected if dedup"
+}
+
+private fun assertNeutralNoObservations(panel: JsonObject) {
+    val mapping =
+        panel
+            .defaultFieldConfig()
+            .getValue("mappings")
+            .jsonArray
+            .single()
+            .jsonObject
+    mapping.getValue("type").jsonPrimitive.content shouldBe "special"
+    mapping.getValue("options").jsonObject.apply {
+        getValue("match").jsonPrimitive.content shouldBe "null"
+        getValue("result").jsonObject.apply {
+            getValue("text").jsonPrimitive.content shouldBe "No observations"
+            getValue("color").jsonPrimitive.content shouldBe "gray"
+        }
+    }
 }
 
 private fun assertSafeEventTrace(
@@ -282,6 +324,11 @@ private fun JsonObject.vizGroup(): String =
         .jsonPrimitive.content
 
 private fun JsonObject.noValue(): String =
+    defaultFieldConfig()
+        .getValue("noValue")
+        .jsonPrimitive.content
+
+private fun JsonObject.defaultFieldConfig(): JsonObject =
     getValue("vizConfig")
         .jsonObject
         .getValue("spec")
@@ -290,8 +337,14 @@ private fun JsonObject.noValue(): String =
         .jsonObject
         .getValue("defaults")
         .jsonObject
-        .getValue("noValue")
-        .jsonPrimitive.content
+
+private fun JsonObject.vizOptions(): JsonObject =
+    getValue("vizConfig")
+        .jsonObject
+        .getValue("spec")
+        .jsonObject
+        .getValue("options")
+        .jsonObject
 
 private fun JsonObject.logDetailsEnabled(): Boolean =
     getValue("vizConfig")

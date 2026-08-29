@@ -924,6 +924,19 @@
                   "mode": "palette-classic"
                 },
                 "decimals": 0,
+                "mappings": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "gray",
+                        "text": "No observations"
+                      }
+                    },
+                    "type": "special"
+                  }
+                ],
+                "noValue": "No observations",
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -942,7 +955,7 @@
               "overrides": []
             },
             "options": {
-              "colorMode": "background",
+              "colorMode": "value",
               "graphMode": "none",
               "justifyMode": "auto",
               "orientation": "horizontal",
@@ -1165,6 +1178,18 @@
                   "mode": "thresholds"
                 },
                 "decimals": 1,
+                "mappings": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "gray",
+                        "text": "No observations"
+                      }
+                    },
+                    "type": "special"
+                  }
+                ],
                 "max": 100,
                 "min": 0,
                 "noValue": "No observations",
@@ -1190,7 +1215,7 @@
               "overrides": []
             },
             "options": {
-              "colorMode": "background",
+              "colorMode": "value",
               "graphMode": "none",
               "justifyMode": "auto",
               "orientation": "auto",
@@ -1296,6 +1321,18 @@
                   "mode": "thresholds"
                 },
                 "decimals": 1,
+                "mappings": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "gray",
+                        "text": "No observations"
+                      }
+                    },
+                    "type": "special"
+                  }
+                ],
                 "max": 100,
                 "min": 0,
                 "noValue": "No observations",
@@ -1321,7 +1358,7 @@
               "overrides": []
             },
             "options": {
-              "colorMode": "background",
+              "colorMode": "value",
               "graphMode": "none",
               "justifyMode": "auto",
               "orientation": "auto",
@@ -1386,6 +1423,19 @@
                 "color": {
                   "mode": "palette-classic"
                 },
+                "mappings": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "gray",
+                        "text": "No observations"
+                      }
+                    },
+                    "type": "special"
+                  }
+                ],
+                "noValue": "No observations",
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
