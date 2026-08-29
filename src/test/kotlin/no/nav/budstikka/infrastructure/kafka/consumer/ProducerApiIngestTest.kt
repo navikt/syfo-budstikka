@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrevCreate
@@ -119,7 +120,7 @@ class ProducerApiIngestTest :
                 test("$name is hydrated into the inbox") {
                     val inboxRepository = FakeInboxMessageRepository()
                     val deadLetterRepository = FakeDeadLetterRepository()
-                    val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
+                    val handler = InboxMessageHandler(inboxRepository, deadLetterRepository, NoInboxMetrics)
 
                     handler.handleBatch(listOf(encoded.toConsumerRecord()))
 
@@ -137,7 +138,7 @@ class ProducerApiIngestTest :
         test("a redelivered record keeps the eventId budstikka deduplicates on") {
             val inboxRepository = FakeInboxMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
-            val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
+            val handler = InboxMessageHandler(inboxRepository, deadLetterRepository, NoInboxMetrics)
             val encoded =
                 Budstikka.brevCreate(
                     eventId = eventId,
@@ -154,7 +155,7 @@ class ProducerApiIngestTest :
 
         test("a Brukervarsel encoded by the library still carries its text into the inbox") {
             val inboxRepository = FakeInboxMessageRepository()
-            val handler = InboxMessageHandler(inboxRepository, FakeDeadLetterRepository())
+            val handler = InboxMessageHandler(inboxRepository, FakeDeadLetterRepository(), NoInboxMetrics)
             val encoded =
                 Budstikka.brukervarselCreate(
                     eventId = eventId,
@@ -175,7 +176,7 @@ class ProducerApiIngestTest :
 
         test("an Arbeidsgivervarsel encoded by the library carries explicit HTML into the inbox") {
             val inboxRepository = FakeInboxMessageRepository()
-            val handler = InboxMessageHandler(inboxRepository, FakeDeadLetterRepository())
+            val handler = InboxMessageHandler(inboxRepository, FakeDeadLetterRepository(), NoInboxMetrics)
             val encoded =
                 Budstikka.arbeidsgivervarselCreate(
                     eventId = eventId,
@@ -207,7 +208,7 @@ class ProducerApiIngestTest :
         test("literal 0.2.0 Arbeidsgivervarsel payloads are ingested with legacy format") {
             val inboxRepository = FakeInboxMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
-            val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
+            val handler = InboxMessageHandler(inboxRepository, deadLetterRepository, NoInboxMetrics)
             val narmesteLederPayload =
                 """{"reference":"legacy-nl","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"${SYKMELDT.value}","externalVarsling":{"emailTitle":"Tittel","emailText":"A & <B>"}},"tag":"Oppfølging","text":"Tekst","link":"https://nav.no","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"BUDSTIKKA_OPENING_HOURS"}}"""
             val altinnPayload =

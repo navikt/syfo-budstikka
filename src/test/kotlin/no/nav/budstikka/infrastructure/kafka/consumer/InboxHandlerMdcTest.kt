@@ -7,6 +7,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import org.slf4j.LoggerFactory
@@ -29,7 +30,8 @@ class InboxHandlerMdcTest :
 
         test("valid inbox log line carries eventId on MDC for cross-step correlation") {
             val eventId = "00000000-0000-0000-0000-000000000042"
-            val handler = InboxMessageHandler(FakeInboxMessageRepository(), FakeDeadLetterRepository())
+            val handler =
+                InboxMessageHandler(FakeInboxMessageRepository(), FakeDeadLetterRepository(), NoInboxMetrics)
             val payload =
                 """{"reference":"ref-1","content":{"type":"MicrofrontendEnable","personIdentifier":"${TEST_SYKMELDT.value}","microfrontendId":"mf-1"}}"""
 
@@ -40,7 +42,8 @@ class InboxHandlerMdcTest :
         }
 
         test("dead-letter log line carries failureReason as structured field, no eventId in MDC") {
-            val handler = InboxMessageHandler(FakeInboxMessageRepository(), FakeDeadLetterRepository())
+            val handler =
+                InboxMessageHandler(FakeInboxMessageRepository(), FakeDeadLetterRepository(), NoInboxMetrics)
 
             // Missing event-id header -> dead-letter; no eventId available to correlate on.
             handler.handleBatch(listOf(testRecord(value = "ugyldig", eventId = null)))

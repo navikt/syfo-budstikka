@@ -1,5 +1,6 @@
 package no.nav.budstikka.fakes
 
+import no.nav.budstikka.application.inbox.DeadLetterReason
 import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.domain.decision.DropReason
 import java.util.concurrent.ConcurrentHashMap
@@ -12,6 +13,7 @@ class RecordingInboxMetrics : InboxMetrics {
     val failedCount = AtomicInteger()
     val droppedCounts = ConcurrentHashMap<DropReason, AtomicInteger>()
     val outsideSendingWindowCounts = ConcurrentHashMap<String, AtomicInteger>()
+    val deadLetterPersistedCounts = ConcurrentHashMap<DeadLetterReason, AtomicInteger>()
 
     override fun claimed(count: Int) {
         claimedCount.addAndGet(count)
@@ -35,5 +37,12 @@ class RecordingInboxMetrics : InboxMetrics {
 
     override fun outsideSendingWindow(reason: String) {
         outsideSendingWindowCounts.computeIfAbsent(reason) { AtomicInteger() }.incrementAndGet()
+    }
+
+    override fun deadLetterPersisted(
+        reason: DeadLetterReason,
+        count: Int,
+    ) {
+        deadLetterPersistedCounts.computeIfAbsent(reason) { AtomicInteger() }.addAndGet(count)
     }
 }

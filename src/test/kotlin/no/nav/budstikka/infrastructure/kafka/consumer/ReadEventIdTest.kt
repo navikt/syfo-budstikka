@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.inbox.DeadLetterReason
 import java.util.UUID
 
 class ReadEventIdTest :
@@ -20,13 +21,13 @@ class ReadEventIdTest :
             testRecord(value = "{}", eventId = null)
                 .readEventId()
                 .shouldBeInstanceOf<ParsedEventId.Invalid>()
-                .reason shouldBe DeadLetter.MissingEventId
+                .reason shouldBe DeadLetterReason.MISSING_EVENT_ID
         }
 
         test("header that is not a UUID returns Invalid(INVALID_EVENT_ID)") {
             testRecord(value = "{}", eventId = "ikke-en-uuid")
                 .readEventId()
                 .shouldBeInstanceOf<ParsedEventId.Invalid>()
-                .reason shouldBe DeadLetter.InvalidEventId
+                .reason shouldBe DeadLetterReason.INVALID_EVENT_ID
         }
     })

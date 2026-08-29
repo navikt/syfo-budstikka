@@ -2,6 +2,7 @@ package no.nav.budstikka.infrastructure.metrics
 
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
+import no.nav.budstikka.application.inbox.DeadLetterReason
 import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.domain.decision.DropReason
 
@@ -11,10 +12,11 @@ import no.nav.budstikka.domain.decision.DropReason
  *
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
- *   `inbox_message_failed_total`
+ *   `inbox_message_failed_total`, `inbox_dead_letter_persisted_total{reason}`
  *
- * Labels are low-cardinality and PII-free. Counting happens before the final state transition is
- * guaranteed, so these metrics are observability signals rather than an accounting source.
+ * Labels are low-cardinality and PII-free. The dead-letter counter is incremented after persistence;
+ * the other counters are not necessarily tied to a final state transition. None of them are atomic
+ * with Kafka offset commits, so they are observability signals rather than an accounting source.
  */
 class MicrometerInboxMetrics(
     private val registry: MeterRegistry,
@@ -24,6 +26,13 @@ class MicrometerInboxMetrics(
     private val processedCounter = counter(INBOX_MESSAGE_PROCESSED)
     private val failedCounter = counter(INBOX_MESSAGE_FAILED)
     private val outsideSendingWindowCounter = counter(INBOX_OUTSIDE_SENDING_WINDOW)
+    private val deadLetterPersistedCounters =
+        DeadLetterReason.entries.associateWith { reason ->
+            Counter
+                .builder(INBOX_DEAD_LETTER_PERSISTED)
+                .tag(TAG_REASON, reason.metricTag)
+                .register(registry)
+        }
 
     override fun claimed(count: Int) = claimedCounter.increment(count.toDouble())
 
@@ -42,6 +51,15 @@ class MicrometerInboxMetrics(
 
     override fun outsideSendingWindow(reason: String) = outsideSendingWindowCounter.increment()
 
+    override fun deadLetterPersisted(
+        reason: DeadLetterReason,
+        count: Int,
+    ) {
+        if (count > 0) {
+            deadLetterPersistedCounters.getValue(reason).increment(count.toDouble())
+        }
+    }
+
     private fun counter(name: String): Counter = Counter.builder(name).register(registry)
 
     /**
@@ -56,6 +74,7 @@ class MicrometerInboxMetrics(
         const val INBOX_MESSAGE_DROPPED = "inbox.message.dropped"
         const val INBOX_MESSAGE_FAILED = "inbox.message.failed"
         const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
+        const val INBOX_DEAD_LETTER_PERSISTED = "inbox.dead.letter.persisted"
 
         const val TAG_REASON = "reason"
     }

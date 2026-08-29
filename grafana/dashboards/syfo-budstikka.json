@@ -976,6 +976,101 @@
         }
       }
     },
+    "panel-17": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "${datasource}"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "expr": "sum by (reason) (increase(inbox_dead_letter_persisted_total{app=\"syfo-budstikka\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\"}[$__range]))",
+                      "legendFormat": "{{reason}}",
+                      "range": false
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Counts records in dead-letter batches whose database write completed in the selected time range. This operational signal is not the current dead-letter backlog or unique-message accounting: replay and retention do not decrement it, and database, metric and Kafka offset commits are not atomic.",
+        "id": 17,
+        "links": [],
+        "title": "Persisted Dead Letters by Reason",
+        "vizConfig": {
+          "group": "bargauge",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "decimals": 0,
+                "mappings": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "gray",
+                        "text": "No observations"
+                      }
+                    },
+                    "type": "special"
+                  }
+                ],
+                "noValue": "No observations",
+                "unit": "short"
+              },
+              "overrides": []
+            },
+            "options": {
+              "displayMode": "basic",
+              "legend": {
+                "calcs": [],
+                "displayMode": "list",
+                "overflow": "ellipsis",
+                "placement": "bottom",
+                "showLegend": false
+              },
+              "maxVizHeight": 300,
+              "minVizHeight": 16,
+              "minVizWidth": 8,
+              "namePlacement": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "fields": "",
+                "values": false
+              },
+              "showThresholdLabels": false,
+              "showThresholdMarkers": false,
+              "showUnfilled": true,
+              "sizing": "auto",
+              "valueMode": "text"
+            }
+          },
+          "version": "13.1.2"
+        }
+      }
+    },
     "panel-2": {
       "kind": "Panel",
       "spec": {
@@ -1265,7 +1360,7 @@
                 "language": "plaintext",
                 "mirrorPreview": false
               },
-              "content": "## syfo-budstikka Dashboard\n\n**Pipeline flow:** Kafka topic -> Inbox (ingest) -> Decision (process) -> Delivery (downstream handoff)\n\n| Row | What it shows | How to read it |\n|-----|---------------|----------------|\n| **Domain Pipeline** | Recorded processing signals and downstream handoffs | Counters show operational trends, not authoritative database state or a one-to-one accounting. A formidling can create zero or several deliveries. DROPPED currently means an expected death-gate outcome, not deduplication. |\n| **Worker Health** | Background worker runs, failures and iteration duration | Runs are a heartbeat. Failure signals should normally be zero. Rising duration can indicate slow work. |\n| **Kafka Topic Health** | Budstikka consumer lag and consumed records | Increasing lag means the consumer is falling behind. Lag alone does not prove whether internal inbox or delivery work is progressing. |\n| **Logs** | Error volume and a bounded, safe error projection | Raw messages, exceptions and references are intentionally omitted from the dashboard. |\n| **Event Trace** | Safe lifecycle stages for one Event ID | Shows ingest, decision and downstream handoff stages. Downstream accepted does not prove end-user delivery. |\n\n**No data is not green:** ratio panels remain No observations when no terminal signals were recorded.\n\n**Units:** Rates are events/sec. Duration is seconds. Lag is records.\n",
+              "content": "## syfo-budstikka Dashboard\n\n**Pipeline flow:** Kafka topic -> Inbox (ingest) -> Decision (process) -> Delivery (downstream handoff)\n\n| Row | What it shows | How to read it |\n|-----|---------------|----------------|\n| **Domain Pipeline** | Recorded processing signals and downstream handoffs | Counters show operational trends, not authoritative database state or a one-to-one accounting. A formidling can create zero or several deliveries. DROPPED currently means an expected death-gate outcome, not deduplication. Persisted dead letters count completed dead-letter writes by bounded failure reason; they are not the current backlog. |\n| **Worker Health** | Background worker runs, failures and iteration duration | Runs are a heartbeat. Failure signals should normally be zero. Rising duration can indicate slow work. |\n| **Kafka Topic Health** | Budstikka consumer lag and consumed records | Increasing lag means the consumer is falling behind. Lag alone does not prove whether internal inbox or delivery work is progressing. |\n| **Logs** | Error volume and a bounded, safe error projection | Raw messages, exceptions and references are intentionally omitted from the dashboard. |\n| **Event Trace** | Safe lifecycle stages for one Event ID | Shows ingest, decision and downstream handoff stages. Downstream accepted does not prove end-user delivery. |\n\n**No data is not green:** missing time series remain No observations; queries are not zero-filled.\n\n**Units:** Rates are events/sec. Duration is seconds. Lag is records.\n",
               "mode": "markdown",
               "size": {
                 "height": "grow"
@@ -2231,6 +2326,19 @@
                       "height": 8,
                       "width": 10,
                       "x": 6,
+                      "y": 8
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-17"
+                      },
+                      "height": 8,
+                      "width": 8,
+                      "x": 16,
                       "y": 8
                     }
                   }

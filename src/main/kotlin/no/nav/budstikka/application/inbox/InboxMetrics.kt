@@ -18,6 +18,11 @@ interface InboxMetrics {
     fun failed()
 
     fun outsideSendingWindow(reason: String)
+
+    fun deadLetterPersisted(
+        reason: DeadLetterReason,
+        count: Int,
+    )
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -32,4 +37,9 @@ object NoInboxMetrics : InboxMetrics {
     override fun failed() = Unit
 
     override fun outsideSendingWindow(reason: String) = Unit
+
+    override fun deadLetterPersisted(
+        reason: DeadLetterReason,
+        count: Int,
+    ) = Unit
 }
