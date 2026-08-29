@@ -3,7 +3,9 @@ package no.nav.budstikka.e2e
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import no.nav.budstikka.testsupport.GrafanaContainer
 import org.testcontainers.containers.Network
 import java.net.URI
@@ -29,7 +31,13 @@ class GrafanaDashboardE2ESpec :
                             )
 
                     response.statusCode() shouldBe 200
-                    response.body() shouldContain """"name":"syfo-budstikka""""
+                    val dashboardResource = Json.parseToJsonElement(response.body()).jsonObject
+                    dashboardResource
+                        .getValue("metadata")
+                        .jsonObject
+                        .getValue("name")
+                        .jsonPrimitive.content shouldBe "syfo-budstikka"
+                    assertGrafanaDashboardContract(dashboardResource.getValue("spec").jsonObject)
                 }
             }
         }
