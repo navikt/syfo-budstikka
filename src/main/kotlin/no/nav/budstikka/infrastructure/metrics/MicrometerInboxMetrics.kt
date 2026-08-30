@@ -13,8 +13,10 @@ import no.nav.budstikka.domain.decision.DropReason
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
  *   `inbox_message_failed_total`
  *
- * Labels are low-cardinality and PII-free. Counting happens before the final state transition is
- * guaranteed, so these metrics are observability signals rather than an accounting source.
+ * Labels are low-cardinality and PII-free. Claim and empty-poll counters are recorded at poll time;
+ * decision outcomes are recorded only after a successful state transition. A process crash between
+ * the database commit and counter increment can still undercount, so these metrics are observability
+ * signals rather than an accounting source.
  */
 class MicrometerInboxMetrics(
     private val registry: MeterRegistry,

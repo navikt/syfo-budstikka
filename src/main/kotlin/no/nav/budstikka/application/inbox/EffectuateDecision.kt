@@ -8,7 +8,8 @@ import java.util.UUID
 
 /**
  * Persists one [Decision] atomically: delivery rows and inbox state commit or roll back together.
- * External lookups must finish before this transaction begins.
+ * External lookups must finish before this transaction begins. Returns whether this worker won the
+ * state transition and persisted the decision.
  */
 class EffectuateDecision(
     private val transactionRunner: TransactionRunner,
@@ -18,14 +19,16 @@ class EffectuateDecision(
     suspend fun effectuate(
         inboxEventId: UUID,
         decision: Decision,
-    ): Unit =
+    ): Boolean =
         transactionRunner.transaction {
             when (decision) {
                 is Decision.Processed -> {
                     // Only the worker winning CLAIMED->PROCESSED writes delivery rows.
-                    if (inboxMessageRepository.markProcessedInTransaction(inboxEventId)) {
+                    val transitioned = inboxMessageRepository.markProcessedInTransaction(inboxEventId)
+                    if (transitioned) {
                         deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
                     }
+                    transitioned
                 }
 
                 is Decision.Dropped ->

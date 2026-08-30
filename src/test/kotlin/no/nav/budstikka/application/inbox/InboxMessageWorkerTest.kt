@@ -163,6 +163,31 @@ class InboxMessageWorkerTest :
             metrics.emptyPollCount.get() shouldBe 0
         }
 
+        test("runOnce does not record or log an outcome when the terminal transition loses its CAS") {
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
+            val repository =
+                PollingInboxMessageRepository(
+                    messages = listOf(inboxMessage(eventId, reference = "lost-cas")),
+                    terminalTransitionResult = false,
+                )
+            val metrics = RecordingInboxMetrics()
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.claimedCount.get() shouldBe 1
+            metrics.processedCount.get() shouldBe 0
+            repository.processedEventIds.shouldBeEmpty()
+            appender.list.filter { it.formattedMessage.contains("Inbox message processed") }.shouldBeEmpty()
+        }
+
         test("runOnce records a dropped metric when a gate drops the message") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000005")
             val deadContent = BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "text")
@@ -391,6 +416,7 @@ private fun workerWith(
 
 private class PollingInboxMessageRepository(
     private val messages: List<InboxMessage>,
+    private val terminalTransitionResult: Boolean = true,
     private val onPoll: () -> Unit = {},
 ) : InboxMessageRepository {
     var lastPollLimit: Int? = null
@@ -424,21 +450,21 @@ private class PollingInboxMessageRepository(
     }
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean {
-        processedEventIds += eventId
-        return true
+        if (terminalTransitionResult) processedEventIds += eventId
+        return terminalTransitionResult
     }
 
     override fun markDroppedInTransaction(
         eventId: UUID,
         reason: String,
-    ): Boolean = true
+    ): Boolean = terminalTransitionResult
 
     override fun markFailedInTransaction(
         eventId: UUID,
         reason: String,
     ): Boolean {
-        failedMessages += eventId to reason
-        return true
+        if (terminalTransitionResult) failedMessages += eventId to reason
+        return terminalTransitionResult
     }
 
     override fun markOutsideSendingWindowInTransaction(
@@ -446,8 +472,8 @@ private class PollingInboxMessageRepository(
         reason: String,
         nextRetry: Instant,
     ): Boolean {
-        waitingMessages += eventId to (reason to nextRetry)
-        return true
+        if (terminalTransitionResult) waitingMessages += eventId to (reason to nextRetry)
+        return terminalTransitionResult
     }
 }
 
