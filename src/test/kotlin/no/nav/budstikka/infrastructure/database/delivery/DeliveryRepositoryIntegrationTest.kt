@@ -87,8 +87,10 @@ class DeliveryRepositoryIntegrationTest :
             // Claiming reserves the row but does not spend a delivery attempt (#157).
             rowForReference("micro-ref")[DeliveryTable.attempt] shouldBe 0
             rowForReference("micro-ref")[DeliveryTable.nextAttemptTime] shouldNotBe null
+            rowForReference("micro-ref")[DeliveryTable.completedAt] shouldBe null
             rowForReference("bruker-ref")[DeliveryTable.state] shouldBe "READY"
             rowForReference("bruker-ref")[DeliveryTable.attempt] shouldBe 0
+            rowForReference("bruker-ref")[DeliveryTable.completedAt] shouldBe null
         }
 
         test("claim reclaims a CLAIMED row after lease expiry") {
@@ -158,6 +160,7 @@ class DeliveryRepositoryIntegrationTest :
             row[DeliveryTable.state] shouldBe "SENT"
             row[DeliveryTable.nextAttemptTime] shouldBe null
             row[DeliveryTable.errorMessage] shouldBe null
+            row[DeliveryTable.completedAt] shouldNotBe null
         }
 
         test("markFailed transitions a CLAIMED row to FAILED with reason") {
@@ -180,6 +183,32 @@ class DeliveryRepositoryIntegrationTest :
             row[DeliveryTable.state] shouldBe "FAILED"
             row[DeliveryTable.nextAttemptTime] shouldBe null
             row[DeliveryTable.errorMessage] shouldBe reason
+            row[DeliveryTable.completedAt] shouldNotBe null
+        }
+
+        test("only the winning terminal transition sets completedAt") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            saveDraft("micro-ref", microfrontendDraft())
+            val deliveryId =
+                repository
+                    .claim(
+                        limit = 10,
+                        lease = lease,
+                        maxAttempts = 10,
+                        channels = setOf(Channel.MICROFRONTEND),
+                    ).single()
+                    .id
+
+            repository.markSent(deliveryId) shouldBe true
+            val firstCompletedAt = rowForReference("micro-ref")[DeliveryTable.completedAt]
+            firstCompletedAt shouldNotBe null
+
+            repository.markFailed(deliveryId, "late failure") shouldBe false
+
+            val row = rowForReference("micro-ref")
+            row[DeliveryTable.state] shouldBe "SENT"
+            row[DeliveryTable.errorMessage] shouldBe null
+            row[DeliveryTable.completedAt] shouldBe firstCompletedAt
         }
 
         test("claim fails a poison delivery that reached maxAttempts instead of reclaiming it") {
@@ -206,6 +235,7 @@ class DeliveryRepositoryIntegrationTest :
             row[DeliveryTable.attempt] shouldBe maxAttempts
             row[DeliveryTable.nextAttemptTime] shouldBe null
             row[DeliveryTable.errorMessage] shouldNotBe null
+            row[DeliveryTable.completedAt] shouldNotBe null
         }
 
         test("claim logs poison delivery with safe correlation fields") {

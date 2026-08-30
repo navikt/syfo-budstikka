@@ -178,6 +178,7 @@ class DeliveryRepositoryImpl(
         DeliveryTable.update({ DeliveryTable.id inList poisonIds }) {
             it[state] = DeliveryState.FAILED.name
             it[nextAttemptTime] = null
+            it[completedAt] = now
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
         poisonRows.forEach { row ->
@@ -220,11 +221,13 @@ class DeliveryRepositoryImpl(
         errorMessage: String?,
     ): Boolean =
         database.transact {
+            val completedAt = Clock.System.now()
             DeliveryTable.update({
                 (DeliveryTable.id eq deliveryId) and (DeliveryTable.state eq DeliveryState.CLAIMED.name)
             }) {
                 it[DeliveryTable.state] = state.name
                 it[DeliveryTable.nextAttemptTime] = null
+                it[DeliveryTable.completedAt] = completedAt
                 it[DeliveryTable.errorMessage] = errorMessage
             } > 0
         }

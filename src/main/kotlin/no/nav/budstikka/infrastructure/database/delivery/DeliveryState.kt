@@ -6,7 +6,8 @@ package no.nav.budstikka.infrastructure.database.delivery
  *
  * - [READY]: selectable for delivery.
  * - [CLAIMED]: picked by a delivery worker and leased until `next_attempt_time`.
- * - [SENT] / [FAILED]: terminal outcomes for the current outbox iteration.
+ * - [SENT] / [FAILED]: terminal outcomes. The winning compare-and-set stores `completed_at` in the
+ *   same update as the terminal state.
  */
 enum class DeliveryState {
     READY,

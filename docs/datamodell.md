@@ -36,6 +36,7 @@ erDiagram
         int         attempt
         timestamptz next_attempt_time "nullable"
         timestamptz created_at
+        timestamptz completed_at "nullable; settes ved SENT eller FAILED"
         text        error_message "nullable"
     }
 
@@ -143,6 +144,9 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
 - `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
+- Den vinnende terminalovergangen setter `completed_at` i samme `UPDATE` som `SENT`/`FAILED`.
+  Terminale rader skrevet før alle instanser var oppgradert kan ha `NULL`; historiske tidspunkter
+  gjettes ikke.
 - `attempt` spanderes av `beginAttempt` rett før handleren kalles, ikke ved claim.
   Manglende handler er en konfigurasjonsfeil og brenner ikke et forsøk.
 

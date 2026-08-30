@@ -23,6 +23,7 @@ object DeliveryTable : Table("delivery") {
     val attempt = integer("attempt").default(0)
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
+    val completedAt = timestamp("completed_at").nullable()
     val errorMessage = text("error_message").nullable()
 
     override val primaryKey = PrimaryKey(id)
