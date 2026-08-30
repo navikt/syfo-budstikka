@@ -1462,7 +1462,7 @@
             "transformations": []
           }
         },
-        "description": "Current DB-backed producer state, filtered against snapshot freshness from the same pod before max. A fresh zero means an empty queue; No observations means queue health is unknown. Never sum these global database views across replicas.",
+        "description": "Current DB-backed risk signals, filtered against snapshot freshness from the same pod before max. A fresh zero means none of these due, retry, expired-claim or failure signals are present; future READY or valid CLAIMED work may still exist. No observations means queue health is unknown. Never sum these global database views across replicas.",
         "id": 24,
         "links": [],
         "title": "Current Producer Queue State",
