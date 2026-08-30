@@ -70,3 +70,23 @@ personidentifikatorer.
 5. **Ikke restart i blinde:** en restart løser hverken poison records eller
    backlogg — den er bare riktig når loggene viser en fastlåst loop som
    liveness ikke har tatt.
+
+## Interne kø-snapshots
+
+`inbox_queue_*` og `delivery_queue_*` er globale database-snapshots som hver
+pod publiserer. `due` betyr arbeid som kan plukkes nå; `waiting` er en legitim
+fremtidig sendevindu-venting. For utløpt `WAIT`/`CLAIMED` starter due-alderen
+ved `next_attempt_time`, ikke da hendelsen opprinnelig kom inn.
+
+En køserie må freshness-filtreres mot samme pod før replikaene aggregeres:
+
+```promql
+max by (state) (
+  inbox_queue_size
+  and on (pod) (time() - queue_snapshot_last_success_timestamp_seconds < 90)
+)
+```
+
+Bruk tilsvarende `max by (channel, state)` for delivery. Aldri summer disse
+pod-globale målingene, og ikke kombiner `max(kø)` med en separat
+`max(freshness)`; da kan verdiene komme fra forskjellige pods.

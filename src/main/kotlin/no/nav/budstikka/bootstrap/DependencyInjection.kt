@@ -8,6 +8,7 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.delivery.DeliveryMetrics
 import no.nav.budstikka.application.inbox.InboxMetrics
+import no.nav.budstikka.application.observability.OperationalQueueMetrics
 import no.nav.budstikka.application.retention.RetentionMetrics
 import no.nav.budstikka.infrastructure.auth.config.authModule
 import no.nav.budstikka.infrastructure.auth.config.toTexasConfig
@@ -24,6 +25,7 @@ import no.nav.budstikka.infrastructure.kafka.config.kafkaModule
 import no.nav.budstikka.infrastructure.kafka.config.toKafkaConfig
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics
+import no.nav.budstikka.infrastructure.metrics.MicrometerOperationalQueueMetrics
 import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics
 import no.nav.budstikka.infrastructure.replay.DeadLetterReplayer
 import no.nav.budstikka.infrastructure.worker.config.toWorkerConfig
@@ -50,6 +52,7 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         provide<InboxMetrics> { MicrometerInboxMetrics(resolve<PrometheusMeterRegistry>()) }
         provide<DeliveryMetrics> { MicrometerDeliveryMetrics(resolve<PrometheusMeterRegistry>()) }
+        provide<OperationalQueueMetrics> { MicrometerOperationalQueueMetrics(resolve<PrometheusMeterRegistry>()) }
         provide<RetentionMetrics> { MicrometerRetentionMetrics(resolve<PrometheusMeterRegistry>()) }
         databaseModule()
         provide { DeadLetterReplayer(resolve(), resolve()) }
