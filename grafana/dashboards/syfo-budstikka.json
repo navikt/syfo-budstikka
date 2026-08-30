@@ -1294,7 +1294,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_oldest_due_age_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"})",
+                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_oldest_due_age_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} and on (pod, message_type) (time() - syfo_oppfolgingsplan_backend_outbox_queue_snapshot_last_success_timestamp_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} < 180))",
                       "legendFormat": "oldest due READY",
                       "range": false
                     },
@@ -1308,10 +1308,10 @@
             "transformations": []
           }
         },
-        "description": "Current age since available_at for the oldest due READY row. The 300-second color is a shadow boundary, not an SLA or pager. CLAIMED rows, future retries and worker freshness are not represented.",
+        "description": "Age since available_at for the oldest due READY row, shown only when the same pod has completed a queue snapshot within three worker intervals. No observations means queue health is unknown.",
         "id": 23,
         "links": [],
-        "title": "Oldest Due READY Age · 5m shadow",
+        "title": "Oldest Due READY Age",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -1341,10 +1341,6 @@
                     {
                       "color": "gray",
                       "value": 0
-                    },
-                    {
-                      "color": "orange",
-                      "value": 300
                     }
                   ]
                 },
@@ -1392,7 +1388,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_due_ready{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"})",
+                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_due_ready{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} and on (pod, message_type) (time() - syfo_oppfolgingsplan_backend_outbox_queue_snapshot_last_success_timestamp_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} < 180))",
                       "legendFormat": "due ready",
                       "range": false
                     },
@@ -1412,7 +1408,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_retrying{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"})",
+                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_retrying{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} and on (pod, message_type) (time() - syfo_oppfolgingsplan_backend_outbox_queue_snapshot_last_success_timestamp_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} < 180))",
                       "legendFormat": "retrying",
                       "range": false
                     },
@@ -1432,7 +1428,7 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_expired_claims{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"})",
+                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_expired_claims{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} and on (pod, message_type) (time() - syfo_oppfolgingsplan_backend_outbox_queue_snapshot_last_success_timestamp_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} < 180))",
                       "legendFormat": "expired claims",
                       "range": false
                     },
@@ -1440,16 +1436,36 @@
                   },
                   "refId": "C"
                 }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "${datasource}"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "expr": "max(syfo_oppfolgingsplan_backend_outbox_max_failure_count{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} and on (pod, message_type) (time() - syfo_oppfolgingsplan_backend_outbox_queue_snapshot_last_success_timestamp_seconds{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"} < 180))",
+                      "legendFormat": "max failure count",
+                      "range": false
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "D"
+                }
               }
             ],
             "queryOptions": {},
             "transformations": []
           }
         },
-        "description": "Current DB-backed producer gauges. Max avoids multiplying the same database snapshot across replicas. A scraped zero is not proof that the producer loop is fresh.",
+        "description": "Current DB-backed producer state, filtered against snapshot freshness from the same pod before max. A fresh zero means an empty queue; No observations means queue health is unknown. Never sum these global database views across replicas.",
         "id": 24,
         "links": [],
-        "title": "Producer Queue Snapshot",
+        "title": "Current Producer Queue State",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -1526,8 +1542,8 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum(increase(syfo_oppfolgingsplan_backend_outbox_enqueued_total{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"}[$__range]))",
-                      "legendFormat": "eligible",
+                      "expr": "sum(increase(syfo_oppfolgingsplan_backend_outbox_messages_total{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\", result=\"sent\"}[$__range]))",
+                      "legendFormat": "broker ACK",
                       "range": false
                     },
                     "version": "v0"
@@ -1546,8 +1562,8 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (outcome) (increase(syfo_oppfolgingsplan_backend_outbox_terminal_total{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\"}[$__range]))",
-                      "legendFormat": "terminal {{outcome}}",
+                      "expr": "sum(increase(syfo_oppfolgingsplan_backend_outbox_messages_total{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\", result=\"cancelled\"}[$__range]))",
+                      "legendFormat": "cancelled",
                       "range": false
                     },
                     "version": "v0"
@@ -1580,10 +1596,10 @@
             "transformations": []
           }
         },
-        "description": "Recorded producer lifecycle and technical-attempt signals in the selected range. Counters are operational evidence, not durable reconciliation; do not subtract eligible and terminal values.",
+        "description": "Recorded worker outcomes in the selected range. Broker ACK means the record was accepted by Kafka, not processed by Budstikka or delivered to a user. Counters are operational trends and must not be compared as an accounting source.",
         "id": 25,
         "links": [],
-        "title": "Recorded Producer Lifecycle Signals",
+        "title": "Recent Producer Outcomes",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -1617,124 +1633,6 @@
                   ]
                 },
                 "unit": "short"
-              },
-              "overrides": []
-            },
-            "options": {
-              "colorMode": "value",
-              "graphMode": "none",
-              "justifyMode": "auto",
-              "orientation": "vertical",
-              "percentChangeColorMode": "standard",
-              "reduceOptions": {
-                "calcs": [
-                  "lastNotNull"
-                ],
-                "fields": "",
-                "values": false
-              },
-              "showPercentChange": false,
-              "textMode": "value_and_name",
-              "wideLayout": true
-            }
-          },
-          "version": "13.1.2"
-        }
-      }
-    },
-    "panel-26": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "${datasource}"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "expr": "sum by (outcome) (increase(syfo_oppfolgingsplan_backend_outbox_created_to_terminal_latency_seconds_sum{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\", outcome=\"handler_acknowledged\"}[$__range])) / (sum by (outcome) (increase(syfo_oppfolgingsplan_backend_outbox_created_to_terminal_latency_seconds_count{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\", outcome=\"handler_acknowledged\"}[$__range])) > 0)",
-                      "legendFormat": "avg broker ACK",
-                      "range": false
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "${datasource}"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "expr": "max by (outcome) (max_over_time(syfo_oppfolgingsplan_backend_outbox_created_to_terminal_latency_seconds_max{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\", outcome=\"handler_acknowledged\"}[$__range])) and on (outcome) sum by (outcome) (increase(syfo_oppfolgingsplan_backend_outbox_created_to_terminal_latency_seconds_count{app=\"syfo-oppfolgingsplan-backend\", namespace=\"team-esyfo\", k8s_cluster_name=\"$environment\", message_type=\"OPPFOLGINGSPLAN_CREATED\", outcome=\"handler_acknowledged\"}[$__range])) > 0",
-                      "legendFormat": "max broker ACK",
-                      "range": false
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "Mean broker-ACK latency for completions in the selected range, plus the sampled rolling per-pod Timer max observed in that range and gated on a completion. The 300-second color is a shadow boundary; rolling max can reset or expire and cannot prove 28-day compliance.",
-        "id": 26,
-        "links": [],
-        "title": "Created → Broker ACK Latency · 5m shadow",
-        "vizConfig": {
-          "group": "stat",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "thresholds"
-                },
-                "decimals": 1,
-                "mappings": [
-                  {
-                    "options": {
-                      "match": "null",
-                      "result": {
-                        "color": "gray",
-                        "text": "No observations"
-                      }
-                    },
-                    "type": "special"
-                  }
-                ],
-                "noValue": "No observations",
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "gray",
-                      "value": 0
-                    },
-                    {
-                      "color": "orange",
-                      "value": 300
-                    }
-                  ]
-                },
-                "unit": "s"
               },
               "overrides": []
             },
@@ -2648,7 +2546,7 @@
                         "name": "panel-23"
                       },
                       "height": 6,
-                      "width": 6,
+                      "width": 8,
                       "x": 0,
                       "y": 0
                     }
@@ -2661,8 +2559,8 @@
                         "name": "panel-24"
                       },
                       "height": 6,
-                      "width": 6,
-                      "x": 6,
+                      "width": 8,
+                      "x": 8,
                       "y": 0
                     }
                   },
@@ -2674,28 +2572,15 @@
                         "name": "panel-25"
                       },
                       "height": 6,
-                      "width": 6,
-                      "x": 12,
-                      "y": 0
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-26"
-                      },
-                      "height": 6,
-                      "width": 6,
-                      "x": 18,
+                      "width": 8,
+                      "x": 16,
                       "y": 0
                     }
                   }
                 ]
               }
             },
-            "title": "Shadow: OPPFOLGINGSPLAN_CREATED — producer leg only · E2E IKKE EVALUERT"
+            "title": "Producer outbox · syfo-oppfolgingsplan-backend · OPPFOLGINGSPLAN_CREATED"
           }
         },
         {

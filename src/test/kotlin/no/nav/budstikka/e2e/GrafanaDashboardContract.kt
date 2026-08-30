@@ -15,10 +15,10 @@ import kotlinx.serialization.json.jsonPrimitive
 
 internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
     val panels = dashboard.panels()
-    val producerShadowPanels = panels.filter { it.id() in PRODUCER_SHADOW_PANEL_IDS }
-    val budstikkaPanels = panels.filterNot { it.id() in PRODUCER_SHADOW_PANEL_IDS }
+    val producerOutboxPanels = panels.filter { it.id() in PRODUCER_OUTBOX_PANEL_IDS }
+    val budstikkaPanels = panels.filterNot { it.id() in PRODUCER_OUTBOX_PANEL_IDS }
     val prometheusQueries = panels.queries("prometheus")
-    val producerShadowQueries = producerShadowPanels.queries("prometheus")
+    val producerOutboxQueries = producerOutboxPanels.queries("prometheus")
     val budstikkaQueries = budstikkaPanels.queries("prometheus")
     val lokiQueries = panels.queries("loki")
 
@@ -40,7 +40,7 @@ internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
             match.value shouldContain """app="syfo-budstikka""""
         }
     }
-    producerShadowQueries.forEach { expression ->
+    producerOutboxQueries.forEach { expression ->
         PROMETHEUS_METRIC_SELECTOR.findAll(expression).forEach { match ->
             match.value.startsWith("syfo_oppfolgingsplan_backend_").shouldBeTrue()
             match.value shouldContain """app="syfo-oppfolgingsplan-backend""""
@@ -65,20 +65,20 @@ internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
     }
 
     assertNoDataSemantics(panels)
-    assertProducerShadow(dashboard, producerShadowPanels)
+    assertProducerOutbox(dashboard, producerOutboxPanels)
     assertSafeEventTrace(dashboard, panels)
     assertSafeErrorProjection(panels)
     assertVariables(dashboard)
 }
 
-private fun assertProducerShadow(
+private fun assertProducerOutbox(
     dashboard: JsonObject,
-    producerShadowPanels: List<JsonObject>,
+    producerOutboxPanels: List<JsonObject>,
 ) {
-    producerShadowPanels.map { it.id() }.toSet() shouldBe PRODUCER_SHADOW_PANEL_IDS
-    producerShadowPanels.forEach(::assertNeutralNoObservations)
+    producerOutboxPanels.map { it.id() }.toSet() shouldBe PRODUCER_OUTBOX_PANEL_IDS
+    producerOutboxPanels.forEach(::assertNeutralNoObservations)
 
-    val rows =
+    val producerRow =
         dashboard
             .getValue("layout")
             .jsonObject
@@ -86,124 +86,85 @@ private fun assertProducerShadow(
             .jsonObject
             .getValue("rows")
             .jsonArray
-            .map { it.jsonObject }
-    rows[1]
-        .getValue("spec")
-        .jsonObject
-        .getValue("title")
-        .jsonPrimitive.content shouldBe PRODUCER_SHADOW_ROW_TITLE
-    val shadowRow =
-        rows
+            .map { it.jsonObject.getValue("spec").jsonObject }
             .single {
                 it
-                    .getValue("spec")
-                    .jsonObject
                     .getValue("title")
-                    .jsonPrimitive.content == PRODUCER_SHADOW_ROW_TITLE
-            }.getValue("spec")
-            .jsonObject
-    shadowRow
+                    .jsonPrimitive.content == PRODUCER_OUTBOX_ROW_TITLE
+            }
+    producerRow
         .getValue("collapse")
         .jsonPrimitive.boolean
         .shouldBeFalse()
-    val shadowItems =
-        shadowRow
-            .getValue("layout")
-            .jsonObject
-            .getValue("spec")
-            .jsonObject
-            .getValue("items")
-            .jsonArray
-            .map { it.jsonObject.getValue("spec").jsonObject }
-    val shadowElements =
-        shadowItems
-            .map {
-                it
-                    .getValue("element")
-                    .jsonObject
-                    .getValue("name")
-                    .jsonPrimitive.content
-            }.toSet()
-    shadowElements shouldBe PRODUCER_SHADOW_PANEL_IDS.map { "panel-$it" }.toSet()
-    shadowItems.forEach {
-        it
-            .getValue("width")
-            .jsonPrimitive.content
-            .toInt() shouldBe 6
-        it
-            .getValue("height")
-            .jsonPrimitive.content
-            .toInt() shouldBe 6
-    }
-    shadowItems
+    producerRow
+        .getValue("layout")
+        .jsonObject
+        .getValue("spec")
+        .jsonObject
+        .getValue("items")
+        .jsonArray
         .map {
             it
-                .getValue("x")
+                .jsonObject
+                .getValue("spec")
+                .jsonObject
+                .getValue("element")
+                .jsonObject
+                .getValue("name")
                 .jsonPrimitive.content
-                .toInt()
-        }.toSet() shouldBe setOf(0, 6, 12, 18)
+        }.toSet() shouldBe PRODUCER_OUTBOX_PANEL_IDS.map { "panel-$it" }.toSet()
 
-    val oldestDue = producerShadowPanels.single { it.id() == 23 }
+    val freshnessMetric = "outbox_queue_snapshot_last_success_timestamp_seconds"
+    val oldestDue = producerOutboxPanels.single { it.id() == 23 }
     oldestDue.queries("prometheus").single().apply {
         shouldContain("max(syfo_oppfolgingsplan_backend_outbox_oldest_due_age_seconds{")
+        shouldContain("and on (pod, message_type)")
+        shouldContain("time() - syfo_oppfolgingsplan_backend_$freshnessMetric{")
+        shouldContain("< 180")
         shouldNotContain("sum(")
     }
-    oldestDue.description() shouldContain "not an SLA or pager"
-    oldestDue.description() shouldContain "available_at"
+    oldestDue.description() shouldContain "queue health is unknown"
 
-    val queueSnapshot = producerShadowPanels.single { it.id() == 24 }
-    queueSnapshot.queries("prometheus").apply {
-        shouldHaveSize(3)
-        forEach { it.startsWith("max(").shouldBeTrue() }
-        any { it.contains("outbox_due_ready") }.shouldBeTrue()
-        any { it.contains("outbox_retrying") }.shouldBeTrue()
-        any { it.contains("outbox_expired_claims") }.shouldBeTrue()
-    }
-    queueSnapshot.description() shouldContain "not proof"
-
-    val lifecycle = producerShadowPanels.single { it.id() == 25 }
-    lifecycle.queries("prometheus").apply {
-        any { it.contains("outbox_enqueued_total") }.shouldBeTrue()
-        any { it.contains("outbox_terminal_total") }.shouldBeTrue()
-        any { it.contains("outbox_messages_total") }.shouldBeTrue()
-    }
-    lifecycle.description() shouldContain "not durable reconciliation"
-
-    val latency = producerShadowPanels.single { it.id() == 26 }
-    latency.queries("prometheus").apply {
-        shouldHaveSize(2)
-        any { it.contains("latency_seconds_sum") && it.contains("latency_seconds_count") }.shouldBeTrue()
-        any { it.contains("latency_seconds_max") && it.contains("latency_seconds_count") }.shouldBeTrue()
+    val queueState = producerOutboxPanels.single { it.id() == 24 }
+    queueState.queries("prometheus").apply {
+        shouldHaveSize(4)
+        listOf("outbox_due_ready", "outbox_retrying", "outbox_expired_claims", "outbox_max_failure_count")
+            .forEach { metric -> any { it.contains(metric) }.shouldBeTrue() }
         forEach {
-            it shouldContain """outcome="handler_acknowledged""""
-            it shouldNotContain "histogram_quantile"
+            it.startsWith("max(").shouldBeTrue()
+            it shouldContain "and on (pod, message_type)"
+            it shouldContain "time() - syfo_oppfolgingsplan_backend_$freshnessMetric{"
+            it shouldContain "< 180"
         }
-        single { it.contains("latency_seconds_sum") } shouldContain "> 0)"
     }
-    latency.description() shouldContain "cannot prove 28-day compliance"
-    latency.description() shouldContain "sampled rolling per-pod Timer max"
+    queueState.description() shouldContain "Never sum"
+    queueState.description() shouldContain "unknown"
 
-    listOf(oldestDue, latency).forEach { panel ->
-        val thresholdValues =
-            panel
-                .defaultFieldConfig()
-                .getValue("thresholds")
-                .jsonObject
-                .getValue("steps")
-                .jsonArray
-                .map {
-                    it.jsonObject
-                        .getValue("value")
-                        .jsonPrimitive.content
-                }
-        thresholdValues.contains("300").shouldBeTrue()
+    val outcomes = producerOutboxPanels.single { it.id() == 25 }
+    outcomes.queries("prometheus").apply {
+        shouldHaveSize(3)
+        forEach { it shouldContain "outbox_messages_total" }
+        single { it.contains("""result="sent"""") } shouldContain "sum(increase("
+        single { it.contains("""result="cancelled"""") } shouldContain "sum(increase("
+        single { it.contains("processing_failed|retry_scheduled|claim_lost") }
+            .shouldContain("sum by (result) (increase(")
     }
+    outcomes.description() shouldContain "Broker ACK"
+    outcomes.description() shouldContain "not processed by Budstikka"
 
-    producerShadowPanels.queries("prometheus").forEach { expression ->
+    producerOutboxPanels.forEach {
+        it.title().lowercase() shouldNotContain "shadow"
+        it.description().lowercase() shouldNotContain "reconciliation"
+    }
+    producerOutboxPanels.queries("prometheus").forEach { expression ->
+        expression shouldNotContain "outbox_enqueued_total"
+        expression shouldNotContain "outbox_terminal_total"
+        expression shouldNotContain "created_to_terminal_latency"
         expression shouldNotContain "delivery_total"
         expression shouldNotContain "inbox_message_"
         expression shouldNotContain "inbox_dead_letter"
         expression shouldNotContain "kafka_consumer_"
+        expression shouldNotContain "vector("
     }
 }
 
@@ -534,10 +495,10 @@ private const val PROMETHEUS_SCOPE =
 private val PROMETHEUS_METRIC_SELECTOR =
     Regex("""(?:[a-zA-Z_:][a-zA-Z0-9_:]*)?\{[^{}]*}""")
 
-private val PRODUCER_SHADOW_PANEL_IDS = setOf(23, 24, 25, 26)
+private val PRODUCER_OUTBOX_PANEL_IDS = setOf(23, 24, 25)
 
-private const val PRODUCER_SHADOW_ROW_TITLE =
-    "Shadow: OPPFOLGINGSPLAN_CREATED — producer leg only · E2E IKKE EVALUERT"
+private const val PRODUCER_OUTBOX_ROW_TITLE =
+    "Producer outbox · syfo-oppfolgingsplan-backend · OPPFOLGINGSPLAN_CREATED"
 
 private val ERROR_LOG_FIELDS =
     listOf(
