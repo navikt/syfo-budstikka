@@ -15,7 +15,11 @@ import kotlinx.serialization.json.jsonPrimitive
 
 internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
     val panels = dashboard.panels()
+    val producerShadowPanels = panels.filter { it.id() in PRODUCER_SHADOW_PANEL_IDS }
+    val budstikkaPanels = panels.filterNot { it.id() in PRODUCER_SHADOW_PANEL_IDS }
     val prometheusQueries = panels.queries("prometheus")
+    val producerShadowQueries = producerShadowPanels.queries("prometheus")
+    val budstikkaQueries = budstikkaPanels.queries("prometheus")
     val lokiQueries = panels.queries("loki")
 
     prometheusQueries shouldNotBe emptyList<String>()
@@ -24,12 +28,23 @@ internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
         expression shouldNotContain "vector(100)"
         expression shouldNotContain "ceil("
 
-        val metricSelectors = BUDSTIKKA_METRIC_SELECTOR.findAll(expression).map(MatchResult::value).toList()
+        val metricSelectors = PROMETHEUS_METRIC_SELECTOR.findAll(expression).map(MatchResult::value).toList()
         metricSelectors shouldNotBe emptyList<String>()
         metricSelectors.forEach { selector ->
-            selector shouldContain """app="syfo-budstikka""""
             selector shouldContain """namespace="team-esyfo""""
             selector shouldContain "k8s_cluster_name=\"\$environment\""
+        }
+    }
+    budstikkaQueries.forEach { expression ->
+        PROMETHEUS_METRIC_SELECTOR.findAll(expression).forEach { match ->
+            match.value shouldContain """app="syfo-budstikka""""
+        }
+    }
+    producerShadowQueries.forEach { expression ->
+        PROMETHEUS_METRIC_SELECTOR.findAll(expression).forEach { match ->
+            match.value.startsWith("syfo_oppfolgingsplan_backend_").shouldBeTrue()
+            match.value shouldContain """app="syfo-oppfolgingsplan-backend""""
+            match.value shouldContain """message_type="OPPFOLGINGSPLAN_CREATED""""
         }
     }
 
@@ -50,9 +65,146 @@ internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
     }
 
     assertNoDataSemantics(panels)
+    assertProducerShadow(dashboard, producerShadowPanels)
     assertSafeEventTrace(dashboard, panels)
     assertSafeErrorProjection(panels)
     assertVariables(dashboard)
+}
+
+private fun assertProducerShadow(
+    dashboard: JsonObject,
+    producerShadowPanels: List<JsonObject>,
+) {
+    producerShadowPanels.map { it.id() }.toSet() shouldBe PRODUCER_SHADOW_PANEL_IDS
+    producerShadowPanels.forEach(::assertNeutralNoObservations)
+
+    val rows =
+        dashboard
+            .getValue("layout")
+            .jsonObject
+            .getValue("spec")
+            .jsonObject
+            .getValue("rows")
+            .jsonArray
+            .map { it.jsonObject }
+    rows[1]
+        .getValue("spec")
+        .jsonObject
+        .getValue("title")
+        .jsonPrimitive.content shouldBe PRODUCER_SHADOW_ROW_TITLE
+    val shadowRow =
+        rows
+            .single {
+                it
+                    .getValue("spec")
+                    .jsonObject
+                    .getValue("title")
+                    .jsonPrimitive.content == PRODUCER_SHADOW_ROW_TITLE
+            }.getValue("spec")
+            .jsonObject
+    shadowRow
+        .getValue("collapse")
+        .jsonPrimitive.boolean
+        .shouldBeFalse()
+    val shadowItems =
+        shadowRow
+            .getValue("layout")
+            .jsonObject
+            .getValue("spec")
+            .jsonObject
+            .getValue("items")
+            .jsonArray
+            .map { it.jsonObject.getValue("spec").jsonObject }
+    val shadowElements =
+        shadowItems
+            .map {
+                it
+                    .getValue("element")
+                    .jsonObject
+                    .getValue("name")
+                    .jsonPrimitive.content
+            }.toSet()
+    shadowElements shouldBe PRODUCER_SHADOW_PANEL_IDS.map { "panel-$it" }.toSet()
+    shadowItems.forEach {
+        it
+            .getValue("width")
+            .jsonPrimitive.content
+            .toInt() shouldBe 6
+        it
+            .getValue("height")
+            .jsonPrimitive.content
+            .toInt() shouldBe 6
+    }
+    shadowItems
+        .map {
+            it
+                .getValue("x")
+                .jsonPrimitive.content
+                .toInt()
+        }.toSet() shouldBe setOf(0, 6, 12, 18)
+
+    val oldestDue = producerShadowPanels.single { it.id() == 23 }
+    oldestDue.queries("prometheus").single().apply {
+        shouldContain("max(syfo_oppfolgingsplan_backend_outbox_oldest_due_age_seconds{")
+        shouldNotContain("sum(")
+    }
+    oldestDue.description() shouldContain "not an SLA or pager"
+    oldestDue.description() shouldContain "available_at"
+
+    val queueSnapshot = producerShadowPanels.single { it.id() == 24 }
+    queueSnapshot.queries("prometheus").apply {
+        shouldHaveSize(3)
+        forEach { it.startsWith("max(").shouldBeTrue() }
+        any { it.contains("outbox_due_ready") }.shouldBeTrue()
+        any { it.contains("outbox_retrying") }.shouldBeTrue()
+        any { it.contains("outbox_expired_claims") }.shouldBeTrue()
+    }
+    queueSnapshot.description() shouldContain "not proof"
+
+    val lifecycle = producerShadowPanels.single { it.id() == 25 }
+    lifecycle.queries("prometheus").apply {
+        any { it.contains("outbox_enqueued_total") }.shouldBeTrue()
+        any { it.contains("outbox_terminal_total") }.shouldBeTrue()
+        any { it.contains("outbox_messages_total") }.shouldBeTrue()
+    }
+    lifecycle.description() shouldContain "not durable reconciliation"
+
+    val latency = producerShadowPanels.single { it.id() == 26 }
+    latency.queries("prometheus").apply {
+        shouldHaveSize(2)
+        any { it.contains("latency_seconds_sum") && it.contains("latency_seconds_count") }.shouldBeTrue()
+        any { it.contains("latency_seconds_max") && it.contains("latency_seconds_count") }.shouldBeTrue()
+        forEach {
+            it shouldContain """outcome="handler_acknowledged""""
+            it shouldNotContain "histogram_quantile"
+        }
+        single { it.contains("latency_seconds_sum") } shouldContain "> 0)"
+    }
+    latency.description() shouldContain "cannot prove 28-day compliance"
+    latency.description() shouldContain "sampled rolling per-pod Timer max"
+
+    listOf(oldestDue, latency).forEach { panel ->
+        val thresholdValues =
+            panel
+                .defaultFieldConfig()
+                .getValue("thresholds")
+                .jsonObject
+                .getValue("steps")
+                .jsonArray
+                .map {
+                    it.jsonObject
+                        .getValue("value")
+                        .jsonPrimitive.content
+                }
+        thresholdValues.contains("300").shouldBeTrue()
+    }
+
+    producerShadowPanels.queries("prometheus").forEach { expression ->
+        expression shouldNotContain "delivery_total"
+        expression shouldNotContain "inbox_message_"
+        expression shouldNotContain "inbox_dead_letter"
+        expression shouldNotContain "kafka_consumer_"
+    }
 }
 
 private fun assertNoDataSemantics(panels: List<JsonObject>) {
@@ -379,8 +531,13 @@ private fun assertSafeLineFormat(lineFormat: String) {
 private const val PROMETHEUS_SCOPE =
     """app="syfo-budstikka", namespace="team-esyfo", k8s_cluster_name="${'$'}environment""""
 
-private val BUDSTIKKA_METRIC_SELECTOR =
+private val PROMETHEUS_METRIC_SELECTOR =
     Regex("""(?:[a-zA-Z_:][a-zA-Z0-9_:]*)?\{[^{}]*}""")
+
+private val PRODUCER_SHADOW_PANEL_IDS = setOf(23, 24, 25, 26)
+
+private const val PRODUCER_SHADOW_ROW_TITLE =
+    "Shadow: OPPFOLGINGSPLAN_CREATED — producer leg only · E2E IKKE EVALUERT"
 
 private val ERROR_LOG_FIELDS =
     listOf(
