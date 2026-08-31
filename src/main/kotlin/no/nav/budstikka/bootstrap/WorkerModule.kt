@@ -139,4 +139,4 @@ fun DependencyRegistry.workerModule() {
 }
 
 // Fast enough for minute-scale operations, while keeping the shared-database read load negligible.
-private const val OPERATIONAL_QUEUE_SNAPSHOT_INTERVAL_SECONDS = 30L
+private const val OPERATIONAL_QUEUE_SNAPSHOT_INTERVAL_SECONDS = 60L

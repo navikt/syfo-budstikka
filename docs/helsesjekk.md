@@ -83,7 +83,7 @@ En køserie må freshness-filtreres mot samme pod før replikaene aggregeres:
 ```promql
 max by (state) (
   inbox_queue_size
-  and on (pod) (time() - queue_snapshot_last_success_timestamp_seconds < 90)
+  and on (pod) (time() - queue_snapshot_last_success_timestamp_seconds < 180)
 )
 ```
 

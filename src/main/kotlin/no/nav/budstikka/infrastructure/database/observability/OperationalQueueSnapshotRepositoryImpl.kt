@@ -98,7 +98,7 @@ class OperationalQueueSnapshotRepositoryImpl(
                 .When(
                     (InboxMessageTable.state inList listOf(InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)) and
                         expired,
-                    Coalesce<Instant, Instant?>(InboxMessageTable.nextAttemptTime, InboxMessageTable.receivedAt),
+                    Coalesce(InboxMessageTable.nextAttemptTime, InboxMessageTable.receivedAt),
                 ).Else(InboxMessageTable.receivedAt)
                 .min()
                 .alias(OLDEST_AT_COLUMN)
@@ -138,7 +138,7 @@ class OperationalQueueSnapshotRepositoryImpl(
                 .When(DeliveryTable.state eq DeliveryState.READY.name, DeliveryTable.createdAt)
                 .When(
                     (DeliveryTable.state eq DeliveryState.CLAIMED.name) and expired,
-                    Coalesce<Instant, Instant?>(DeliveryTable.nextAttemptTime, DeliveryTable.createdAt),
+                    Coalesce(DeliveryTable.nextAttemptTime, DeliveryTable.createdAt),
                 ).Else(DeliveryTable.createdAt)
                 .min()
                 .alias(OLDEST_AT_COLUMN)

@@ -15,7 +15,7 @@ import kotlin.time.Duration
 /**
  * Cached database-snapshot gauges: scraping never performs database I/O. Every pod exports the same
  * shared queue view. PromQL must first filter each queue series by the freshness series from the
- * same pod (`and on(pod) (time() - queue_snapshot_last_success_timestamp_seconds < 90)`), then use
+ * same pod (`and on(pod) (time() - queue_snapshot_last_success_timestamp_seconds < 180)`), then use
  * `max`/`max by`; never `sum` or two independent maxima. For DUE, oldest age starts when work became
  * claimable; other states use the original received/created timestamp.
  */
