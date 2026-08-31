@@ -54,7 +54,7 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
+            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
@@ -66,7 +66,7 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Failed("boom"))
+            effectuate.effectuate(eventId, Decision.Failed("boom")) shouldBe true
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "FAILED"
@@ -78,7 +78,7 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Dropped(DropReason.DEAD))
+            effectuate.effectuate(eventId, Decision.Dropped(DropReason.DEAD)) shouldBe true
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "DROPPED"
@@ -90,8 +90,8 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1"))))
+            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
+            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe false
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"

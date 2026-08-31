@@ -12,11 +12,13 @@ import no.nav.budstikka.domain.decision.DropReason
  *
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
- *   `inbox_message_failed_total`, `inbox_dead_letter_persisted_total{reason}`
+ *   `inbox_message_failed_total`, `inbox_message_decision_cas_lost_total`,
+ *   `inbox_dead_letter_persisted_total{reason}`
  *
- * Labels are low-cardinality and PII-free. The dead-letter counter is incremented after persistence;
- * the other counters are not necessarily tied to a final state transition. None of them are atomic
- * with Kafka offset commits, so they are observability signals rather than an accounting source.
+ * Labels are low-cardinality and PII-free. Claim and empty-poll counters are recorded at poll time;
+ * decision outcomes are recorded only after a successful state transition, and dead letters only
+ * after persistence. A process crash between a database commit, counter increment and Kafka offset
+ * commit can still undercount or duplicate observations, so these metrics are not accounting data.
  */
 class MicrometerInboxMetrics(
     private val registry: MeterRegistry,
@@ -33,6 +35,7 @@ class MicrometerInboxMetrics(
                 .tag(TAG_REASON, reason.metricTag)
                 .register(registry)
         }
+    private val decisionCasLostCounter = counter(INBOX_MESSAGE_DECISION_CAS_LOST)
 
     override fun claimed(count: Int) = claimedCounter.increment(count.toDouble())
 
@@ -60,6 +63,8 @@ class MicrometerInboxMetrics(
         }
     }
 
+    override fun decisionCasLost() = decisionCasLostCounter.increment()
+
     private fun counter(name: String): Counter = Counter.builder(name).register(registry)
 
     /**
@@ -75,6 +80,7 @@ class MicrometerInboxMetrics(
         const val INBOX_MESSAGE_FAILED = "inbox.message.failed"
         const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
         const val INBOX_DEAD_LETTER_PERSISTED = "inbox.dead.letter.persisted"
+        const val INBOX_MESSAGE_DECISION_CAS_LOST = "inbox.message.decision.cas.lost"
 
         const val TAG_REASON = "reason"
     }

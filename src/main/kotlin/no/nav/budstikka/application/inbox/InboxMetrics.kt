@@ -23,6 +23,9 @@ interface InboxMetrics {
         reason: DeadLetterReason,
         count: Int,
     )
+
+    /** A decision was computed after another worker had already moved the row away from CLAIMED. */
+    fun decisionCasLost()
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -42,4 +45,6 @@ object NoInboxMetrics : InboxMetrics {
         reason: DeadLetterReason,
         count: Int,
     ) = Unit
+
+    override fun decisionCasLost() = Unit
 }
