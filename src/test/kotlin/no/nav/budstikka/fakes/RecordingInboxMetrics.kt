@@ -12,6 +12,7 @@ class RecordingInboxMetrics : InboxMetrics {
     val failedCount = AtomicInteger()
     val droppedCounts = ConcurrentHashMap<DropReason, AtomicInteger>()
     val outsideSendingWindowCounts = ConcurrentHashMap<String, AtomicInteger>()
+    val decisionCasLostCount = AtomicInteger()
 
     override fun claimed(count: Int) {
         claimedCount.addAndGet(count)
@@ -35,5 +36,9 @@ class RecordingInboxMetrics : InboxMetrics {
 
     override fun outsideSendingWindow(reason: String) {
         outsideSendingWindowCounts.computeIfAbsent(reason) { AtomicInteger() }.incrementAndGet()
+    }
+
+    override fun decisionCasLost() {
+        decisionCasLostCount.incrementAndGet()
     }
 }

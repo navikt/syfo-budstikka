@@ -163,7 +163,7 @@ class InboxMessageWorkerTest :
             metrics.emptyPollCount.get() shouldBe 0
         }
 
-        test("runOnce does not record or log an outcome when the terminal transition loses its CAS") {
+        test("runOnce counts a lost decision CAS without recording or logging a domain outcome") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val repository =
                 PollingInboxMessageRepository(
@@ -184,6 +184,7 @@ class InboxMessageWorkerTest :
 
             metrics.claimedCount.get() shouldBe 1
             metrics.processedCount.get() shouldBe 0
+            metrics.decisionCasLostCount.get() shouldBe 1
             repository.processedEventIds.shouldBeEmpty()
             appender.list.filter { it.formattedMessage.contains("Inbox message processed") }.shouldBeEmpty()
         }

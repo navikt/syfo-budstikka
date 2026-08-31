@@ -11,7 +11,7 @@ import no.nav.budstikka.domain.decision.DropReason
  *
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
- *   `inbox_message_failed_total`
+ *   `inbox_message_failed_total`, `inbox_message_decision_cas_lost_total`
  *
  * Labels are low-cardinality and PII-free. Claim and empty-poll counters are recorded at poll time;
  * decision outcomes are recorded only after a successful state transition. A process crash between
@@ -26,6 +26,7 @@ class MicrometerInboxMetrics(
     private val processedCounter = counter(INBOX_MESSAGE_PROCESSED)
     private val failedCounter = counter(INBOX_MESSAGE_FAILED)
     private val outsideSendingWindowCounter = counter(INBOX_OUTSIDE_SENDING_WINDOW)
+    private val decisionCasLostCounter = counter(INBOX_MESSAGE_DECISION_CAS_LOST)
 
     override fun claimed(count: Int) = claimedCounter.increment(count.toDouble())
 
@@ -44,6 +45,8 @@ class MicrometerInboxMetrics(
 
     override fun outsideSendingWindow(reason: String) = outsideSendingWindowCounter.increment()
 
+    override fun decisionCasLost() = decisionCasLostCounter.increment()
+
     private fun counter(name: String): Counter = Counter.builder(name).register(registry)
 
     /**
@@ -58,6 +61,7 @@ class MicrometerInboxMetrics(
         const val INBOX_MESSAGE_DROPPED = "inbox.message.dropped"
         const val INBOX_MESSAGE_FAILED = "inbox.message.failed"
         const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
+        const val INBOX_MESSAGE_DECISION_CAS_LOST = "inbox.message.decision.cas.lost"
 
         const val TAG_REASON = "reason"
     }

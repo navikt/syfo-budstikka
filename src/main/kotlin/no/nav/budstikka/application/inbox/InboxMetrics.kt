@@ -18,6 +18,9 @@ interface InboxMetrics {
     fun failed()
 
     fun outsideSendingWindow(reason: String)
+
+    /** A decision was computed after another worker had already moved the row away from CLAIMED. */
+    fun decisionCasLost()
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -32,4 +35,6 @@ object NoInboxMetrics : InboxMetrics {
     override fun failed() = Unit
 
     override fun outsideSendingWindow(reason: String) = Unit
+
+    override fun decisionCasLost() = Unit
 }

@@ -63,7 +63,10 @@ class InboxMessageWorker(
         eventId: UUID,
         decision: Decision,
     ) {
-        if (!effectuator.effectuate(eventId, decision)) return
+        if (!effectuator.effectuate(eventId, decision)) {
+            metrics.decisionCasLost()
+            return
+        }
 
         metrics.record(decision)
         val fields = decision.logFields()
