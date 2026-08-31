@@ -14,6 +14,7 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Coalesce
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
@@ -25,8 +26,10 @@ import org.jetbrains.exposed.v1.core.min
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.jetbrains.exposed.v1.jdbc.unionAll
 import kotlin.time.Instant
 
 class OperationalQueueSnapshotRepositoryImpl(
@@ -35,14 +38,43 @@ class OperationalQueueSnapshotRepositoryImpl(
     override suspend fun snapshot(observedAt: Instant): OperationalQueueSnapshot =
         database.transact {
             TransactionManager.current().queryTimeout = QUERY_TIMEOUT_SECONDS
+            val inboxQuery = inboxSnapshotQuery(observedAt)
+            val inbox = mutableMapOf<InboxQueueState, QueueStats>()
+            val deliveries = mutableMapOf<DeliveryQueueKey, QueueStats>()
+
+            inboxQuery.query.unionAll(deliverySnapshotQuery(observedAt)).forEach { row ->
+                val stats =
+                    QueueStats(
+                        size = row[inboxQuery.size],
+                        oldestAt = row[inboxQuery.oldestAt],
+                    )
+                when (row[inboxQuery.queueType]) {
+                    INBOX_QUEUE_TYPE -> {
+                        val state = InboxQueueState.valueOf(row[inboxQuery.queueState])
+                        check(inbox.put(state, stats) == null) { "Duplicate inbox queue state: $state" }
+                    }
+
+                    DELIVERY_QUEUE_TYPE -> {
+                        val key =
+                            DeliveryQueueKey(
+                                channel = Channel.valueOf(row[inboxQuery.channel]),
+                                state = DeliveryQueueState.valueOf(row[inboxQuery.queueState]),
+                            )
+                        check(deliveries.put(key, stats) == null) { "Duplicate delivery queue key: $key" }
+                    }
+
+                    else -> error("Unknown operational queue type")
+                }
+            }
+
             OperationalQueueSnapshot(
                 observedAt = observedAt,
-                inbox = inboxSnapshot(observedAt),
-                deliveries = deliverySnapshot(observedAt),
+                inbox = inbox,
+                deliveries = deliveries,
             )
         }
 
-    private fun inboxSnapshot(observedAt: Instant): Map<InboxQueueState, QueueStats> {
+    private fun inboxSnapshotQuery(observedAt: Instant): SnapshotQuery {
         val expired =
             InboxMessageTable.nextAttemptTime.isNull() or
                 (InboxMessageTable.nextAttemptTime lessEq observedAt)
@@ -59,7 +91,7 @@ class OperationalQueueSnapshotRepositoryImpl(
                     InboxMessageTable.state eq InboxMessageState.CLAIMED.name,
                     stringLiteral(InboxQueueState.IN_FLIGHT.name),
                 ).Else(stringLiteral(InboxQueueState.WAITING.name))
-                .alias("queue_state")
+                .alias(QUEUE_STATE_COLUMN)
         val oldestAt =
             Case()
                 .When(InboxMessageTable.state eq InboxMessageState.RECEIVED.name, InboxMessageTable.receivedAt)
@@ -69,22 +101,27 @@ class OperationalQueueSnapshotRepositoryImpl(
                     Coalesce<Instant, Instant?>(InboxMessageTable.nextAttemptTime, InboxMessageTable.receivedAt),
                 ).Else(InboxMessageTable.receivedAt)
                 .min()
-        val size = InboxMessageTable.eventId.count()
+                .alias(OLDEST_AT_COLUMN)
+        val size = InboxMessageTable.eventId.count().alias(QUEUE_SIZE_COLUMN)
+        val queueType = stringLiteral(INBOX_QUEUE_TYPE).alias(QUEUE_TYPE_COLUMN)
+        val channel = stringLiteral("").alias(CHANNEL_COLUMN)
+        val query =
+            InboxMessageTable
+                .select(queueType, channel, queueState, size, oldestAt)
+                .where { InboxMessageTable.state inList INBOX_ACTIVE_STATES }
+                .groupBy(queueState.aliasOnlyExpression())
 
-        return InboxMessageTable
-            .select(queueState, size, oldestAt)
-            .where { InboxMessageTable.state inList INBOX_ACTIVE_STATES }
-            .groupBy(queueState.aliasOnlyExpression())
-            .associate { row ->
-                InboxQueueState.valueOf(row[queueState]) to
-                    QueueStats(
-                        size = row[size],
-                        oldestAt = row[oldestAt],
-                    )
-            }
+        return SnapshotQuery(
+            query = query,
+            queueType = queueType,
+            channel = channel,
+            queueState = queueState,
+            size = size,
+            oldestAt = oldestAt,
+        )
     }
 
-    private fun deliverySnapshot(observedAt: Instant): Map<DeliveryQueueKey, QueueStats> {
+    private fun deliverySnapshotQuery(observedAt: Instant): Query {
         val expired =
             DeliveryTable.nextAttemptTime.isNull() or
                 (DeliveryTable.nextAttemptTime lessEq observedAt)
@@ -95,7 +132,7 @@ class OperationalQueueSnapshotRepositoryImpl(
             Case()
                 .When(due, stringLiteral(DeliveryQueueState.DUE.name))
                 .Else(stringLiteral(DeliveryQueueState.IN_FLIGHT.name))
-                .alias("queue_state")
+                .alias(QUEUE_STATE_COLUMN)
         val oldestAt =
             Case()
                 .When(DeliveryTable.state eq DeliveryState.READY.name, DeliveryTable.createdAt)
@@ -104,26 +141,35 @@ class OperationalQueueSnapshotRepositoryImpl(
                     Coalesce<Instant, Instant?>(DeliveryTable.nextAttemptTime, DeliveryTable.createdAt),
                 ).Else(DeliveryTable.createdAt)
                 .min()
-        val size = DeliveryTable.id.count()
+                .alias(OLDEST_AT_COLUMN)
+        val size = DeliveryTable.id.count().alias(QUEUE_SIZE_COLUMN)
+        val queueType = stringLiteral(DELIVERY_QUEUE_TYPE).alias(QUEUE_TYPE_COLUMN)
+        val channel = DeliveryTable.channel.alias(CHANNEL_COLUMN)
 
         return DeliveryTable
-            .select(DeliveryTable.channel, queueState, size, oldestAt)
+            .select(queueType, channel, queueState, size, oldestAt)
             .where { DeliveryTable.state inList DELIVERY_ACTIVE_STATES }
-            .groupBy(DeliveryTable.channel, queueState.aliasOnlyExpression())
-            .associate { row ->
-                DeliveryQueueKey(
-                    channel = Channel.valueOf(row[DeliveryTable.channel]),
-                    state = DeliveryQueueState.valueOf(row[queueState]),
-                ) to
-                    QueueStats(
-                        size = row[size],
-                        oldestAt = row[oldestAt],
-                    )
-            }
+            .groupBy(channel.aliasOnlyExpression(), queueState.aliasOnlyExpression())
     }
+
+    private data class SnapshotQuery(
+        val query: Query,
+        val queueType: Expression<String>,
+        val channel: Expression<String>,
+        val queueState: Expression<String>,
+        val size: Expression<Long>,
+        val oldestAt: Expression<Instant?>,
+    )
 
     companion object {
         private const val QUERY_TIMEOUT_SECONDS = 5
+        private const val INBOX_QUEUE_TYPE = "INBOX"
+        private const val DELIVERY_QUEUE_TYPE = "DELIVERY"
+        private const val QUEUE_TYPE_COLUMN = "queue_type"
+        private const val CHANNEL_COLUMN = "channel"
+        private const val QUEUE_STATE_COLUMN = "queue_state"
+        private const val QUEUE_SIZE_COLUMN = "queue_size"
+        private const val OLDEST_AT_COLUMN = "oldest_at"
         private val INBOX_ACTIVE_STATES =
             listOf(InboxMessageState.RECEIVED.name, InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)
         private val DELIVERY_ACTIVE_STATES = listOf(DeliveryState.READY.name, DeliveryState.CLAIMED.name)
