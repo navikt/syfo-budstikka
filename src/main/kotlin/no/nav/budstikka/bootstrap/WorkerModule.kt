@@ -20,6 +20,9 @@ import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.inbox.InboxMetrics
+import no.nav.budstikka.application.observability.OperationalQueueMetrics
+import no.nav.budstikka.application.observability.OperationalQueueSnapshotRepository
+import no.nav.budstikka.application.observability.OperationalQueueSnapshotWorker
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
@@ -32,6 +35,7 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
+import kotlin.time.Duration.Companion.seconds
 
 fun DependencyRegistry.workerModule() {
     provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
@@ -61,6 +65,7 @@ fun DependencyRegistry.workerModule() {
         val inboxMetrics = resolve<InboxMetrics>()
         val deliveryMetrics = resolve<DeliveryMetrics>()
         val retentionMetrics = resolve<RetentionMetrics>()
+        val operationalQueueMetrics = resolve<OperationalQueueMetrics>()
         val meterRegistry = resolve<PrometheusMeterRegistry>()
         val retentionWorker =
             RetentionWorker(
@@ -93,6 +98,11 @@ fun DependencyRegistry.workerModule() {
                 config = workerConfig.delivery,
                 metrics = deliveryMetrics,
             )
+        val operationalQueueSnapshotWorker =
+            OperationalQueueSnapshotWorker(
+                repository = resolve<OperationalQueueSnapshotRepository>(),
+                metrics = operationalQueueMetrics,
+            )
         listOfNotNull(
             BackgroundLoop(
                 name = "inbox-message",
@@ -105,6 +115,12 @@ fun DependencyRegistry.workerModule() {
                 interval = workerConfig.delivery.interval,
                 meterRegistry = meterRegistry,
                 iteration = deliveryWorker::runOnce,
+            ),
+            BackgroundLoop(
+                name = "operational-queue-snapshot",
+                interval = OPERATIONAL_QUEUE_SNAPSHOT_INTERVAL_SECONDS.seconds,
+                meterRegistry = meterRegistry,
+                iteration = operationalQueueSnapshotWorker::runOnce,
             ),
             if (workerConfig.retentionCleanup.enabled) {
                 BackgroundLoop(
@@ -121,3 +137,6 @@ fun DependencyRegistry.workerModule() {
         loops.forEach(AutoCloseable::close)
     }
 }
+
+// Fast enough for minute-scale operations, while keeping the shared-database read load negligible.
+private const val OPERATIONAL_QUEUE_SNAPSHOT_INTERVAL_SECONDS = 60L

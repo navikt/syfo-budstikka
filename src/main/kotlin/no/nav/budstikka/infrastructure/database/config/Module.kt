@@ -6,6 +6,7 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import no.nav.budstikka.application.observability.OperationalQueueSnapshotRepository
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
@@ -16,6 +17,7 @@ import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.observability.OperationalQueueSnapshotRepositoryImpl
 import no.nav.budstikka.infrastructure.database.retention.RetentionRepositoryImpl
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -33,6 +35,7 @@ fun DependencyRegistry.databaseModule() {
     provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
     provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
     provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
+    provide<OperationalQueueSnapshotRepository> { OperationalQueueSnapshotRepositoryImpl(resolve()) }
     provide { RetentionPolicy() }
     provide<RetentionRepository> { RetentionRepositoryImpl(resolve(), resolve()) }
 }
