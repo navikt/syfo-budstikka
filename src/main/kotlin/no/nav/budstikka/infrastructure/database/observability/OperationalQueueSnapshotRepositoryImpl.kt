@@ -8,11 +8,25 @@ import no.nav.budstikka.application.observability.OperationalQueueSnapshotReposi
 import no.nav.budstikka.application.observability.QueueStats
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.infrastructure.database.config.transact
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import org.jetbrains.exposed.v1.core.Case
+import org.jetbrains.exposed.v1.core.Coalesce
+import org.jetbrains.exposed.v1.core.alias
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.min
+import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import java.sql.Connection
-import java.sql.ResultSet
-import java.sql.Timestamp
 import kotlin.time.Instant
 
 class OperationalQueueSnapshotRepositoryImpl(
@@ -20,118 +34,98 @@ class OperationalQueueSnapshotRepositoryImpl(
 ) : OperationalQueueSnapshotRepository {
     override suspend fun snapshot(observedAt: Instant): OperationalQueueSnapshot =
         database.transact {
-            val inbox = mutableMapOf<InboxQueueState, QueueStats>()
-            val deliveries = mutableMapOf<DeliveryQueueKey, QueueStats>()
-            val connection = TransactionManager.current().connection.connection as Connection
-
-            connection.prepareStatement(SNAPSHOT_SQL).use { statement ->
-                statement.queryTimeout = QUERY_TIMEOUT_SECONDS
-                statement.setTimestamp(1, observedAt.toSqlTimestamp())
-                statement.executeQuery().use { rows ->
-                    while (rows.next()) {
-                        val stats = rows.readStats()
-                        when (rows.getString("queue_type")) {
-                            "INBOX" -> {
-                                val state = InboxQueueState.valueOf(rows.getString("queue_state"))
-                                check(inbox.put(state, stats) == null) { "Duplicate inbox queue state: $state" }
-                            }
-
-                            "DELIVERY" -> {
-                                val key =
-                                    DeliveryQueueKey(
-                                        channel = Channel.valueOf(rows.getString("channel")),
-                                        state = DeliveryQueueState.valueOf(rows.getString("queue_state")),
-                                    )
-                                check(deliveries.put(key, stats) == null) { "Duplicate delivery queue key: $key" }
-                            }
-
-                            else -> error("Unknown operational queue type")
-                        }
-                    }
-                }
-            }
-
+            TransactionManager.current().queryTimeout = QUERY_TIMEOUT_SECONDS
             OperationalQueueSnapshot(
                 observedAt = observedAt,
-                inbox = inbox,
-                deliveries = deliveries,
+                inbox = inboxSnapshot(observedAt),
+                deliveries = deliverySnapshot(observedAt),
             )
         }
 
-    private fun ResultSet.readStats(): QueueStats {
-        val size = getLong("queue_size")
-        val oldest = getTimestamp("oldest_at")?.toInstant()
-        return QueueStats(
-            size = size,
-            oldestAt = oldest?.let { Instant.fromEpochSeconds(it.epochSecond, it.nano.toLong()) },
-        )
+    private fun inboxSnapshot(observedAt: Instant): Map<InboxQueueState, QueueStats> {
+        val expired =
+            InboxMessageTable.nextAttemptTime.isNull() or
+                (InboxMessageTable.nextAttemptTime lessEq observedAt)
+        val due =
+            (InboxMessageTable.state eq InboxMessageState.RECEIVED.name) or
+                (
+                    (InboxMessageTable.state inList listOf(InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)) and
+                        expired
+                )
+        val queueState =
+            Case()
+                .When(due, stringLiteral(InboxQueueState.DUE.name))
+                .When(
+                    InboxMessageTable.state eq InboxMessageState.CLAIMED.name,
+                    stringLiteral(InboxQueueState.IN_FLIGHT.name),
+                ).Else(stringLiteral(InboxQueueState.WAITING.name))
+                .alias("queue_state")
+        val oldestAt =
+            Case()
+                .When(InboxMessageTable.state eq InboxMessageState.RECEIVED.name, InboxMessageTable.receivedAt)
+                .When(
+                    (InboxMessageTable.state inList listOf(InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)) and
+                        expired,
+                    Coalesce<Instant, Instant?>(InboxMessageTable.nextAttemptTime, InboxMessageTable.receivedAt),
+                ).Else(InboxMessageTable.receivedAt)
+                .min()
+        val size = InboxMessageTable.eventId.count()
+
+        return InboxMessageTable
+            .select(queueState, size, oldestAt)
+            .where { InboxMessageTable.state inList INBOX_ACTIVE_STATES }
+            .groupBy(queueState.aliasOnlyExpression())
+            .associate { row ->
+                InboxQueueState.valueOf(row[queueState]) to
+                    QueueStats(
+                        size = row[size],
+                        oldestAt = row[oldestAt],
+                    )
+            }
     }
 
-    private fun Instant.toSqlTimestamp(): Timestamp =
-        Timestamp.from(java.time.Instant.ofEpochSecond(epochSeconds, nanosecondsOfSecond.toLong()))
+    private fun deliverySnapshot(observedAt: Instant): Map<DeliveryQueueKey, QueueStats> {
+        val expired =
+            DeliveryTable.nextAttemptTime.isNull() or
+                (DeliveryTable.nextAttemptTime lessEq observedAt)
+        val due =
+            (DeliveryTable.state eq DeliveryState.READY.name) or
+                ((DeliveryTable.state eq DeliveryState.CLAIMED.name) and expired)
+        val queueState =
+            Case()
+                .When(due, stringLiteral(DeliveryQueueState.DUE.name))
+                .Else(stringLiteral(DeliveryQueueState.IN_FLIGHT.name))
+                .alias("queue_state")
+        val oldestAt =
+            Case()
+                .When(DeliveryTable.state eq DeliveryState.READY.name, DeliveryTable.createdAt)
+                .When(
+                    (DeliveryTable.state eq DeliveryState.CLAIMED.name) and expired,
+                    Coalesce<Instant, Instant?>(DeliveryTable.nextAttemptTime, DeliveryTable.createdAt),
+                ).Else(DeliveryTable.createdAt)
+                .min()
+        val size = DeliveryTable.id.count()
+
+        return DeliveryTable
+            .select(DeliveryTable.channel, queueState, size, oldestAt)
+            .where { DeliveryTable.state inList DELIVERY_ACTIVE_STATES }
+            .groupBy(DeliveryTable.channel, queueState.aliasOnlyExpression())
+            .associate { row ->
+                DeliveryQueueKey(
+                    channel = Channel.valueOf(row[DeliveryTable.channel]),
+                    state = DeliveryQueueState.valueOf(row[queueState]),
+                ) to
+                    QueueStats(
+                        size = row[size],
+                        oldestAt = row[oldestAt],
+                    )
+            }
+    }
 
     companion object {
         private const val QUERY_TIMEOUT_SECONDS = 5
-        private const val SNAPSHOT_SQL =
-            """
-            WITH observation AS (
-                SELECT CAST(? AS TIMESTAMPTZ) AS observed_at
-            ),
-            inbox AS (
-                SELECT
-                    CASE
-                        WHEN state = 'RECEIVED'
-                          OR (state IN ('CLAIMED', 'WAIT')
-                              AND COALESCE(next_attempt_time, '-infinity'::TIMESTAMPTZ) <= observation.observed_at)
-                            THEN 'DUE'
-                        WHEN state = 'CLAIMED' THEN 'IN_FLIGHT'
-                        WHEN state = 'WAIT' THEN 'WAITING'
-                    END AS queue_state,
-                    COUNT(*) AS queue_size,
-                    MIN(
-                        CASE
-                            WHEN state = 'RECEIVED' THEN received_at
-                            WHEN state IN ('CLAIMED', 'WAIT')
-                              AND COALESCE(next_attempt_time, '-infinity'::TIMESTAMPTZ) <= observation.observed_at
-                                THEN COALESCE(next_attempt_time, received_at)
-                            ELSE received_at
-                        END
-                    ) AS oldest_at
-                FROM inbox_message
-                CROSS JOIN observation
-                WHERE state IN ('RECEIVED', 'CLAIMED', 'WAIT')
-                GROUP BY 1
-            ),
-            deliveries AS (
-                SELECT
-                    channel,
-                    CASE
-                        WHEN state = 'READY'
-                          OR (state = 'CLAIMED'
-                              AND COALESCE(next_attempt_time, '-infinity'::TIMESTAMPTZ) <= observation.observed_at)
-                            THEN 'DUE'
-                        WHEN state = 'CLAIMED' THEN 'IN_FLIGHT'
-                    END AS queue_state,
-                    COUNT(*) AS queue_size,
-                    MIN(
-                        CASE
-                            WHEN state = 'READY' THEN created_at
-                            WHEN state = 'CLAIMED'
-                              AND COALESCE(next_attempt_time, '-infinity'::TIMESTAMPTZ) <= observation.observed_at
-                                THEN COALESCE(next_attempt_time, created_at)
-                            ELSE created_at
-                        END
-                    ) AS oldest_at
-                FROM delivery
-                CROSS JOIN observation
-                WHERE state IN ('READY', 'CLAIMED')
-                GROUP BY channel, 2
-            )
-            SELECT 'INBOX' AS queue_type, NULL::TEXT AS channel, queue_state, queue_size, oldest_at
-            FROM inbox
-            UNION ALL
-            SELECT 'DELIVERY' AS queue_type, channel, queue_state, queue_size, oldest_at
-            FROM deliveries
-            """
+        private val INBOX_ACTIVE_STATES =
+            listOf(InboxMessageState.RECEIVED.name, InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)
+        private val DELIVERY_ACTIVE_STATES = listOf(DeliveryState.READY.name, DeliveryState.CLAIMED.name)
     }
 }
