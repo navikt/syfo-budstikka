@@ -4,7 +4,7 @@ kotlin = "2.4.10"
 ktor = "3.5.2"
 logback = "1.6.3"
 ktlint-gradle = "14.2.0"
-micrometer = "1.17.0"
+micrometer = "1.17.1"
 logstashLogbackEncoder = "9.0"
 hikari = "7.1.0"
 exposed = "1.4.0"
@@ -20,7 +20,7 @@ testcontainers = "1.21.4"
 tmsVarselJavaBuilder = "2.2.0"
 tmsMikrofrontendSelector = "3.0.0"
 japicmp = "0.4.6"
-apollo = "5.0.1"
+apollo = "5.1.0"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
