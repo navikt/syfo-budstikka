@@ -48,11 +48,12 @@ interface InboxMessageRepository {
     ): Boolean
 
     /**
-     * Terminal transitions for the decision worker. They do NOT open their own transaction: they run
+     * Decision transitions for the decision worker. They do NOT open their own transaction: they run
      * inside [TransactionRunner.transaction] with delivery writes, so one message is effectuated all
      * or nothing. The transition applies only while the row is CLAIMED and is idempotent for
-     * terminal rows: an already terminal row returns `false`. Claims have no owner or fencing token,
-     * so this compare-and-set does not distinguish a stale worker from a later reclaimer.
+     * rows already moved away from CLAIMED: those return `false`. Processed, dropped and failed are
+     * terminal, while a message outside its sending window moves to WAIT. Claims have no owner or
+     * fencing token, so this compare-and-set does not distinguish a stale worker from a later reclaimer.
      */
     fun markProcessedInTransaction(eventId: UUID): Boolean
 

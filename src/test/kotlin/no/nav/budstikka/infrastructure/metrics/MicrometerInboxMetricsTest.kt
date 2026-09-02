@@ -6,6 +6,7 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_CLAIMED
+import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_DECISION_CAS_LOST
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_DROPPED
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_EMPTY_POLLS
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_FAILED
@@ -25,6 +26,7 @@ class MicrometerInboxMetricsTest :
             metrics.dropped(DropReason.DEAD)
             metrics.failed()
             metrics.outsideSendingWindow("Closed Sunday")
+            metrics.decisionCasLost()
 
             registry.get(INBOX_MESSAGE_CLAIMED).counter().count() shouldBe 3.0
             registry.get(INBOX_MESSAGE_EMPTY_POLLS).counter().count() shouldBe 1.0
@@ -36,5 +38,6 @@ class MicrometerInboxMetricsTest :
                 .count() shouldBe 1.0
             registry.get(INBOX_MESSAGE_FAILED).counter().count() shouldBe 1.0
             registry.get(INBOX_OUTSIDE_SENDING_WINDOW).counter().count() shouldBe 1.0
+            registry.get(INBOX_MESSAGE_DECISION_CAS_LOST).counter().count() shouldBe 1.0
         }
     })
