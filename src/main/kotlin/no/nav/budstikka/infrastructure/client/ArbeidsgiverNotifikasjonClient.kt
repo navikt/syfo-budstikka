@@ -159,7 +159,7 @@ class ArbeidsgiverNotifikasjonClient(
                 Optional.present(
                     visibleUntil?.let {
                         FutureTemporalInput(
-                            den = Optional.present(HARD_DELETE_DATE_TIME.format(it.toLocalDateTime(OSLO_TIME_ZONE))),
+                            den = Optional.present(LocalDateTime.Formats.ISO.format(it.toLocalDateTime(OSLO_TIME_ZONE))),
                         )
                     } ?: FutureTemporalInput(om = Optional.present(HARD_DELETE_AFTER_FOUR_MONTHS)),
                 ),
@@ -288,20 +288,6 @@ class ArbeidsgiverNotifikasjonClient(
     private companion object {
         private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
         private val OSLO_TIME_ZONE = TimeZone.of("Europe/Oslo")
-        private val HARD_DELETE_DATE_TIME =
-            LocalDateTime.Format {
-                year()
-                chars("-")
-                monthNumber()
-                chars("-")
-                day()
-                chars("T")
-                hour()
-                chars(":")
-                minute()
-                chars(":")
-                second()
-            }
 
         // Fager documents X-Request-ID as an accepted correlation header in docs/gql/intro.html
         // at the pinned revision.

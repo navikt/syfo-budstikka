@@ -92,8 +92,8 @@ class ArbeidsgiverNotifikasjonClientTest :
 
         test("sends visibleUntil as a Europe Oslo hard-delete time without a fallback duration") {
             listOf(
-                Instant.parse("2026-06-30T22:00:00.999Z") to "2026-07-01T00:00:00",
-                Instant.parse("2026-01-01T10:15:30.999Z") to "2026-01-01T11:15:30",
+                Instant.parse("2026-06-30T22:00:00.999Z") to "2026-07-01T00:00:00.999",
+                Instant.parse("2026-01-01T10:15:30.999Z") to "2026-01-01T11:15:30.999",
             ).forEach { (visibleUntil, expectedHardDelete) ->
                 var body = ""
                 val client =
