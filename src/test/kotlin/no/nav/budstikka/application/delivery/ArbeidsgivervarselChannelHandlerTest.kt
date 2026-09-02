@@ -19,6 +19,7 @@ import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
+import kotlin.time.Instant
 import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslingWire
 
 class ArbeidsgivervarselChannelHandlerTest :
@@ -37,7 +38,17 @@ class ArbeidsgivervarselChannelHandlerTest :
                     lenke = "https://nav.no/lenke",
                     recipient = ArbeidsgiverNotificationRecipient.AltinnRessurs("producer-resource"),
                     meldingstype = no.nav.budstikka.contract.ArbeidsgiverMeldingstype.BESKJED,
+                    visibleUntil = null,
                 )
+        }
+
+        test("forwards visibleUntil to the notification request") {
+            val publisher = RecordingPublisher()
+            val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
+
+            handler(publisher).handle(delivery(create(visibleUntil = visibleUntil))) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().visibleUntil shouldBe visibleUntil
         }
 
         test("fails blank tag before lookup or publishing without leaking recipient data") {
@@ -292,12 +303,14 @@ private fun handler(
 private fun create(
     recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),
     tag: String = "producer-tag",
+    visibleUntil: Instant? = null,
 ) = ArbeidsgivervarselCreate(
     TEST_ORGNUMMER,
     recipient,
     tag,
     "Tekst",
     "https://nav.no/lenke",
+    visibleUntil = visibleUntil,
 )
 
 private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
