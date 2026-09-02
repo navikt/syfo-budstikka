@@ -27,6 +27,7 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.MottakerInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NaermesteLederMottakerInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NotifikasjonInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInput
+import kotlin.time.Instant
 
 class ArbeidsgiverNotifikasjonClientTest :
     FunSpec({
@@ -63,6 +64,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"eksternId":"external-id""""
             body shouldContain """"grupperingsid":"sak-1""""
             body shouldContain """"hardDelete":{"om":"P4M"}"""
+            body.contains("hardDelete\":{\"den\"") shouldBe false
             body shouldContain """"sendevindu":"LOEPENDE""""
             body shouldContain """"epostHtmlBody":"<p>A &amp; <strong>B</strong></p>""""
             body shouldContain """"epostTittel":"Tittel <rå>""""
@@ -84,7 +86,27 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain "nyOppgave"
             body shouldContain """"merkelapp":"Dialogmøte""""
             body shouldContain """"hardDelete":{"om":"P4M"}"""
+            body.contains("hardDelete\":{\"den\"") shouldBe false
             body.contains("grupperingsid") shouldBe false
+        }
+
+        test("sends visibleUntil as a Europe Oslo hard-delete time without a fallback duration") {
+            listOf(
+                Instant.parse("2026-06-30T22:00:00.999Z") to "2026-07-01T00:00:00.999",
+                Instant.parse("2026-01-01T10:15:30.999Z") to "2026-01-01T11:15:30.999",
+            ).forEach { (visibleUntil, expectedHardDelete) ->
+                var body = ""
+                val client =
+                    client { request ->
+                        body = (request.body as TextContent).text
+                        respond("""{"data":{"nyBeskjed":{"__typename":"NyBeskjedVellykket","id":"1"}}}""", HttpStatusCode.OK)
+                    }
+
+                client.publish(request(visibleUntil = visibleUntil)) shouldBe ArbeidsgiverNotificationResponse.Published
+
+                body shouldContain """"hardDelete":{"den":"$expectedHardDelete"}"""
+                body.contains("hardDelete\":{\"om\"") shouldBe false
+            }
         }
 
         test("forwards external email HTML unchanged") {
@@ -283,6 +305,7 @@ private fun request(
     tag: String = "Dialogmøte",
     groupingId: String? = null,
     meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
+    visibleUntil: Instant? = null,
     externalVarsling: AltinnExternalVarsling? = null,
     recipient: ArbeidsgiverNotificationRecipient =
         ArbeidsgiverNotificationRecipient.AltinnRessurs("producer-owned-resource", externalVarsling),
@@ -295,4 +318,5 @@ private fun request(
     lenke = "https://nav.no",
     recipient = recipient,
     meldingstype = meldingstype,
+    visibleUntil = visibleUntil,
 )
