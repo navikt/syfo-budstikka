@@ -50,10 +50,112 @@ internal fun assertGrafanaDashboardContract(dashboard: JsonObject) {
     }
 
     assertNoDataSemantics(panels)
+    assertDeadLetterPersistence(dashboard, panels)
     assertSafeEventTrace(dashboard, panels)
     assertSafeErrorProjection(panels)
     assertVariables(dashboard)
 }
+
+private fun assertDeadLetterPersistence(
+    dashboard: JsonObject,
+    panels: List<JsonObject>,
+) {
+    val deadLetters = panels.single { it.id() == 17 }
+    deadLetters.title() shouldBe "Persisted Dead Letters by Reason"
+    deadLetters.vizGroup() shouldBe "bargauge"
+    deadLetters.noValue() shouldBe "No observations"
+    deadLetters.description() shouldContain "not the current dead-letter backlog"
+    deadLetters.description() shouldContain "not atomic"
+    assertNeutralNoObservations(deadLetters)
+    deadLetters
+        .vizOptions()
+        .getValue("valueMode")
+        .jsonPrimitive.content shouldBe "text"
+    deadLetters
+        .vizOptions()
+        .getValue("displayMode")
+        .jsonPrimitive.content shouldBe "basic"
+    deadLetters
+        .defaultFieldConfig()
+        .getValue("color")
+        .jsonObject
+        .getValue("mode")
+        .jsonPrimitive.content shouldBe "palette-classic"
+    deadLetters.defaultFieldConfig().containsKey("thresholds").shouldBeFalse()
+
+    val query = deadLetters.querySpecs("prometheus").single()
+    query
+        .getValue("range")
+        .jsonPrimitive.boolean
+        .shouldBeFalse()
+    val expression = query.getValue("expr").jsonPrimitive.content
+    expression shouldBe
+        """sum by (reason) (increase(inbox_dead_letter_persisted_total{$PROMETHEUS_SCOPE}[${'$'}__range]))"""
+    expression shouldNotContain "topk"
+    expression shouldNotContain "or vector"
+
+    val help =
+        panels
+            .single { it.id() == 201 }
+            .getValue("vizConfig")
+            .jsonObject
+            .getValue("spec")
+            .jsonObject
+            .getValue("options")
+            .jsonObject
+            .getValue("content")
+            .jsonPrimitive.content
+    help shouldContain "Persisted dead letters"
+    help shouldContain "not the current backlog"
+
+    val domainPipeline =
+        dashboard
+            .getValue("layout")
+            .jsonObject
+            .getValue("spec")
+            .jsonObject
+            .getValue("rows")
+            .jsonArray
+            .map { it.jsonObject.getValue("spec").jsonObject }
+            .single { it.getValue("title").jsonPrimitive.content == "Domain Pipeline" }
+    val gridItems =
+        domainPipeline
+            .getValue("layout")
+            .jsonObject
+            .getValue("spec")
+            .jsonObject
+            .getValue("items")
+            .jsonArray
+            .map { it.jsonObject.getValue("spec").jsonObject }
+    val deadLetterPlacement =
+        gridItems.single {
+            it
+                .getValue("element")
+                .jsonObject
+                .getValue("name")
+                .jsonPrimitive.content == "panel-17"
+        }
+    deadLetterPlacement.gridValue("x") shouldBe 16
+    deadLetterPlacement.gridValue("y") shouldBe 8
+    deadLetterPlacement.gridValue("width") shouldBe 8
+    deadLetterPlacement.gridValue("height") shouldBe 8
+    gridItems.forEachIndexed { index, left ->
+        gridItems.drop(index + 1).forEach { right ->
+            gridItemsOverlap(left, right).shouldBeFalse()
+        }
+    }
+}
+
+private fun gridItemsOverlap(
+    left: JsonObject,
+    right: JsonObject,
+): Boolean =
+    left.gridValue("x") < right.gridValue("x") + right.gridValue("width") &&
+        right.gridValue("x") < left.gridValue("x") + left.gridValue("width") &&
+        left.gridValue("y") < right.gridValue("y") + right.gridValue("height") &&
+        right.gridValue("y") < left.gridValue("y") + left.gridValue("height")
+
+private fun JsonObject.gridValue(name: String): Int = getValue(name).jsonPrimitive.content.toInt()
 
 private fun assertNoDataSemantics(panels: List<JsonObject>) {
     val deliveryRatio = panels.single { it.id() == 20 }
@@ -310,6 +412,26 @@ private fun List<JsonObject>.queries(group: String): List<String> =
         }
 
 private fun JsonObject.queries(group: String): List<String> = listOf(this).queries(group)
+
+private fun JsonObject.querySpecs(group: String): List<JsonObject> =
+    getValue("data")
+        .jsonObject
+        .getValue("spec")
+        .jsonObject
+        .getValue("queries")
+        .jsonArray
+        .map { query ->
+            query
+                .jsonObject
+                .getValue("spec")
+                .jsonObject
+                .getValue("query")
+                .jsonObject
+        }.filter { query ->
+            query.getValue("group").jsonPrimitive.content == group
+        }.map { query ->
+            query.getValue("spec").jsonObject
+        }
 
 private fun JsonObject.id(): Int = getValue("id").jsonPrimitive.content.toInt()
 

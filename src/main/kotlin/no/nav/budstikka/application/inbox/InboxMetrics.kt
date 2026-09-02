@@ -19,6 +19,11 @@ interface InboxMetrics {
 
     fun outsideSendingWindow(reason: String)
 
+    fun deadLetterPersisted(
+        reason: DeadLetterReason,
+        count: Int,
+    )
+
     /** A decision was computed after another worker had already moved the row away from CLAIMED. */
     fun decisionCasLost()
 }
@@ -35,6 +40,11 @@ object NoInboxMetrics : InboxMetrics {
     override fun failed() = Unit
 
     override fun outsideSendingWindow(reason: String) = Unit
+
+    override fun deadLetterPersisted(
+        reason: DeadLetterReason,
+        count: Int,
+    ) = Unit
 
     override fun decisionCasLost() = Unit
 }

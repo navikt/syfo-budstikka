@@ -6,6 +6,7 @@ import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
+import no.nav.budstikka.application.inbox.InboxMetrics
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.config.PlatformConfig
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
@@ -24,7 +25,13 @@ import org.apache.kafka.common.serialization.StringSerializer
 import java.util.concurrent.atomic.AtomicReference
 
 fun DependencyRegistry.kafkaModule() {
-    provide<InboxMessageHandler> { InboxMessageHandler(resolve<InboxMessageRepository>(), resolve<DeadLetterMessageRepository>()) }
+    provide<InboxMessageHandler> {
+        InboxMessageHandler(
+            resolve<InboxMessageRepository>(),
+            resolve<DeadLetterMessageRepository>(),
+            resolve<InboxMetrics>(),
+        )
+    }
     provide<MessagePublisher> {
         val kafkaConfig = resolve<KafkaConfig>()
         MessagePublisherImpl {

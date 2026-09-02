@@ -6,6 +6,9 @@ import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
+import no.nav.budstikka.application.inbox.DeadLetterReason
+import no.nav.budstikka.application.inbox.NoInboxMetrics
+import no.nav.budstikka.fakes.RecordingInboxMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
@@ -158,10 +161,42 @@ class InboxHandlerTest :
             }
         }
 
+        test("successfully persisted dead letters are counted by bounded reason") {
+            val metrics = RecordingInboxMetrics()
+            with(createTestContext(metrics)) {
+                handler.handleBatch(
+                    listOf(
+                        testRecord(value = "mangler-event-id-1"),
+                        testRecord(value = "mangler-event-id-2"),
+                        testRecord(value = null, eventId = UUID.randomUUID().toString()),
+                    ),
+                )
+
+                metrics.deadLetterPersistedCounts.getValue(DeadLetterReason.MISSING_EVENT_ID).get() shouldBe 2
+                metrics.deadLetterPersistedCounts.getValue(DeadLetterReason.MISSING_PAYLOAD).get() shouldBe 1
+            }
+        }
+
+        test("failed dead-letter persistence emits no persisted metric") {
+            val metrics = RecordingInboxMetrics()
+            val deadLetterRepository =
+                FakeDeadLetterRepository(saveBatchFailure = IllegalStateException("database unavailable"))
+            val handler = InboxMessageHandler(FakeInboxMessageRepository(), deadLetterRepository, metrics)
+
+            val result =
+                runCatching {
+                    handler.handle(testRecord(value = null, eventId = UUID.randomUUID().toString()))
+                }
+
+            result.isFailure shouldBe true
+            deadLetterRepository.savedDeadLetters.size shouldBe 0
+            metrics.deadLetterPersistedCounts.isEmpty() shouldBe true
+        }
+
         test("transient DB error during saveEvent throws and dead-letter table is not touched") {
             val throwingRepository = ThrowingMessageRepository()
             val deadLetterRepository = FakeDeadLetterRepository()
-            val handler = InboxMessageHandler(throwingRepository, deadLetterRepository)
+            val handler = InboxMessageHandler(throwingRepository, deadLetterRepository, NoInboxMetrics)
 
             val result = runCatching { handler.handle(validRecord()) }
 
@@ -170,10 +205,10 @@ class InboxHandlerTest :
         }
     })
 
-private fun createTestContext(): TestContext {
+private fun createTestContext(metrics: RecordingInboxMetrics = RecordingInboxMetrics()): TestContext {
     val inboxRepository = FakeInboxMessageRepository()
     val deadLetterRepository = FakeDeadLetterRepository()
-    val handler = InboxMessageHandler(inboxRepository, deadLetterRepository)
+    val handler = InboxMessageHandler(inboxRepository, deadLetterRepository, metrics)
 
     return TestContext(
         handler = handler,
