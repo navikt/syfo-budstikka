@@ -15,6 +15,9 @@ class RecordingInboxMetrics : InboxMetrics {
     val outsideSendingWindowCounts = ConcurrentHashMap<String, AtomicInteger>()
     val deadLetterPersistedCounts = ConcurrentHashMap<DeadLetterReason, AtomicInteger>()
     val decisionCasLostCount = AtomicInteger()
+    val ferdigstillWithoutMatch = AtomicInteger()
+    val ferdigstillWithoutSupportedRuntimeChannel = AtomicInteger()
+    val ferdigstillWithInvalidStoredCreate = AtomicInteger()
 
     override fun claimed(count: Int) {
         claimedCount.addAndGet(count)
@@ -49,5 +52,17 @@ class RecordingInboxMetrics : InboxMetrics {
 
     override fun decisionCasLost() {
         decisionCasLostCount.incrementAndGet()
+    }
+
+    override fun ferdigstillWithoutMatch() {
+        ferdigstillWithoutMatch.incrementAndGet()
+    }
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() {
+        ferdigstillWithoutSupportedRuntimeChannel.incrementAndGet()
+    }
+
+    override fun ferdigstillWithInvalidStoredCreate() {
+        ferdigstillWithInvalidStoredCreate.incrementAndGet()
     }
 }

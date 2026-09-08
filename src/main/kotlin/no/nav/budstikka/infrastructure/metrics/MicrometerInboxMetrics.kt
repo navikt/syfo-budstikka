@@ -36,6 +36,9 @@ class MicrometerInboxMetrics(
                 .register(registry)
         }
     private val decisionCasLostCounter = counter(INBOX_MESSAGE_DECISION_CAS_LOST)
+    private val ferdigstillWithoutMatchCounter = counter(FERDIGSTILL_WITHOUT_MATCH)
+    private val ferdigstillWithoutSupportedRuntimeChannelCounter = counter(FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL)
+    private val ferdigstillWithInvalidStoredCreateCounter = counter(FERDIGSTILL_WITH_INVALID_STORED_CREATE)
 
     override fun claimed(count: Int) = claimedCounter.increment(count.toDouble())
 
@@ -65,6 +68,12 @@ class MicrometerInboxMetrics(
 
     override fun decisionCasLost() = decisionCasLostCounter.increment()
 
+    override fun ferdigstillWithoutMatch() = ferdigstillWithoutMatchCounter.increment()
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() = ferdigstillWithoutSupportedRuntimeChannelCounter.increment()
+
+    override fun ferdigstillWithInvalidStoredCreate() = ferdigstillWithInvalidStoredCreateCounter.increment()
+
     private fun counter(name: String): Counter = Counter.builder(name).register(registry)
 
     /**
@@ -81,6 +90,9 @@ class MicrometerInboxMetrics(
         const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
         const val INBOX_DEAD_LETTER_PERSISTED = "inbox.dead.letter.persisted"
         const val INBOX_MESSAGE_DECISION_CAS_LOST = "inbox.message.decision.cas.lost"
+        const val FERDIGSTILL_WITHOUT_MATCH = "ferdigstill.uten.treff"
+        const val FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL = "ferdigstill.uten.runtime.kanal"
+        const val FERDIGSTILL_WITH_INVALID_STORED_CREATE = "ferdigstill.lagret.opprett.ugyldig"
 
         const val TAG_REASON = "reason"
     }

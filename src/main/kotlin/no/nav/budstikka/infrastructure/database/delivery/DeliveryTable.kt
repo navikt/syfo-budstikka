@@ -24,6 +24,7 @@ object DeliveryTable : Table("delivery") {
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val errorMessage = text("error_message").nullable()
+    val createExternalId = text("create_external_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 
@@ -36,6 +37,17 @@ object DeliveryTable : Table("delivery") {
             createdAt,
             id,
             filterCondition = { state inList listOf(DeliveryState.SENT.name, DeliveryState.FAILED.name) },
+        )
+        index(
+            "delivery_ferdigstill_match_idx",
+            false,
+            reference,
+            operation,
+            channel,
+            recipientType,
+            recipientId,
+            createdAt,
+            id,
         )
     }
 }

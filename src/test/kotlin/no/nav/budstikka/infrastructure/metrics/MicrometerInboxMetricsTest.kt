@@ -7,6 +7,9 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.inbox.DeadLetterReason
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.FERDIGSTILL_WITHOUT_MATCH
+import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL
+import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.FERDIGSTILL_WITH_INVALID_STORED_CREATE
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_CLAIMED
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_DECISION_CAS_LOST
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_DROPPED
@@ -29,6 +32,9 @@ class MicrometerInboxMetricsTest :
             metrics.failed()
             metrics.outsideSendingWindow("Closed Sunday")
             metrics.decisionCasLost()
+            metrics.ferdigstillWithoutMatch()
+            metrics.ferdigstillWithoutSupportedRuntimeChannel()
+            metrics.ferdigstillWithInvalidStoredCreate()
 
             registry.get(INBOX_MESSAGE_CLAIMED).counter().count() shouldBe 3.0
             registry.get(INBOX_MESSAGE_EMPTY_POLLS).counter().count() shouldBe 1.0
@@ -41,6 +47,9 @@ class MicrometerInboxMetricsTest :
             registry.get(INBOX_MESSAGE_FAILED).counter().count() shouldBe 1.0
             registry.get(INBOX_OUTSIDE_SENDING_WINDOW).counter().count() shouldBe 1.0
             registry.get(INBOX_MESSAGE_DECISION_CAS_LOST).counter().count() shouldBe 1.0
+            registry.get(FERDIGSTILL_WITHOUT_MATCH).counter().count() shouldBe 1.0
+            registry.get(FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL).counter().count() shouldBe 1.0
+            registry.get(FERDIGSTILL_WITH_INVALID_STORED_CREATE).counter().count() shouldBe 1.0
         }
 
         test("counts persisted dead letters under one bounded reason label") {

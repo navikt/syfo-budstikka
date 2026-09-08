@@ -2,6 +2,7 @@ package no.nav.budstikka.infrastructure.kafka.consumer
 
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.domain.decision.FerdigstillMatch
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -21,6 +22,12 @@ class ThrowingMessageRepository : InboxMessageRepository {
     ): Boolean = true
 
     override fun markProcessedInTransaction(eventId: UUID): Boolean = true
+
+    override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean = true
+
+    override fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = emptyList()
+
+    override fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean = true
 
     override fun markDroppedInTransaction(
         eventId: UUID,
