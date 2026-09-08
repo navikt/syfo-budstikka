@@ -39,6 +39,7 @@ data class DeliveryDraft(
     val channel: Channel,
     val recipient: Recipient,
     val content: DispatchContent,
+    val createExternalId: String? = null,
 )
 
 /**
