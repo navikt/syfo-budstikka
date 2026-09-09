@@ -42,8 +42,8 @@ is_alive:       er lastPoll fersk?  → 200 : 503
 Liveness fanger bare en død loop. Kafka-lag er et diagnostisk signal om at
 consumer-inntaket har vedvarende backlogg; det måler ikke senere behandling i
 inbox/delivery eller brukerimpact. Warning-regelen i
-`nais/alerts-dev.yaml`/`nais/alerts-prod.yaml` (`PrometheusRule`) deployes
-sammen med appmanifestet:
+`nais/alerts-prod.yaml` (`PrometheusRule`) deployes
+sammen med appmanifestet i produksjon:
 
 - **Warning:** over 100 meldinger lag på `team-esyfo.budstikka.v1` i 15
   minutter (consumer-gruppe `syfo-budstikka-budstikka-v1`, metrikk
@@ -90,3 +90,20 @@ max by (state) (
 Bruk tilsvarende `max by (channel, state)` for delivery. Aldri summer disse
 pod-globale målingene, og ikke kombiner `max(kø)` med en separat
 `max(freshness)`; da kan verdiene komme fra forskjellige pods.
+
+## Alerting i dev
+
+Alertregler deployeres automatisk bare til produksjon. Dev skal normalt være
+uten alertregler. `nais/alerts-dev.yaml` beholdes for avgrensede, manuelle tester.
+
+Start en test fra repository-roten:
+
+```bash
+kubectl --context dev-gcp --namespace team-esyfo apply -f nais/alerts-dev.yaml
+```
+
+Slett reglene når testen er ferdig, også dersom testen feiler:
+
+```bash
+kubectl --context dev-gcp --namespace team-esyfo delete prometheusrule syfo-budstikka-alerts --ignore-not-found
+```
