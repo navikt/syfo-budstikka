@@ -16,7 +16,7 @@ class DecisionProcess internal constructor(
     suspend fun process(event: Dispatch): Decision =
         coroutineScope {
             val resolved = rules.map { async { it.resolve(event) } }.awaitAll()
-            val seed: Decision = Decision.Processed(listOf(event.content.toDeliveryDraft(event.reference)))
+            val seed: Decision = Decision.Processed(listOfNotNull(event.content.toDeliveryDraft(event.reference)))
             resolved.fold(seed) { decision, rule ->
                 when (decision) {
                     is Decision.Processed -> rule.apply(decision.deliveries)
