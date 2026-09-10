@@ -3,13 +3,22 @@ package no.nav.budstikka.infrastructure.database.delivery
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.coroutines.CancellationException
+import no.nav.budstikka.application.port.SourceSendGuardResult
+import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
@@ -20,7 +29,13 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
+import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.SQLException
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -72,6 +87,13 @@ class DeliveryRepositoryIntegrationTest :
                 }
             }
         }
+
+        fun dependentDraft(sourceCreateDeliveryId: UUID): DeliveryDraft =
+            microfrontendDraft().copy(
+                operation = Operation.INACTIVATE,
+                content = MicrofrontendDisable(TEST_SYKMELDT, "sykmeldt-overview"),
+                sourceCreateDeliveryId = sourceCreateDeliveryId,
+            )
 
         test("claim picks only requested channels and marks rows CLAIMED") {
             val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
@@ -244,4 +266,210 @@ class DeliveryRepositoryIntegrationTest :
             claimed.map { it.id } shouldBe listOf(rowForReference("healthy-ref")[DeliveryTable.id])
             rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
         }
+
+        test("a pending source blocks its exact dependent without spending attempts or blocking unrelated work") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("source-ref", microfrontendDraft())
+            val sourceId = rowForReference("source-ref")[DeliveryTable.id]
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.id eq sourceId }) {
+                    it[state] = DeliveryState.CLAIMED.name
+                    it[attempt] = 1
+                    it[nextAttemptTime] = Clock.System.now() + lease
+                }
+            }
+            saveDraft("dependent-ref", dependentDraft(sourceId))
+            saveDraft("unrelated-ref", microfrontendDraft())
+
+            repository
+                .claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                .map { it.reference }
+                .shouldContainExactly("unrelated-ref")
+
+            val dependent = rowForReference("dependent-ref")
+            dependent[DeliveryTable.sourceCreateDeliveryId] shouldBe sourceId
+            dependent[DeliveryTable.state] shouldBe DeliveryState.READY.name
+            dependent[DeliveryTable.attempt] shouldBe 0
+        }
+
+        test("a SENT source releases its dependent and a FAILED source terminally fails it without an attempt") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("sent-source-ref", microfrontendDraft())
+            val sentSourceId = rowForReference("sent-source-ref")[DeliveryTable.id]
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.id eq sentSourceId }) {
+                    it[state] = DeliveryState.SENT.name
+                }
+            }
+            saveDraft("released-dependent-ref", dependentDraft(sentSourceId))
+
+            repository
+                .claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                .single()
+                .sourceCreateDeliveryId shouldBe sentSourceId
+
+            saveDraft("failed-source-ref", microfrontendDraft())
+            val failedSourceId = rowForReference("failed-source-ref")[DeliveryTable.id]
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.id eq failedSourceId }) {
+                    it[state] = DeliveryState.FAILED.name
+                }
+            }
+            saveDraft("failed-dependent-ref", dependentDraft(failedSourceId))
+
+            repository.claim(limit = 10, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+            val failedDependent = rowForReference("failed-dependent-ref")
+            failedDependent[DeliveryTable.state] shouldBe DeliveryState.FAILED.name
+            failedDependent[DeliveryTable.attempt] shouldBe 0
+            failedDependent[DeliveryTable.errorMessage] shouldBe "Source CREATE delivery failed"
+        }
+
+        test("claim terminalizes failed-source dependents only in its channels and up to its limit") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+
+            suspend fun failedSource(
+                reference: String,
+                draft: DeliveryDraft,
+            ): UUID {
+                saveDraft(reference, draft)
+                return rowForReference(reference)[DeliveryTable.id].also { sourceId ->
+                    fixture.database.transact {
+                        DeliveryTable.update({ DeliveryTable.id eq sourceId }) {
+                            it[state] = DeliveryState.FAILED.name
+                        }
+                    }
+                }
+            }
+
+            val firstMicrofrontendSource = failedSource("first-microfrontend-source", microfrontendDraft())
+            val secondMicrofrontendSource = failedSource("second-microfrontend-source", microfrontendDraft())
+            val brukervarselSource = failedSource("brukervarsel-source", brukervarselDraft())
+            saveDraft("first-microfrontend-dependent", dependentDraft(firstMicrofrontendSource))
+            saveDraft("second-microfrontend-dependent", dependentDraft(secondMicrofrontendSource))
+            saveDraft(
+                "brukervarsel-dependent",
+                brukervarselDraft().copy(
+                    operation = Operation.INACTIVATE,
+                    sourceCreateDeliveryId = brukervarselSource,
+                ),
+            )
+            saveDraft("healthy-microfrontend", microfrontendDraft())
+
+            repository
+                .claim(limit = 1, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                .map { it.reference }
+                .shouldContainExactly("healthy-microfrontend")
+
+            val microfrontendStates =
+                listOf("first-microfrontend-dependent", "second-microfrontend-dependent")
+                    .map { rowForReference(it)[DeliveryTable.state] }
+            microfrontendStates.count { it == DeliveryState.FAILED.name } shouldBe 1
+            microfrontendStates.count { it == DeliveryState.READY.name } shouldBe 1
+            rowForReference("brukervarsel-dependent")[DeliveryTable.state] shouldBe DeliveryState.READY.name
+        }
+
+        test("source send guard releases its PostgreSQL session lock on cancellation") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("guard-source-ref", microfrontendDraft())
+            val claimed =
+                repository
+                    .claim(limit = 1, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                    .single()
+
+            shouldThrow<CancellationException> {
+                repository.withSourceSendGuard(claimed) { _ ->
+                    throw CancellationException("test cancellation")
+                }
+            }
+
+            repository.withSourceSendGuard(claimed) { _ -> } shouldBe SourceSendGuardResult.DISPATCHED
+        }
+
+        test("source send guard preserves handler failure and evicts its connection when unlock cleanup fails") {
+            UnlockFailingDataSource(fixture).use { dataSource ->
+                val repository = DeliveryRepositoryImpl(fixture.database, dataSource)
+                saveDraft("guard-unlock-failure-ref", microfrontendDraft())
+                val claimed =
+                    repository
+                        .claim(limit = 1, lease = lease, maxAttempts = 10, channels = setOf(Channel.MICROFRONTEND))
+                        .single()
+
+                val handlerFailure =
+                    shouldThrow<IllegalStateException> {
+                        repository.withSourceSendGuard(claimed) {
+                            throw IllegalStateException("handler failed")
+                        }
+                    }
+
+                handlerFailure.message shouldBe "handler failed"
+                dataSource.unlockStatements.get() shouldBe 1
+                handlerFailure.suppressed.single().message shouldBe "forced source guard unlock failure"
+                dataSource.evictions.get() shouldBe 1
+            }
+        }
     })
+
+private class UnlockFailingDataSource(
+    fixture: PostgresTestFixture,
+) : HikariDataSource(
+        HikariConfig().apply {
+            jdbcUrl = fixture.jdbcUrl
+            username = fixture.username
+            password = fixture.password
+            maximumPoolSize = 1
+            minimumIdle = 0
+        },
+    ) {
+    val evictions = AtomicInteger()
+    val unlockStatements = AtomicInteger()
+
+    override fun getConnection(): Connection =
+        sourceUnlockFailingConnection(
+            delegate = super.getConnection(),
+            unlockStatements = unlockStatements,
+        )
+
+    override fun evictConnection(connection: Connection) {
+        evictions.incrementAndGet()
+    }
+}
+
+private fun sourceUnlockFailingConnection(
+    delegate: Connection,
+    unlockStatements: AtomicInteger,
+): Connection =
+    Proxy.newProxyInstance(
+        Connection::class.java.classLoader,
+        arrayOf(Connection::class.java),
+    ) { _, method, arguments ->
+        if (
+            method.name == "prepareStatement" &&
+            (arguments?.firstOrNull() as? String)?.contains("pg_advisory_unlock") == true
+        ) {
+            unlockStatements.incrementAndGet()
+            failingUnlockStatement(delegate.prepareStatement(arguments.first() as String))
+        } else {
+            delegate.invoke(method, arguments)
+        }
+    } as Connection
+
+private fun failingUnlockStatement(delegate: PreparedStatement): PreparedStatement =
+    Proxy.newProxyInstance(
+        PreparedStatement::class.java.classLoader,
+        arrayOf(PreparedStatement::class.java),
+    ) { _, method, arguments ->
+        if (method.name == "executeQuery") {
+            throw SQLException("forced source guard unlock failure")
+        }
+        delegate.invoke(method, arguments)
+    } as PreparedStatement
+
+private fun Any.invoke(
+    method: java.lang.reflect.Method,
+    arguments: Array<out Any?>?,
+): Any? =
+    try {
+        method.invoke(this, *(arguments ?: emptyArray()))
+    } catch (exception: InvocationTargetException) {
+        throw exception.targetException
+    }

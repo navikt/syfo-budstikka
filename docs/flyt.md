@@ -95,7 +95,7 @@ og går gjennom **samme flyt og samme delivery-maskineri**. En lukking er bare e
 - Inactivate-hendelsene er bevisst **thin**: `reference` + typet nøkkel
   (`PersonIdentifier`/`Orgnummer`); kanal er implisitt i typen. Den typede nøkkelen
   bevarer PII-maskering og gjør ulovlige `(kanal, nøkkel)`-par urepresenterbare.
-- Matching: budstikka slår opp åpen OPPRETT-leveranse på `(reference, recipient_id, kanal)`,
+- Matching: budstikka slår opp alle lagrede OPPRETT-leveranser på `(reference, recipient_id, kanal)`,
   der `recipient_id` = OPPRETTs partisjonsanker (id-en konsumenten kjenner ved create):
   sykmeldt-fnr for BRUKERVARSEL/LEDERVARSEL/DITT_SYKEFRAVAER (sykmeldt, ikke NL-fnr),
   orgnr for ARBEIDSGIVERVARSEL. Resolvert NL-fnr / `ekstern_respons_id` bor i payload/egne
@@ -105,13 +105,20 @@ og går gjennom **samme flyt og samme delivery-maskineri**. En lukking er bare e
 
 ### Lukkeoperasjon avledes fra lagret rad
 
-FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Runtime slår først opp
-matchende lagret OPPRETT-leveranse og lager deretter én ordinær
-`delivery(operation=INAKTIVER)`. For BRUKERVARSEL og LEDERVARSEL er den thin
-INAKTIVER-payloaden avledet fra create-raden. For ARBEIDSGIVERVARSEL beholdes
-create-payloaden som frosset lukkegrunnlag, sammen med den stabile create-eksternId-en.
-Kanalhandleren bruker
-bare disse lagrede dataene ved lukking, aldri et nytt Nærmeste leder-oppslag.
+FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Runtime slår først opp alle
+matchende lagrede OPPRETT-leveranser og lager én ordinær `delivery(operation=INAKTIVER)` per
+gyldig CREATE. Hver dependent peker med `source_create_delivery_id` til sin eksakte source CREATE.
+For BRUKERVARSEL og LEDERVARSEL er den thin INAKTIVER-payloaden avledet fra create-raden. For
+ARBEIDSGIVERVARSEL beholdes create-payloaden som frosset lukkegrunnlag, sammen med den stabile
+create-eksternId-en. Kanalhandleren bruker bare disse lagrede dataene ved lukking, aldri et nytt
+Nærmeste leder-oppslag.
+
+En dependent kan først claimes når sin source CREATE er `SENT`; en `FAILED` source terminaliserer
+dependent som `FAILED` uten handlerkall eller nytt forsøk. En PostgreSQL session advisory lock
+serialiserer dispatch av source CREATE og dens dependents per source på tvers av replikaer, og
+holdes gjennom eksternt handlerkall og terminal state-overgang.
+Guarden gir ikke en distribuert transaksjon: stabile nedstrøms-ID-er, idempotens og avstemming er
+fortsatt nødvendige, i tråd med [ADR 0017](adr/0017-kilde-create-lases-ved-avhengig-inactivate.md).
 
 Runtime gjør første delivery-oppslag, men låser deretter alltid **alle** matchende OPPRETT-er som
 er `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` — også når oppslaget allerede fant en
@@ -124,7 +131,7 @@ før terminal overgang og delivery-write, slik at bare én av disse to utfallene
 
 | Situasjon | Handling |
 | --- | --- |
-| OPPRETT-delivery funnet | Skriv én `delivery(operation=INAKTIVER)` → outbox lukker på kanalen; alle matchende `WAIT`/oppvåknede hold-kopier kanselleres samtidig |
+| Én eller flere OPPRETT-deliveries funnet | Skriv én `delivery(operation=INAKTIVER)` per gyldig CREATE → outbox lukker på kanalen; hver dependent peker til sin eksakte source. Ugyldige eller `FAILED` søsken undertrykker ikke gyldige closes. Alle matchende `WAIT`/oppvåknede hold-kopier kanselleres samtidig |
 | Én eller flere matchende OPPRETT-er fortsatt `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` | Lås alle radene og avslutt hver OPPRETT direkte som `PROCESSED`; ingen delivery og ingen egen `CANCELLED`-state |
 | Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. Låsen dekker bare `WAIT`/oppvåknet `CLAIMED` med `wait_reason`; en ordinær `RECEIVED` eller vanlig `CLAIMED` OPPRETT (ikke en WAIT-oppvåkning) kan fortsatt materialiseres etter den låste no-match-avgjørelsen. Kafka-partisjonsrekkefølge garanterer ikke workernes tidsrekkefølge på tvers av replikaer. |
 | Lagret OPPRETT har ugyldig payload-/kanal-/mottaker-kombinasjon | FERDIGSTILL og alle låste hold-kopier blir `PROCESSED` uten delivery, med PII-fri logg + metrikk `ferdigstill_lagret_opprett_ugyldig`; dette er ikke en manglende runtime-kanal eller en manglende match. |

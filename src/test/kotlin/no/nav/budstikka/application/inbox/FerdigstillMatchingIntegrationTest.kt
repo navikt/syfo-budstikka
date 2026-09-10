@@ -64,7 +64,7 @@ class FerdigstillMatchingIntegrationTest :
 
         fun repositories() =
             InboxMessageRepositoryImpl(fixture.database) to
-                DeliveryRepositoryImpl(fixture.database)
+                DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
 
         fun effectuator(
             inbox: InboxMessageRepository,

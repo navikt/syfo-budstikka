@@ -38,6 +38,7 @@ erDiagram
         timestamptz created_at
         text        error_message "nullable"
         text        create_external_id "nullable, stabil Fager-eksternId eid av AG-OPPRETT"
+        uuid        source_create_delivery_id "nullable FK-lenke til CREATE"
     }
 
     dead_letter_message {
@@ -79,8 +80,11 @@ erDiagram
   (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
   må ha samme slette-disiplin. Bare terminale `delivery`-rader (`SENT`/`FAILED`) med
-  `created_at` strengt eldre enn 180 dager slettes. En PostgreSQL advisory lock lar én replika
-  kjøre hver opprydding; en replika som ikke får låsen hopper over runden. Sletting av en
+  `created_at` strengt eldre enn 180 dager slettes. `source_create_delivery_id` har indeks og FK
+  med `ON DELETE RESTRICT`: en source CREATE slettes ikke mens en dependent delivery fortsatt
+  refererer til den. Terminale dependents slettes derfor først; source CREATE slettes i en senere
+  oppryddingsrunde. En PostgreSQL advisory lock lar én replika kjøre hver opprydding; en replika
+  som ikke får låsen hopper over runden. Sletting av en
   inbox-rad setter tilhørende `delivery.inbox_event_id` til `NULL` via FK-en.
 
 ## Worker-flyt og state-overganger
@@ -113,8 +117,7 @@ kan jobbe parallelt uten dobbelt-claim:
   `wait_reason`, også når første delivery-oppslag allerede fant en CREATE. Delivery leses på nytt
   etter låsene for å serialisere oppvåkning mot kansellering; alle låste hold-kopier avsluttes
   `PROCESSED` i samme transaksjon. `delivery_ferdigstill_match_idx` avgrenser delivery-oppslaget
-  på match-nøkkelen og henter den nyeste OPPRETT-en etter `created_at` og `id` mens transaksjonen
-  holder radlåsene.
+  på match-nøkkelen og henter alle matchende OPPRETT-er mens transaksjonen holder radlåsene.
 
 ### `inbox_message.state`
 
@@ -150,9 +153,17 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
+- En dependent `INAKTIVATE` med `source_create_delivery_id` kan først claimes når dens eksakte
+  source CREATE er `SENT`. Når source CREATE er `FAILED`, terminaliseres dependent som `FAILED`
+  uten handlerkall eller nytt forsøk.
+- FERDIGSTILL materialiserer en slik dependent for hver lagret `CREATE` som matcher reference,
+  channel og recipient. Hver dependent peker til og avleder payload og ekstern ID fra sin eksakte
+  source; en ugyldig eller `FAILED` source undertrykker ikke andre matchende closes.
 - `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
 - `attempt` spanderes av `beginAttempt` rett før handleren kalles, ikke ved claim.
   Manglende handler er en konfigurasjonsfeil og brenner ikke et forsøk.
+- PostgreSQL session advisory lock serialiserer dispatch av source CREATE og dens dependents per
+  source, også mellom replikaer. Låsen holdes gjennom handlerkall og terminal state-overgang.
 
 ## Indekser
 
@@ -161,6 +172,7 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `inbox_message_reference_idx` på `(reference)` for FERDIGSTILL-matching mot inbox-hold
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
+- `delivery_source_create_delivery_id_idx` på `(source_create_delivery_id)`
 - `delivery_created_at_id_sent_failed_idx` på `(created_at, id)` der `state IN ('SENT', 'FAILED')`
 - `delivery_ferdigstill_match_idx` på
   `(reference, operation, channel, recipient_type, recipient_id, created_at, id)` for
