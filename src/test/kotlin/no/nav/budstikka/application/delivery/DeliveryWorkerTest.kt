@@ -13,7 +13,11 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryAttempt
+import no.nav.budstikka.application.port.DeliveryClaimResult
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.SourceSendGuardResult
+import no.nav.budstikka.application.port.StoredCreateDelivery
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
@@ -230,6 +234,22 @@ class DeliveryWorkerTest :
             metrics.deliveryClaimed.get() shouldBe 0
         }
 
+        test("runOnce records source guard contention without dispatching") {
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries = listOf(validMicrofrontendDelivery(UUID.randomUUID())),
+                    sourceGuardResult = SourceSendGuardResult.CONTENDED,
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+            val metrics = RecordingDeliveryMetrics()
+
+            workerWith(repository, publisher, metrics = metrics).runOnce()
+
+            metrics.sourceGuardContention.get() shouldBe 1
+            repository.attemptedDeliveryIds.shouldBeEmpty()
+            publisher.published.shouldBeEmpty()
+        }
+
         test("runOnce stops draining when the lease budget is exhausted") {
             val clock = MutableClock(fromEpochMilliseconds(0))
             val repository =
@@ -320,6 +340,7 @@ private class ThrowingChannelHandler : ChannelHandler {
 
 private class PollingDeliveryRepository(
     private val deliveries: List<ClaimedDelivery>,
+    private val sourceGuardResult: SourceSendGuardResult = SourceSendGuardResult.DISPATCHED,
     private val onClaim: () -> Unit = {},
 ) : DeliveryRepository {
     var lastClaimLimit: Int? = null
@@ -335,19 +356,19 @@ private class PollingDeliveryRepository(
         draft: List<DeliveryDraft>,
     ) = Unit
 
-    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) = null
+    override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) = emptyList<StoredCreateDelivery>()
 
     override suspend fun claim(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
         channels: Set<Channel>,
-    ): List<ClaimedDelivery> {
+    ): DeliveryClaimResult {
         lastClaimLimit = limit
         lastClaimChannels = channels
         claimCount.incrementAndGet()
         onClaim()
-        return deliveries
+        return DeliveryClaimResult(deliveries, failedSourceDependencies = 0)
     }
 
     val attemptedDeliveryIds = mutableListOf<UUID>()
@@ -371,6 +392,26 @@ private class PollingDeliveryRepository(
     ): Boolean {
         failedDeliveries += deliveryId to reason
         return true
+    }
+
+    override suspend fun withSourceSendGuard(
+        delivery: ClaimedDelivery,
+        block: suspend (DeliveryAttempt) -> Unit,
+    ): SourceSendGuardResult {
+        if (sourceGuardResult != SourceSendGuardResult.DISPATCHED) {
+            return sourceGuardResult
+        }
+        block(
+            object : DeliveryAttempt {
+                override suspend fun beginAttempt(maxAttempts: Int): Boolean =
+                    this@PollingDeliveryRepository.beginAttempt(delivery.id, maxAttempts)
+
+                override suspend fun markSent(): Boolean = this@PollingDeliveryRepository.markSent(delivery.id)
+
+                override suspend fun markFailed(reason: String): Boolean = this@PollingDeliveryRepository.markFailed(delivery.id, reason)
+            },
+        )
+        return sourceGuardResult
     }
 }
 

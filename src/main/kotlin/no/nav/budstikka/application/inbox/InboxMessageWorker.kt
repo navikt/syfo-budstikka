@@ -88,9 +88,14 @@ class InboxMessageWorker(
                 return
             }
 
+            is EffectuationResult.FerdigstillWithDelivery -> {
+                if (effectuation.invalidStoredCreateCount > 0) {
+                    metrics.ferdigstillWithInvalidStoredCreate()
+                }
+            }
+
             EffectuationResult.Completed,
             EffectuationResult.Skipped,
-            is EffectuationResult.FerdigstillWithDelivery,
             -> Unit
         }
         val fields =

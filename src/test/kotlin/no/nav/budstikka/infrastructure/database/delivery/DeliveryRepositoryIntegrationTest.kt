@@ -40,7 +40,7 @@ class DeliveryRepositoryIntegrationTest :
             val inboxEventId = UUID.randomUUID()
             InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
-                DeliveryRepositoryImpl(fixture.database).saveInTransaction(
+                DeliveryRepositoryImpl(fixture.database, fixture.dataSource).saveInTransaction(
                     inboxEventId,
                     listOf(draft.copy(reference = reference)),
                 )
@@ -74,7 +74,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim picks only requested channels and marks rows CLAIMED") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             saveDraft("bruker-ref", brukervarselDraft())
 
@@ -92,7 +92,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim reclaims a CLAIMED row after lease expiry") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
 
             val initialClaim =
@@ -111,7 +111,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("beginAttempt spends one attempt and refuses once the budget is gone") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -127,7 +127,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("beginAttempt refuses a row that is no longer CLAIMED") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -140,7 +140,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("markSent transitions a CLAIMED row to SENT") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -161,7 +161,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("markFailed transitions a CLAIMED row to FAILED with reason") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -183,7 +183,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim fails a poison delivery that reached maxAttempts instead of reclaiming it") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("poison-ref", microfrontendDraft())
             val maxAttempts = 3
             val channels = setOf(Channel.MICROFRONTEND)
@@ -209,7 +209,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim logs poison delivery with safe correlation fields") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("poison-ref", microfrontendDraft())
             val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
             makePoison(deliveryId, attempt = 2)
@@ -232,7 +232,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("a poison delivery does not block a healthy newer delivery on the same channel") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("poison-ref", microfrontendDraft())
             saveDraft("healthy-ref", microfrontendDraft())
             val poisonId = rowForReference("poison-ref")[DeliveryTable.id]

@@ -27,13 +27,14 @@ sealed interface EffectuationResult {
     /** A storage-derived FERDIGSTILL materialized this many INAKTIVER deliveries. */
     data class FerdigstillWithDelivery(
         val deliveryCount: Int,
+        val invalidStoredCreateCount: Int = 0,
     ) : EffectuationResult
 
     data object FerdigstillWithoutMatch : EffectuationResult
 
     data object FerdigstillWithoutSupportedRuntimeChannel : EffectuationResult
 
-    /** The matching stored CREATE has incompatible persisted payload, channel, or recipient data. */
+    /** Every matching stored CREATE has incompatible persisted payload, channel, or recipient data. */
     data object FerdigstillWithInvalidStoredCreate : EffectuationResult
 }
 
@@ -92,7 +93,7 @@ class EffectuateDecision(
         }
 
     /**
-     * The first lookup observes an already materialized CREATE, but never skips locking matching
+     * The first lookup observes already materialized CREATE rows, but never skips locking matching
      * WAIT/awakened-WAIT CREATE rows: duplicates must not materialize after FERDIGSTILL. After
      * those locks, the CREATE lookup is repeated because a creator may have won while this
      * transaction waited. Every locked held CREATE is cancelled, whether INAKTIVER is derived from
@@ -103,24 +104,30 @@ class EffectuateDecision(
             inboxMessage.content.toFerdigstillMatch(inboxMessage.reference)
                 ?: return markFerdigstillWithoutSupportedRuntimeChannel(inboxMessage.eventId)
 
-        val createBeforeWaitingLocks = deliveryRepository.findCreateForFerdigstillInTransaction(match)
+        val createsBeforeWaitingLocks = deliveryRepository.findCreatesForFerdigstillInTransaction(match)
         val waitingCreateEventIds = inboxMessageRepository.lockWaitingCreatesForFerdigstillInTransaction(match)
-        val create = deliveryRepository.findCreateForFerdigstillInTransaction(match) ?: createBeforeWaitingLocks
+        val creates =
+            deliveryRepository
+                .findCreatesForFerdigstillInTransaction(match)
+                .ifEmpty { createsBeforeWaitingLocks }
 
-        val inactivateDraft = create?.toInactivateDraft()
+        val inactivateDrafts = creates.mapNotNull(StoredCreateDelivery::toInactivateDraft)
+        val invalidStoredCreateCount = creates.size - inactivateDrafts.size
         return when {
-            create != null && inactivateDraft != null -> {
+            inactivateDrafts.isNotEmpty() -> {
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
                     cancelLockedWaitingCreates(waitingCreateEventIds)
-                    val deliveries = listOf(inactivateDraft)
-                    deliveryRepository.saveInTransaction(inboxMessage.eventId, deliveries)
-                    EffectuationResult.FerdigstillWithDelivery(deliveryCount = deliveries.size)
+                    deliveryRepository.saveInTransaction(inboxMessage.eventId, inactivateDrafts)
+                    EffectuationResult.FerdigstillWithDelivery(
+                        deliveryCount = inactivateDrafts.size,
+                        invalidStoredCreateCount = invalidStoredCreateCount,
+                    )
                 }
             }
 
-            create != null -> {
+            creates.isNotEmpty() -> {
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
@@ -174,6 +181,7 @@ private fun StoredCreateDelivery.toInactivateDraft(): DeliveryDraft? =
                     channel = channel,
                     recipient = recipient,
                     content = BrukervarselInactivate(reference, person.ident),
+                    sourceCreateDeliveryId = id,
                 )
             }
         }
@@ -189,6 +197,7 @@ private fun StoredCreateDelivery.toInactivateDraft(): DeliveryDraft? =
                     channel = channel,
                     recipient = recipient,
                     content = LedervarselInactivate(reference, person.ident),
+                    sourceCreateDeliveryId = id,
                 )
             }
         }
@@ -208,6 +217,7 @@ private fun StoredCreateDelivery.toInactivateDraft(): DeliveryDraft? =
                         recipient = recipient,
                         content = create,
                         createExternalId = createExternalId,
+                        sourceCreateDeliveryId = id,
                     )
                 }
             }

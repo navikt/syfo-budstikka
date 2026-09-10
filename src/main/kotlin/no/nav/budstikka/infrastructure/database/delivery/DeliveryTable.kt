@@ -25,12 +25,14 @@ object DeliveryTable : Table("delivery") {
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val errorMessage = text("error_message").nullable()
     val createExternalId = text("create_external_id").nullable()
+    val sourceCreateDeliveryId = javaUUID("source_create_delivery_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 
     init {
         index("delivery_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("delivery_inbox_event_id_idx", false, inboxEventId)
+        index("delivery_source_create_delivery_id_idx", false, sourceCreateDeliveryId)
         index(
             "delivery_created_at_id_sent_failed_idx",
             false,

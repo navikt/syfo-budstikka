@@ -3,6 +3,7 @@ package no.nav.budstikka.domain.decision
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
+import java.util.UUID
 import kotlin.time.Instant
 
 /** Neutral delivery channel persisted as `delivery.channel`; adapters own downstream formats. */
@@ -40,6 +41,7 @@ data class DeliveryDraft(
     val recipient: Recipient,
     val content: DispatchContent,
     val createExternalId: String? = null,
+    val sourceCreateDeliveryId: UUID? = null,
 )
 
 /**
