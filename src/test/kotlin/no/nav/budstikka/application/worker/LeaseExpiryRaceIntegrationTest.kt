@@ -146,12 +146,16 @@ class LeaseExpiryRaceIntegrationTest :
                     metrics = NoDeliveryMetrics,
                 )
 
+            // Replica B simply sends whatever it claims.
             val replicaB =
                 workerWith { delivery ->
                     sends += delivery.operation
                     DeliveryOutcome.Sent
                 }
 
+            // Replica A's send outlives its lease. B reclaims the row while A is paused under the
+            // source guard, but skips dispatch on guard contention without spending the remaining
+            // attempt or externally sending a duplicate.
             var peerHasRun = false
             val replicaA =
                 workerWith { delivery ->
@@ -165,6 +169,7 @@ class LeaseExpiryRaceIntegrationTest :
                 }
 
             replicaA.runOnce()
+            // B can now claim and dispatch the close only after A durably marked CREATE SENT.
             replicaB.runOnce()
 
             sends shouldContainExactly listOf(Operation.CREATE, Operation.INACTIVATE)

@@ -1,7 +1,7 @@
 package no.nav.budstikka.infrastructure.database.retention
 
-import io.kotest.core.spec.style.FunSpec
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.retention.RetentionCounts
 import no.nav.budstikka.application.retention.RetentionResult

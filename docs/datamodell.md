@@ -153,7 +153,7 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
-- En dependent `INAKTIVATE` med `source_create_delivery_id` kan først claimes når dens eksakte
+- En dependent `INACTIVATE` med `source_create_delivery_id` kan først claimes når dens eksakte
   source CREATE er `SENT`. Når source CREATE er `FAILED`, terminaliseres dependent som `FAILED`
   uten handlerkall eller nytt forsøk.
 - FERDIGSTILL materialiserer en slik dependent for hver lagret `CREATE` som matcher reference,
