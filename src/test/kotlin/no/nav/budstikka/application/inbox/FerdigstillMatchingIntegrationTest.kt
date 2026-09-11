@@ -30,6 +30,7 @@ import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.FerdigstillMatch
 import no.nav.budstikka.domain.decision.Operation
 import no.nav.budstikka.domain.decision.toDeliveryDraft
+import no.nav.budstikka.domain.decision.toFerdigstillMatch
 import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -48,6 +49,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import java.sql.DriverManager
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -433,7 +435,7 @@ class FerdigstillMatchingIntegrationTest :
             }
         }
 
-        test("simultaneous FERDIGSTILL events cancel one matching CREATE without locking each other") {
+        test("simultaneous FERDIGSTILL events serialize on the reference guard and cancel one matching CREATE") {
             val (inbox, deliveries) = repositories()
             val reference = "simultaneous-ferdigstill-ref"
             val create =
@@ -459,20 +461,18 @@ class FerdigstillMatchingIntegrationTest :
                     }
                 }
             }
-            val inactivateEventIds = inactivates.map { it.eventId }
-            val claimedFerdigstillLocks = CountDownLatch(inactivateEventIds.size)
+            val referenceLockAttempts = CountDownLatch(inactivates.size)
 
             fun coordinatedEffectuator() =
                 effectuator(
                     LockCoordinatingInboxRepository(
                         inbox,
-                        afterClaimedLock = { eventId ->
-                            if (eventId in inactivateEventIds) {
-                                claimedFerdigstillLocks.countDown()
-                                claimedFerdigstillLocks.awaitOrFail(
-                                    "FERDIGSTILL effectuation did not lock concurrently",
-                                )
-                            }
+                        beforeReferenceLock = { lockedReference ->
+                            lockedReference shouldBe reference
+                            referenceLockAttempts.countDown()
+                            referenceLockAttempts.awaitOrFail(
+                                "FERDIGSTILL effectuations did not reach the reference guard concurrently",
+                            )
                         },
                     ),
                     deliveries,
@@ -494,6 +494,55 @@ class FerdigstillMatchingIntegrationTest :
             inactivates.forEach { inactivate -> inboxState(inactivate.eventId) shouldBe "PROCESSED" }
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.count() shouldBe 0L
+            }
+        }
+
+        test("CREATE candidate query leaves peer FERDIGSTILL rows unlocked while holding CREATE locks") {
+            val (inbox, _) = repositories()
+            val reference = "candidate-payload-prefilter-ref"
+            val create =
+                InboxMessage(
+                    UUID.fromString("00000000-0000-0000-0000-000000000864"),
+                    reference,
+                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "pending"),
+                )
+            val inactivate =
+                InboxMessage(
+                    UUID.fromString("00000000-0000-0000-0000-000000000865"),
+                    reference,
+                    BrukervarselInactivate(reference, TEST_SYKMELDT),
+                )
+            val peerInactivate = inactivate.copy(eventId = UUID.fromString("00000000-0000-0000-0000-000000000866"))
+            inbox.saveBatch(listOf(create, inactivate, peerInactivate))
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10) shouldHaveSize 3
+
+            fixture.database.transact {
+                inbox.lockReferenceForFerdigstillInTransaction(reference)
+                inbox.lockClaimedForEffectuationInTransaction(inactivate.eventId) shouldBe true
+                inbox.lockUnmaterializedCreatesForFerdigstillInTransaction(
+                    requireNotNull(inactivate.content.toFerdigstillMatch(reference)),
+                ) shouldBe listOf(create.eventId)
+
+                // Probe row locks without the reference guard, so serialization cannot mask a missing SQL prefilter.
+                DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                    connection.autoCommit = false
+                    try {
+                        connection
+                            .prepareStatement(
+                                "SELECT event_id FROM inbox_message WHERE event_id IN (?, ?) FOR UPDATE SKIP LOCKED",
+                            ).use { statement ->
+                                statement.setObject(1, create.eventId)
+                                statement.setObject(2, peerInactivate.eventId)
+                                statement.executeQuery().use { result ->
+                                    result.next() shouldBe true
+                                    result.getString(1) shouldBe peerInactivate.eventId.toString()
+                                    result.next() shouldBe false
+                                }
+                            }
+                    } finally {
+                        connection.rollback()
+                    }
+                }
             }
         }
 
@@ -782,11 +831,17 @@ class FerdigstillMatchingIntegrationTest :
 
 private class LockCoordinatingInboxRepository(
     private val delegate: InboxMessageRepository,
+    private val beforeReferenceLock: (String) -> Unit = {},
     private val beforeClaimedLock: (UUID) -> Unit = {},
     private val afterClaimedLock: (UUID) -> Unit = {},
     private val beforeUnmaterializedCreateLock: () -> Unit = {},
     private val afterUnmaterializedCreateLock: (UUID) -> Unit = {},
 ) : InboxMessageRepository by delegate {
+    override fun lockReferenceForFerdigstillInTransaction(reference: String) {
+        beforeReferenceLock(reference)
+        delegate.lockReferenceForFerdigstillInTransaction(reference)
+    }
+
     override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean {
         beforeClaimedLock(eventId)
         return delegate.lockClaimedForEffectuationInTransaction(eventId).also { locked ->

@@ -108,22 +108,29 @@ kan jobbe parallelt uten dobbelt-claim:
 
 ### Transaksjonsgrenser
 
-`saveBatch` og FERDIGSTILLs kandidatsøk tar samme eksklusive PostgreSQL advisory lock per
-referanse før henholdsvis innsetting og søk. Låsen er på transaksjonsnivå og holdes til commit
+`saveBatch` og FERDIGSTILL med `Decision.Processed` tar samme eksklusive PostgreSQL advisory lock
+per referanse. FERDIGSTILL tar referanselåsen før låsen på egen claimede inbox-rad og før
+delivery- og kandidatsøk. Låsen er på transaksjonsnivå og holdes til commit
 eller rollback, slik at kandidatsøk og terminalisering ikke slipper inn samtidige innsettinger
 på samme referanse. En batch tar alle distinkte, hashede `bigint`-nøkler i numerisk rekkefølge
 før første innsetting. Låsene bruker navnerommet for én `bigint`, adskilt fra delivery- og
 retensjonslåsenes navnerom for to `int`. Ulike referanser serialiseres ikke globalt, og ingen
-HTTP-kall holder denne transaksjonslåsen.
+HTTP-kall holder denne transaksjonslåsen. Rekkefølgen hindrer en låsesyklus mellom tre sesjoner
+med henholdsvis FERDIGSTILL, duplikatinnsetting og retensjon som sletter inbox-rader.
+Retensjonspolicyen er uendret.
 
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
   `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
-- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon og låser først den
-  claimede inbox-raden med `FOR UPDATE`. `markProcessedInTransaction(eventId)` (CAS) skjer før
+- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon og låser den
+  claimede inbox-raden med `FOR UPDATE`, etter referanselåsen for FERDIGSTILL med
+  `Decision.Processed`. Bare arbeideren som vinner låsingen av en fortsatt `CLAIMED` rad,
+  fortsetter til delivery- og kandidatsøk. Tapt claim gir `Skipped` uten søk, tilstandsendringer
+  eller delivery-skriving. `markProcessedInTransaction(eventId)` (CAS) skjer før
   `saveInTransaction(...)`, og delivery-rader skrives bare hvis CAS lykkes.
   `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader for samme
-  inbox-melding. Ved FERDIGSTILL låses alle matchende, ikke-materialiserte OPPRETT-er i
-  `RECEIVED`, `WAIT` eller `CLAIMED`, også når første delivery-oppslag allerede fant en CREATE.
+  inbox-melding. Ved FERDIGSTILL med `Decision.Processed` låses alle matchende,
+  ikke-materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED`, også når første
+  delivery-oppslag allerede fant en CREATE.
   SQL avgrenser CREATE-discriminatoren før `FOR UPDATE`, så samtidige FERDIGSTILL-er ikke låser
   hverandres inbox-rader. Delivery leses på nytt etter låsene for å serialisere materialisering
   mot kansellering; alle låste OPPRETT-er avsluttes `PROCESSED` i samme transaksjon.

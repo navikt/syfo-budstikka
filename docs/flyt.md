@@ -128,8 +128,11 @@ holdes gjennom eksternt handlerkall og terminal state-overgang.
 Guarden gir ikke en distribuert transaksjon: stabile nedstrøms-ID-er, idempotens og avstemming er
 fortsatt nødvendige, i tråd med [ADR 0017](adr/0017-kilde-create-lases-ved-avhengig-inactivate.md).
 
-Runtime gjør første delivery-oppslag, men låser deretter alltid **alle** matchende, ennå ikke
-materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED` — også når oppslaget allerede fant
+For FERDIGSTILL med `Decision.Processed` tar runtime først referanselåsen og deretter låsen på
+egen claimede inbox-rad. Hvis raden ikke lenger er `CLAIMED`, returneres `Skipped` uten
+delivery- eller kandidatsøk, tilstandsendringer eller nye leveranser. Først etter vunnet claim
+gjør runtime første delivery-oppslag og låser deretter alltid **alle** matchende, ennå ikke
+materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED`, også når oppslaget allerede fant
 en delivery. SQL avgrenser på den lagrede CREATE-discriminatoren før `FOR UPDATE`, slik at
 FERDIGSTILL-rader aldri låses som kandidater. Etter låsene leses delivery på nytt: vant
 opprettelsen, avledes vanlig INAKTIVER; alle låste OPPRETT-er markeres samtidig `PROCESSED` uten å
