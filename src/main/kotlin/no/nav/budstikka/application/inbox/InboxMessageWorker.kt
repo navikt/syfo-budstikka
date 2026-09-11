@@ -15,7 +15,6 @@ import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
-import java.util.UUID
 
 /**
  * Claims hydrated inbox messages, decides them through [DecisionProcess], and persists each outcome
@@ -54,26 +53,92 @@ class InboxMessageWorker(
                     logger.warn("Skipping inbox message because the row is no longer claimable or has spent its attempts")
                     return@withContext
                 }
-                completeDecision(message.eventId, decisionProcess.process(dispatch))
+                completeDecision(message, decisionProcess.process(dispatch))
             }
         }
     }
 
     private suspend fun completeDecision(
-        eventId: UUID,
+        message: InboxMessage,
         decision: Decision,
     ) {
-        if (!effectuator.effectuate(eventId, decision)) {
+        val effectuation = effectuator.effectuate(message, decision)
+        if (effectuation == EffectuationResult.Skipped) {
             metrics.decisionCasLost()
             return
         }
 
         metrics.record(decision)
-        val fields = decision.logFields()
+        when (effectuation) {
+            EffectuationResult.FerdigstillWithoutMatch -> {
+                metrics.ferdigstillWithoutMatch()
+                logPiiFreeFerdigstillOutcome("Ferdigstill processed without matching create delivery")
+                return
+            }
+
+            EffectuationResult.FerdigstillWithoutSupportedRuntimeChannel -> {
+                metrics.ferdigstillWithoutSupportedRuntimeChannel()
+                logPiiFreeFerdigstillOutcome("Ferdigstill processed without a supported runtime channel")
+                return
+            }
+
+            is EffectuationResult.FerdigstillWithInvalidStoredCreate -> {
+                metrics.ferdigstillWithInvalidStoredCreate()
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+                logPiiFreeFerdigstillOutcome(
+                    "Ferdigstill processed with an invalid stored create delivery",
+                    effectuation.cancellationFields(),
+                )
+                return
+            }
+
+            is EffectuationResult.FerdigstillWithCancellation -> {
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+                logPiiFreeFerdigstillOutcome(
+                    "Ferdigstill cancelled unmaterialized create inbox rows",
+                    listOf(
+                        kv(MdcKeys.RESULT, "FERDIGSTILL_CREATE_CANCELLED"),
+                        kv(MdcKeys.CANCELLED_CREATE_COUNT, effectuation.cancelledCreateCount),
+                    ),
+                )
+                return
+            }
+
+            is EffectuationResult.FerdigstillWithDelivery ->
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+
+            EffectuationResult.Completed,
+            EffectuationResult.Skipped,
+            -> Unit
+        }
+        val fields =
+            decision.logFields(
+                deliveryCount = (effectuation as? EffectuationResult.FerdigstillWithDelivery)?.deliveryCount,
+                cancelledCreateCount =
+                    (effectuation as? EffectuationResult.FerdigstillWithDelivery)?.cancelledCreateCount,
+            )
         logger.info(
             withPlaceholders("Inbox message processed", fields),
             *fields.toTypedArray(),
         )
+    }
+
+    /** FERDIGSTILL outcome logs carry only PII-free fields and the non-PII event MDC. */
+    private fun logPiiFreeFerdigstillOutcome(
+        message: String,
+        fields: List<StructuredArgument> = emptyList(),
+    ) {
+        val reference = MDC.get(MdcKeys.REFERENCE)
+        MDC.remove(MdcKeys.REFERENCE)
+        try {
+            logger.info(withPlaceholders(message, fields), *fields.toTypedArray())
+        } finally {
+            if (reference == null) {
+                MDC.remove(MdcKeys.REFERENCE)
+            } else {
+                MDC.put(MdcKeys.REFERENCE, reference)
+            }
+        }
     }
 
     private fun InboxMetrics.record(decision: Decision) {
@@ -85,13 +150,33 @@ class InboxMessageWorker(
         }
     }
 
-    private fun Decision.logFields(): List<StructuredArgument> =
+    private fun InboxMetrics.recordCancelledCreates(count: Int) {
+        if (count > 0) {
+            ferdigstillCancelledCreates(count)
+        }
+    }
+
+    private fun EffectuationResult.FerdigstillWithInvalidStoredCreate.cancellationFields(): List<StructuredArgument> =
+        if (cancelledCreateCount > 0) {
+            listOf(kv(MdcKeys.CANCELLED_CREATE_COUNT, cancelledCreateCount))
+        } else {
+            emptyList()
+        }
+
+    private fun Decision.logFields(
+        deliveryCount: Int? = null,
+        cancelledCreateCount: Int? = null,
+    ): List<StructuredArgument> =
         when (this) {
             is Decision.Processed -> {
                 listOf(
                     kv(MdcKeys.RESULT, "PROCESSED"),
-                    kv(MdcKeys.DELIVERY_COUNT, deliveries.size),
-                )
+                    kv(MdcKeys.DELIVERY_COUNT, deliveryCount ?: deliveries.size),
+                ) +
+                    cancelledCreateCount
+                        ?.takeIf { it > 0 }
+                        ?.let { listOf(kv(MdcKeys.CANCELLED_CREATE_COUNT, it)) }
+                        .orEmpty()
             }
 
             is Decision.Dropped -> {

@@ -26,6 +26,18 @@ interface InboxMetrics {
 
     /** A decision was computed after another worker had already moved the row away from CLAIMED. */
     fun decisionCasLost()
+
+    /** FERDIGSTILL found no stored OPPRETT to derive the close operation from. */
+    fun ferdigstillWithoutMatch()
+
+    /** The matched OPPRETT targets a channel without runtime close support. */
+    fun ferdigstillWithoutSupportedRuntimeChannel()
+
+    /** The matched OPPRETT could not be read back as a valid create. */
+    fun ferdigstillWithInvalidStoredCreate()
+
+    /** Unmaterialized CREATE inbox rows cancelled by successful FERDIGSTILL effectuation. */
+    fun ferdigstillCancelledCreates(count: Int)
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -47,4 +59,12 @@ object NoInboxMetrics : InboxMetrics {
     ) = Unit
 
     override fun decisionCasLost() = Unit
+
+    override fun ferdigstillWithoutMatch() = Unit
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() = Unit
+
+    override fun ferdigstillWithInvalidStoredCreate() = Unit
+
+    override fun ferdigstillCancelledCreates(count: Int) = Unit
 }

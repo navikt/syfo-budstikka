@@ -1,10 +1,49 @@
 package no.nav.budstikka.application.inbox
 
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.StoredCreateDelivery
 import no.nav.budstikka.application.port.TransactionRunner
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.LedervarselInactivate
+import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
+import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.domain.decision.isFerdigstill
+import no.nav.budstikka.domain.decision.toFerdigstillMatch
 import java.util.UUID
+
+sealed interface EffectuationResult {
+    data object Completed : EffectuationResult
+
+    data object Skipped : EffectuationResult
+
+    /** A storage-derived FERDIGSTILL materialized this many INAKTIVER deliveries. */
+    data class FerdigstillWithDelivery(
+        val deliveryCount: Int,
+        val cancelledCreateCount: Int = 0,
+    ) : EffectuationResult
+
+    /** FERDIGSTILL cancelled unmaterialized CREATE inbox rows without materializing a delivery. */
+    data class FerdigstillWithCancellation(
+        val cancelledCreateCount: Int,
+    ) : EffectuationResult
+
+    data object FerdigstillWithoutMatch : EffectuationResult
+
+    data object FerdigstillWithoutSupportedRuntimeChannel : EffectuationResult
+
+    /** The matching stored CREATE has incompatible persisted payload, channel, or recipient data. */
+    data class FerdigstillWithInvalidStoredCreate(
+        val cancelledCreateCount: Int = 0,
+    ) : EffectuationResult
+}
 
 /**
  * Persists one [Decision] atomically: delivery rows and inbox state commit or roll back together.
@@ -17,32 +56,179 @@ class EffectuateDecision(
     private val deliveryRepository: DeliveryRepository,
 ) {
     suspend fun effectuate(
-        inboxEventId: UUID,
+        inboxMessage: InboxMessage,
         decision: Decision,
-    ): Boolean =
+    ): EffectuationResult =
         transactionRunner.transaction {
+            val isProcessedFerdigstill = inboxMessage.content.isFerdigstill() && decision is Decision.Processed
+            if (isProcessedFerdigstill) {
+                inboxMessageRepository.lockReferenceForFerdigstillInTransaction(inboxMessage.reference)
+            }
+            if (!inboxMessageRepository.lockClaimedForEffectuationInTransaction(inboxMessage.eventId)) {
+                return@transaction EffectuationResult.Skipped
+            }
+
+            if (isProcessedFerdigstill) {
+                return@transaction effectuateFerdigstill(inboxMessage)
+            }
+
             when (decision) {
                 is Decision.Processed -> {
                     // Only the worker winning CLAIMED->PROCESSED writes delivery rows.
-                    val transitioned = inboxMessageRepository.markProcessedInTransaction(inboxEventId)
-                    if (transitioned) {
-                        deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
+                    if (inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
+                        deliveryRepository.saveInTransaction(inboxMessage.eventId, decision.deliveries)
+                        EffectuationResult.Completed
+                    } else {
+                        EffectuationResult.Skipped
                     }
-                    transitioned
                 }
 
                 is Decision.Dropped ->
-                    inboxMessageRepository.markDroppedInTransaction(inboxEventId, decision.reason.name)
+                    inboxMessageRepository
+                        .markDroppedInTransaction(inboxMessage.eventId, decision.reason.name)
+                        .toEffectuationResult()
 
                 is Decision.Failed ->
-                    inboxMessageRepository.markFailedInTransaction(inboxEventId, decision.errorMessage)
+                    inboxMessageRepository
+                        .markFailedInTransaction(inboxMessage.eventId, decision.errorMessage)
+                        .toEffectuationResult()
 
                 is Decision.NotInSendingWindow ->
-                    inboxMessageRepository.markOutsideSendingWindowInTransaction(
-                        inboxEventId,
-                        decision.reason,
-                        decision.nextRetry,
-                    )
+                    inboxMessageRepository
+                        .markOutsideSendingWindowInTransaction(
+                            inboxMessage.eventId,
+                            decision.reason,
+                            decision.nextRetry,
+                        ).toEffectuationResult()
             }
         }
+
+    /**
+     * The first lookup observes an already materialized CREATE, but never skips locking matching
+     * unmaterialized CREATE rows: duplicates must not materialize after FERDIGSTILL. After those
+     * locks, the CREATE lookup is repeated because a creator may have won while this transaction
+     * waited. Every locked CREATE is cancelled, whether INAKTIVER is derived from a stored CREATE
+     * or not.
+     */
+    private fun effectuateFerdigstill(inboxMessage: InboxMessage): EffectuationResult {
+        val match =
+            inboxMessage.content.toFerdigstillMatch(inboxMessage.reference)
+                ?: return markFerdigstillWithoutSupportedRuntimeChannel(inboxMessage.eventId)
+
+        val createBeforeUnmaterializedLocks = deliveryRepository.findCreateForFerdigstillInTransaction(match)
+        val unmaterializedCreateEventIds = inboxMessageRepository.lockUnmaterializedCreatesForFerdigstillInTransaction(match)
+        val create = deliveryRepository.findCreateForFerdigstillInTransaction(match) ?: createBeforeUnmaterializedLocks
+
+        val inactivateDraft = create?.toInactivateDraft()
+        return when {
+            create != null && inactivateDraft != null -> {
+                if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
+                    EffectuationResult.Skipped
+                } else {
+                    val cancelledCreateCount = cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
+                    val deliveries = listOf(inactivateDraft)
+                    deliveryRepository.saveInTransaction(inboxMessage.eventId, deliveries)
+                    EffectuationResult.FerdigstillWithDelivery(
+                        deliveryCount = deliveries.size,
+                        cancelledCreateCount = cancelledCreateCount,
+                    )
+                }
+            }
+
+            create != null -> {
+                if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
+                    EffectuationResult.Skipped
+                } else {
+                    EffectuationResult.FerdigstillWithInvalidStoredCreate(
+                        cancelledCreateCount = cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds),
+                    )
+                }
+            }
+
+            unmaterializedCreateEventIds.isNotEmpty() -> {
+                if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
+                    EffectuationResult.Skipped
+                } else {
+                    EffectuationResult.FerdigstillWithCancellation(
+                        cancelledCreateCount = cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds),
+                    )
+                }
+            }
+
+            else -> {
+                inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)
+                EffectuationResult.FerdigstillWithoutMatch
+            }
+        }
+    }
+
+    private fun cancelLockedUnmaterializedCreates(eventIds: List<UUID>): Int {
+        eventIds.forEach { eventId ->
+            check(inboxMessageRepository.markUnmaterializedCreateProcessedInTransaction(eventId)) {
+                "Locked unmaterialized CREATE must remain cancellable"
+            }
+        }
+        return eventIds.size
+    }
+
+    private fun Boolean.toEffectuationResult(): EffectuationResult = if (this) EffectuationResult.Completed else EffectuationResult.Skipped
+
+    private fun markFerdigstillWithoutSupportedRuntimeChannel(eventId: UUID): EffectuationResult {
+        inboxMessageRepository.markProcessedInTransaction(eventId)
+        return EffectuationResult.FerdigstillWithoutSupportedRuntimeChannel
+    }
 }
+
+private fun StoredCreateDelivery.toInactivateDraft(): DeliveryDraft? =
+    when (val create = payload) {
+        is BrukervarselCreate -> {
+            val person = recipient as? Recipient.Person
+            if (channel != Channel.BRUKERVARSEL || person == null || person.ident != create.personIdentifier) {
+                null
+            } else {
+                DeliveryDraft(
+                    reference = reference,
+                    operation = Operation.INACTIVATE,
+                    channel = channel,
+                    recipient = recipient,
+                    content = BrukervarselInactivate(reference, person.ident),
+                )
+            }
+        }
+
+        is LedervarselCreate -> {
+            val person = recipient as? Recipient.Person
+            if (channel != Channel.LEDERVARSEL || person == null || person.ident != create.sykmeldt) {
+                null
+            } else {
+                DeliveryDraft(
+                    reference = reference,
+                    operation = Operation.INACTIVATE,
+                    channel = channel,
+                    recipient = recipient,
+                    content = LedervarselInactivate(reference, person.ident),
+                )
+            }
+        }
+
+        is ArbeidsgivervarselCreate ->
+            if (channel != Channel.ARBEIDSGIVERVARSEL) {
+                null
+            } else {
+                val virksomhet = recipient as? Recipient.Virksomhet
+                if (virksomhet == null || virksomhet.orgnummer != create.orgnummer) {
+                    null
+                } else {
+                    DeliveryDraft(
+                        reference = reference,
+                        operation = Operation.INACTIVATE,
+                        channel = channel,
+                        recipient = recipient,
+                        content = create,
+                        createExternalId = createExternalId,
+                    )
+                }
+            }
+
+        else -> null
+    }

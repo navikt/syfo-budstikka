@@ -6,8 +6,10 @@ import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.testing.TestApplication
@@ -23,10 +25,13 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.StoredCreateDelivery
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.bootstrap.gateModule
 import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.DittSykefravaerInactivate
 import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
@@ -36,6 +41,8 @@ import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.domain.decision.FerdigstillMatch
+import no.nav.budstikka.domain.decision.Recipient
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.domain.decision.SendingWindowGate
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
@@ -45,6 +52,7 @@ import no.nav.budstikka.fakes.FakeReservationLookup
 import no.nav.budstikka.fakes.FakeTransactionRunner
 import no.nav.budstikka.fakes.RecordingInboxMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import no.nav.budstikka.fakes.deadLookupFor
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.MutableClock
@@ -187,6 +195,225 @@ class InboxMessageWorkerTest :
             metrics.decisionCasLostCount.get() shouldBe 1
             repository.processedEventIds.shouldBeEmpty()
             appender.list.filter { it.formattedMessage.contains("Inbox message processed") }.shouldBeEmpty()
+        }
+
+        test("missing FERDIGSTILL match is processed as a no-op with a low-cardinality metric") {
+            val metrics = RecordingInboxMetrics()
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.fromString("00000000-0000-0000-0000-000000000006"),
+                                reference = "no-match-ref",
+                                content = BrukervarselInactivate("no-match-ref", TEST_SYKMELDT),
+                            ),
+                        ),
+                )
+
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.processedCount.get() shouldBe 1
+            metrics.ferdigstillWithoutMatch.get() shouldBe 1
+            metrics.ferdigstillWithoutSupportedRuntimeChannel.get() shouldBe 0
+            metrics.ferdigstillCancelledCreateCount.get() shouldBe 0
+            repository.processedEventIds.shouldHaveSize(1)
+            val log = appender.list.single { it.formattedMessage.contains("Ferdigstill processed without matching") }
+            log.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe null
+            log.formattedMessage shouldNotContain TEST_SYKMELDT.value
+            log.formattedMessage shouldNotContain MdcKeys.DELIVERY_COUNT
+        }
+
+        test("unsupported Ditt Sykefravær FERDIGSTILL is processed as a no-op with a runtime-channel metric") {
+            val metrics = RecordingInboxMetrics()
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.fromString("00000000-0000-0000-0000-000000000007"),
+                                reference = "unsupported-ref",
+                                content = DittSykefravaerInactivate("unsupported-ref", TEST_SYKMELDT),
+                            ),
+                        ),
+                )
+
+            workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
+
+            metrics.processedCount.get() shouldBe 1
+            metrics.ferdigstillWithoutMatch.get() shouldBe 0
+            metrics.ferdigstillWithoutSupportedRuntimeChannel.get() shouldBe 1
+            repository.processedEventIds.shouldHaveSize(1)
+        }
+
+        test("cancellation-only FERDIGSTILL records row count and emits a dedicated PII-free outcome") {
+            val reference = "cancel-only-ref"
+            val closeEventId = UUID.fromString("00000000-0000-0000-0000-000000000012")
+            val unmaterializedCreateEventIds =
+                listOf(
+                    UUID.fromString("00000000-0000-0000-0000-000000000013"),
+                    UUID.fromString("00000000-0000-0000-0000-000000000014"),
+                )
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                closeEventId,
+                                reference = reference,
+                                content = BrukervarselInactivate(reference, TEST_SYKMELDT),
+                            ),
+                        ),
+                    waitingCreateEventIds = unmaterializedCreateEventIds,
+                )
+            val metrics = RecordingInboxMetrics()
+
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.processedCount.get() shouldBe 1
+            metrics.ferdigstillCancelledCreateCount.get() shouldBe 2
+            repository.processedEventIds shouldContainExactly listOf(closeEventId) + unmaterializedCreateEventIds
+            val log = appender.list.single { it.formattedMessage.contains("cancelled unmaterialized create inbox rows") }
+            log.formattedMessage shouldContain "result=FERDIGSTILL_CREATE_CANCELLED"
+            log.formattedMessage shouldContain "${MdcKeys.CANCELLED_CREATE_COUNT}=2"
+            log.formattedMessage shouldNotContain MdcKeys.DELIVERY_COUNT
+            log.formattedMessage shouldNotContain TEST_SYKMELDT.value
+            log.formattedMessage shouldNotContain reference
+            log.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe null
+        }
+
+        test("storage-derived FERDIGSTILL logs delivery and cancelled CREATE row counts") {
+            val reference = "stored-create-ref"
+            val unmaterializedCreateEventIds =
+                listOf(
+                    UUID.fromString("00000000-0000-0000-0000-000000000015"),
+                    UUID.fromString("00000000-0000-0000-0000-000000000016"),
+                )
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.fromString("00000000-0000-0000-0000-000000000008"),
+                                reference = reference,
+                                content = BrukervarselInactivate(reference, TEST_SYKMELDT),
+                            ),
+                        ),
+                    waitingCreateEventIds = unmaterializedCreateEventIds,
+                )
+            val deliveries =
+                RecordingDeliveryRepository(
+                    storedCreate =
+                        StoredCreateDelivery(
+                            createExternalId = null,
+                            reference = reference,
+                            channel = Channel.BRUKERVARSEL,
+                            recipient = Recipient.Person(TEST_SYKMELDT),
+                            payload = BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "stored create"),
+                        ),
+                )
+            val metrics = RecordingInboxMetrics()
+
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(
+                    repository,
+                    metrics = metrics,
+                    decisionProcess = decisionProcess,
+                    deliveryRepository = deliveries,
+                ).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.ferdigstillCancelledCreateCount.get() shouldBe 2
+            deliveries.saved.single().second shouldHaveSize 1
+            val log = appender.list.single { it.formattedMessage.contains("Inbox message processed") }
+            log.formattedMessage shouldContain "${MdcKeys.DELIVERY_COUNT}=1"
+            log.formattedMessage shouldContain "${MdcKeys.CANCELLED_CREATE_COUNT}=2"
+        }
+
+        test("invalid stored CREATE is a PII-free terminal FERDIGSTILL no-op with its own metric") {
+            val reference = "invalid-stored-create-ref"
+            val waitingCreateEventId = UUID.fromString("00000000-0000-0000-0000-000000000009")
+            val repository =
+                PollingInboxMessageRepository(
+                    messages =
+                        listOf(
+                            inboxMessage(
+                                UUID.fromString("00000000-0000-0000-0000-000000000011"),
+                                reference = reference,
+                                content = BrukervarselInactivate(reference, TEST_SYKMELDT),
+                            ),
+                        ),
+                    waitingCreateEventIds = listOf(waitingCreateEventId),
+                )
+            val deliveries =
+                RecordingDeliveryRepository(
+                    storedCreate =
+                        StoredCreateDelivery(
+                            createExternalId = null,
+                            reference = reference,
+                            channel = Channel.BRUKERVARSEL,
+                            recipient = Recipient.Person(TEST_SYKMELDT),
+                            payload =
+                                BrukervarselCreate(
+                                    TEST_SYKMELDT_2,
+                                    Varseltype.BESKJED,
+                                    "schema drift",
+                                ),
+                        ),
+                )
+            val metrics = RecordingInboxMetrics()
+
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(
+                    repository,
+                    metrics = metrics,
+                    decisionProcess = decisionProcess,
+                    deliveryRepository = deliveries,
+                ).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.processedCount.get() shouldBe 1
+            metrics.ferdigstillWithInvalidStoredCreate.get() shouldBe 1
+            metrics.ferdigstillCancelledCreateCount.get() shouldBe 1
+            metrics.ferdigstillWithoutMatch.get() shouldBe 0
+            metrics.ferdigstillWithoutSupportedRuntimeChannel.get() shouldBe 0
+            repository.processedEventIds shouldContainExactly
+                listOf(UUID.fromString("00000000-0000-0000-0000-000000000011"), waitingCreateEventId)
+            deliveries.saved.shouldBeEmpty()
+            val log = appender.list.single { it.formattedMessage.contains("invalid stored create") }
+            log.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe null
+            log.formattedMessage shouldNotContain TEST_SYKMELDT.value
+            log.formattedMessage shouldNotContain TEST_SYKMELDT_2.value
+            log.formattedMessage shouldNotContain MdcKeys.DELIVERY_COUNT
+            log.formattedMessage shouldContain "${MdcKeys.CANCELLED_CREATE_COUNT}=1"
         }
 
         test("runOnce records a dropped metric when a gate drops the message") {
@@ -387,6 +614,7 @@ private fun workerWith(
     clock: Clock = Clock.System,
     metrics: InboxMetrics = NoInboxMetrics,
     decisionProcess: DecisionProcess,
+    deliveryRepository: RecordingDeliveryRepository = RecordingDeliveryRepository(),
 ): InboxMessageWorker =
     InboxMessageWorker(
         repository = repository,
@@ -394,7 +622,7 @@ private fun workerWith(
             EffectuateDecision(
                 transactionRunner = FakeTransactionRunner(),
                 inboxMessageRepository = repository,
-                deliveryRepository = RecordingDeliveryRepository(),
+                deliveryRepository = deliveryRepository,
             ),
         decisionProcess = decisionProcess,
         drainer =
@@ -418,6 +646,7 @@ private fun workerWith(
 private class PollingInboxMessageRepository(
     private val messages: List<InboxMessage>,
     private val terminalTransitionResult: Boolean = true,
+    private val waitingCreateEventIds: List<UUID> = emptyList(),
     private val onPoll: () -> Unit = {},
 ) : InboxMessageRepository {
     var lastPollLimit: Int? = null
@@ -455,6 +684,14 @@ private class PollingInboxMessageRepository(
         return terminalTransitionResult
     }
 
+    override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean = true
+
+    override fun lockReferenceForFerdigstillInTransaction(reference: String) = Unit
+
+    override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = waitingCreateEventIds
+
+    override fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean = markProcessedInTransaction(eventId)
+
     override fun markDroppedInTransaction(
         eventId: UUID,
         reason: String,
@@ -478,7 +715,9 @@ private class PollingInboxMessageRepository(
     }
 }
 
-private class RecordingDeliveryRepository : DeliveryRepository {
+private class RecordingDeliveryRepository(
+    private val storedCreate: StoredCreateDelivery? = null,
+) : DeliveryRepository {
     val saved = mutableListOf<Pair<UUID, List<DeliveryDraft>>>()
 
     override fun saveInTransaction(
@@ -487,6 +726,8 @@ private class RecordingDeliveryRepository : DeliveryRepository {
     ) {
         saved += inboxEventId to draft
     }
+
+    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) = storedCreate
 
     override suspend fun claim(
         limit: Int,

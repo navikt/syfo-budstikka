@@ -2,8 +2,12 @@ package no.nav.budstikka.application.inbox
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
@@ -51,10 +55,11 @@ class EffectuateDecisionIntegrationTest :
         test("Processed commits delivery rows and inbox PROCESSED atomically") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a1")
-            inbox.saveBatch(listOf(inboxMessage(eventId)))
+            val message = inboxMessage(eventId)
+            inbox.saveBatch(listOf(message))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
+            effectuate.effectuate(message, processed()) shouldBe EffectuationResult.Completed
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
@@ -63,10 +68,11 @@ class EffectuateDecisionIntegrationTest :
         test("Failed writes no delivery rows and inbox FAILED with reason") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a2")
-            inbox.saveBatch(listOf(inboxMessage(eventId)))
+            val message = inboxMessage(eventId)
+            inbox.saveBatch(listOf(message))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Failed("boom")) shouldBe true
+            effectuate.effectuate(message, Decision.Failed("boom")) shouldBe EffectuationResult.Completed
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "FAILED"
@@ -75,10 +81,11 @@ class EffectuateDecisionIntegrationTest :
         test("Dropped writes no delivery rows and inbox DROPPED") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a3")
-            inbox.saveBatch(listOf(inboxMessage(eventId)))
+            val message = inboxMessage(eventId)
+            inbox.saveBatch(listOf(message))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Dropped(DropReason.DEAD)) shouldBe true
+            effectuate.effectuate(message, Decision.Dropped(DropReason.DEAD)) shouldBe EffectuationResult.Completed
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "DROPPED"
@@ -87,13 +94,52 @@ class EffectuateDecisionIntegrationTest :
         test("a second Processed after the CAS is lost writes no extra delivery rows") {
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a4")
-            inbox.saveBatch(listOf(inboxMessage(eventId)))
+            val message = inboxMessage(eventId)
+            inbox.saveBatch(listOf(message))
             inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe false
+            effectuate.effectuate(message, processed()) shouldBe EffectuationResult.Completed
+            effectuate.effectuate(message, processed()) shouldBe EffectuationResult.Skipped
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
         }
+
+        test("FERDIGSTILL returns the number of unmaterialized CREATE inbox rows it cancels") {
+            val (effectuate, inbox) = effectuator()
+            val reference = "ferdigstill-cancellation-only"
+            val unmaterializedCreateEventIds =
+                listOf(
+                    UUID.fromString("00000000-0000-0000-0000-0000000000b2"),
+                    UUID.fromString("00000000-0000-0000-0000-0000000000b3"),
+                )
+            val closeEventId = UUID.fromString("00000000-0000-0000-0000-0000000000b4")
+            val closeMessage =
+                inboxMessage(
+                    closeEventId,
+                    reference = reference,
+                    content = BrukervarselInactivate(reference, TEST_SYKMELDT),
+                )
+            inbox.saveBatch(
+                unmaterializedCreateEventIds.map { eventId ->
+                    inboxMessage(
+                        eventId,
+                        reference = reference,
+                        content = BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "waiting create"),
+                    )
+                } + closeMessage,
+            )
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+
+            effectuate.effectuate(closeMessage, Decision.Processed(emptyList())) shouldBe
+                EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 2)
+
+            inboxState(closeEventId) shouldBe "PROCESSED"
+            unmaterializedCreateEventIds.forEach { eventId ->
+                inboxState(eventId) shouldBe "PROCESSED"
+            }
+            deliveryCount(closeEventId) shouldBe 0L
+        }
     })
+
+private fun processed(): Decision.Processed = Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))
