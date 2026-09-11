@@ -637,9 +637,9 @@ private class PollingInboxMessageRepository(
 
     override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean = true
 
-    override fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = waitingCreateEventIds
+    override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = waitingCreateEventIds
 
-    override fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean = markProcessedInTransaction(eventId)
+    override fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean = markProcessedInTransaction(eventId)
 
     override fun markDroppedInTransaction(
         eventId: UUID,
