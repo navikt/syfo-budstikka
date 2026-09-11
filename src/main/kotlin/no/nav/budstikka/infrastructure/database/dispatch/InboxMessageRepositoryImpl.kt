@@ -24,8 +24,12 @@ import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
+import java.nio.ByteBuffer
+import java.security.MessageDigest
+import java.sql.Connection
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -41,6 +45,7 @@ class InboxMessageRepositoryImpl(
             return
         }
         database.transact {
+            lockReferencesInTransaction(messages.map { it.reference })
             val now = Clock.System.now()
             InboxMessageTable.batchInsert(messages, ignore = true) { message ->
                 this[InboxMessageTable.eventId] = message.eventId
@@ -179,8 +184,9 @@ class InboxMessageRepositoryImpl(
             }.forUpdate(ForUpdateOption.PostgreSQL.ForUpdate())
             .singleOrNull() != null
 
-    override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> =
-        InboxMessageTable
+    override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> {
+        lockReferencesInTransaction(listOf(match.reference))
+        return InboxMessageTable
             .select(InboxMessageTable.eventId, InboxMessageTable.content)
             .where {
                 (InboxMessageTable.reference eq match.reference) and
@@ -196,6 +202,28 @@ class InboxMessageRepositoryImpl(
                     .takeIf { it[InboxMessageTable.content].matchesCreate(match) }
                     ?.get(InboxMessageTable.eventId)
             }
+    }
+
+    private fun lockReferencesInTransaction(references: List<String>) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val keys =
+            references
+                .map { reference ->
+                    ByteBuffer.wrap(digest.digest("budstikka:inbox-reference:$reference".toByteArray(Charsets.UTF_8))).long
+                }.distinct()
+                .sorted()
+        val connection = TransactionManager.current().connection.connection as Connection
+        // Order actual keys, not references, so even hash collisions cannot introduce lock cycles.
+        // The bigint namespace is separate from the two-integer delivery/retention lock namespace.
+        connection.prepareStatement("SELECT pg_advisory_xact_lock(?)").use { statement ->
+            keys.forEach { key ->
+                statement.setLong(1, key)
+                statement.executeQuery().use { result ->
+                    check(result.next()) { "PostgreSQL advisory lock query returned no result" }
+                }
+            }
+        }
+    }
 
     override fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean =
         InboxMessageTable.update({
