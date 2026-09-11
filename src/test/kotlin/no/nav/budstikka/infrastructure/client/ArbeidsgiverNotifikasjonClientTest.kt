@@ -153,22 +153,52 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"eksternId":"stable-create-external-id""""
         }
 
-        test("treats NotifikasjonFinnesIkke from close as already closed") {
+        test("retries NotifikasjonFinnesIkke from close and succeeds") {
             listOf(
                 Triple(
                     ArbeidsgiverMeldingstype.BESKJED,
                     "hardDeleteNotifikasjonByEksternId_V2",
-                    "hardDeleteNotifikasjonByEksternId_V2",
+                    "HardDeleteNotifikasjonVellykket",
                 ),
                 Triple(
                     ArbeidsgiverMeldingstype.OPPGAVE,
                     "oppgaveUtfoertByEksternId_V2",
-                    "oppgaveUtfoertByEksternId_V2",
+                    "OppgaveUtfoertVellykket",
                 ),
-            ).forEach { (meldingstype, responseField, requestField) ->
-                var body = ""
-                client { request ->
-                    body = (request.body as TextContent).text
+            ).forEach { (meldingstype, responseField, successfulResultType) ->
+                var requestCount = 0
+                client {
+                    requestCount++
+                    val resultType =
+                        if (requestCount == 1) {
+                            "NotifikasjonFinnesIkke"
+                        } else {
+                            successfulResultType
+                        }
+                    respond(
+                        """{"data":{"$responseField":{"__typename":"$resultType"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.close(
+                    ArbeidsgiverNotificationCloseRequest(
+                        eksternId = "stable-create-external-id",
+                        tag = "Dialogmøte",
+                        meldingstype = meldingstype,
+                    ),
+                ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+                requestCount shouldBe 2
+            }
+        }
+
+        test("treats persistent NotifikasjonFinnesIkke from close as already closed after retry budget exhaustion") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                var requestCount = 0
+                client {
+                    requestCount++
                     respond(
                         """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
                         HttpStatusCode.OK,
@@ -181,7 +211,62 @@ class ArbeidsgiverNotifikasjonClientTest :
                     ),
                 ) shouldBe ArbeidsgiverNotificationResponse.Published
 
-                body shouldContain requestField
+                requestCount shouldBe 3
+            }
+        }
+
+        test("rejects invalid tag and unknown producer from close without retry") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                listOf("UgyldigMerkelapp", "UkjentProdusent").forEach { resultType ->
+                    var requestCount = 0
+                    client {
+                        requestCount++
+                        respond(
+                            """{"data":{"$responseField":{"__typename":"$resultType"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = "stable-create-external-id",
+                            tag = "Dialogmøte",
+                            meldingstype = meldingstype,
+                        ),
+                    ) shouldBe
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request: $resultType",
+                        )
+
+                    requestCount shouldBe 1
+                }
+            }
+        }
+
+        test("does not retry close transport errors") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                var requestCount = 0
+                shouldThrow<IllegalStateException> {
+                    client {
+                        requestCount++
+                        respond(
+                            """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
+                            HttpStatusCode.InternalServerError,
+                        )
+                    }.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = "stable-create-external-id",
+                            tag = "Dialogmøte",
+                            meldingstype = meldingstype,
+                        ),
+                    )
+                }
+
+                requestCount shouldBe 1
             }
         }
 
@@ -375,6 +460,7 @@ private fun client(handler: MockRequestHandler) =
         object : TokenProvider {
             override suspend fun token(target: String) = "token"
         },
+        closeRetryDelay = {},
     )
 
 private fun request(
