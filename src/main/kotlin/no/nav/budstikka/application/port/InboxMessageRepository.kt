@@ -66,9 +66,10 @@ interface InboxMessageRepository {
     fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean
 
     /**
-     * Locks every matching unmaterialized CREATE in RECEIVED, WAIT, or CLAIMED. The caller must
-     * re-check materialized deliveries after this call because a CREATE effectuation may have won
-     * while this transaction waited for a lock.
+     * Serializes the reference with [saveBatch] until transaction end, then locks every matching
+     * unmaterialized CREATE in RECEIVED, WAIT, or CLAIMED. An insertion ordered after this transaction
+     * remains a later arrival, not cancelled by it. The caller must re-check materialized deliveries
+     * after this call because a CREATE effectuation may have won while this transaction waited.
      */
     fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
 
