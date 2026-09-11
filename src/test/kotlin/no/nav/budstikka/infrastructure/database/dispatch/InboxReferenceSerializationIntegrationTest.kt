@@ -8,16 +8,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.EffectuationResult
+import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.FerdigstillMatch
-import no.nav.budstikka.domain.decision.toFerdigstillMatch
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.fakes.inboxMessage
@@ -26,15 +27,20 @@ import no.nav.budstikka.infrastructure.database.config.TransactionRunnerImpl
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
+import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.SQLException
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.minutes
 
 class InboxReferenceSerializationIntegrationTest :
@@ -69,9 +75,7 @@ class InboxReferenceSerializationIntegrationTest :
 
         suspend fun referenceKey(reference: String): Long =
             fixture.database.transact {
-                inbox.lockUnmaterializedCreatesForFerdigstillInTransaction(
-                    requireNotNull(ferdigstill(reference).content.toFerdigstillMatch(reference)),
-                )
+                inbox.lockReferenceForFerdigstillInTransaction(reference)
                 val connection = TransactionManager.current().connection.connection as Connection
                 connection.createStatement().use { statement ->
                     statement
@@ -86,6 +90,183 @@ class InboxReferenceSerializationIntegrationTest :
                         }
                 }
             }
+
+        test("retention deleting a duplicate and claimed FERDIGSTILL cannot deadlock with saveBatch and effectuation") {
+            val reference = "retention-reference-order"
+            val duplicate = create(reference)
+            val cancellation = ferdigstill(reference)
+            val candidate = create(reference)
+            inbox.saveBatch(listOf(duplicate, cancellation))
+            inbox.claim(10, 5.minutes, 10)
+            inbox.saveBatch(listOf(candidate))
+            val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minusDays(30)
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection
+                    .prepareStatement(
+                        "UPDATE inbox_message SET received_at = ?, next_attempt_time = ? WHERE event_id IN (?, ?)",
+                    ).use { statement ->
+                        statement.setObject(1, cutoff.minusDays(1))
+                        statement.setObject(2, cutoff.minusDays(1))
+                        statement.setObject(3, duplicate.eventId)
+                        statement.setObject(4, cancellation.eventId)
+                        statement.executeUpdate() shouldBe 2
+                    }
+            }
+            val key = referenceKey(reference)
+            val writerName = UUID.randomUUID().toString()
+            val writerInbox = InboxMessageRepositoryImpl(fixture.writerDatabase(writerName))
+            val cancellationName = UUID.randomUUID().toString()
+            val cancellationDatabase = fixture.writerDatabase(cancellationName)
+            val cancellationInbox = InboxMessageRepositoryImpl(cancellationDatabase)
+            val deliveries = DeliveryRepositoryImpl(cancellationDatabase, fixture.dataSource)
+            val candidateQueries = AtomicInteger()
+            val deliveryQueries = AtomicInteger()
+            val effectuate =
+                EffectuateDecision(
+                    TransactionRunnerImpl(cancellationDatabase),
+                    object : InboxMessageRepository by cancellationInbox {
+                        override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> {
+                            candidateQueries.incrementAndGet()
+                            return cancellationInbox.lockUnmaterializedCreatesForFerdigstillInTransaction(match)
+                        }
+                    },
+                    object : DeliveryRepository by deliveries {
+                        override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) =
+                            deliveries.findCreatesForFerdigstillInTransaction(match).also { deliveryQueries.incrementAndGet() }
+                    },
+                )
+            val retentionName = UUID.randomUUID().toString()
+            val deletedDuplicate = CountDownLatch(1)
+
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { gate ->
+                gate.autoCommit = false
+                gate.prepareStatement("SELECT pg_advisory_xact_lock(?)").use { statement ->
+                    statement.setLong(1, key)
+                    statement.executeQuery().close()
+                }
+                supervisorScope {
+                    val writer = async(Dispatchers.IO) { transactionResult { writerInbox.saveBatch(listOf(duplicate)) } }
+                    try {
+                        fixture.awaitLockWait(writerName, writer)
+                        val cancellationTask =
+                            async(Dispatchers.IO) {
+                                transactionResult { effectuate.effectuate(cancellation, Decision.Processed(emptyList())) }
+                            }
+                        fixture.awaitLockWait(cancellationName, cancellationTask)
+                        val ownRowAvailable = fixture.canLockInboxRow(cancellation.eventId)
+                        val retention =
+                            async(Dispatchers.IO) {
+                                transactionResult {
+                                    DriverManager
+                                        .getConnection(fixture.transactionJdbcUrl(retentionName), fixture.username, fixture.password)
+                                        .use { connection ->
+                                            connection.autoCommit = false
+                                            try {
+                                                // Simulate retention's row deletion order, without a state filter or SKIP LOCKED.
+                                                connection
+                                                    .prepareStatement("DELETE FROM inbox_message WHERE event_id = ? AND received_at < ?")
+                                                    .use { statement ->
+                                                        statement.setObject(1, duplicate.eventId)
+                                                        statement.setObject(2, cutoff)
+                                                        val deleted = statement.executeUpdate()
+                                                        deletedDuplicate.countDown()
+                                                        statement.setObject(1, cancellation.eventId)
+                                                        (deleted + statement.executeUpdate()).also { connection.commit() }
+                                                    }
+                                            } finally {
+                                                connection.rollback()
+                                            }
+                                        }
+                                }
+                            }
+                        deletedDuplicate.awaitBounded()
+                        if (ownRowAvailable) {
+                            retention.await().getOrThrow() shouldBe 2
+                        } else {
+                            fixture.awaitLockWait(retentionName, retention, lockType = "transactionid")
+                        }
+                        gate.commit()
+                        if (!ownRowAvailable) {
+                            fixture.awaitBlockingCycle(cancellationName, writerName, retentionName)
+                        }
+                        val writerResult = writer.await()
+                        val cancellationResult = cancellationTask.await()
+                        val retentionResult = retention.await()
+                        check(ownRowAvailable) {
+                            "Reference lock inversion: FERDIGSTILL -> saveBatch -> retention -> FERDIGSTILL; " +
+                                "own-row NOWAIT SQLSTATE 55P03; " +
+                                "writer=$writerResult, effectuation=$cancellationResult, retention=$retentionResult"
+                        }
+                        writerResult.getOrThrow()
+                        cancellationResult.getOrThrow() shouldBe EffectuationResult.Skipped
+                        retentionResult.getOrThrow() shouldBe 2
+                    } finally {
+                        gate.rollback()
+                    }
+                }
+            }
+
+            candidateQueries.get() shouldBe 0
+            deliveryQueries.get() shouldBe 0
+            state(cancellation) shouldBe null
+            state(duplicate) shouldBe "RECEIVED"
+            state(candidate) shouldBe "RECEIVED"
+            listOf(duplicate, cancellation, candidate).forEach { deliveryCount(it) shouldBe 0L }
+        }
+
+        test("FERDIGSTILL losing its claimed-row check never queries deliveries or cancellation candidates") {
+            val reference = "lost-ferdigstill-claim"
+            val cancellation = ferdigstill(reference)
+            val candidate = create(reference)
+            inbox.saveBatch(listOf(cancellation))
+            inbox.claim(10, 5.minutes, 10)
+            inbox.saveBatch(listOf(candidate))
+            val key = referenceKey(reference)
+            val cancellationName = UUID.randomUUID().toString()
+            val database = fixture.writerDatabase(cancellationName)
+            val effectuate =
+                EffectuateDecision(
+                    TransactionRunnerImpl(database),
+                    object : InboxMessageRepository by InboxMessageRepositoryImpl(database) {
+                        override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> =
+                            error("Lost claim must not query cancellation candidates")
+                    },
+                    object : DeliveryRepository by DeliveryRepositoryImpl(database, fixture.dataSource) {
+                        override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) =
+                            error("Lost claim must not query deliveries")
+                    },
+                )
+
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { gate ->
+                gate.autoCommit = false
+                gate.prepareStatement("SELECT event_id FROM inbox_message WHERE event_id = ? FOR UPDATE").use { statement ->
+                    statement.setObject(1, cancellation.eventId)
+                    statement.executeQuery().use { result -> result.next() shouldBe true }
+                }
+                coroutineScope {
+                    val cancellationTask =
+                        async(Dispatchers.IO) { effectuate.effectuate(cancellation, Decision.Processed(emptyList())) }
+                    try {
+                        fixture.awaitLockWait(cancellationName, cancellationTask, lockType = "transactionid")
+                        fixture.assertLocksBeforeInsert(cancellationName, listOf(key to true))
+                        gate.prepareStatement("UPDATE inbox_message SET state = ? WHERE event_id = ?").use { statement ->
+                            statement.setString(1, "PROCESSED")
+                            statement.setObject(2, cancellation.eventId)
+                            statement.executeUpdate() shouldBe 1
+                        }
+                        gate.commit()
+                        cancellationTask.await() shouldBe EffectuationResult.Skipped
+                    } finally {
+                        gate.rollback()
+                    }
+                }
+            }
+
+            state(cancellation) shouldBe "PROCESSED"
+            state(candidate) shouldBe "RECEIVED"
+            deliveryCount(cancellation) shouldBe 0L
+            deliveryCount(candidate) shouldBe 0L
+        }
 
         test("a matching saveBatch waits for cancellation commit and then remains a processable later arrival") {
             val reference = "cancellation-wins"
@@ -132,7 +313,7 @@ class InboxReferenceSerializationIntegrationTest :
             deliveryCount(newcomer) shouldBe 1L
         }
 
-        test("insertion winning the reference lock ignores the locked FERDIGSTILL retry and is then cancelled") {
+        test("insertion wins the reference guard before FERDIGSTILL locks its own row and cancels the deduplicated CREATE") {
             val reference = "insertion-wins"
             val cancellation = ferdigstill(reference)
             val newcomer = create(reference)
@@ -160,6 +341,7 @@ class InboxReferenceSerializationIntegrationTest :
                         val cancellationTask =
                             async(Dispatchers.IO) { effectuate.effectuate(cancellation, Decision.Processed(emptyList())) }
                         fixture.awaitLockWait(cancellationName, cancellationTask)
+                        fixture.canLockInboxRow(cancellation.eventId) shouldBe true
                         state(newcomer) shouldBe null
                         gate.commit()
                         writer.await()
@@ -337,11 +519,77 @@ private fun CountDownLatch.awaitBounded() {
 
 private fun PostgresTestFixture.writerDatabase(applicationName: String): Database =
     Database.connect(
-        "$jdbcUrl&ApplicationName=$applicationName&options=-c%20statement_timeout%3D10000",
+        transactionJdbcUrl(applicationName),
         "org.postgresql.Driver",
         username,
         password,
+        databaseConfig = DatabaseConfig { defaultMaxAttempts = 1 },
     )
+
+private fun PostgresTestFixture.transactionJdbcUrl(applicationName: String): String =
+    "$jdbcUrl&ApplicationName=$applicationName&options=-c%20statement_timeout%3D10000%20-c%20deadlock_timeout%3D5000"
+
+private suspend fun <T> transactionResult(block: suspend () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (exception: SQLException) {
+        Result.failure(AssertionError("Transaction aborted with SQLSTATE ${exception.sqlState}"))
+    }
+
+private fun PostgresTestFixture.canLockInboxRow(eventId: UUID): Boolean =
+    DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
+        connection.autoCommit = false
+        try {
+            connection.prepareStatement("SELECT event_id FROM inbox_message WHERE event_id = ? FOR UPDATE NOWAIT").use { statement ->
+                statement.setObject(1, eventId)
+                statement.executeQuery().use { result ->
+                    check(result.next()) { "Expected inbox row for NOWAIT lock probe" }
+                }
+            }
+            true
+        } catch (exception: SQLException) {
+            if (exception.sqlState != "55P03") throw exception
+            false
+        } finally {
+            connection.rollback()
+        }
+    }
+
+private suspend fun PostgresTestFixture.awaitBlockingCycle(
+    cancellationName: String,
+    writerName: String,
+    retentionName: String,
+) {
+    DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
+        connection
+            .prepareStatement(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM pg_stat_activity f, pg_stat_activity w, pg_stat_activity r
+                    WHERE f.application_name = ? AND w.application_name = ? AND r.application_name = ?
+                        AND w.pid = ANY(pg_blocking_pids(f.pid))
+                        AND r.pid = ANY(pg_blocking_pids(w.pid))
+                        AND f.pid = ANY(pg_blocking_pids(r.pid))
+                )
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, cancellationName)
+                statement.setString(2, writerName)
+                statement.setString(3, retentionName)
+                withTimeout(3_000) {
+                    while (true) {
+                        val cycle =
+                            statement.executeQuery().use { result ->
+                                check(result.next())
+                                result.getBoolean(1)
+                            }
+                        if (cycle) break
+                        delay(10)
+                    }
+                }
+            }
+    }
+}
 
 private fun PostgresTestFixture.assertLocksBeforeInsert(
     applicationName: String,

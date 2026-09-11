@@ -175,6 +175,10 @@ class InboxMessageRepositoryImpl(
     override fun markProcessedInTransaction(eventId: UUID): Boolean =
         terminate(eventId, state = InboxMessageState.PROCESSED, dropReason = null, errorMessage = null)
 
+    override fun lockReferenceForFerdigstillInTransaction(reference: String) {
+        lockReferencesInTransaction(listOf(reference))
+    }
+
     override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean =
         InboxMessageTable
             .select(InboxMessageTable.eventId)
