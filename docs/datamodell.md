@@ -108,6 +108,14 @@ kan jobbe parallelt uten dobbelt-claim:
 
 ### Transaksjonsgrenser
 
+`saveBatch` og FERDIGSTILLs kandidatsøk tar samme eksklusive PostgreSQL advisory lock per
+referanse før henholdsvis innsetting og søk. Låsen er på transaksjonsnivå og holdes til commit
+eller rollback, slik at kandidatsøk og terminalisering ikke slipper inn samtidige innsettinger
+på samme referanse. En batch tar alle distinkte, hashede `bigint`-nøkler i numerisk rekkefølge
+før første innsetting. Låsene bruker navnerommet for én `bigint`, adskilt fra delivery- og
+retensjonslåsenes navnerom for to `int`. Ulike referanser serialiseres ikke globalt, og ingen
+HTTP-kall holder denne transaksjonslåsen.
+
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
   `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
 - **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon og låser først den
@@ -193,7 +201,8 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   budstikkas database.
 - En ARBEIDSGIVERVARSEL-`OPPRETT` fryser Fagers stabile eksternId i
   `delivery.create_external_id` ved materialisering: create-radens `inbox_event_id`. En
-  kompatibilitets-trigger setter samme verdi for eldre skrivere som utelater kolonnen. Mangler
+  kompatibilitets-trigger i V11 setter samme verdi ved innsetting i `delivery` for eldre skrivere
+  som utelater kolonnen; den beskytter ikke innsetting i inbox. Mangler
   den opprinnelige inbox-identiteten, kan eksternId ikke gjenopprettes: V9s `delivery.id`-gjett
   ryddes til ukjent og både publisering og `INAKTIVER` feiler terminalt uten Fager-kall. Samme
   frosne verdi kopieres til avledet `INAKTIVER`, så en kjent identitet overlever inbox-retensjon.

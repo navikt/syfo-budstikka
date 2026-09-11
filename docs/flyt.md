@@ -116,6 +116,8 @@ En manglende eller historisk uavklart eksternId er en terminal feil uten publise
 lukke-kall. Under kompatibilitetsmigreringen avstemmes bare ventende avhengige leveranser gjennom
 `source_create_delivery_id`; `SENT` og `FAILED` endres ikke. Lukking forblir deaktivert til
 kompatibel kode er utrullet og gamle replikaer og arbeidere med pågående behandling er stoppet.
+Denne sperren omfatter også gamle inbox-skrivere: alle som skriver til inbox må delta i
+referanselåsingen, mens eldre `saveBatch`-implementasjoner omgår den.
 Uavklarte identiteter krever separat autorisert avstemming før lukking aktiveres for de berørte
 dataene; ikke rull tilbake til reservehandlere mens uavklarte rader eller lukkinger i kø finnes.
 
@@ -134,6 +136,13 @@ opprettelsen, avledes vanlig INAKTIVER; alle låste OPPRETT-er markeres samtidig
 materialisere. Ellers markeres de låste OPPRETT-ene og FERDIGSTILL `PROCESSED` uten delivery.
 Opprettelsen låser også sin egen inbox-rad før terminal overgang og delivery-write, slik at bare
 én av disse to utfallene kan vinne.
+
+Referanselåsen beskrevet i [datamodell.md](datamodell.md#transaksjonsgrenser) avgrenser hvilke
+innsettinger kanselleringen omfatter. OPPRETT-er som settes inn før kanselleringen får låsen,
+blir synlige for kandidatsøket og kanselleres hvis de matcher og ennå ikke er materialisert.
+En innsetting som venter til kanselleringen committer, regnes derimot som en senere ankomst
+og kan behandles normalt. FERDIGSTILL etterlater ingen permanent kanselleringsmarkør eller
+sperre mot fremtidige OPPRETT-er.
 
 ### Kantsituasjoner
 
