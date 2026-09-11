@@ -25,6 +25,8 @@ class ThrowingMessageRepository : InboxMessageRepository {
 
     override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean = true
 
+    override fun lockReferenceForFerdigstillInTransaction(reference: String) = Unit
+
     override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = emptyList()
 
     override fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean = true
