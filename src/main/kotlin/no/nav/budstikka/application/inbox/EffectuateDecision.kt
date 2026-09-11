@@ -28,6 +28,12 @@ sealed interface EffectuationResult {
     data class FerdigstillWithDelivery(
         val deliveryCount: Int,
         val invalidStoredCreateCount: Int = 0,
+        val cancelledCreateCount: Int = 0,
+    ) : EffectuationResult
+
+    /** FERDIGSTILL cancelled unmaterialized CREATE inbox rows without materializing a delivery. */
+    data class FerdigstillWithCancellation(
+        val cancelledCreateCount: Int,
     ) : EffectuationResult
 
     data object FerdigstillWithoutMatch : EffectuationResult
@@ -35,7 +41,9 @@ sealed interface EffectuationResult {
     data object FerdigstillWithoutSupportedRuntimeChannel : EffectuationResult
 
     /** Every matching stored CREATE has incompatible persisted payload, channel, or recipient data. */
-    data object FerdigstillWithInvalidStoredCreate : EffectuationResult
+    data class FerdigstillWithInvalidStoredCreate(
+        val cancelledCreateCount: Int = 0,
+    ) : EffectuationResult
 }
 
 /**
@@ -122,11 +130,12 @@ class EffectuateDecision(
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
-                    cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
+                    val cancelledCreateCount = cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
                     deliveryRepository.saveInTransaction(inboxMessage.eventId, inactivateDrafts)
                     EffectuationResult.FerdigstillWithDelivery(
                         deliveryCount = inactivateDrafts.size,
                         invalidStoredCreateCount = invalidStoredCreateCount,
+                        cancelledCreateCount = cancelledCreateCount,
                     )
                 }
             }
@@ -135,8 +144,9 @@ class EffectuateDecision(
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
-                    cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
-                    EffectuationResult.FerdigstillWithInvalidStoredCreate
+                    EffectuationResult.FerdigstillWithInvalidStoredCreate(
+                        cancelledCreateCount = cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds),
+                    )
                 }
             }
 
@@ -144,8 +154,9 @@ class EffectuateDecision(
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
-                    cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
-                    EffectuationResult.Completed
+                    EffectuationResult.FerdigstillWithCancellation(
+                        cancelledCreateCount = cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds),
+                    )
                 }
             }
 
@@ -156,12 +167,13 @@ class EffectuateDecision(
         }
     }
 
-    private fun cancelLockedUnmaterializedCreates(eventIds: List<UUID>) {
+    private fun cancelLockedUnmaterializedCreates(eventIds: List<UUID>): Int {
         eventIds.forEach { eventId ->
             check(inboxMessageRepository.markUnmaterializedCreateProcessedInTransaction(eventId)) {
                 "Locked unmaterialized CREATE must remain cancellable"
             }
         }
+        return eventIds.size
     }
 
     private fun Boolean.toEffectuationResult(): EffectuationResult = if (this) EffectuationResult.Completed else EffectuationResult.Skipped

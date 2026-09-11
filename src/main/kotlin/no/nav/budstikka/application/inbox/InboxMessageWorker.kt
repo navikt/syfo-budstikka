@@ -72,19 +72,23 @@ class InboxMessageWorker(
         when (effectuation) {
             EffectuationResult.FerdigstillWithoutMatch -> {
                 metrics.ferdigstillWithoutMatch()
-                logFerdigstillNoOp("Ferdigstill processed without matching create delivery")
+                logPiiFreeFerdigstillOutcome("Ferdigstill processed without matching create delivery")
                 return
             }
 
             EffectuationResult.FerdigstillWithoutSupportedRuntimeChannel -> {
                 metrics.ferdigstillWithoutSupportedRuntimeChannel()
-                logFerdigstillNoOp("Ferdigstill processed without a supported runtime channel")
+                logPiiFreeFerdigstillOutcome("Ferdigstill processed without a supported runtime channel")
                 return
             }
 
-            EffectuationResult.FerdigstillWithInvalidStoredCreate -> {
+            is EffectuationResult.FerdigstillWithInvalidStoredCreate -> {
                 metrics.ferdigstillWithInvalidStoredCreate()
-                logFerdigstillNoOp("Ferdigstill processed with an invalid stored create delivery")
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+                logPiiFreeFerdigstillOutcome(
+                    "Ferdigstill processed with an invalid stored create delivery",
+                    effectuation.cancellationFields(),
+                )
                 return
             }
 
@@ -92,6 +96,19 @@ class InboxMessageWorker(
                 if (effectuation.invalidStoredCreateCount > 0) {
                     metrics.ferdigstillWithInvalidStoredCreate()
                 }
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+            }
+
+            is EffectuationResult.FerdigstillWithCancellation -> {
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+                logPiiFreeFerdigstillOutcome(
+                    "Ferdigstill cancelled unmaterialized create inbox rows",
+                    listOf(
+                        kv(MdcKeys.RESULT, "FERDIGSTILL_CREATE_CANCELLED"),
+                        kv(MdcKeys.CANCELLED_CREATE_COUNT, effectuation.cancelledCreateCount),
+                    ),
+                )
+                return
             }
 
             EffectuationResult.Completed,
@@ -101,6 +118,8 @@ class InboxMessageWorker(
         val fields =
             decision.logFields(
                 deliveryCount = (effectuation as? EffectuationResult.FerdigstillWithDelivery)?.deliveryCount,
+                cancelledCreateCount =
+                    (effectuation as? EffectuationResult.FerdigstillWithDelivery)?.cancelledCreateCount,
             )
         logger.info(
             withPlaceholders("Inbox message processed", fields),
@@ -108,12 +127,15 @@ class InboxMessageWorker(
         )
     }
 
-    /** FERDIGSTILL no-op logs carry only the low-cardinality outcome and the non-PII event MDC. */
-    private fun logFerdigstillNoOp(message: String) {
+    /** FERDIGSTILL outcome logs carry only PII-free fields and the non-PII event MDC. */
+    private fun logPiiFreeFerdigstillOutcome(
+        message: String,
+        fields: List<StructuredArgument> = emptyList(),
+    ) {
         val reference = MDC.get(MdcKeys.REFERENCE)
         MDC.remove(MdcKeys.REFERENCE)
         try {
-            logger.info(message)
+            logger.info(withPlaceholders(message, fields), *fields.toTypedArray())
         } finally {
             if (reference == null) {
                 MDC.remove(MdcKeys.REFERENCE)
@@ -132,13 +154,33 @@ class InboxMessageWorker(
         }
     }
 
-    private fun Decision.logFields(deliveryCount: Int? = null): List<StructuredArgument> =
+    private fun InboxMetrics.recordCancelledCreates(count: Int) {
+        if (count > 0) {
+            ferdigstillCancelledCreates(count)
+        }
+    }
+
+    private fun EffectuationResult.FerdigstillWithInvalidStoredCreate.cancellationFields(): List<StructuredArgument> =
+        if (cancelledCreateCount > 0) {
+            listOf(kv(MdcKeys.CANCELLED_CREATE_COUNT, cancelledCreateCount))
+        } else {
+            emptyList()
+        }
+
+    private fun Decision.logFields(
+        deliveryCount: Int? = null,
+        cancelledCreateCount: Int? = null,
+    ): List<StructuredArgument> =
         when (this) {
             is Decision.Processed -> {
                 listOf(
                     kv(MdcKeys.RESULT, "PROCESSED"),
                     kv(MdcKeys.DELIVERY_COUNT, deliveryCount ?: deliveries.size),
-                )
+                ) +
+                    cancelledCreateCount
+                        ?.takeIf { it > 0 }
+                        ?.let { listOf(kv(MdcKeys.CANCELLED_CREATE_COUNT, it)) }
+                        .orEmpty()
             }
 
             is Decision.Dropped -> {

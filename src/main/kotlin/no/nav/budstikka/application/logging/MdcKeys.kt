@@ -4,6 +4,7 @@ object MdcKeys {
     const val BACKOFF_MILLIS = "backoff_millis"
     const val CAUSE_TYPE = "cause_type"
     const val CLAIMED_ROWS_COUNT = "claimed_rows_count"
+    const val CANCELLED_CREATE_COUNT = "cancelled_create_count"
     const val CONSECUTIVE_ITEM_FAILURE_COUNT = "consecutive_item_failure_count"
     const val CONSUMER = "consumer"
     const val DELIVERY_CHANNEL = "delivery_channel"
