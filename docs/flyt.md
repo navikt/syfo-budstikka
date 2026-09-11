@@ -112,6 +112,12 @@ For BRUKERVARSEL og LEDERVARSEL er den thin INAKTIVER-payloaden avledet fra crea
 ARBEIDSGIVERVARSEL beholdes create-payloaden som frosset lukkegrunnlag, sammen med den stabile
 create-eksternId-en. Kanalhandleren bruker bare disse lagrede dataene ved lukking, aldri et nytt
 Nærmeste leder-oppslag.
+En manglende eller historisk uavklart eksternId er en terminal feil uten publiserings- eller
+lukke-kall. Under kompatibilitetsmigreringen avstemmes bare ventende avhengige leveranser gjennom
+`source_create_delivery_id`; `SENT` og `FAILED` endres ikke. Lukking forblir deaktivert til
+kompatibel kode er utrullet og gamle replikaer og arbeidere med pågående behandling er stoppet.
+Uavklarte identiteter krever separat autorisert avstemming før lukking aktiveres for de berørte
+dataene; ikke rull tilbake til reservehandlere mens uavklarte rader eller lukkinger i kø finnes.
 
 En dependent kan først claimes når sin source CREATE er `SENT`; en `FAILED` source terminaliserer
 dependent som `FAILED` uten handlerkall eller nytt forsøk. En PostgreSQL session advisory lock
@@ -120,20 +126,22 @@ holdes gjennom eksternt handlerkall og terminal state-overgang.
 Guarden gir ikke en distribuert transaksjon: stabile nedstrøms-ID-er, idempotens og avstemming er
 fortsatt nødvendige, i tråd med [ADR 0017](adr/0017-kilde-create-lases-ved-avhengig-inactivate.md).
 
-Runtime gjør første delivery-oppslag, men låser deretter alltid **alle** matchende OPPRETT-er som
-er `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` — også når oppslaget allerede fant en
-delivery. Etter låsene leses delivery på nytt: vant opprettelsen, avledes vanlig INAKTIVER; alle
-låste hold-kopier markeres samtidig `PROCESSED` uten å materialisere. Ellers markeres de låste
-OPPRETT-ene og FERDIGSTILL `PROCESSED` uten delivery. Opprettelsen låser også sin egen inbox-rad
-før terminal overgang og delivery-write, slik at bare én av disse to utfallene kan vinne.
+Runtime gjør første delivery-oppslag, men låser deretter alltid **alle** matchende, ennå ikke
+materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED` — også når oppslaget allerede fant
+en delivery. SQL avgrenser på den lagrede CREATE-discriminatoren før `FOR UPDATE`, slik at
+FERDIGSTILL-rader aldri låses som kandidater. Etter låsene leses delivery på nytt: vant
+opprettelsen, avledes vanlig INAKTIVER; alle låste OPPRETT-er markeres samtidig `PROCESSED` uten å
+materialisere. Ellers markeres de låste OPPRETT-ene og FERDIGSTILL `PROCESSED` uten delivery.
+Opprettelsen låser også sin egen inbox-rad før terminal overgang og delivery-write, slik at bare
+én av disse to utfallene kan vinne.
 
 ### Kantsituasjoner
 
 | Situasjon | Handling |
 | --- | --- |
-| Én eller flere OPPRETT-deliveries funnet | Skriv én `delivery(operation=INAKTIVER)` per gyldig CREATE → outbox lukker på kanalen; hver dependent peker til sin eksakte source. Ugyldige eller `FAILED` søsken undertrykker ikke gyldige closes. Alle matchende `WAIT`/oppvåknede hold-kopier kanselleres samtidig |
-| Én eller flere matchende OPPRETT-er fortsatt `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` | Lås alle radene og avslutt hver OPPRETT direkte som `PROCESSED`; ingen delivery og ingen egen `CANCELLED`-state |
-| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. Låsen dekker bare `WAIT`/oppvåknet `CLAIMED` med `wait_reason`; en ordinær `RECEIVED` eller vanlig `CLAIMED` OPPRETT (ikke en WAIT-oppvåkning) kan fortsatt materialiseres etter den låste no-match-avgjørelsen. Kafka-partisjonsrekkefølge garanterer ikke workernes tidsrekkefølge på tvers av replikaer. |
+| Én eller flere OPPRETT-deliveries funnet | Skriv én `delivery(operation=INAKTIVER)` per gyldig CREATE → outbox lukker på kanalen; hver dependent peker til sin eksakte source. Ugyldige eller `FAILED` søsken undertrykker ikke gyldige closes. Alle matchende, ikke-materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED` kanselleres samtidig |
+| Én eller flere matchende OPPRETT-er fortsatt i inbox | Lås alle CREATE-radene i `RECEIVED`, `WAIT` eller `CLAIMED` og avslutt hver OPPRETT direkte som `PROCESSED`; ingen delivery og ingen egen `CANCELLED`-state |
+| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. Når en matching OPPRETT ennå finnes i inbox, låses den og kanselleres før FERDIGSTILL terminaliseres. Kafka-partisjonsrekkefølge garanterer ikke workernes tidsrekkefølge på tvers av replikaer. |
 | Lagret OPPRETT har ugyldig payload-/kanal-/mottaker-kombinasjon | FERDIGSTILL og alle låste hold-kopier blir `PROCESSED` uten delivery, med PII-fri logg + metrikk `ferdigstill_lagret_opprett_ugyldig`; dette er ikke en manglende runtime-kanal eller en manglende match. |
 
 ### Lukkbarhet per kanal

@@ -64,8 +64,9 @@ erDiagram
   utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
   avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Hold-plasseringen er avgjort til
   inbox-hold ([ADR 0014](adr/0014-inbox-hold-for-sendevindu.md)). FERDIGSTILL bruker
-  `reference`-indeksen til å finne og radlåse alle aktuelle hold; kanal og partisjonsanker
-  verifiseres mot det hydrerte innholdet.
+  `reference`-indeksen og den lagrede CREATE-discriminatoren til å finne og radlåse aktuelle
+  OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED`; kanal og partisjonsanker verifiseres mot det
+  hydrerte innholdet.
 - `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
   content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
@@ -113,11 +114,13 @@ kan jobbe parallelt uten dobbelt-claim:
   claimede inbox-raden med `FOR UPDATE`. `markProcessedInTransaction(eventId)` (CAS) skjer før
   `saveInTransaction(...)`, og delivery-rader skrives bare hvis CAS lykkes.
   `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader for samme
-  inbox-melding. Ved FERDIGSTILL låses alle matchende `WAIT`/oppvåknede `CLAIMED` OPPRETT-er med
-  `wait_reason`, også når første delivery-oppslag allerede fant en CREATE. Delivery leses på nytt
-  etter låsene for å serialisere oppvåkning mot kansellering; alle låste hold-kopier avsluttes
-  `PROCESSED` i samme transaksjon. `delivery_ferdigstill_match_idx` avgrenser delivery-oppslaget
-  på match-nøkkelen og henter alle matchende OPPRETT-er mens transaksjonen holder radlåsene.
+  inbox-melding. Ved FERDIGSTILL låses alle matchende, ikke-materialiserte OPPRETT-er i
+  `RECEIVED`, `WAIT` eller `CLAIMED`, også når første delivery-oppslag allerede fant en CREATE.
+  SQL avgrenser CREATE-discriminatoren før `FOR UPDATE`, så samtidige FERDIGSTILL-er ikke låser
+  hverandres inbox-rader. Delivery leses på nytt etter låsene for å serialisere materialisering
+  mot kansellering; alle låste OPPRETT-er avsluttes `PROCESSED` i samme transaksjon.
+  `delivery_ferdigstill_match_idx` avgrenser delivery-oppslaget på match-nøkkelen og henter alle
+  matchende OPPRETT-er mens transaksjonen holder radlåsene.
 
 ### `inbox_message.state`
 
@@ -189,11 +192,11 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
   budstikkas database.
 - En ARBEIDSGIVERVARSEL-`OPPRETT` fryser Fagers stabile eksternId i
-  `delivery.create_external_id` ved materialisering: create-radens `inbox_event_id`, eller
-  create-deliveryens `id` som beste tilgjengelige migreringsverdi for eldre rader der FK-en
-  allerede er null. Det opprinnelig brukte inbox-event-id-et kan da ikke gjenopprettes, og ingen
-  retention-jobb finnes i dag. Samme verdi brukes ved publisering og kopieres til avledet
-  `INAKTIVER`, så den overlever inbox-retensjon.
+  `delivery.create_external_id` ved materialisering: create-radens `inbox_event_id`. En
+  kompatibilitets-trigger setter samme verdi for eldre skrivere som utelater kolonnen. Mangler
+  den opprinnelige inbox-identiteten, kan eksternId ikke gjenopprettes: V9s `delivery.id`-gjett
+  ryddes til ukjent og både publisering og `INAKTIVER` feiler terminalt uten Fager-kall. Samme
+  frosne verdi kopieres til avledet `INAKTIVER`, så en kjent identitet overlever inbox-retensjon.
 
 ## Observability-koblinger
 

@@ -41,6 +41,7 @@ import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -384,6 +385,118 @@ class FerdigstillMatchingIntegrationTest :
             fixture.database.transact { DeliveryTable.selectAll().count() } shouldBe 0L
         }
 
+        test("FERDIGSTILL cancels matching RECEIVED and ordinary CLAIMED CREATEs before materialization") {
+            listOf(
+                InboxMessageState.RECEIVED to 841,
+                InboxMessageState.CLAIMED to 842,
+            ).forEach { (createState, suffix) ->
+                val (inbox, deliveries) = repositories()
+                val effectuate = effectuator(inbox, deliveries)
+                val reference = "unmaterialized-${createState.name.lowercase()}-ref"
+                val create =
+                    InboxMessage(
+                        UUID.fromString("00000000-0000-0000-0000-000000000$suffix"),
+                        reference,
+                        BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "pending"),
+                    )
+                val inactivate =
+                    InboxMessage(
+                        UUID.fromString("00000000-0000-0000-0000-000000000${suffix + 10}"),
+                        reference,
+                        BrukervarselInactivate(reference, TEST_SYKMELDT),
+                    )
+                inbox.saveBatch(listOf(create, inactivate))
+                fixture.database.transact {
+                    InboxMessageTable.update({ InboxMessageTable.eventId eq create.eventId }) {
+                        it[state] = createState.name
+                        if (createState == InboxMessageState.CLAIMED) {
+                            it[nextAttemptTime] = Clock.System.now() + lease
+                        }
+                    }
+                    InboxMessageTable.update({ InboxMessageTable.eventId eq inactivate.eventId }) {
+                        it[state] = InboxMessageState.CLAIMED.name
+                        it[nextAttemptTime] = Clock.System.now() + lease
+                    }
+                }
+
+                effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe EffectuationResult.Completed
+
+                inboxState(create.eventId) shouldBe "PROCESSED"
+                fixture.database.transact {
+                    InboxMessageTable
+                        .selectAll()
+                        .where { InboxMessageTable.eventId eq create.eventId }
+                        .single()[InboxMessageTable.attempt] shouldBe 0
+                    DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.count() shouldBe 0L
+                }
+                effectuate.effectuate(create, createDecision(create)) shouldBe EffectuationResult.Skipped
+            }
+        }
+
+        test("simultaneous FERDIGSTILL events cancel one matching CREATE without locking each other") {
+            val (inbox, deliveries) = repositories()
+            val reference = "simultaneous-ferdigstill-ref"
+            val create =
+                InboxMessage(
+                    UUID.fromString("00000000-0000-0000-0000-000000000861"),
+                    reference,
+                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "pending"),
+                )
+            val inactivates =
+                listOf(862, 863).map { suffix ->
+                    InboxMessage(
+                        UUID.fromString("00000000-0000-0000-0000-000000000$suffix"),
+                        reference,
+                        BrukervarselInactivate(reference, TEST_SYKMELDT),
+                    )
+                }
+            inbox.saveBatch(listOf(create) + inactivates)
+            fixture.database.transact {
+                inactivates.forEach { inactivate ->
+                    InboxMessageTable.update({ InboxMessageTable.eventId eq inactivate.eventId }) {
+                        it[state] = InboxMessageState.CLAIMED.name
+                        it[nextAttemptTime] = Clock.System.now() + lease
+                    }
+                }
+            }
+            val inactivateEventIds = inactivates.map { it.eventId }
+            val claimedFerdigstillLocks = CountDownLatch(inactivateEventIds.size)
+
+            fun coordinatedEffectuator() =
+                effectuator(
+                    LockCoordinatingInboxRepository(
+                        inbox,
+                        afterClaimedLock = { eventId ->
+                            if (eventId in inactivateEventIds) {
+                                claimedFerdigstillLocks.countDown()
+                                claimedFerdigstillLocks.awaitOrFail(
+                                    "FERDIGSTILL effectuation did not lock concurrently",
+                                )
+                            }
+                        },
+                    ),
+                    deliveries,
+                )
+
+            coroutineScope {
+                val results =
+                    inactivates
+                        .map { inactivate ->
+                            async(Dispatchers.IO) {
+                                coordinatedEffectuator().effectuate(inactivate, Decision.Processed(emptyList()))
+                            }
+                        }.awaitAll()
+                results.count { it == EffectuationResult.Completed } shouldBe 1
+                results.count { it == EffectuationResult.FerdigstillWithoutMatch } shouldBe 1
+            }
+
+            inboxState(create.eventId) shouldBe "PROCESSED"
+            inactivates.forEach { inactivate -> inboxState(inactivate.eventId) shouldBe "PROCESSED" }
+            fixture.database.transact {
+                DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.count() shouldBe 0L
+            }
+        }
+
         test("FERDIGSTILL cancels a matching WAIT duplicate when CREATE delivery already exists") {
             val (inbox, deliveries) = repositories()
             val effectuate = effectuator(inbox, deliveries)
@@ -471,57 +584,66 @@ class FerdigstillMatchingIntegrationTest :
             }
         }
 
-        test("FERDIGSTILL cancels its locked awakened WAIT CREATE when another matching CREATE materializes") {
-            val (waitingCreate, inactivate) = prepareAwakenedWait(3)
+        test("FERDIGSTILL locks an awakened WAIT and ordinary CLAIMED sibling before cancelling both") {
+            val (awakenedWait, inactivate) = prepareAwakenedWait(3)
             val (inbox, deliveries) = repositories()
-            val waitingCreateLock = TransactionLockBarrier()
+            val claimedSibling =
+                InboxMessage(
+                    UUID.fromString("00000000-0000-0000-0000-000000000861"),
+                    awakenedWait.reference,
+                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "claimed sibling"),
+                )
+            saveAndClaim(inbox, claimedSibling)
+
+            val cancellationLock = TransactionLockBarrier()
+            val createLockAttempts = CountDownLatch(2)
             val cancellationEffectuate =
                 effectuator(
                     LockCoordinatingInboxRepository(
                         inbox,
-                        afterWaitingCreateLock = { waitingCreateLock.hold() },
+                        afterUnmaterializedCreateLock = { cancellationLock.hold() },
                     ),
                     deliveries,
                 )
-            val materializedCreate =
-                InboxMessage(
-                    UUID.fromString("00000000-0000-0000-0000-000000000861"),
-                    waitingCreate.reference,
-                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "materialized"),
+            val createEffectuate =
+                effectuator(
+                    LockCoordinatingInboxRepository(
+                        inbox,
+                        beforeClaimedLock = { eventId ->
+                            if (eventId == awakenedWait.eventId || eventId == claimedSibling.eventId) {
+                                createLockAttempts.countDown()
+                            }
+                        },
+                    ),
+                    deliveries,
                 )
-            saveAndClaim(inbox, materializedCreate)
 
             coroutineScope {
                 val cancellation =
                     async(Dispatchers.IO) {
                         cancellationEffectuate.effectuate(inactivate, Decision.Processed(emptyList()))
                     }
-                waitingCreateLock.awaitLock()
+                cancellationLock.awaitLock()
+                val createEffectuations =
+                    listOf(awakenedWait, claimedSibling).map { create ->
+                        async(Dispatchers.IO) { createEffectuate.effectuate(create, createDecision(create)) }
+                    }
+                createLockAttempts.awaitOrFail("CREATE effectuation did not contend for both locked rows")
                 try {
-                    effectuator(inbox, deliveries).effectuate(
-                        materializedCreate,
-                        createDecision(materializedCreate),
-                    ) shouldBe EffectuationResult.Completed
+                    createEffectuations.forEach { it.isCompleted shouldBe false }
                 } finally {
-                    waitingCreateLock.release()
+                    cancellationLock.release()
                 }
-                cancellation.await() shouldBe EffectuationResult.FerdigstillWithDelivery(deliveryCount = 1)
+
+                cancellation.await() shouldBe EffectuationResult.Completed
+                createEffectuations.awaitAll().forEach { it shouldBe EffectuationResult.Skipped }
             }
 
-            inboxState(waitingCreate.eventId) shouldBe "PROCESSED"
-            inboxState(materializedCreate.eventId) shouldBe "PROCESSED"
+            inboxState(awakenedWait.eventId) shouldBe "PROCESSED"
+            inboxState(claimedSibling.eventId) shouldBe "PROCESSED"
             inboxState(inactivate.eventId) shouldBe "PROCESSED"
-            inactivateRows(waitingCreate.reference) shouldHaveSize 1
-            inactivateRows(waitingCreate.reference).single()[DeliveryTable.payload] shouldBe
-                BrukervarselInactivate(waitingCreate.reference, TEST_SYKMELDT)
-
-            effectuator(inbox, deliveries).effectuate(waitingCreate, createDecision(waitingCreate)) shouldBe
-                EffectuationResult.Skipped
             fixture.database.transact {
-                DeliveryTable
-                    .selectAll()
-                    .where { DeliveryTable.reference eq waitingCreate.reference }
-                    .count() shouldBe 2L
+                DeliveryTable.selectAll().where { DeliveryTable.reference eq awakenedWait.reference }.count() shouldBe 0L
             }
         }
 
@@ -534,7 +656,7 @@ class FerdigstillMatchingIntegrationTest :
                 effectuator(
                     LockCoordinatingInboxRepository(
                         inbox,
-                        afterWaitingCreateLock = { cancellationLock.hold() },
+                        afterUnmaterializedCreateLock = { cancellationLock.hold() },
                     ),
                     deliveries,
                 )
@@ -596,7 +718,7 @@ class FerdigstillMatchingIntegrationTest :
                 effectuator(
                     LockCoordinatingInboxRepository(
                         inbox,
-                        beforeWaitingCreateLock = { inactivateLockAttempted.countDown() },
+                        beforeUnmaterializedCreateLock = { inactivateLockAttempted.countDown() },
                     ),
                     deliveries,
                 )
@@ -662,8 +784,8 @@ private class LockCoordinatingInboxRepository(
     private val delegate: InboxMessageRepository,
     private val beforeClaimedLock: (UUID) -> Unit = {},
     private val afterClaimedLock: (UUID) -> Unit = {},
-    private val beforeWaitingCreateLock: () -> Unit = {},
-    private val afterWaitingCreateLock: (UUID) -> Unit = {},
+    private val beforeUnmaterializedCreateLock: () -> Unit = {},
+    private val afterUnmaterializedCreateLock: (UUID) -> Unit = {},
 ) : InboxMessageRepository by delegate {
     override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean {
         beforeClaimedLock(eventId)
@@ -674,10 +796,10 @@ private class LockCoordinatingInboxRepository(
         }
     }
 
-    override fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> {
-        beforeWaitingCreateLock()
-        return delegate.lockWaitingCreatesForFerdigstillInTransaction(match).also { eventIds ->
-            eventIds.forEach(afterWaitingCreateLock)
+    override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> {
+        beforeUnmaterializedCreateLock()
+        return delegate.lockUnmaterializedCreatesForFerdigstillInTransaction(match).also { eventIds ->
+            eventIds.forEach(afterUnmaterializedCreateLock)
         }
     }
 }
