@@ -94,22 +94,22 @@ class EffectuateDecision(
 
     /**
      * The first lookup observes already materialized CREATE rows, but never skips locking matching
-     * WAIT/awakened-WAIT CREATE rows: duplicates must not materialize after FERDIGSTILL. After
-     * those locks, the CREATE lookup is repeated because a creator may have won while this
-     * transaction waited. Every locked held CREATE is cancelled, whether INAKTIVER is derived from
-     * a stored CREATE or not.
+     * unmaterialized CREATE rows: duplicates must not materialize after FERDIGSTILL. After those
+     * locks, the CREATE lookup is repeated because a creator may have won while this transaction
+     * waited. Every locked CREATE is cancelled, whether INAKTIVER is derived from a stored CREATE
+     * or not.
      */
     private fun effectuateFerdigstill(inboxMessage: InboxMessage): EffectuationResult {
         val match =
             inboxMessage.content.toFerdigstillMatch(inboxMessage.reference)
                 ?: return markFerdigstillWithoutSupportedRuntimeChannel(inboxMessage.eventId)
 
-        val createsBeforeWaitingLocks = deliveryRepository.findCreatesForFerdigstillInTransaction(match)
-        val waitingCreateEventIds = inboxMessageRepository.lockWaitingCreatesForFerdigstillInTransaction(match)
+        val createsBeforeUnmaterializedLocks = deliveryRepository.findCreatesForFerdigstillInTransaction(match)
+        val unmaterializedCreateEventIds = inboxMessageRepository.lockUnmaterializedCreatesForFerdigstillInTransaction(match)
         val creates =
             deliveryRepository
                 .findCreatesForFerdigstillInTransaction(match)
-                .ifEmpty { createsBeforeWaitingLocks }
+                .ifEmpty { createsBeforeUnmaterializedLocks }
 
         val inactivateDrafts = creates.mapNotNull(StoredCreateDelivery::toInactivateDraft)
         val invalidStoredCreateCount = creates.size - inactivateDrafts.size
@@ -118,7 +118,7 @@ class EffectuateDecision(
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
-                    cancelLockedWaitingCreates(waitingCreateEventIds)
+                    cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
                     deliveryRepository.saveInTransaction(inboxMessage.eventId, inactivateDrafts)
                     EffectuationResult.FerdigstillWithDelivery(
                         deliveryCount = inactivateDrafts.size,
@@ -131,16 +131,16 @@ class EffectuateDecision(
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
-                    cancelLockedWaitingCreates(waitingCreateEventIds)
+                    cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
                     EffectuationResult.FerdigstillWithInvalidStoredCreate
                 }
             }
 
-            waitingCreateEventIds.isNotEmpty() -> {
+            unmaterializedCreateEventIds.isNotEmpty() -> {
                 if (!inboxMessageRepository.markProcessedInTransaction(inboxMessage.eventId)) {
                     EffectuationResult.Skipped
                 } else {
-                    cancelLockedWaitingCreates(waitingCreateEventIds)
+                    cancelLockedUnmaterializedCreates(unmaterializedCreateEventIds)
                     EffectuationResult.Completed
                 }
             }
@@ -152,10 +152,10 @@ class EffectuateDecision(
         }
     }
 
-    private fun cancelLockedWaitingCreates(eventIds: List<UUID>) {
+    private fun cancelLockedUnmaterializedCreates(eventIds: List<UUID>) {
         eventIds.forEach { eventId ->
-            check(inboxMessageRepository.markWaitingCreateProcessedInTransaction(eventId)) {
-                "Locked waiting CREATE must remain cancellable"
+            check(inboxMessageRepository.markUnmaterializedCreateProcessedInTransaction(eventId)) {
+                "Locked unmaterialized CREATE must remain cancellable"
             }
         }
     }

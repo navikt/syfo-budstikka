@@ -66,15 +66,14 @@ interface InboxMessageRepository {
     fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean
 
     /**
-     * Locks every matching CREATE that is either waiting for the sending window or has been woken
-     * but still carries its wait reason. The caller must re-check materialized deliveries after
-     * this call because a CREATE effectuation may have won while this transaction waited for a
-     * lock.
+     * Locks every matching unmaterialized CREATE in RECEIVED, WAIT, or CLAIMED. The caller must
+     * re-check materialized deliveries after this call because a CREATE effectuation may have won
+     * while this transaction waited for a lock.
      */
-    fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
+    fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
 
-    /** Marks a locked WAIT/awakened-WAIT CREATE as terminal without materializing a delivery. */
-    fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean
+    /** Marks a locked unmaterialized CREATE as terminal without materializing a delivery. */
+    fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean
 
     fun markDroppedInTransaction(
         eventId: UUID,
