@@ -52,11 +52,15 @@ class EffectuateDecision(
         decision: Decision,
     ): EffectuationResult =
         transactionRunner.transaction {
+            val isProcessedFerdigstill = inboxMessage.content.isFerdigstill() && decision is Decision.Processed
+            if (isProcessedFerdigstill) {
+                inboxMessageRepository.lockReferenceForFerdigstillInTransaction(inboxMessage.reference)
+            }
             if (!inboxMessageRepository.lockClaimedForEffectuationInTransaction(inboxMessage.eventId)) {
                 return@transaction EffectuationResult.Skipped
             }
 
-            if (inboxMessage.content.isFerdigstill() && decision is Decision.Processed) {
+            if (isProcessedFerdigstill) {
                 return@transaction effectuateFerdigstill(inboxMessage)
             }
 
