@@ -2,8 +2,12 @@ package no.nav.budstikka.application.inbox
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
@@ -99,6 +103,42 @@ class EffectuateDecisionIntegrationTest :
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
+        }
+
+        test("FERDIGSTILL returns the number of unmaterialized CREATE inbox rows it cancels") {
+            val (effectuate, inbox) = effectuator()
+            val reference = "ferdigstill-cancellation-only"
+            val unmaterializedCreateEventIds =
+                listOf(
+                    UUID.fromString("00000000-0000-0000-0000-0000000000b2"),
+                    UUID.fromString("00000000-0000-0000-0000-0000000000b3"),
+                )
+            val closeEventId = UUID.fromString("00000000-0000-0000-0000-0000000000b4")
+            val closeMessage =
+                inboxMessage(
+                    closeEventId,
+                    reference = reference,
+                    content = BrukervarselInactivate(reference, TEST_SYKMELDT),
+                )
+            inbox.saveBatch(
+                unmaterializedCreateEventIds.map { eventId ->
+                    inboxMessage(
+                        eventId,
+                        reference = reference,
+                        content = BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "waiting create"),
+                    )
+                } + closeMessage,
+            )
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+
+            effectuate.effectuate(closeMessage, Decision.Processed(emptyList())) shouldBe
+                EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 2)
+
+            inboxState(closeEventId) shouldBe "PROCESSED"
+            unmaterializedCreateEventIds.forEach { eventId ->
+                inboxState(eventId) shouldBe "PROCESSED"
+            }
+            deliveryCount(closeEventId) shouldBe 0L
         }
     })
 

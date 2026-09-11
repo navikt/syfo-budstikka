@@ -298,7 +298,8 @@ class InboxReferenceSerializationIntegrationTest :
                     writer.isCompleted shouldBe false
                     state(newcomer) shouldBe null
                     release.countDown()
-                    cancellationTask.await() shouldBe EffectuationResult.Completed
+                    cancellationTask.await() shouldBe
+                        EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
                     writer.await()
                 } finally {
                     release.countDown()
@@ -345,7 +346,8 @@ class InboxReferenceSerializationIntegrationTest :
                         state(newcomer) shouldBe null
                         gate.commit()
                         writer.await()
-                        cancellationTask.await() shouldBe EffectuationResult.Completed
+                        cancellationTask.await() shouldBe
+                            EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
                     } finally {
                         gate.rollback()
                     }
@@ -441,7 +443,8 @@ class InboxReferenceSerializationIntegrationTest :
                     state(existing) shouldBe "CLAIMED"
                     cancellationTask.isCompleted shouldBe false
                     release.countDown()
-                    cancellationTask.await() shouldBe EffectuationResult.Completed
+                    cancellationTask.await() shouldBe
+                        EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
                 } finally {
                     release.countDown()
                 }
