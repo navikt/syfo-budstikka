@@ -370,6 +370,10 @@ class DeliveryRepositoryImpl(
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
      * distinct rows without blocking each other.
+     *
+     * Each row takes the same per-source advisory key with a non-blocking, transaction-scoped lock.
+     * It conflicts with normal dispatch's session lock and releases automatically when the
+     * transaction completes or rolls back.
      */
     private fun failPoisonRows(
         now: Instant,
@@ -409,27 +413,11 @@ class DeliveryRepositoryImpl(
         val connection = TransactionManager.current().connection.connection as Connection
         poisonRows.forEach { row ->
             val sourceId = row.sourceDeliveryId()
-            if (sourceId != null && !connection.tryAcquireSourceSendGuard(sourceId)) {
+            if (sourceId != null && !connection.tryAcquirePoisonProcessingGuard(sourceId)) {
                 return@forEach
             }
-            var processingFailure: Throwable? = null
-            try {
-                if (!connection.failPoisonRow(row.id, maxAttempts)) {
-                    return@forEach
-                }
-            } catch (failure: Throwable) {
-                processingFailure = failure
-                throw failure
-            } finally {
-                if (sourceId != null) {
-                    releaseSourceSendGuard(connection, sourceId)?.let { cleanupFailure ->
-                        if (processingFailure != null) {
-                            processingFailure.addSuppressed(cleanupFailure)
-                        } else {
-                            throw cleanupFailure
-                        }
-                    }
-                }
+            if (!connection.failPoisonRow(row.id, maxAttempts)) {
+                return@forEach
             }
             logger.warn(
                 "Failed poison delivery row after reaching max attempts {} {} {} {} {} {} {}",
@@ -468,6 +456,9 @@ class DeliveryRepositoryImpl(
 
     private fun Connection.tryAcquireSourceSendGuard(sourceId: UUID): Boolean =
         sourceId.advisoryLockKey().queryAdvisoryLock(this, TRY_SOURCE_SEND_LOCK)
+
+    private fun Connection.tryAcquirePoisonProcessingGuard(sourceId: UUID): Boolean =
+        sourceId.advisoryLockKey().queryAdvisoryLock(this, TRY_POISON_PROCESSING_LOCK)
 
     private fun Connection.releaseSourceSendGuard(sourceId: UUID): Boolean =
         sourceId.advisoryLockKey().queryAdvisoryLock(this, RELEASE_SOURCE_SEND_LOCK)
@@ -608,6 +599,7 @@ class DeliveryRepositoryImpl(
 
         const val CHANNEL_PARAMETERS = ":channelParameters"
         const val TRY_SOURCE_SEND_LOCK = "SELECT pg_try_advisory_lock(?, ?)"
+        const val TRY_POISON_PROCESSING_LOCK = "SELECT pg_try_advisory_xact_lock(?, ?)"
         const val RELEASE_SOURCE_SEND_LOCK = "SELECT pg_advisory_unlock(?, ?)"
         const val SOURCE_ELIGIBILITY = "SELECT 1 FROM delivery WHERE id = ? AND state = ?"
         const val BEGIN_ATTEMPT =

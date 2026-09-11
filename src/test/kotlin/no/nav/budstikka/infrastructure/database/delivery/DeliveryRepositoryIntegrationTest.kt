@@ -28,10 +28,12 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryI
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Proxy
 import java.sql.Connection
+import java.sql.DriverManager
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import java.util.UUID
@@ -93,6 +95,58 @@ class DeliveryRepositoryIntegrationTest :
                 operation = Operation.INACTIVATE,
                 content = MicrofrontendDisable(TEST_SYKMELDT, "sykmeldt-overview"),
                 sourceCreateDeliveryId = sourceCreateDeliveryId,
+            )
+
+        fun Connection.tryAcquireSourceSendGuard(sourceId: UUID): Boolean =
+            prepareStatement("SELECT pg_try_advisory_lock(?, ?)").use { statement ->
+                statement.setInt(1, sourceId.advisoryLockKey().first)
+                statement.setInt(2, sourceId.advisoryLockKey().second)
+                statement.executeQuery().use { resultSet ->
+                    resultSet.next()
+                    resultSet.getBoolean(1)
+                }
+            }
+
+        fun Connection.releaseSourceSendGuard(sourceId: UUID) =
+            prepareStatement("SELECT pg_advisory_unlock(?, ?)").use { statement ->
+                statement.setInt(1, sourceId.advisoryLockKey().first)
+                statement.setInt(2, sourceId.advisoryLockKey().second)
+                statement.executeQuery().close()
+            }
+
+        fun executePoisonCleanupFailureSql(vararg statements: String) {
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection.createStatement().use { statement ->
+                    statements.forEach(statement::executeUpdate)
+                }
+            }
+        }
+
+        fun installPoisonCleanupFailure() =
+            executePoisonCleanupFailureSql(
+                """
+                CREATE FUNCTION fail_poison_cleanup()
+                RETURNS trigger
+                LANGUAGE plpgsql
+                AS $$
+                BEGIN
+                    RAISE EXCEPTION 'forced poison cleanup failure';
+                END;
+                $$;
+                """.trimIndent(),
+                """
+                CREATE TRIGGER poison_cleanup_failure
+                BEFORE UPDATE ON delivery
+                FOR EACH ROW
+                WHEN (NEW.state = 'FAILED')
+                EXECUTE FUNCTION fail_poison_cleanup();
+                """.trimIndent(),
+            )
+
+        fun removePoisonCleanupFailure() =
+            executePoisonCleanupFailureSql(
+                "DROP TRIGGER poison_cleanup_failure ON delivery",
+                "DROP FUNCTION fail_poison_cleanup()",
             )
 
         test("claim picks only requested channels and marks rows CLAIMED") {
@@ -407,6 +461,53 @@ class DeliveryRepositoryIntegrationTest :
                 dataSource.evictions.get() shouldBe 1
             }
         }
+
+        test("poison cleanup contends with and releases the normal source send guard") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("poison-ref", microfrontendDraft())
+            val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
+            makePoison(deliveryId, attempt = 2)
+
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection.tryAcquireSourceSendGuard(deliveryId) shouldBe true
+                try {
+                    repository
+                        .claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+                        .shouldHaveSize(0)
+                    rowForReference("poison-ref")[DeliveryTable.state] shouldBe "CLAIMED"
+                } finally {
+                    connection.releaseSourceSendGuard(deliveryId)
+                }
+
+                repository
+                    .claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+                    .shouldHaveSize(0)
+                rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
+                connection.tryAcquireSourceSendGuard(deliveryId) shouldBe true
+                connection.releaseSourceSendGuard(deliveryId)
+            }
+        }
+
+        test("poison cleanup failure propagates and releases its transaction source guard") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("poison-ref", microfrontendDraft())
+            val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
+            makePoison(deliveryId, attempt = 2)
+            installPoisonCleanupFailure()
+            try {
+                shouldThrow<PSQLException> {
+                    repository.claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+                }.message shouldContain "forced poison cleanup failure"
+            } finally {
+                removePoisonCleanupFailure()
+            }
+
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection.tryAcquireSourceSendGuard(deliveryId) shouldBe true
+                connection.releaseSourceSendGuard(deliveryId)
+            }
+            rowForReference("poison-ref")[DeliveryTable.state] shouldBe "CLAIMED"
+        }
     })
 
 private class UnlockFailingDataSource(
@@ -473,3 +574,8 @@ private fun Any.invoke(
     } catch (exception: InvocationTargetException) {
         throw exception.targetException
     }
+
+private fun UUID.advisoryLockKey(): Pair<Int, Int> {
+    val key = mostSignificantBits xor leastSignificantBits
+    return (key ushr 32).toInt() to key.toInt()
+}

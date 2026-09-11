@@ -45,7 +45,8 @@ flowchart TB
 
     DWORK -->|"Sent"| SENT["state=SENT"]
     DWORK -->|"Failed(reason)"| FAILED["state=FAILED"]
-    DWORK -->|"exception"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"Retry"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"exception"| RECLAIM
 
     subgraph Outbound["Channel endpoints"]
         CH1["Channel endpoint 1"]
@@ -163,7 +164,7 @@ sperre mot fremtidige OPPRETT-er.
 | Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme `reference` som `varselId`) |
 | Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
 | Ditt Sykefravær           | **Nei, ikke i dette snittet** | Downstream-adapter og godkjent kontrakt mangler; FERDIGSTILL blir terminal no-op |
-| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret create: BESKJED→`hardDeleteNotifikasjonByEksternId_V2`, OPPGAVE→`oppgaveUtfoertByEksternId_V2`; stabil eksternId kommer fra create-handleren. Fagers `NotifikasjonFinnesIkke` fra en lukking betyr allerede lukket og behandles som vellykket; publiseringsklassifiseringen er uendret. |
+| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret CREATE: BESKJED→`hardDeleteNotifikasjonByEksternId_V2`, OPPGAVE→`oppgaveUtfoertByEksternId_V2`; stabil eksternId kommer fra CREATE-handleren. Fagers `NotifikasjonFinnesIkke` fra en lukking prøves på nytt av den ordinære delivery-mekanikken. Forsøket bruker det konfigurerte attempt-budsjettet; når dette er brukt opp, blir raden `FAILED` gjennom poison-gaten. Nye forsøk avbryter ikke resten av delivery-batchen. |
 | Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
 | Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
 

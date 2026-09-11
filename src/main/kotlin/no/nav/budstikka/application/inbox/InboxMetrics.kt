@@ -35,6 +35,9 @@ interface InboxMetrics {
 
     /** The matched OPPRETT could not be read back as a valid create. */
     fun ferdigstillWithInvalidStoredCreate()
+
+    /** Unmaterialized CREATE inbox rows cancelled by successful FERDIGSTILL effectuation. */
+    fun ferdigstillCancelledCreates(count: Int)
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -62,4 +65,6 @@ object NoInboxMetrics : InboxMetrics {
     override fun ferdigstillWithoutSupportedRuntimeChannel() = Unit
 
     override fun ferdigstillWithInvalidStoredCreate() = Unit
+
+    override fun ferdigstillCancelledCreates(count: Int) = Unit
 }

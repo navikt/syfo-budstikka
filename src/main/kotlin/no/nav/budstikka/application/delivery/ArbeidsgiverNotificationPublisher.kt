@@ -64,6 +64,10 @@ data class NarmesteLederExternalVarsling(
 sealed interface ArbeidsgiverNotificationResponse {
     data object Published : ArbeidsgiverNotificationResponse
 
+    data class Retryable(
+        val reason: String,
+    ) : ArbeidsgiverNotificationResponse
+
     data class Rejected(
         val reason: String,
     ) : ArbeidsgiverNotificationResponse

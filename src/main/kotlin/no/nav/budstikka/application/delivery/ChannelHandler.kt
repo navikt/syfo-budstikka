@@ -14,6 +14,10 @@ fun interface ChannelHandler {
 sealed interface DeliveryOutcome {
     data object Sent : DeliveryOutcome
 
+    data class Retry(
+        val reason: String,
+    ) : DeliveryOutcome
+
     data class Failed(
         val reason: String,
     ) : DeliveryOutcome
