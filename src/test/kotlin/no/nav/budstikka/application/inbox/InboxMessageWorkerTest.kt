@@ -22,9 +22,12 @@ import kotlinx.datetime.toInstant
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryAttempt
+import no.nav.budstikka.application.port.DeliveryClaimResult
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.SourceSendGuardResult
 import no.nav.budstikka.application.port.StoredCreateDelivery
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
@@ -321,6 +324,7 @@ class InboxMessageWorkerTest :
                 RecordingDeliveryRepository(
                     storedCreate =
                         StoredCreateDelivery(
+                            id = UUID.fromString("00000000-0000-0000-0000-000000000101"),
                             createExternalId = null,
                             reference = reference,
                             channel = Channel.BRUKERVARSEL,
@@ -347,6 +351,13 @@ class InboxMessageWorkerTest :
 
             metrics.ferdigstillCancelledCreateCount.get() shouldBe 2
             deliveries.saved.single().second shouldHaveSize 1
+            val inactivateDraft =
+                deliveries.saved
+                    .single()
+                    .second
+                    .single()
+            inactivateDraft.sourceCreateDeliveryId shouldBe
+                UUID.fromString("00000000-0000-0000-0000-000000000101")
             val log = appender.list.single { it.formattedMessage.contains("Inbox message processed") }
             log.formattedMessage shouldContain "${MdcKeys.DELIVERY_COUNT}=1"
             log.formattedMessage shouldContain "${MdcKeys.CANCELLED_CREATE_COUNT}=2"
@@ -371,6 +382,7 @@ class InboxMessageWorkerTest :
                 RecordingDeliveryRepository(
                     storedCreate =
                         StoredCreateDelivery(
+                            id = UUID.fromString("00000000-0000-0000-0000-000000000102"),
                             createExternalId = null,
                             reference = reference,
                             channel = Channel.BRUKERVARSEL,
@@ -727,14 +739,14 @@ private class RecordingDeliveryRepository(
         saved += inboxEventId to draft
     }
 
-    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) = storedCreate
+    override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) = listOfNotNull(storedCreate)
 
     override suspend fun claim(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
         channels: Set<Channel>,
-    ): List<ClaimedDelivery> = emptyList()
+    ): DeliveryClaimResult = DeliveryClaimResult(emptyList(), failedSourceDependencies = 0)
 
     override suspend fun beginAttempt(
         deliveryId: UUID,
@@ -747,4 +759,9 @@ private class RecordingDeliveryRepository(
         deliveryId: UUID,
         reason: String,
     ): Boolean = true
+
+    override suspend fun withSourceSendGuard(
+        delivery: ClaimedDelivery,
+        block: suspend (DeliveryAttempt) -> Unit,
+    ): SourceSendGuardResult = SourceSendGuardResult.CONTENDED
 }

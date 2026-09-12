@@ -1,5 +1,7 @@
 package no.nav.budstikka.infrastructure.database
 
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
@@ -48,6 +50,27 @@ class PostgresTestFixture : AutoCloseable {
     val password: String
         get() = postgres.password
 
+    /**
+     * A one-connection pool proves a guarded send does not acquire a second session for its
+     * attempt or terminal update. Peer claims use the independently configured Exposed test
+     * connection, as they do not belong to the guarded dispatch.
+     */
+    private val sessionDataSource =
+        lazy {
+            HikariDataSource(
+                HikariConfig().apply {
+                    jdbcUrl = this@PostgresTestFixture.jdbcUrl
+                    username = this@PostgresTestFixture.username
+                    password = this@PostgresTestFixture.password
+                    maximumPoolSize = 1
+                    minimumIdle = 0
+                },
+            )
+        }
+
+    val dataSource: HikariDataSource
+        get() = sessionDataSource.value
+
     init {
         createSchema()
     }
@@ -73,6 +96,9 @@ class PostgresTestFixture : AutoCloseable {
     }
 
     override fun close() {
+        if (sessionDataSource.isInitialized()) {
+            sessionDataSource.value.close()
+        }
         DriverManager.getConnection(postgres.jdbcUrl, username, password).use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeUpdate("""DROP SCHEMA IF EXISTS "$schemaName" CASCADE""")

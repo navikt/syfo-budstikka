@@ -9,6 +9,8 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_CLAIMED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_EMPTY_POLLS
+import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_FAILED_SOURCE_DEPENDENCIES
+import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_SOURCE_GUARD_CONTENTION
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.NARMESTE_LEDER_MISSING
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.RESULT_FAILED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.RESULT_SENT
@@ -26,6 +28,8 @@ class MicrometerDeliveryMetricsTest :
             metrics.emptyPoll()
             metrics.sent(Channel.MICROFRONTEND)
             metrics.failed(Channel.BREV)
+            metrics.sourceGuardContention()
+            metrics.failedSourceDependencies(2)
             metrics.narmesteLederMissing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
 
             registry.get(DELIVERY_CLAIMED).counter().count() shouldBe 2.0
@@ -36,6 +40,8 @@ class MicrometerDeliveryMetricsTest :
                 .tag(TAG_RESULT, RESULT_SENT)
                 .counter()
                 .count() shouldBe 1.0
+            registry.get(DELIVERY_SOURCE_GUARD_CONTENTION).counter().count() shouldBe 1.0
+            registry.get(DELIVERY_FAILED_SOURCE_DEPENDENCIES).counter().count() shouldBe 2.0
             registry
                 .get(DELIVERY)
                 .tag(TAG_CHANNEL, "brev")

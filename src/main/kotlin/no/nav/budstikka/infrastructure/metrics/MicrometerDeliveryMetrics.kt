@@ -11,6 +11,7 @@ import no.nav.budstikka.domain.decision.Channel
  * names follow the Prometheus convention (Micrometer dot names → `snake_case`, counters gain `_total`):
  *
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
+ * - `delivery_source_guard_contention_total`, `delivery_failed_source_dependencies_total`
  * - `narmeste_leder_missing_total{reason}`
  *
  * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. Counting
@@ -30,6 +31,14 @@ class MicrometerDeliveryMetrics(
     override fun sent(channel: Channel) = delivery(channel, result = RESULT_SENT)
 
     override fun failed(channel: Channel) = delivery(channel, result = RESULT_FAILED)
+
+    override fun sourceGuardContention() = counter(DELIVERY_SOURCE_GUARD_CONTENTION).increment()
+
+    override fun failedSourceDependencies(count: Int) {
+        if (count > 0) {
+            counter(DELIVERY_FAILED_SOURCE_DEPENDENCIES).increment(count.toDouble())
+        }
+    }
 
     override fun narmesteLederMissing(reason: NarmesteLederMissingReason) =
         Counter
@@ -59,6 +68,8 @@ class MicrometerDeliveryMetrics(
         const val DELIVERY_CLAIMED = "delivery.claimed"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
         const val DELIVERY = "delivery"
+        const val DELIVERY_SOURCE_GUARD_CONTENTION = "delivery.source.guard.contention"
+        const val DELIVERY_FAILED_SOURCE_DEPENDENCIES = "delivery.failed.source.dependencies"
         const val NARMESTE_LEDER_MISSING = "narmeste.leder.missing"
 
         const val TAG_REASON = "reason"

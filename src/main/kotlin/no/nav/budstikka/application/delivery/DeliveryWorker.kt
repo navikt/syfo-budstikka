@@ -7,7 +7,9 @@ import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.logging.withPlaceholders
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryAttempt
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.SourceSendGuardResult
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.domain.decision.Channel
@@ -31,8 +33,10 @@ class DeliveryWorker(
             claim = {
                 repository
                     .claim(config.batchSize, config.leaseDuration, config.maxAttempts, handlers.keys)
-                    .also { claimed ->
-                        if (claimed.isEmpty()) metrics.emptyPoll() else metrics.claimed(claimed.size)
+                    .let { result ->
+                        if (result.deliveries.isEmpty()) metrics.emptyPoll() else metrics.claimed(result.deliveries.size)
+                        metrics.failedSourceDependencies(result.failedSourceDependencies)
+                        result.deliveries
                     }
             },
             process = { dispatch(it) },
@@ -73,19 +77,37 @@ class DeliveryWorker(
             logger.error("No handler for claimed channel; leaving row for lease reclaim")
             return
         }
-        if (!repository.beginAttempt(delivery.id, config.maxAttempts)) {
-            // A peer terminated the row, or its attempts are spent and the poison gate owns it.
-            logger.warn("Skipping delivery because the row is no longer claimable or has spent its attempts")
-            return
-        }
-        when (val outcome = handler.handle(delivery)) {
-            DeliveryOutcome.Sent -> markSent(delivery)
-            is DeliveryOutcome.Failed -> markFailed(delivery, outcome.reason)
+        val sourceGuardResult =
+            repository.withSourceSendGuard(delivery) { attempt ->
+                if (!attempt.beginAttempt(config.maxAttempts)) {
+                    // A peer terminated the row, or its attempts are spent and the poison gate owns it.
+                    logger.warn("Skipping delivery because the row is no longer claimable or has spent its attempts")
+                    return@withSourceSendGuard
+                }
+                when (val outcome = handler.handle(delivery)) {
+                    DeliveryOutcome.Sent -> markSent(delivery, attempt)
+                    is DeliveryOutcome.Failed -> markFailed(delivery, attempt, outcome.reason)
+                }
+            }
+        when (sourceGuardResult) {
+            SourceSendGuardResult.DISPATCHED -> Unit
+            SourceSendGuardResult.CONTENDED -> {
+                // The delivery remains CLAIMED until its lease expires. This avoids spending an
+                // attempt while another replica owns the source serialization guard.
+                metrics.sourceGuardContention()
+                logger.debug("Skipping delivery because its source CREATE is not currently dispatchable")
+            }
+
+            SourceSendGuardResult.SOURCE_NOT_ELIGIBLE ->
+                logger.debug("Skipping delivery because its source CREATE is no longer eligible")
         }
     }
 
-    private suspend fun markSent(delivery: ClaimedDelivery) {
-        if (repository.markSent(delivery.id)) {
+    private suspend fun markSent(
+        delivery: ClaimedDelivery,
+        attempt: DeliveryAttempt,
+    ) {
+        if (attempt.markSent()) {
             metrics.sent(delivery.channel)
             val fields = delivery.logFields()
             logger.info(withPlaceholders("Delivery sent successfully", fields), *fields.toTypedArray())
@@ -96,9 +118,10 @@ class DeliveryWorker(
 
     private suspend fun markFailed(
         delivery: ClaimedDelivery,
+        attempt: DeliveryAttempt,
         reason: String,
     ) {
-        if (repository.markFailed(delivery.id, reason)) {
+        if (attempt.markFailed(reason)) {
             metrics.failed(delivery.channel)
             val fields = delivery.logFields() + kv(MdcKeys.REASON, reason)
             logger.warn(withPlaceholders("Marked delivery as FAILED", fields), *fields.toTypedArray())

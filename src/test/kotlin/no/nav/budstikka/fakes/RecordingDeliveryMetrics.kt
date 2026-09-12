@@ -11,6 +11,8 @@ class RecordingDeliveryMetrics : DeliveryMetrics {
     val deliveryEmptyPolls = AtomicInteger()
     val deliverySent = ConcurrentHashMap<Channel, AtomicInteger>()
     val deliveryFailed = ConcurrentHashMap<Channel, AtomicInteger>()
+    val sourceGuardContention = AtomicInteger()
+    val failedSourceDependencies = AtomicInteger()
     val narmesteLederMissing = ConcurrentHashMap<NarmesteLederMissingReason, AtomicInteger>()
 
     override fun claimed(count: Int) {
@@ -27,6 +29,14 @@ class RecordingDeliveryMetrics : DeliveryMetrics {
 
     override fun failed(channel: Channel) {
         deliveryFailed.computeIfAbsent(channel) { AtomicInteger() }.incrementAndGet()
+    }
+
+    override fun sourceGuardContention() {
+        sourceGuardContention.incrementAndGet()
+    }
+
+    override fun failedSourceDependencies(count: Int) {
+        failedSourceDependencies.addAndGet(count)
     }
 
     override fun narmesteLederMissing(reason: NarmesteLederMissingReason) {
