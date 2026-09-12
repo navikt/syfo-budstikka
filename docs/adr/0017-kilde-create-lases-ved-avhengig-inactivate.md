@@ -5,8 +5,8 @@
 
 ADR 0004s lease-baserte claim-modell er fortsatt den generelle strategien. Denne beslutningen
 avgrenser den for rekkefølgen mellom en kilde-`CREATE` og en avhengig `INACTIVATE`: En
-PostgreSQL session advisory lock, nøkkelt på kilde-`CREATE`, holdes over ekstern utsending og den
-lokale terminale tilstandsoppdateringen. Lease alene kan ikke gjerde ute en allerede kjørende,
+PostgreSQL session advisory lock, knyttet til kilde-`CREATE`, holdes over ekstern utsending og den
+lokale terminale tilstandsoppdateringen. Lease alene kan ikke hindre en allerede kjørende,
 utdatert avsender.
 
 En FERDIGSTILL materialiserer én avhengig `INACTIVATE` for hver lagret `CREATE` som matcher
@@ -17,8 +17,11 @@ Låsen tas ikke-blokkerende og binder én pooled connection under kallet. Ved us
 forkastes sesjonen. Tap av sesjon eller prosess frigjør låsen, men gir ikke en distribuert
 transaksjon. Stabile nedstrøms-ID-er, idempotens og avstemming er derfor fortsatt nødvendige.
 
+V11 installerer en kompatibilitetstrigger før den reparerer manglende `create_external_id` for
+ARBEIDSGIVERVARSEL-`CREATE` og arver reparert identitet til ventende avhengige `INACTIVATE`.
 Blandede gamle og nye replikaer er utrygt fordi gammel claim- og dispatch-kode ignorerer den nye
-avhengigheten og guarden. Rekkefølgesendringen deployes derfor først etter en eksplisitt barriere
+avhengigheten og guarden. Rekkefølgesendringen rulles derfor først ut etter en eksplisitt barriere
 der gamle replikaer og pågående gamle workere har stoppet, før FERDIGSTILL-produsenter aktiveres.
 Rollback til worker-atferd før V10 er ikke trygt mens avhengige rader finnes; gammel retention
-mangler også kildefilteret og kan feile på den nye foreign key-en.
+mangler også kildefilteret og kan feile på den nye foreign key-en. V10 og V11 tar blokkerende
+migreringslåser, så deployment-vinduet må vurderes før utrulling.
