@@ -133,7 +133,6 @@ class ArbeidsgivervarselChannelHandlerTest :
 
             publisher.closeRequests shouldHaveSize 1
         }
-
         test("forwards visibleUntil to the notification request") {
             val publisher = RecordingPublisher()
             val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")

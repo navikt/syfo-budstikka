@@ -37,6 +37,8 @@ erDiagram
         timestamptz next_attempt_time "nullable"
         timestamptz created_at
         text        error_message "nullable"
+        text        create_external_id "nullable, stabil Fager-eksternId eid av AG-OPPRETT"
+        uuid        source_create_delivery_id "nullable FK-lenke til CREATE"
     }
 
     dead_letter_message {
@@ -60,9 +62,11 @@ erDiagram
   `content` lagres som `jsonb`, og `reference` løftes ut som egen kolonne (selektiv
   FERDIGSTILL-match-nøkkel + eneste konvolutt-felt utenfor `content`). recipient/channel
   utledes fra `content` (`partitionKey`/`type`) ved avgrensning. Dette gjør at FERDIGSTILL kan
-  matche/avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Hold-plasseringen er
-  avgjort til inbox-hold ([ADR 0014](adr/0014-inbox-hold-for-sendevindu.md)); ytterligere
-  match-kolonner legges til med det FERDIGSTILL-mot-inbox-arbeidet.
+  avgrense ennå-ubesluttede inbox-rader uten re-parsing (#27). Hold-plasseringen er avgjort til
+  inbox-hold ([ADR 0014](adr/0014-inbox-hold-for-sendevindu.md)). FERDIGSTILL bruker
+  `reference`-indeksen og den lagrede CREATE-discriminatoren til å finne og radlåse aktuelle
+  OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED`; kanal og partisjonsanker verifiseres mot det
+  hydrerte innholdet.
 - `eventId` lever **kun** i Kafka-headeren (fjernet fra payloaden, `Dispatch = { reference,
   content }`); headeren er autoritativ og obligatorisk. Best-effort lagres eventId også på
   `dead_letter_message` (`event_id`) for korrelasjon når en melding dead-letteres.
@@ -77,8 +81,11 @@ erDiagram
   (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
   må ha samme slette-disiplin. Bare terminale `delivery`-rader (`SENT`/`FAILED`) med
-  `created_at` strengt eldre enn 180 dager slettes. En PostgreSQL advisory lock lar én replika
-  kjøre hver opprydding; en replika som ikke får låsen hopper over runden. Sletting av en
+  `created_at` strengt eldre enn 180 dager slettes. `source_create_delivery_id` har indeks og FK
+  med `ON DELETE RESTRICT`: en source CREATE slettes ikke mens en dependent delivery fortsatt
+  refererer til den. Terminale dependents slettes derfor først; source CREATE slettes i en senere
+  oppryddingsrunde. En PostgreSQL advisory lock lar én replika kjøre hver opprydding; en replika
+  som ikke får låsen hopper over runden. Sletting av en
   inbox-rad setter tilhørende `delivery.inbox_event_id` til `NULL` via FK-en.
 
 ## Worker-flyt og state-overganger
@@ -101,12 +108,34 @@ kan jobbe parallelt uten dobbelt-claim:
 
 ### Transaksjonsgrenser
 
+`saveBatch` og FERDIGSTILL med `Decision.Processed` tar samme eksklusive PostgreSQL advisory lock
+per referanse. FERDIGSTILL tar referanselåsen før låsen på egen claimede inbox-rad og før
+delivery- og kandidatsøk. Låsen er på transaksjonsnivå og holdes til commit
+eller rollback, slik at kandidatsøk og terminalisering ikke slipper inn samtidige innsettinger
+på samme referanse. En batch tar alle distinkte, hashede `bigint`-nøkler i numerisk rekkefølge
+før første innsetting. Låsene bruker navnerommet for én `bigint`, adskilt fra delivery- og
+retensjonslåsenes navnerom for to `int`. Ulike referanser serialiseres ikke globalt, og ingen
+HTTP-kall holder denne transaksjonslåsen. Rekkefølgen hindrer en låsesyklus mellom tre sesjoner
+med henholdsvis FERDIGSTILL, duplikatinnsetting og retensjon som sletter inbox-rader.
+Retensjonspolicyen er uendret.
+
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
   `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
-- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
-  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)`
-  av delivery-rader bare hvis CAS lykkes. `DeliveryRepository.saveInTransaction`
-  bruker `batchInsert(draft)` for 0..N rader for samme inbox-melding.
+- **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon og låser den
+  claimede inbox-raden med `FOR UPDATE`, etter referanselåsen for FERDIGSTILL med
+  `Decision.Processed`. Bare arbeideren som vinner låsingen av en fortsatt `CLAIMED` rad,
+  fortsetter til delivery- og kandidatsøk. Tapt claim gir `Skipped` uten søk, tilstandsendringer
+  eller delivery-skriving. `markProcessedInTransaction(eventId)` (CAS) skjer før
+  `saveInTransaction(...)`, og delivery-rader skrives bare hvis CAS lykkes.
+  `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader for samme
+  inbox-melding. Ved FERDIGSTILL med `Decision.Processed` låses alle matchende,
+  ikke-materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED`, også når første
+  delivery-oppslag allerede fant en CREATE.
+  SQL avgrenser CREATE-discriminatoren før `FOR UPDATE`, så samtidige FERDIGSTILL-er ikke låser
+  hverandres inbox-rader. Delivery leses på nytt etter låsene for å serialisere materialisering
+  mot kansellering; alle låste OPPRETT-er avsluttes `PROCESSED` i samme transaksjon.
+  `delivery_ferdigstill_match_idx` avgrenser delivery-oppslaget på match-nøkkelen og henter alle
+  matchende OPPRETT-er mens transaksjonen holder radlåsene.
 
 ### `inbox_message.state`
 
@@ -142,23 +171,31 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
+- En dependent `INACTIVATE` med `source_create_delivery_id` kan først claimes når dens eksakte
+  source CREATE er `SENT`. Når source CREATE er `FAILED`, terminaliseres dependent som `FAILED`
+  uten handlerkall eller nytt forsøk.
+- FERDIGSTILL materialiserer en slik dependent for hver lagret `CREATE` som matcher reference,
+  channel og recipient. Hver dependent peker til og avleder payload og ekstern ID fra sin eksakte
+  source; en ugyldig eller `FAILED` source undertrykker ikke andre matchende closes.
 - `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
 - `attempt` spanderes av `beginAttempt` rett før handleren kalles, ikke ved claim.
   Manglende handler er en konfigurasjonsfeil og brenner ikke et forsøk.
+- PostgreSQL session advisory lock serialiserer dispatch av source CREATE og dens dependents per
+  source, også mellom replikaer. Låsen holdes gjennom handlerkall og terminal state-overgang.
 
 ## Indekser
 
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `inbox_message_received_at_event_id_idx` på `(received_at, event_id)`
+- `inbox_message_reference_idx` på `(reference)` for FERDIGSTILL-matching mot inbox-hold
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
+- `delivery_source_create_delivery_id_idx` på `(source_create_delivery_id)`
 - `delivery_created_at_id_sent_failed_idx` på `(created_at, id)` der `state IN ('SENT', 'FAILED')`
+- `delivery_ferdigstill_match_idx` på
+  `(reference, operation, channel, recipient_type, recipient_id, created_at, id)` for
+  FERDIGSTILL-matching mot delivery
 - `dead_letter_message_received_at_id_idx` på `(received_at, id)`
-
-> Indeks på `inbox_message.reference` legges til sammen med FERDIGSTILL-matching mot inbox.
-> Hold-plasseringen er avgjort til inbox-hold i
-> [ADR 0014](adr/0014-inbox-hold-for-sendevindu.md), så indeksen hører til det arbeidet.
-> Kolonnen finnes fra starten (ADR 0008).
 
 ## Id-generering
 
@@ -169,9 +206,19 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   retensjons-`DELETE`.
 - `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
   budstikkas database.
+- En ARBEIDSGIVERVARSEL-`OPPRETT` fryser Fagers stabile eksternId i
+  `delivery.create_external_id` ved materialisering: create-radens `inbox_event_id`. En
+  kompatibilitets-trigger i V11 setter samme verdi ved innsetting i `delivery` for eldre skrivere
+  som utelater kolonnen; den beskytter ikke innsetting i inbox. Mangler
+  den opprinnelige inbox-identiteten, kan eksternId ikke gjenopprettes: V9s `delivery.id`-gjett
+  ryddes til ukjent og både publisering og `INAKTIVER` feiler terminalt uten Fager-kall. Samme
+  frosne verdi kopieres til avledet `INAKTIVER`, så en kjent identitet overlever inbox-retensjon.
 
 ## Observability-koblinger
 
 - Primær korrelasjon er `eventId`.
 - For delivery brukes også `delivery.id` for sporing av ett konkret sendeforsøk.
 - Metrikklabels holdes lavkardinale; detaljer går i logger/traces.
+- Terminale FERDIGSTILL-no-op-er telles med `ferdigstill_uten_treff`,
+  `ferdigstill_uten_runtime_kanal` eller `ferdigstill_lagret_opprett_ugyldig`; de har ingen
+  identifikator- eller payload-label.
