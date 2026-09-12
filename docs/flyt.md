@@ -45,7 +45,8 @@ flowchart TB
 
     DWORK -->|"Sent"| SENT["state=SENT"]
     DWORK -->|"Failed(reason)"| FAILED["state=FAILED"]
-    DWORK -->|"exception"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"Retry"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"exception"| RECLAIM
 
     subgraph Outbound["Channel endpoints"]
         CH1["Channel endpoint 1"]
@@ -130,7 +131,7 @@ Dette er designretningen; selve oppslaget er ikke implementert i runtime ennå �
 | Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
 | Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
 | Ditt Sykefravær           | Ja | Lukk/erstatt-melding |
-| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)`. `NotifikasjonFinnesIkke` kastes som teknisk feil og retries av det ordinære delivery-maskineriet; raden blir synlig som `FAILED` etter konfigurert attempt-budsjett. |
+| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)`. `NotifikasjonFinnesIkke` prøves på nytt av den ordinære delivery-mekanikken. Forsøket bruker det konfigurerte attempt-budsjettet; når dette er brukt opp, blir raden `FAILED` gjennom poison-gaten. Nye forsøk avbryter ikke resten av delivery-batchen. |
 | Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
 | Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
 

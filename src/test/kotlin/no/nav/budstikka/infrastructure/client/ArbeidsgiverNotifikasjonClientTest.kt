@@ -153,7 +153,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"eksternId":"stable-create-external-id""""
         }
 
-        test("throws a safe retryable failure after one close request for NotifikasjonFinnesIkke") {
+        test("returns a retryable result after one close request for NotifikasjonFinnesIkke") {
             listOf(
                 Pair(
                     ArbeidsgiverMeldingstype.BESKJED,
@@ -165,24 +165,19 @@ class ArbeidsgiverNotifikasjonClientTest :
                 ),
             ).forEach { (meldingstype, responseField) ->
                 var requestCount = 0
-                val error =
-                    shouldThrow<IllegalStateException> {
-                        client {
-                            requestCount++
-                            respond(
-                                """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
-                                HttpStatusCode.OK,
-                            )
-                        }.close(
-                            ArbeidsgiverNotificationCloseRequest(
-                                eksternId = "stable-create-external-id",
-                                tag = "Dialogmøte",
-                                meldingstype = meldingstype,
-                            ),
-                        )
-                    }
-
-                error.message shouldBe "Arbeidsgiver notification API could not close the notification"
+                client {
+                    requestCount++
+                    respond(
+                        """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.close(
+                    ArbeidsgiverNotificationCloseRequest(
+                        eksternId = "stable-create-external-id",
+                        tag = "Dialogmøte",
+                        meldingstype = meldingstype,
+                    ),
+                ) shouldBe ArbeidsgiverNotificationResponse.Retryable("NotifikasjonFinnesIkke")
                 requestCount shouldBe 1
             }
         }

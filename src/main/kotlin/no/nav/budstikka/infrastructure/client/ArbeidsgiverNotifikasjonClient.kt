@@ -131,7 +131,7 @@ class ArbeidsgiverNotifikasjonClient(
             FagerCloseResult.Published -> ArbeidsgiverNotificationResponse.Published
             is FagerCloseResult.Rejected -> response
             FagerCloseResult.NotifikasjonFinnesIkke ->
-                error("Arbeidsgiver notification API could not close the notification")
+                ArbeidsgiverNotificationResponse.Retryable(NOTIFIKASJON_FINNES_IKKE_RETRY_REASON)
         }
 
     private suspend fun <D : Operation.Data, T> execute(
@@ -386,6 +386,7 @@ class ArbeidsgiverNotifikasjonClient(
 
     private companion object {
         private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
+        private const val NOTIFIKASJON_FINNES_IKKE_RETRY_REASON = "NotifikasjonFinnesIkke"
         private val OSLO_TIME_ZONE = TimeZone.of("Europe/Oslo")
 
         // Fager documents X-Request-ID as an accepted correlation header in docs/gql/intro.html

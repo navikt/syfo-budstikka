@@ -226,6 +226,36 @@ class DeliveryWorkerTest :
             metrics.deliveryEmptyPolls.get() shouldBe 0
         }
 
+        test("runOnce leaves a retrying delivery nonterminal and continues with later deliveries") {
+            val retryingId = UUID.fromString("00000000-0000-0000-0000-000000000217")
+            val healthyId = UUID.fromString("00000000-0000-0000-0000-000000000218")
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries = listOf(validMicrofrontendDelivery(retryingId), validMicrofrontendDelivery(healthyId)),
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+
+            workerWith(
+                repository = repository,
+                publisher = publisher,
+                handlers =
+                    mapOf(
+                        Channel.MICROFRONTEND to
+                            ChannelHandler { delivery ->
+                                if (delivery.id == retryingId) {
+                                    DeliveryOutcome.Retry("NotifikasjonFinnesIkke")
+                                } else {
+                                    DeliveryOutcome.Sent
+                                }
+                            },
+                    ),
+            ).runOnce()
+
+            repository.attemptedDeliveryIds.shouldContainExactly(retryingId, healthyId)
+            repository.sentDeliveryIds.shouldContainExactly(healthyId)
+            repository.failedDeliveries.shouldBeEmpty()
+        }
+
         test("runOnce records an empty poll when nothing is claimed") {
             val repository = PollingDeliveryRepository(deliveries = emptyList())
             val publisher = RecordingMicrofrontendPublisher()
