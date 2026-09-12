@@ -20,6 +20,14 @@ data class ArbeidsgiverNotificationRequest(
             "hasGrupperingsid=${grupperingsid != null}, recipient=$recipient)"
 }
 
+data class ArbeidsgiverNotificationCloseRequest(
+    val eksternId: String,
+    val tag: String,
+    val meldingstype: ArbeidsgiverMeldingstype,
+) {
+    override fun toString(): String = "ArbeidsgiverNotificationCloseRequest(meldingstype=$meldingstype)"
+}
+
 sealed interface ArbeidsgiverNotificationRecipient {
     data class AltinnRessurs(
         val resource: String,
@@ -56,6 +64,10 @@ data class NarmesteLederExternalVarsling(
 sealed interface ArbeidsgiverNotificationResponse {
     data object Published : ArbeidsgiverNotificationResponse
 
+    data class Retryable(
+        val reason: String,
+    ) : ArbeidsgiverNotificationResponse
+
     data class Rejected(
         val reason: String,
     ) : ArbeidsgiverNotificationResponse
@@ -63,4 +75,6 @@ sealed interface ArbeidsgiverNotificationResponse {
 
 interface ArbeidsgiverNotificationPublisher {
     suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse
+
+    suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse
 }

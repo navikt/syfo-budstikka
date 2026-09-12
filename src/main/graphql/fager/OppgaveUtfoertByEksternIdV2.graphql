@@ -1,0 +1,16 @@
+mutation OppgaveUtfoertByEksternIdV2($merkelapp: String!, $eksternId: String!) {
+  oppgaveUtfoertByEksternId_V2(merkelapp: $merkelapp, eksternId: $eksternId) {
+    ... on OppgaveUtfoertVellykket {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on NotifikasjonFinnesIkke {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+  }
+}

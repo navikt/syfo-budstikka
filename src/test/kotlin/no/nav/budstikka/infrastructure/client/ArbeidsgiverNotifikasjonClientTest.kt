@@ -14,6 +14,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationCloseRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
@@ -106,6 +107,133 @@ class ArbeidsgiverNotifikasjonClientTest :
 
                 body shouldContain """"hardDelete":{"den":"$expectedHardDelete"}"""
                 body.contains("hardDelete\":{\"om\"") shouldBe false
+            }
+        }
+
+        test("closes BESKJED through hardDeleteNotifikasjonByEksternId_V2") {
+            var body = ""
+            client { request ->
+                body = (request.body as TextContent).text
+                respond(
+                    """{"data":{"hardDeleteNotifikasjonByEksternId_V2":{"__typename":"HardDeleteNotifikasjonVellykket"}}}""",
+                    HttpStatusCode.OK,
+                )
+            }.close(
+                ArbeidsgiverNotificationCloseRequest(
+                    eksternId = "stable-create-external-id",
+                    tag = "Oppfølging",
+                    meldingstype = ArbeidsgiverMeldingstype.BESKJED,
+                ),
+            ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+            body shouldContain "hardDeleteNotifikasjonByEksternId_V2"
+            body shouldContain """"merkelapp":"Oppfølging""""
+            body shouldContain """"eksternId":"stable-create-external-id""""
+            body shouldNotContain "softDelete"
+        }
+
+        test("closes OPPGAVE through oppgaveUtfoertByEksternId_V2") {
+            var body = ""
+            client { request ->
+                body = (request.body as TextContent).text
+                respond(
+                    """{"data":{"oppgaveUtfoertByEksternId_V2":{"__typename":"OppgaveUtfoertVellykket"}}}""",
+                    HttpStatusCode.OK,
+                )
+            }.close(
+                ArbeidsgiverNotificationCloseRequest(
+                    eksternId = "stable-create-external-id",
+                    tag = "Dialogmøte",
+                    meldingstype = ArbeidsgiverMeldingstype.OPPGAVE,
+                ),
+            ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+            body shouldContain "oppgaveUtfoertByEksternId_V2"
+            body shouldContain """"merkelapp":"Dialogmøte""""
+            body shouldContain """"eksternId":"stable-create-external-id""""
+        }
+
+        test("returns a retryable result after one close request for NotifikasjonFinnesIkke") {
+            listOf(
+                Pair(
+                    ArbeidsgiverMeldingstype.BESKJED,
+                    "hardDeleteNotifikasjonByEksternId_V2",
+                ),
+                Pair(
+                    ArbeidsgiverMeldingstype.OPPGAVE,
+                    "oppgaveUtfoertByEksternId_V2",
+                ),
+            ).forEach { (meldingstype, responseField) ->
+                var requestCount = 0
+                client {
+                    requestCount++
+                    respond(
+                        """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.close(
+                    ArbeidsgiverNotificationCloseRequest(
+                        eksternId = "stable-create-external-id",
+                        tag = "Dialogmøte",
+                        meldingstype = meldingstype,
+                    ),
+                ) shouldBe ArbeidsgiverNotificationResponse.Retryable("NotifikasjonFinnesIkke")
+                requestCount shouldBe 1
+            }
+        }
+
+        test("rejects invalid tag and unknown producer from close without retry") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                listOf("UgyldigMerkelapp", "UkjentProdusent").forEach { resultType ->
+                    var requestCount = 0
+                    client {
+                        requestCount++
+                        respond(
+                            """{"data":{"$responseField":{"__typename":"$resultType"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = "stable-create-external-id",
+                            tag = "Dialogmøte",
+                            meldingstype = meldingstype,
+                        ),
+                    ) shouldBe
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request: $resultType",
+                        )
+
+                    requestCount shouldBe 1
+                }
+            }
+        }
+
+        test("does not retry close transport errors") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                var requestCount = 0
+                shouldThrow<IllegalStateException> {
+                    client {
+                        requestCount++
+                        respond(
+                            """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
+                            HttpStatusCode.InternalServerError,
+                        )
+                    }.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = "stable-create-external-id",
+                            tag = "Dialogmøte",
+                            meldingstype = meldingstype,
+                        ),
+                    )
+                }
+
+                requestCount shouldBe 1
             }
         }
 
