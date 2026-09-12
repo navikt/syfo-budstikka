@@ -141,6 +141,9 @@ class DeliveryWorkerTest :
             event.formattedMessage shouldContain "ThrowingChannelHandler"
             event.formattedMessage shouldContain "IllegalStateException"
             event.throwableProxy shouldBe null
+            repository.attemptedDeliveryIds.shouldContainExactly(deliveryId)
+            repository.sentDeliveryIds.shouldBeEmpty()
+            repository.failedDeliveries.shouldBeEmpty()
         }
 
         test("systemic abort log carries channel and handler with useful stacktrace") {

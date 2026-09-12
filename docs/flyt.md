@@ -130,7 +130,7 @@ Dette er designretningen; selve oppslaget er ikke implementert i runtime ennå �
 | Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
 | Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
 | Ditt Sykefravær           | Ja | Lukk/erstatt-melding |
-| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` |
+| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)`. `NotifikasjonFinnesIkke` kastes som teknisk feil og retries av det ordinære delivery-maskineriet; raden blir synlig som `FAILED` etter konfigurert attempt-budsjett. |
 | Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
 | Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
 

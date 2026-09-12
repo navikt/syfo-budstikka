@@ -17,7 +17,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -51,8 +50,6 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.NyOppgaveInpu
 import no.nav.budstikka.infrastructure.client.fager.generated.type.SendetidspunktInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.Sendevindu
 import okio.Buffer
-import org.slf4j.LoggerFactory
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * GraphQL anti-corruption adapter for arbeidsgiver-notifikasjon-produsent-api. Apollo generates the
@@ -68,7 +65,6 @@ class ArbeidsgiverNotifikasjonClient(
     private val httpClient: HttpClient,
     private val config: ArbeidsgiverNotifikasjonConfig,
     private val tokenProvider: TokenProvider,
-    private val closeRetryDelay: suspend () -> Unit = { delay(CLOSE_RETRY_DELAY) },
 ) : ArbeidsgiverNotificationPublisher {
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
@@ -95,68 +91,48 @@ class ArbeidsgiverNotifikasjonClient(
     override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
             ArbeidsgiverMeldingstype.BESKJED ->
-                closeWithRetry {
-                    execute(
-                        correlationId = request.eksternId,
-                        operation =
-                            HardDeleteNotifikasjonByEksternIdV2Mutation(
-                                merkelapp = request.tag,
-                                eksternId = request.eksternId,
+                execute(
+                    correlationId = request.eksternId,
+                    operation =
+                        HardDeleteNotifikasjonByEksternIdV2Mutation(
+                            merkelapp = request.tag,
+                            eksternId = request.eksternId,
+                        ),
+                    badRequestResult =
+                        FagerCloseResult.Rejected(
+                            ArbeidsgiverNotificationResponse.Rejected(
+                                "Arbeidsgiver notification API rejected request with status 400",
                             ),
-                        badRequestResult =
-                            FagerCloseResult.Rejected(
-                                ArbeidsgiverNotificationResponse.Rejected(
-                                    "Arbeidsgiver notification API rejected request with status 400",
-                                ),
-                            ),
-                    ) { data ->
-                        hardDeleteNotificationResponse(data.hardDeleteNotifikasjonByEksternId_V2)
-                    }
-                }
+                        ),
+                ) { data ->
+                    hardDeleteNotificationResponse(data.hardDeleteNotifikasjonByEksternId_V2)
+                }.toCloseResponse()
             ArbeidsgiverMeldingstype.OPPGAVE ->
-                closeWithRetry {
-                    execute(
-                        correlationId = request.eksternId,
-                        operation =
-                            OppgaveUtfoertByEksternIdV2Mutation(
-                                merkelapp = request.tag,
-                                eksternId = request.eksternId,
+                execute(
+                    correlationId = request.eksternId,
+                    operation =
+                        OppgaveUtfoertByEksternIdV2Mutation(
+                            merkelapp = request.tag,
+                            eksternId = request.eksternId,
+                        ),
+                    badRequestResult =
+                        FagerCloseResult.Rejected(
+                            ArbeidsgiverNotificationResponse.Rejected(
+                                "Arbeidsgiver notification API rejected request with status 400",
                             ),
-                        badRequestResult =
-                            FagerCloseResult.Rejected(
-                                ArbeidsgiverNotificationResponse.Rejected(
-                                    "Arbeidsgiver notification API rejected request with status 400",
-                                ),
-                            ),
-                    ) { data ->
-                        oppgaveUtfoertResponse(data.oppgaveUtfoertByEksternId_V2)
-                    }
-                }
+                        ),
+                ) { data ->
+                    oppgaveUtfoertResponse(data.oppgaveUtfoertByEksternId_V2)
+                }.toCloseResponse()
         }
 
-    private suspend fun closeWithRetry(
-        close: suspend () -> FagerCloseResult,
-    ): ArbeidsgiverNotificationResponse {
-        repeat(CLOSE_RETRY_ATTEMPTS) { attempt ->
-            when (val result = close()) {
-                FagerCloseResult.Published ->
-                    return ArbeidsgiverNotificationResponse.Published
-                is FagerCloseResult.Rejected ->
-                    return result.response
-                FagerCloseResult.NotifikasjonFinnesIkke ->
-                    if (attempt == CLOSE_RETRY_ATTEMPTS - 1) {
-                        logger.warn(
-                            "Fager close retry budget exhausted after NotifikasjonFinnesIkke; treating notification as already closed",
-                        )
-                        return ArbeidsgiverNotificationResponse.Published
-                    } else {
-                        logger.warn("Retrying Fager close after NotifikasjonFinnesIkke")
-                        closeRetryDelay()
-                    }
-            }
+    private fun FagerCloseResult.toCloseResponse(): ArbeidsgiverNotificationResponse =
+        when (this) {
+            FagerCloseResult.Published -> ArbeidsgiverNotificationResponse.Published
+            is FagerCloseResult.Rejected -> response
+            FagerCloseResult.NotifikasjonFinnesIkke ->
+                error("Arbeidsgiver notification API could not close the notification")
         }
-        error("Fager close retry loop ended unexpectedly")
-    }
 
     private suspend fun <D : Operation.Data, T> execute(
         correlationId: String,
@@ -365,9 +341,7 @@ class ArbeidsgiverNotifikasjonClient(
                 error("Arbeidsgiver notification API returned an unexpected HardDeleteNotifikasjon result")
         }
 
-    private fun oppgaveUtfoertResponse(
-        response: OppgaveUtfoertByEksternIdV2Mutation.OppgaveUtfoertByEksternId_V2,
-    ): FagerCloseResult =
+    private fun oppgaveUtfoertResponse(response: OppgaveUtfoertByEksternIdV2Mutation.OppgaveUtfoertByEksternId_V2): FagerCloseResult =
         when {
             response.onOppgaveUtfoertVellykket != null ->
                 FagerCloseResult.Published
@@ -411,10 +385,6 @@ class ArbeidsgiverNotifikasjonClient(
     }
 
     private companion object {
-        private val logger = LoggerFactory.getLogger(ArbeidsgiverNotifikasjonClient::class.java)
-
-        private const val CLOSE_RETRY_ATTEMPTS = 3
-        private val CLOSE_RETRY_DELAY = 100.milliseconds
         private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
         private val OSLO_TIME_ZONE = TimeZone.of("Europe/Oslo")
 
