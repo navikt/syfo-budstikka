@@ -380,7 +380,8 @@ class FerdigstillMatchingIntegrationTest :
             ) shouldBe EffectuationResult.Completed
             saveAndClaim(inbox, inactivate)
 
-            effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe EffectuationResult.Completed
+            effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe
+                EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
 
             inboxState(create.eventId) shouldBe "PROCESSED"
             inboxState(inactivate.eventId) shouldBe "PROCESSED"
@@ -421,7 +422,8 @@ class FerdigstillMatchingIntegrationTest :
                     }
                 }
 
-                effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe EffectuationResult.Completed
+                effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe
+                    EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
 
                 inboxState(create.eventId) shouldBe "PROCESSED"
                 fixture.database.transact {
@@ -486,7 +488,9 @@ class FerdigstillMatchingIntegrationTest :
                                 coordinatedEffectuator().effectuate(inactivate, Decision.Processed(emptyList()))
                             }
                         }.awaitAll()
-                results.count { it == EffectuationResult.Completed } shouldBe 1
+                results.count {
+                    it == EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
+                } shouldBe 1
                 results.count { it == EffectuationResult.FerdigstillWithoutMatch } shouldBe 1
             }
 
@@ -579,7 +583,7 @@ class FerdigstillMatchingIntegrationTest :
             saveAndClaim(inbox, inactivate)
 
             effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe
-                EffectuationResult.FerdigstillWithDelivery(deliveryCount = 1)
+                EffectuationResult.FerdigstillWithDelivery(deliveryCount = 1, cancelledCreateCount = 1)
 
             inboxState(waitingDuplicate.eventId) shouldBe "PROCESSED"
             inactivateRows(reference) shouldHaveSize 1
@@ -622,7 +626,8 @@ class FerdigstillMatchingIntegrationTest :
             }
             saveAndClaim(inbox, inactivate)
 
-            effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe EffectuationResult.Completed
+            effectuate.effectuate(inactivate, Decision.Processed(emptyList())) shouldBe
+                EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 2)
 
             waitingCreates.forEach { create ->
                 inboxState(create.eventId) shouldBe "PROCESSED"
@@ -684,7 +689,8 @@ class FerdigstillMatchingIntegrationTest :
                     cancellationLock.release()
                 }
 
-                cancellation.await() shouldBe EffectuationResult.Completed
+                cancellation.await() shouldBe
+                    EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 2)
                 createEffectuations.awaitAll().forEach { it shouldBe EffectuationResult.Skipped }
             }
 
@@ -737,7 +743,8 @@ class FerdigstillMatchingIntegrationTest :
                     cancellationLock.release()
                 }
 
-                cancellation.await() shouldBe EffectuationResult.Completed
+                cancellation.await() shouldBe
+                    EffectuationResult.FerdigstillWithCancellation(cancelledCreateCount = 1)
                 createEffectuation.await() shouldBe EffectuationResult.Skipped
             }
 
