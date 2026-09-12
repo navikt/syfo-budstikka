@@ -370,6 +370,10 @@ class DeliveryRepositoryImpl(
      *
      * Poison rows use `FOR UPDATE SKIP LOCKED` (like the claim), so concurrent replicas terminate
      * distinct rows without blocking each other.
+     *
+     * Each row takes the same per-source advisory key with a non-blocking, transaction-scoped lock.
+     * It conflicts with normal dispatch's session lock and releases automatically when the
+     * transaction completes or rolls back.
      */
     private fun failPoisonRows(
         now: Instant,
