@@ -24,7 +24,7 @@ fun interface MessagePublisher : AutoCloseable {
     override fun close() = Unit
 }
 
-internal class MessagePublisherImpl(
+internal class KafkaMessagePublisher(
     private val timeoutMillis: Duration = 3000.milliseconds,
     private val producerFactory: () -> Producer<String, String>,
 ) : MessagePublisher,

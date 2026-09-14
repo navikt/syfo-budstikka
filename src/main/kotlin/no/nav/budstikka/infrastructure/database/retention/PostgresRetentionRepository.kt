@@ -20,7 +20,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import java.sql.Connection
 import kotlin.time.Clock
 
-class RetentionRepositoryImpl(
+class PostgresRetentionRepository(
     private val database: Database,
     private val policy: RetentionPolicy,
     private val clock: Clock = Clock.System,

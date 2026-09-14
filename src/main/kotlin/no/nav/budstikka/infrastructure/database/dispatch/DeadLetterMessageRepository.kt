@@ -41,7 +41,7 @@ interface DeadLetterMessageRepository {
     suspend fun deleteByIds(ids: List<UUID>)
 }
 
-class DeadLetterMessageRepositoryImpl(
+class PostgresDeadLetterMessageRepository(
     private val database: Database,
 ) : DeadLetterMessageRepository {
     override suspend fun saveBatch(records: List<DeadLetterRecord>) {

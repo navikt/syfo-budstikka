@@ -13,12 +13,12 @@ import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
-import no.nav.budstikka.infrastructure.database.config.TransactionRunnerImpl
+import no.nav.budstikka.infrastructure.database.config.PostgresTransactionRunner
 import no.nav.budstikka.infrastructure.database.config.transact
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -60,12 +60,12 @@ class LeaseExpiryRaceIntegrationTest :
         }
 
         test("inbox: a peer reclaiming an expired lease does not produce a second set of delivery rows") {
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val effectuate =
                 EffectuateDecision(
-                    transactionRunner = TransactionRunnerImpl(fixture.database),
+                    transactionRunner = PostgresTransactionRunner(fixture.database),
                     inboxMessageRepository = inbox,
-                    deliveryRepository = DeliveryRepositoryImpl(fixture.database),
+                    deliveryRepository = PostgresDeliveryRepository(fixture.database),
                 )
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
             inbox.saveBatch(listOf(inboxMessage(eventId)))
@@ -93,8 +93,8 @@ class LeaseExpiryRaceIntegrationTest :
         }
 
         test("delivery: a lease expiring mid-send makes a peer send the same delivery a second time") {
-            val deliveries = DeliveryRepositoryImpl(fixture.database)
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+            val deliveries = PostgresDeliveryRepository(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val inboxEventId = UUID.fromString("00000000-0000-0000-0000-0000000000b2")
             inbox.saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {

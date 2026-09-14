@@ -25,7 +25,7 @@ internal class RepositoryTestSupport : AutoCloseable {
     val fixture = PostgresTestFixture()
     val clock = MutableClock(Instant.parse("2026-08-14T08:00:00Z"))
     val policy = RetentionPolicy()
-    val repository = RetentionRepositoryImpl(fixture.database, policy, clock)
+    val repository = PostgresRetentionRepository(fixture.database, policy, clock)
 
     fun migrate() = fixture.migrate()
 

@@ -13,12 +13,12 @@ import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionRepository
 import no.nav.budstikka.infrastructure.HealthCheck
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
+import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
-import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
-import no.nav.budstikka.infrastructure.database.observability.OperationalQueueSnapshotRepositoryImpl
-import no.nav.budstikka.infrastructure.database.retention.RetentionRepositoryImpl
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresDeadLetterMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
+import no.nav.budstikka.infrastructure.database.observability.PostgresOperationalQueueSnapshotRepository
+import no.nav.budstikka.infrastructure.database.retention.PostgresRetentionRepository
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -28,16 +28,16 @@ fun DependencyRegistry.databaseModule() {
     provide<HikariDataSource> { createDataSource(resolve()) }
         .cleanup(HikariDataSource::close)
     provide<Database> { Database.connect(resolve<DataSource>()) }
-    provide<TransactionRunner> { TransactionRunnerImpl(resolve()) }
+    provide<TransactionRunner> { PostgresTransactionRunner(resolve()) }
     provide<HealthCheck> {
         dataSourceHealthCheck(resolve())
     }
-    provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
-    provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
-    provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
-    provide<OperationalQueueSnapshotRepository> { OperationalQueueSnapshotRepositoryImpl(resolve()) }
+    provide<InboxMessageRepository> { PostgresInboxMessageRepository(resolve()) }
+    provide<DeadLetterMessageRepository> { PostgresDeadLetterMessageRepository(resolve()) }
+    provide<DeliveryRepository> { PostgresDeliveryRepository(resolve()) }
+    provide<OperationalQueueSnapshotRepository> { PostgresOperationalQueueSnapshotRepository(resolve()) }
     provide { RetentionPolicy() }
-    provide<RetentionRepository> { RetentionRepositoryImpl(resolve(), resolve()) }
+    provide<RetentionRepository> { PostgresRetentionRepository(resolve(), resolve()) }
 }
 
 suspend fun <T> Database.transact(block: () -> T): T =

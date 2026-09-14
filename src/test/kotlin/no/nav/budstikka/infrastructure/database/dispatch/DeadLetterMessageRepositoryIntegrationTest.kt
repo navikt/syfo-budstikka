@@ -27,7 +27,7 @@ class DeadLetterMessageRepositoryIntegrationTest :
         }
 
         test("findReplayable filters by failure reason and event ID") {
-            val repository = DeadLetterMessageRepositoryImpl(fixture.database)
+            val repository = PostgresDeadLetterMessageRepository(fixture.database)
             val replayableEventId = UUID.randomUUID()
             repository.saveBatch(
                 listOf(
@@ -41,7 +41,7 @@ class DeadLetterMessageRepositoryIntegrationTest :
         }
 
         test("deleteByIds deletes only the selected dead-letter rows") {
-            val repository = DeadLetterMessageRepositoryImpl(fixture.database)
+            val repository = PostgresDeadLetterMessageRepository(fixture.database)
             repository.saveBatch(
                 listOf(
                     deadLetter(eventId = UUID.randomUUID()),

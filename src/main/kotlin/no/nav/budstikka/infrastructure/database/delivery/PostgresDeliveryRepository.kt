@@ -28,10 +28,10 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-class DeliveryRepositoryImpl(
+class PostgresDeliveryRepository(
     private val database: Database,
 ) : DeliveryRepository {
-    private val logger = LoggerFactory.getLogger(DeliveryRepositoryImpl::class.java)
+    private val logger = LoggerFactory.getLogger(PostgresDeliveryRepository::class.java)
 
     override fun saveInTransaction(
         inboxEventId: UUID,

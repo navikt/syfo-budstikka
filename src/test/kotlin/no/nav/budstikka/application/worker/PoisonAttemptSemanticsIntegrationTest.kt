@@ -12,9 +12,9 @@ import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryRepository
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -48,8 +48,8 @@ class PoisonAttemptSemanticsIntegrationTest :
         }
 
         test("an aborted batch never spends attempts on rows that no handler touched") {
-            val deliveries = DeliveryRepositoryImpl(fixture.database)
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+            val deliveries = PostgresDeliveryRepository(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val inboxEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
             inbox.saveBatch(listOf(inboxMessage(inboxEventId)))
 

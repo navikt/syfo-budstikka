@@ -13,8 +13,8 @@ import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageReposi
 import no.nav.budstikka.infrastructure.kafka.consumer.BatchMessageHandler
 import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxMessageHandler
+import no.nav.budstikka.infrastructure.kafka.producer.KafkaMessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
-import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisherImpl
 import no.nav.budstikka.infrastructure.kafka.producer.ledervarselPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.microfrontendPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.minSideBrukervarselPublisher
@@ -34,7 +34,7 @@ fun DependencyRegistry.kafkaModule() {
     }
     provide<MessagePublisher> {
         val kafkaConfig = resolve<KafkaConfig>()
-        MessagePublisherImpl {
+        KafkaMessagePublisher {
             KafkaProducer(
                 PropertiesFactory(kafkaConfig).producer(
                     keySerializer = StringSerializer::class.java,

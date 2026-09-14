@@ -15,7 +15,7 @@ import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -38,9 +38,9 @@ class DeliveryRepositoryIntegrationTest :
             draft: DeliveryDraft,
         ) {
             val inboxEventId = UUID.randomUUID()
-            InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
+            PostgresInboxMessageRepository(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
-                DeliveryRepositoryImpl(fixture.database).saveInTransaction(
+                PostgresDeliveryRepository(fixture.database).saveInTransaction(
                     inboxEventId,
                     listOf(draft.copy(reference = reference)),
                 )
@@ -74,7 +74,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim picks only requested channels and marks rows CLAIMED") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
             saveDraft("bruker-ref", brukervarselDraft())
 
@@ -92,7 +92,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim reclaims a CLAIMED row after lease expiry") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
 
             val initialClaim =
@@ -111,7 +111,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("beginAttempt spends one attempt and refuses once the budget is gone") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -127,7 +127,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("beginAttempt refuses a row that is no longer CLAIMED") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -140,7 +140,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("markSent transitions a CLAIMED row to SENT") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -161,7 +161,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("markFailed transitions a CLAIMED row to FAILED with reason") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -183,7 +183,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim fails a poison delivery that reached maxAttempts instead of reclaiming it") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("poison-ref", microfrontendDraft())
             val maxAttempts = 3
             val channels = setOf(Channel.MICROFRONTEND)
@@ -209,11 +209,11 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim logs poison delivery with safe correlation fields") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("poison-ref", microfrontendDraft())
             val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
             makePoison(deliveryId, attempt = 2)
-            val logbackLogger = LoggerFactory.getLogger(DeliveryRepositoryImpl::class.java) as Logger
+            val logbackLogger = LoggerFactory.getLogger(PostgresDeliveryRepository::class.java) as Logger
             val appender = ListAppender<ILoggingEvent>().apply { start() }
             logbackLogger.addAppender(appender)
             try {
@@ -232,7 +232,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("a poison delivery does not block a healthy newer delivery on the same channel") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = PostgresDeliveryRepository(fixture.database)
             saveDraft("poison-ref", microfrontendDraft())
             saveDraft("healthy-ref", microfrontendDraft())
             val poisonId = rowForReference("poison-ref")[DeliveryTable.id]

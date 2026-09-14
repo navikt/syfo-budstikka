@@ -24,8 +24,8 @@ class LockingIntegrationTest :
             support.withExclusiveCleanup {
                 DriverManager.getConnection(support.fixture.jdbcUrl, support.fixture.username, support.fixture.password).use { connection ->
                     connection.prepareStatement("SELECT pg_try_advisory_lock(?, ?)").use { statement ->
-                        statement.setInt(1, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_NAMESPACE)
-                        statement.setInt(2, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_KEY)
+                        statement.setInt(1, PostgresRetentionRepository.RETENTION_CLEANUP_LOCK_NAMESPACE)
+                        statement.setInt(2, PostgresRetentionRepository.RETENTION_CLEANUP_LOCK_KEY)
                         statement.executeQuery().use { resultSet ->
                             resultSet.next() shouldBe true
                             resultSet.getBoolean(1) shouldBe true
@@ -36,8 +36,8 @@ class LockingIntegrationTest :
                         support.rowCounts() shouldBe RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0)
                     } finally {
                         connection.prepareStatement("SELECT pg_advisory_unlock(?, ?)").use { statement ->
-                            statement.setInt(1, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_NAMESPACE)
-                            statement.setInt(2, RetentionRepositoryImpl.RETENTION_CLEANUP_LOCK_KEY)
+                            statement.setInt(1, PostgresRetentionRepository.RETENTION_CLEANUP_LOCK_NAMESPACE)
+                            statement.setInt(2, PostgresRetentionRepository.RETENTION_CLEANUP_LOCK_KEY)
                             statement.executeQuery().close()
                         }
                     }
@@ -56,8 +56,18 @@ class LockingIntegrationTest :
             support.withExclusiveCleanup {
                 support.dataSource().use { failingDataSource ->
                     support.dataSource().use { followingDataSource ->
-                        val failingCleanup = RetentionRepositoryImpl(Database.connect(failingDataSource), support.policy, support.clock)
-                        val followingCleanup = RetentionRepositoryImpl(Database.connect(followingDataSource), support.policy, support.clock)
+                        val failingCleanup =
+                            PostgresRetentionRepository(
+                                Database.connect(failingDataSource),
+                                support.policy,
+                                support.clock,
+                            )
+                        val followingCleanup =
+                            PostgresRetentionRepository(
+                                Database.connect(followingDataSource),
+                                support.policy,
+                                support.clock,
+                            )
                         support.installInboxDeletionFailure()
                         try {
                             shouldThrow<ExposedSQLException> {

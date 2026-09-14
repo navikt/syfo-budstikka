@@ -26,10 +26,10 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-class InboxMessageRepositoryImpl(
+class PostgresInboxMessageRepository(
     private val database: Database,
 ) : InboxMessageRepository {
-    private val logger = LoggerFactory.getLogger(InboxMessageRepositoryImpl::class.java)
+    private val logger = LoggerFactory.getLogger(PostgresInboxMessageRepository::class.java)
 
     override suspend fun saveBatch(messages: List<InboxMessage>) {
         if (messages.isEmpty()) {
