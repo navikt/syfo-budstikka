@@ -1,5 +1,6 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType
 import com.google.cloud.tools.jib.gradle.JibExtension
+import org.gradle.api.artifacts.dsl.DependencyConstraintHandler
 import org.gradle.api.tasks.Exec
 import org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask
 import java.net.URI
@@ -94,6 +95,13 @@ listOf("jib", "jibDockerBuild", "jibBuildTar").forEach { jibTask ->
 }
 
 dependencies {
+    constraints {
+        implementationWithKtorVersionCheck(
+            dependencyNotation = "io.netty:netty-handler:4.2.17.Final",
+            expectedKtorVersion = "3.5.2",
+        )
+    }
+
     // The wire contract and its producer API. The app is a consumer of its own published contract:
     // there is exactly one contract model, in :kontrakt.
     implementation(project(":kontrakt"))
@@ -201,6 +209,17 @@ registerFagerSchemaCheck(
     revision = "main",
     taskDescription = "Checks the local Fager schema for changes on the upstream main branch.",
 )
+
+fun DependencyConstraintHandler.implementationWithKtorVersionCheck(
+    dependencyNotation: String,
+    expectedKtorVersion: String,
+) {
+    val currentKtorVersion = libs.versions.ktor.get()
+    check(currentKtorVersion == expectedKtorVersion) {
+        "Review the $dependencyNotation constraint before changing Ktor from $expectedKtorVersion to $currentKtorVersion"
+    }
+    add("implementation", dependencyNotation)
+}
 
 tasks {
     named<BaseKtLintCheckTask>("runKtlintCheckOverMainSourceSet") {
