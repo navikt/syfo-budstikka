@@ -56,8 +56,18 @@ class LockingIntegrationTest :
             support.withExclusiveCleanup {
                 support.dataSource().use { failingDataSource ->
                     support.dataSource().use { followingDataSource ->
-                        val failingCleanup = PostgresRetentionRepository(Database.connect(failingDataSource), support.policy, support.clock)
-                        val followingCleanup = PostgresRetentionRepository(Database.connect(followingDataSource), support.policy, support.clock)
+                        val failingCleanup =
+                            PostgresRetentionRepository(
+                                Database.connect(failingDataSource),
+                                support.policy,
+                                support.clock,
+                            )
+                        val followingCleanup =
+                            PostgresRetentionRepository(
+                                Database.connect(followingDataSource),
+                                support.policy,
+                                support.clock,
+                            )
                         support.installInboxDeletionFailure()
                         try {
                             shouldThrow<ExposedSQLException> {
