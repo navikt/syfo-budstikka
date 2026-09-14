@@ -72,10 +72,11 @@ class DeliveryExternalIdStorageMigrationIntegrationTest :
                         }
 
                         val migrationStarted = CountDownLatch(1)
-                        val migration = migrationExecutor.submit {
-                            migrationStarted.countDown()
-                            fixture.migrate()
-                        }
+                        val migration =
+                            migrationExecutor.submit {
+                                migrationStarted.countDown()
+                                fixture.migrate()
+                            }
                         migrationStarted.awaitOrFail("V10 migration did not start")
                         fixture.awaitWaitingDatabaseLock(blockerPid)
 
@@ -119,8 +120,7 @@ private fun PostgresTestFixture.migrateTo(target: String) {
         .migrate()
 }
 
-private fun PostgresTestFixture.insertLegacyCreate(create: LegacyCreate) =
-    insertLegacyDelivery(create, "CREATE", "ARBEIDSGIVERVARSEL")
+private fun PostgresTestFixture.insertLegacyCreate(create: LegacyCreate) = insertLegacyDelivery(create, "CREATE", "ARBEIDSGIVERVARSEL")
 
 private fun PostgresTestFixture.insertLegacyDelivery(
     create: LegacyCreate,
@@ -128,27 +128,29 @@ private fun PostgresTestFixture.insertLegacyDelivery(
     channel: String,
 ) {
     DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
-        connection.prepareStatement(
-            "INSERT INTO inbox_message (event_id, content, reference, state) VALUES (?, '{}', ?, 'PROCESSED')",
-        ).use { statement ->
-            statement.setObject(1, create.eventId)
-            statement.setString(2, create.reference)
-            statement.executeUpdate() shouldBe 1
-        }
-        connection.prepareStatement(
-            """
-            INSERT INTO delivery (
-                id, inbox_event_id, reference, operation, channel, recipient_type, recipient_id, payload, state, attempt
-            ) VALUES (?, ?, ?, ?, ?, 'VIRKSOMHET', 'synthetic-orgnummer', '{}', 'READY', 0)
-            """.trimIndent(),
-        ).use { statement ->
-            statement.setObject(1, create.id)
-            statement.setObject(2, create.eventId)
-            statement.setString(3, create.reference)
-            statement.setString(4, operation)
-            statement.setString(5, channel)
-            statement.executeUpdate() shouldBe 1
-        }
+        connection
+            .prepareStatement(
+                "INSERT INTO inbox_message (event_id, content, reference, state) VALUES (?, '{}', ?, 'PROCESSED')",
+            ).use { statement ->
+                statement.setObject(1, create.eventId)
+                statement.setString(2, create.reference)
+                statement.executeUpdate() shouldBe 1
+            }
+        connection
+            .prepareStatement(
+                """
+                INSERT INTO delivery (
+                    id, inbox_event_id, reference, operation, channel, recipient_type, recipient_id, payload, state, attempt
+                ) VALUES (?, ?, ?, ?, ?, 'VIRKSOMHET', 'synthetic-orgnummer', '{}', 'READY', 0)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, create.id)
+                statement.setObject(2, create.eventId)
+                statement.setString(3, create.reference)
+                statement.setString(4, operation)
+                statement.setString(5, channel)
+                statement.executeUpdate() shouldBe 1
+            }
     }
 }
 
@@ -197,25 +199,26 @@ private fun PostgresTestFixture.awaitWaitingDatabaseLock(blockerPid: Int) {
     val deadline = System.nanoTime() + 5.seconds.inWholeNanoseconds
     while (System.nanoTime() < deadline) {
         DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
-            connection.prepareStatement(
-                """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM pg_locks AS waiting
-                    JOIN pg_locks AS held ON held.transactionid = waiting.transactionid
-                    WHERE NOT waiting.granted
-                      AND waiting.locktype = 'transactionid'
-                      AND held.granted
-                      AND held.pid = ?
-                )
-                """.trimIndent(),
-            ).use { statement ->
-                statement.setInt(1, blockerPid)
-                statement.executeQuery().use { rows ->
-                    rows.next()
-                    if (rows.getBoolean(1)) return
+            connection
+                .prepareStatement(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM pg_locks AS waiting
+                        JOIN pg_locks AS held ON held.transactionid = waiting.transactionid
+                        WHERE NOT waiting.granted
+                          AND waiting.locktype = 'transactionid'
+                          AND held.granted
+                          AND held.pid = ?
+                    )
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setInt(1, blockerPid)
+                    statement.executeQuery().use { rows ->
+                        rows.next()
+                        if (rows.getBoolean(1)) return
+                    }
                 }
-            }
         }
         Thread.sleep(10)
     }
@@ -226,23 +229,24 @@ private fun PostgresTestFixture.awaitWriterAtMigrationBoundary(writer: Future<*>
     val deadline = System.nanoTime() + 5.seconds.inWholeNanoseconds
     while (System.nanoTime() < deadline && !writer.isDone) {
         DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
-            connection.prepareStatement(
-                """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM pg_locks
-                    WHERE NOT granted
-                      AND locktype = 'relation'
-                      AND relation = 'delivery'::regclass
-                      AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
-                )
-                """.trimIndent(),
-            ).use { statement ->
-                statement.executeQuery().use { rows ->
-                    rows.next()
-                    if (rows.getBoolean(1)) return
+            connection
+                .prepareStatement(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM pg_locks
+                        WHERE NOT granted
+                          AND locktype = 'relation'
+                          AND relation = 'delivery'::regclass
+                          AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+                    )
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.executeQuery().use { rows ->
+                        rows.next()
+                        if (rows.getBoolean(1)) return
+                    }
                 }
-            }
         }
         Thread.sleep(10)
     }
