@@ -7,12 +7,12 @@ import no.nav.budstikka.domain.decision.DropReason
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
-import no.nav.budstikka.infrastructure.database.config.TransactionRunnerImpl
+import no.nav.budstikka.infrastructure.database.config.PostgresTransactionRunner
 import no.nav.budstikka.infrastructure.database.config.transact
-import no.nav.budstikka.infrastructure.database.delivery.DeliveryRepositoryImpl
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
+import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.util.UUID
@@ -27,13 +27,13 @@ class EffectuateDecisionIntegrationTest :
         afterTest { fixture.reset() }
         afterSpec { fixture.close() }
 
-        fun effectuator(): Pair<EffectuateDecision, InboxMessageRepositoryImpl> {
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+        fun effectuator(): Pair<EffectuateDecision, PostgresInboxMessageRepository> {
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val effectuate =
                 EffectuateDecision(
-                    transactionRunner = TransactionRunnerImpl(fixture.database),
+                    transactionRunner = PostgresTransactionRunner(fixture.database),
                     inboxMessageRepository = inbox,
-                    deliveryRepository = DeliveryRepositoryImpl(fixture.database),
+                    deliveryRepository = PostgresDeliveryRepository(fixture.database),
                 )
             return effectuate to inbox
         }

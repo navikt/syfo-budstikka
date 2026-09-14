@@ -7,12 +7,12 @@ import io.kotest.matchers.shouldBe
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
-import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
-import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryImpl
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresDeadLetterMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -36,8 +36,8 @@ class DeadLetterReplayerIntegrationTest :
         }
 
         test("replays parseable rows into inbox and retains unparseable rows") {
-            val deadLetters = DeadLetterMessageRepositoryImpl(fixture.database)
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+            val deadLetters = PostgresDeadLetterMessageRepository(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.randomUUID()
             deadLetters.saveBatch(
                 listOf(
@@ -56,8 +56,8 @@ class DeadLetterReplayerIntegrationTest :
         }
 
         test("replaying a dead letter whose inbox row was already committed does not duplicate the inbox row") {
-            val deadLetters = DeadLetterMessageRepositoryImpl(fixture.database)
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+            val deadLetters = PostgresDeadLetterMessageRepository(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.randomUUID()
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             deadLetters.saveBatch(listOf(deadLetter(eventId, VALID_PAYLOAD_WITH_NULL_SENDING_WINDOW)))
@@ -71,8 +71,8 @@ class DeadLetterReplayerIntegrationTest :
         }
 
         test("replays a highest-ID row after same-timestamp unparseable rows") {
-            val deadLetters = DeadLetterMessageRepositoryImpl(fixture.database)
-            val inbox = InboxMessageRepositoryImpl(fixture.database)
+            val deadLetters = PostgresDeadLetterMessageRepository(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
             val replayedEventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
             val unparseableEventIds =
                 listOf(

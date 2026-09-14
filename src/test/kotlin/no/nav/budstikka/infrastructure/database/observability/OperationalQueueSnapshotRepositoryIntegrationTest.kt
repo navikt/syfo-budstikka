@@ -25,7 +25,7 @@ class OperationalQueueSnapshotRepositoryIntegrationTest :
     FunSpec({
         val fixture = PostgresTestFixture()
         val observedAt = Instant.parse("2026-08-30T12:00:00Z")
-        val repository = OperationalQueueSnapshotRepositoryImpl(fixture.database)
+        val repository = PostgresOperationalQueueSnapshotRepository(fixture.database)
 
         beforeSpec { fixture.migrate() }
         afterTest { fixture.reset() }

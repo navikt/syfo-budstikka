@@ -32,7 +32,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.unionAll
 import kotlin.time.Instant
 
-class OperationalQueueSnapshotRepositoryImpl(
+class PostgresOperationalQueueSnapshotRepository(
     private val database: Database,
 ) : OperationalQueueSnapshotRepository {
     override suspend fun snapshot(observedAt: Instant): OperationalQueueSnapshot =

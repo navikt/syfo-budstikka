@@ -18,7 +18,7 @@ class MessagePublisherTest :
     FunSpec({
         test("publishes the topic, key and value to Kafka") {
             val producer = MockProducer(true, RoundRobinPartitioner(), StringSerializer(), StringSerializer())
-            val publisher = MessagePublisherImpl { producer }
+            val publisher = KafkaMessagePublisher { producer }
             val message =
                 publishedMessage(
                     topic = "min-side.aapen-microfrontend-v1",
@@ -37,7 +37,7 @@ class MessagePublisherTest :
         test("does not create producer when closed before first publish") {
             var createdProducers = 0
             val publisher =
-                MessagePublisherImpl {
+                KafkaMessagePublisher {
                     createdProducers++
                     MockProducer(true, RoundRobinPartitioner(), StringSerializer(), StringSerializer())
                 }
@@ -50,7 +50,7 @@ class MessagePublisherTest :
         test("does not create producer when publishing after close") {
             var createdProducers = 0
             val publisher =
-                MessagePublisherImpl {
+                KafkaMessagePublisher {
                     createdProducers++
                     MockProducer(true, RoundRobinPartitioner(), StringSerializer(), StringSerializer())
                 }
@@ -67,7 +67,7 @@ class MessagePublisherTest :
 
         test("closes producer during cleanup after it has been used") {
             val producer = MockProducer(true, RoundRobinPartitioner(), StringSerializer(), StringSerializer())
-            val publisher = MessagePublisherImpl { producer }
+            val publisher = KafkaMessagePublisher { producer }
 
             publisher.publish(
                 publishedMessage(),
@@ -87,7 +87,7 @@ class MessagePublisherTest :
                         callback: Callback?,
                     ): Future<RecordMetadata> = throw exception
                 }
-            val publisher = MessagePublisherImpl { failingProducer }
+            val publisher = KafkaMessagePublisher { failingProducer }
 
             shouldThrow<RuntimeException> {
                 publisher.publish(
@@ -98,7 +98,7 @@ class MessagePublisherTest :
 
         test("propagates timeout when producer does not respond") {
             val publisher =
-                MessagePublisherImpl(
+                KafkaMessagePublisher(
                     producerFactory = {
                         MockProducer(false, RoundRobinPartitioner(), StringSerializer(), StringSerializer())
                     },

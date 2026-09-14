@@ -53,7 +53,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("saveBatch writes a row to inbox_message and deduplicates on event_id") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.randomUUID()
 
             repository.saveBatch(listOf(inboxMessage(eventId)))
@@ -65,7 +65,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("saveBatch writes rows in one call and ignores duplicates on event_id") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000020")
             val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000021")
             repository.saveBatch(
@@ -81,7 +81,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("claim reads received rows in order, respects the limit and marks them CLAIMED") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId1 = UUID.fromString("00000000-0000-0000-0000-000000000001")
             val eventId2 = UUID.fromString("00000000-0000-0000-0000-000000000002")
             repository.saveBatch(listOf(inboxMessage(eventId1)))
@@ -101,7 +101,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("claim skips a CLAIMED row while its lease is still valid") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
             repository.saveBatch(listOf(inboxMessage(eventId)))
 
@@ -110,7 +110,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("claim reclaims a CLAIMED row after its lease has expired") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000004")
             repository.saveBatch(listOf(inboxMessage(eventId)))
 
@@ -128,7 +128,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("beginAttempt spends one attempt and refuses once the budget is gone") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000005")
             repository.saveBatch(listOf(inboxMessage(eventId)))
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
@@ -146,7 +146,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("beginAttempt refuses a row that is no longer CLAIMED") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000006")
             repository.saveBatch(listOf(inboxMessage(eventId)))
 
@@ -154,7 +154,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("markProcessedInTransaction transitions a CLAIMED row to PROCESSED") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             repository.saveBatch(listOf(inboxMessage(eventId)))
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
@@ -170,7 +170,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("markProcessedInTransaction is a no-op on a row that is not CLAIMED") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000012")
             repository.saveBatch(listOf(inboxMessage(eventId)))
 
@@ -178,7 +178,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("markFailedInTransaction transitions a CLAIMED row to FAILED with reason") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val reason = "Invalid dispatch payload"
             repository.saveBatch(listOf(inboxMessage(eventId)))
@@ -195,7 +195,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("markOutsideSendingWindowInTransaction holds a CLAIMED row as WAIT with wait_reason, not error_message") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000050")
             val reason = "Closed Sunday"
             val nextRetry = Clock.System.now() + 30.minutes
@@ -221,7 +221,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("claim reclaims a WAIT row after next_attempt_time without consuming the attempt budget") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000051")
             repository.saveBatch(listOf(inboxMessage(eventId)))
             repository.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
@@ -247,7 +247,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("a repeatedly held WAIT row never poison-FAILs from waiting") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000052")
             val maxAttempts = 2
             repository.saveBatch(listOf(inboxMessage(eventId)))
@@ -276,7 +276,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("claim fails a poison row that reached maxAttempts instead of reclaiming it") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000030")
             repository.saveBatch(listOf(inboxMessage(eventId)))
             val maxAttempts = 3
@@ -303,7 +303,7 @@ class InboxDispatchRepositoryIntegrationTest :
         }
 
         test("a poison row at the head of the queue does not block a healthy newer row") {
-            val repository = InboxMessageRepositoryImpl(fixture.database)
+            val repository = PostgresInboxMessageRepository(fixture.database)
             val poisonEventId = UUID.fromString("00000000-0000-0000-0000-000000000040")
             val healthyEventId = UUID.fromString("00000000-0000-0000-0000-000000000041")
             // Poison saved first, so it sorts to the head of the queue (receivedAt ASC).
