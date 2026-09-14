@@ -76,10 +76,59 @@ internal fun PostgresTestFixture.insertLegacyCreate(create: LegacyCreate) {
     }
 }
 
+internal fun PostgresTestFixture.insertLegacyDelivery(
+    create: LegacyCreate,
+    operation: String,
+    channel: String,
+) {
+    val payload = dispatchJson.encodeToString<DispatchContent>(create.content)
+    DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
+        connection
+            .prepareStatement(
+                "INSERT INTO inbox_message (event_id, content, reference, state) VALUES (?, CAST(? AS jsonb), ?, 'PROCESSED')",
+            ).use { statement ->
+                statement.setObject(1, create.eventId)
+                statement.setString(2, payload)
+                statement.setString(3, create.reference)
+                statement.executeUpdate()
+            }
+        connection
+            .prepareStatement(
+                """
+                INSERT INTO delivery (
+                    id, inbox_event_id, reference, operation, channel, recipient_type, recipient_id, payload, state, attempt
+                ) VALUES (?, ?, ?, ?, ?, 'VIRKSOMHET', ?, CAST(? AS jsonb), 'READY', 0)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, create.id)
+                statement.setObject(2, create.eventId)
+                statement.setString(3, create.reference)
+                statement.setString(4, operation)
+                statement.setString(5, channel)
+                statement.setString(6, TEST_ORGNUMMER.value)
+                statement.setString(7, payload)
+                statement.executeUpdate() shouldBe 1
+            }
+    }
+}
+
 internal fun PostgresTestFixture.deleteInbox(eventId: UUID) {
     dataSource.connection.use { connection ->
         connection.prepareStatement("DELETE FROM inbox_message WHERE event_id = ?").use { statement ->
             statement.setObject(1, eventId)
+            statement.executeUpdate() shouldBe 1
+        }
+    }
+}
+
+internal fun PostgresTestFixture.setExternalId(
+    deliveryId: UUID,
+    externalId: String?,
+) {
+    dataSource.connection.use { connection ->
+        connection.prepareStatement("UPDATE delivery SET create_external_id = ? WHERE id = ?").use { statement ->
+            statement.setString(1, externalId)
+            statement.setObject(2, deliveryId)
             statement.executeUpdate() shouldBe 1
         }
     }

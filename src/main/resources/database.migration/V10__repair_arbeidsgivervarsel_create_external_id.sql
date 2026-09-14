@@ -34,19 +34,3 @@ WHERE operation = 'CREATE'
   AND channel = 'ARBEIDSGIVERVARSEL'
   AND inbox_event_id IS NULL
   AND create_external_id = id::text;
-
--- Pending dependent closes inherit only a repaired source identity. Terminal rows retain their
--- recorded outcome, attempts, and external-id value.
-UPDATE delivery AS dependent
-SET create_external_id = source.create_external_id
-FROM delivery AS source
-WHERE dependent.operation = 'INACTIVATE'
-  AND dependent.channel = 'ARBEIDSGIVERVARSEL'
-  AND dependent.state NOT IN ('SENT', 'FAILED')
-  AND dependent.source_create_delivery_id = source.id
-  AND source.operation = 'CREATE'
-  AND source.channel = 'ARBEIDSGIVERVARSEL'
-  AND (
-      dependent.create_external_id IS NULL
-      OR dependent.create_external_id = source.id::text
-  );

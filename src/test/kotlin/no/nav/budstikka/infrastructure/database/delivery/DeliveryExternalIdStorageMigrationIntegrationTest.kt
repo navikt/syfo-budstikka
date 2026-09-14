@@ -2,12 +2,6 @@ package no.nav.budstikka.infrastructure.database.delivery
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.application.port.InboxMessage
-import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
-import no.nav.budstikka.domain.decision.Operation
-import no.nav.budstikka.domain.decision.toDeliveryDraft
-import no.nav.budstikka.fakes.TEST_ORGNUMMER
-import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import java.sql.DriverManager
 import java.util.UUID
@@ -19,149 +13,52 @@ import kotlin.time.Duration.Companion.seconds
 
 class DeliveryExternalIdStorageMigrationIntegrationTest :
     FunSpec({
-        test("V11 repairs a legacy writer's null identities without changing delivery state or attempts") {
+        test("V10 backfills source CREATE rows and fails closed for V9's ambiguous fallback") {
             PostgresTestFixture().use { fixture ->
-                fixture.migrateTo("10")
-                val create = LegacyCreate()
-                fixture.insertLegacyCreate(create)
-                val dependentId = fixture.insertDependent(create, externalId = null, attempt = 2)
-                val before =
-                    mapOf(
-                        create.id to
-                            DeliverySnapshot(
-                                id = create.id,
-                                inboxEventId = create.eventId,
-                                externalId = null,
-                                sourceId = null,
-                                state = "READY",
-                                attempt = 0,
-                                error = null,
-                            ),
-                        dependentId to
-                            DeliverySnapshot(
-                                id = dependentId,
-                                inboxEventId = null,
-                                externalId = null,
-                                sourceId = create.id,
-                                state = "READY",
-                                attempt = 2,
-                                error = null,
-                            ),
-                    )
-                fixture.snapshot() shouldBe before
-
-                fixture.migrate()
-
-                val repaired = before.mapValues { (_, row) -> row.copy(externalId = create.eventId.toString()) }
-                fixture.snapshot() shouldBe repaired
-                fixture.deleteInbox(create.eventId)
-                fixture.snapshot() shouldBe repaired.mapValues { (_, row) -> row.copy(inboxEventId = null) }
-            }
-        }
-
-        test("V11 storage repair preserves known and terminal identities and its exact UPDATEs are idempotent") {
-            PostgresTestFixture().use { fixture ->
-                fixture.migrateTo("10")
-                val repairable = LegacyCreate(reference = "synthetic-shared-reference")
-                val known = LegacyCreate(reference = repairable.reference)
+                fixture.migrateTo("8")
+                val recoverable = LegacyCreate()
                 val ambiguous = LegacyCreate()
-                val unresolved = LegacyCreate()
-                listOf(repairable, known, ambiguous, unresolved).forEach { fixture.insertLegacyCreate(it) }
-                fixture.setExternalId(known.id, "synthetic-known-external-id")
-                fixture.setExternalId(ambiguous.id, ambiguous.id.toString())
-                listOf(known, ambiguous, unresolved).forEach { fixture.deleteInbox(it.eventId) }
+                fixture.insertLegacyCreate(recoverable)
+                fixture.insertLegacyCreate(ambiguous)
+                fixture.deleteInbox(ambiguous.eventId)
+                fixture.migrateTo("9")
+                fixture.setExternalId(recoverable.id, null)
 
-                val pendingNull = fixture.insertDependent(repairable, externalId = null, attempt = 2)
-                val pendingGuess =
-                    fixture.insertDependent(repairable, externalId = repairable.id.toString(), state = "CLAIMED", attempt = 3)
-                val pendingKnownSource = fixture.insertDependent(known, externalId = null)
-                val pendingAmbiguous = fixture.insertDependent(ambiguous, externalId = ambiguous.id.toString())
-                fixture.insertDependent(unresolved, externalId = null)
-                fixture.insertDependent(repairable, externalId = "synthetic-known-dependent-id")
-                listOf("SENT", "FAILED").forEach { state ->
-                    listOf(null, repairable.id.toString(), "synthetic-terminal-id").forEachIndexed { index, externalId ->
-                        fixture.insertDependent(repairable, externalId, state, attempt = 4 + index)
-                    }
-                }
-                val before = fixture.snapshot()
-                val repairedIds =
-                    mapOf(
-                        repairable.id to repairable.eventId.toString(),
-                        ambiguous.id to null,
-                        pendingNull to repairable.eventId.toString(),
-                        pendingGuess to repairable.eventId.toString(),
-                        pendingKnownSource to "synthetic-known-external-id",
-                        pendingAmbiguous to null,
-                    )
-                val expected =
-                    before.mapValues { (id, row) ->
-                        if (id in repairedIds) row.copy(externalId = repairedIds[id]) else row
-                    }
-                (expected == before) shouldBe false
+                fixture.createExternalId(recoverable.id) shouldBe null
+                fixture.createExternalId(ambiguous.id) shouldBe ambiguous.id.toString()
 
-                fixture.dataSource.connection.use { connection ->
-                    connection.autoCommit = false
-                    try {
-                        val repairStatements = v11RepairStatements()
-                        val updated =
-                            repairStatements.sumOf { sql ->
-                                connection.prepareStatement(sql).use { it.executeUpdate() }
-                            }
-                        (updated > 0) shouldBe true
-                        val afterFirstRepair = connection.snapshot()
-                        afterFirstRepair shouldBe expected
-                        repairStatements.forEach { sql ->
-                            connection.prepareStatement(sql).use { it.executeUpdate() }
-                        }
-                        connection.snapshot() shouldBe afterFirstRepair
-                    } finally {
-                        connection.rollback()
-                    }
-                }
-                fixture.snapshot() shouldBe before
-                fixture.migrate()
-                fixture.snapshot() shouldBe expected
+                fixture.migrateTo("10")
+
+                fixture.createExternalId(recoverable.id) shouldBe recoverable.eventId.toString()
+                fixture.createExternalId(ambiguous.id) shouldBe null
             }
         }
 
-        test("post-V11 trigger leaves other channel CREATE and ARBEIDSGIVERVARSEL INACTIVATE identities untouched") {
+        test("V10 trigger fills compatible legacy CREATE inserts and leaves other rows untouched") {
             PostgresTestFixture().use { fixture ->
-                fixture.migrate()
-                val create = syntheticCreate()
-                val drafts =
-                    listOf(
-                        brukervarselDraft(),
-                        requireNotNull(create.toDeliveryDraft("synthetic-inactivate")).copy(operation = Operation.INACTIVATE),
-                    )
-                drafts.forEach { draft ->
-                    val inboxContent =
-                        if (draft.operation == Operation.INACTIVATE) {
-                            ArbeidsgivervarselInactivate(draft.reference, TEST_ORGNUMMER)
-                        } else {
-                            draft.content
-                        }
-                    val message = InboxMessage(UUID.randomUUID(), draft.reference, inboxContent)
-                    val id = fixture.insertTriggerProbe(message, draft)
-                    fixture.snapshot().getValue(id).let { row ->
-                        row.inboxEventId shouldBe message.eventId
-                        row.externalId shouldBe null
-                        row.state shouldBe "READY"
-                        row.attempt shouldBe 0
-                    }
-                }
+                fixture.migrateTo("10")
+                val compatible = LegacyCreate()
+                val otherChannel = LegacyCreate()
+                val otherOperation = LegacyCreate()
+
+                fixture.insertLegacyDelivery(compatible, "CREATE", "ARBEIDSGIVERVARSEL")
+                fixture.insertLegacyDelivery(otherChannel, "CREATE", "BRUKERVARSEL")
+                fixture.insertLegacyDelivery(otherOperation, "INACTIVATE", "ARBEIDSGIVERVARSEL")
+
+                fixture.createExternalId(compatible.id) shouldBe compatible.eventId.toString()
+                fixture.createExternalId(otherChannel.id) shouldBe null
+                fixture.createExternalId(otherOperation.id) shouldBe null
             }
         }
 
-        test("a legacy writer cannot insert between V11 repair and trigger installation") {
-            PostgresTestFixture().use { raceFixture ->
-                val repairedEventId = UUID.fromString("00000000-0000-0000-0000-000000000911")
-                val repairedDeliveryId = UUID.fromString("00000000-0000-0000-0000-000000000912")
-                val concurrentEventId = UUID.fromString("00000000-0000-0000-0000-000000000913")
-                val concurrentDeliveryId = UUID.fromString("00000000-0000-0000-0000-000000000914")
-                raceFixture.migrateTo("10")
-                raceFixture.insertLegacyCreate(repairedEventId, repairedDeliveryId)
+        test("a legacy writer cannot insert between V10 repair and trigger installation") {
+            PostgresTestFixture().use { fixture ->
+                val repaired = LegacyCreate()
+                val concurrent = LegacyCreate()
+                fixture.migrateTo("9")
+                fixture.insertLegacyCreate(repaired)
 
-                DriverManager.getConnection(raceFixture.jdbcUrl, raceFixture.username, raceFixture.password).use { blocker ->
+                DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { blocker ->
                     val migrationExecutor = Executors.newSingleThreadExecutor()
                     val writerExecutor = Executors.newSingleThreadExecutor()
                     try {
@@ -174,32 +71,28 @@ class DeliveryExternalIdStorageMigrationIntegrationTest :
                                 }
                             }
                         blocker.prepareStatement("SELECT id FROM delivery WHERE id = ? FOR UPDATE").use { statement ->
-                            statement.setObject(1, repairedDeliveryId)
-                            statement.executeQuery().use { resultSet -> resultSet.next() shouldBe true }
+                            statement.setObject(1, repaired.id)
+                            statement.executeQuery().use { rows -> rows.next() shouldBe true }
                         }
 
                         val migrationStarted = CountDownLatch(1)
-                        val migration =
-                            migrationExecutor.submit {
-                                migrationStarted.countDown()
-                                raceFixture.migrate()
-                            }
-                        migrationStarted.awaitOrFail("V11 migration did not start")
-                        raceFixture.awaitWaitingDatabaseLock(blockerPid)
+                        val migration = migrationExecutor.submit {
+                            migrationStarted.countDown()
+                            fixture.migrateTo("10")
+                        }
+                        migrationStarted.awaitOrFail("V10 migration did not start")
+                        fixture.awaitWaitingDatabaseLock(blockerPid)
 
-                        val writer =
-                            writerExecutor.submit {
-                                raceFixture.insertLegacyCreate(concurrentEventId, concurrentDeliveryId)
-                            }
-
-                        raceFixture.awaitWriterAtMigrationBoundary(writer)
+                        val writer = writerExecutor.submit { fixture.insertLegacyCreate(concurrent) }
+                        fixture.awaitWriterAtMigrationBoundary(writer)
                         writer.isDone shouldBe false
+
                         blocker.commit()
                         migration.get(10, TimeUnit.SECONDS)
                         writer.get(10, TimeUnit.SECONDS)
 
-                        raceFixture.createExternalId(repairedDeliveryId) shouldBe repairedEventId.toString()
-                        raceFixture.createExternalId(concurrentDeliveryId) shouldBe concurrentEventId.toString()
+                        fixture.createExternalId(repaired.id) shouldBe repaired.eventId.toString()
+                        fixture.createExternalId(concurrent.id) shouldBe concurrent.eventId.toString()
                     } finally {
                         runCatching { blocker.rollback() }
                         migrationExecutor.shutdownNow()
@@ -210,95 +103,71 @@ class DeliveryExternalIdStorageMigrationIntegrationTest :
                 }
             }
         }
-    })
 
-private fun PostgresTestFixture.insertLegacyCreate(
-    eventId: UUID,
-    deliveryId: UUID,
-) = insertLegacyCreate(LegacyCreate(eventId = eventId, id = deliveryId))
+        test("V11 adds the source CREATE dependency column and index") {
+            PostgresTestFixture().use { fixture ->
+                fixture.migrateTo("10")
+                fixture.deliveryColumnExists("source_create_delivery_id") shouldBe false
 
-private fun PostgresTestFixture.setExternalId(
-    id: UUID,
-    externalId: String?,
-) {
-    dataSource.connection.use { connection ->
-        connection.prepareStatement("UPDATE delivery SET create_external_id = ? WHERE id = ?").use { statement ->
-            statement.setString(1, externalId)
-            statement.setObject(2, id)
-            statement.executeUpdate() shouldBe 1
+                fixture.migrate()
+
+                fixture.deliveryColumnExists("source_create_delivery_id") shouldBe true
+                fixture.deliverySelfReferenceExists("source_create_delivery_id") shouldBe true
+                fixture.deliveryIndexExists("delivery_source_create_delivery_id_idx") shouldBe true
+            }
         }
-    }
-}
-
-private fun v11RepairStatements(): List<String> {
-    val migration =
-        checkNotNull(
-            DeliveryExternalIdStorageMigrationIntegrationTest::class.java.getResourceAsStream(
-                "/database.migration/V11__repair_arbeidsgivervarsel_create_external_id.sql",
-            ),
-        ).bufferedReader().use { it.readText() }
-    val repairStart = migration.indexOf("\nUPDATE delivery\n")
-    check(repairStart > migration.indexOf("EXECUTE FUNCTION")) { "Expected repair SQL after the V11 trigger DDL" }
-    return migration
-        .substring(repairStart)
-        .split(';')
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .also { it.size shouldBe 3 }
-}
+    })
 
 private fun PostgresTestFixture.awaitWaitingDatabaseLock(blockerPid: Int) {
     val deadline = System.nanoTime() + 5.seconds.inWholeNanoseconds
     while (System.nanoTime() < deadline) {
         DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
-            connection
-                .prepareStatement(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM pg_locks AS waiting
-                        JOIN pg_locks AS held ON held.transactionid = waiting.transactionid
-                        WHERE NOT waiting.granted
-                          AND waiting.locktype = 'transactionid'
-                          AND held.granted
-                          AND held.pid = ?
-                    )
-                    """.trimIndent(),
-                ).use { statement ->
-                    statement.setInt(1, blockerPid)
-                    statement.executeQuery().use { resultSet ->
-                        resultSet.next()
-                        if (resultSet.getBoolean(1)) return
-                    }
+            connection.prepareStatement(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_locks AS waiting
+                    JOIN pg_locks AS held ON held.transactionid = waiting.transactionid
+                    WHERE NOT waiting.granted
+                      AND waiting.locktype = 'transactionid'
+                      AND held.granted
+                      AND held.pid = ?
+                )
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setInt(1, blockerPid)
+                statement.executeQuery().use { rows ->
+                    rows.next()
+                    if (rows.getBoolean(1)) return
                 }
+            }
         }
         Thread.sleep(10)
     }
-    error("V11 repair did not wait for the target row lock")
+    error("V10 repair did not wait for the target row lock")
 }
 
 private fun PostgresTestFixture.awaitWriterAtMigrationBoundary(writer: Future<*>) {
     val deadline = System.nanoTime() + 5.seconds.inWholeNanoseconds
     while (System.nanoTime() < deadline && !writer.isDone) {
         DriverManager.getConnection(jdbcUrl, username, password).use { connection ->
-            connection
-                .prepareStatement(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM pg_locks
-                        WHERE NOT granted
-                        AND locktype = 'relation'
-                        AND relation = 'delivery'::regclass
-                        AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
-                    )
-                    """.trimIndent(),
-                ).use { statement ->
-                    statement.executeQuery().use { resultSet ->
-                        resultSet.next()
-                        if (resultSet.getBoolean(1)) return
-                    }
+            connection.prepareStatement(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_locks
+                    WHERE NOT granted
+                      AND locktype = 'relation'
+                      AND relation = 'delivery'::regclass
+                      AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+                )
+                """.trimIndent(),
+            ).use { statement ->
+                statement.executeQuery().use { rows ->
+                    rows.next()
+                    if (rows.getBoolean(1)) return
                 }
+            }
         }
         Thread.sleep(10)
     }
@@ -308,3 +177,66 @@ private fun PostgresTestFixture.awaitWriterAtMigrationBoundary(writer: Future<*>
 private fun CountDownLatch.awaitOrFail(message: String) {
     check(await(10, TimeUnit.SECONDS)) { message }
 }
+
+private fun PostgresTestFixture.deliveryColumnExists(column: String): Boolean =
+    dataSource.connection.use { connection ->
+        connection.prepareStatement(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = ?
+                  AND table_name = 'delivery'
+                  AND column_name = ?
+            )
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, schema)
+            statement.setString(2, column)
+            statement.executeQuery().use { rows ->
+                rows.next() shouldBe true
+                rows.getBoolean(1)
+            }
+        }
+    }
+
+private fun PostgresTestFixture.deliveryIndexExists(index: String): Boolean =
+    dataSource.connection.use { connection ->
+        connection.prepareStatement(
+            "SELECT to_regclass(?::text) IS NOT NULL",
+        ).use { statement ->
+            statement.setString(1, "$schema.$index")
+            statement.executeQuery().use { rows ->
+                rows.next() shouldBe true
+                rows.getBoolean(1)
+            }
+        }
+    }
+
+private fun PostgresTestFixture.deliverySelfReferenceExists(column: String): Boolean =
+    dataSource.connection.use { connection ->
+        connection.prepareStatement(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                JOIN pg_attribute
+                  ON pg_attribute.attrelid = conrelid
+                 AND pg_attribute.attnum = ANY (conkey)
+                WHERE contype = 'f'
+                  AND conrelid = ?::regclass
+                  AND confrelid = ?::regclass
+                  AND pg_attribute.attname = ?
+            )
+            """.trimIndent(),
+        ).use { statement ->
+            val delivery = "$schema.delivery"
+            statement.setString(1, delivery)
+            statement.setString(2, delivery)
+            statement.setString(3, column)
+            statement.executeQuery().use { rows ->
+                rows.next() shouldBe true
+                rows.getBoolean(1)
+            }
+        }
+    }
