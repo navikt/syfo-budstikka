@@ -37,9 +37,11 @@ class FakeInboxMessageRepository(
 
     override fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean = true
 
-    override fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = emptyList()
+    override fun lockReferenceForFerdigstillInTransaction(reference: String) = Unit
 
-    override fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean = true
+    override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> = emptyList()
+
+    override fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean = true
 
     override fun markDroppedInTransaction(
         eventId: UUID,

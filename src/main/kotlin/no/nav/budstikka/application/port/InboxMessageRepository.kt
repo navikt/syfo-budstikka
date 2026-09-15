@@ -59,6 +59,13 @@ interface InboxMessageRepository {
     fun markProcessedInTransaction(eventId: UUID): Boolean
 
     /**
+     * Serializes [reference] with [saveBatch] until transaction end. A processed FERDIGSTILL must
+     * acquire this guard before its own claimed-row lock and before any delivery or candidate query,
+     * so retention deleting inbox rows cannot form a lock cycle with effectuation and duplicate inserts.
+     */
+    fun lockReferenceForFerdigstillInTransaction(reference: String)
+
+    /**
      * Acquires a PostgreSQL row lock for a currently claimed inbox row. Effectuation holds this lock
      * through its terminal transition and any delivery write so a FERDIGSTILL cancellation cannot
      * race a waking CREATE into materializing a delivery.
@@ -66,15 +73,16 @@ interface InboxMessageRepository {
     fun lockClaimedForEffectuationInTransaction(eventId: UUID): Boolean
 
     /**
-     * Locks every matching CREATE that is either waiting for the sending window or has been woken
-     * but still carries its wait reason. The caller must re-check materialized deliveries after
-     * this call because a CREATE effectuation may have won while this transaction waited for a
-     * lock.
+     * Locks every matching unmaterialized CREATE in RECEIVED, WAIT, or CLAIMED. The caller must first
+     * acquire [lockReferenceForFerdigstillInTransaction] and win [lockClaimedForEffectuationInTransaction].
+     * The reference guard is reacquired defensively; an insertion ordered after this transaction remains
+     * a later arrival, not cancelled by it. Re-check materialized deliveries after this call because a
+     * CREATE effectuation may have won while this transaction waited.
      */
-    fun lockWaitingCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
+    fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID>
 
-    /** Marks a locked WAIT/awakened-WAIT CREATE as terminal without materializing a delivery. */
-    fun markWaitingCreateProcessedInTransaction(eventId: UUID): Boolean
+    /** Marks a locked unmaterialized CREATE as terminal without materializing a delivery. */
+    fun markUnmaterializedCreateProcessedInTransaction(eventId: UUID): Boolean
 
     fun markDroppedInTransaction(
         eventId: UUID,

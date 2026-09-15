@@ -45,7 +45,8 @@ flowchart TB
 
     DWORK -->|"Sent"| SENT["state=SENT"]
     DWORK -->|"Failed(reason)"| FAILED["state=FAILED"]
-    DWORK -->|"exception"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"Retry"| RECLAIM["står CLAIMED til lease utløper"]
+    DWORK -->|"exception"| RECLAIM
 
     subgraph Outbound["Channel endpoints"]
         CH1["Channel endpoint 1"]
@@ -95,7 +96,7 @@ og går gjennom **samme flyt og samme delivery-maskineri**. En lukking er bare e
 - Inactivate-hendelsene er bevisst **thin**: `reference` + typet nøkkel
   (`PersonIdentifier`/`Orgnummer`); kanal er implisitt i typen. Den typede nøkkelen
   bevarer PII-maskering og gjør ulovlige `(kanal, nøkkel)`-par urepresenterbare.
-- Matching: budstikka slår opp åpen OPPRETT-leveranse på `(reference, recipient_id, kanal)`,
+- Matching: budstikka slår opp alle lagrede OPPRETT-leveranser på `(reference, recipient_id, kanal)`,
   der `recipient_id` = OPPRETTs partisjonsanker (id-en konsumenten kjenner ved create):
   sykmeldt-fnr for BRUKERVARSEL/LEDERVARSEL/DITT_SYKEFRAVAER (sykmeldt, ikke NL-fnr),
   orgnr for ARBEIDSGIVERVARSEL. Resolvert NL-fnr / `ekstern_respons_id` bor i payload/egne
@@ -105,28 +106,55 @@ og går gjennom **samme flyt og samme delivery-maskineri**. En lukking er bare e
 
 ### Lukkeoperasjon avledes fra lagret rad
 
-FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Runtime slår først opp
-matchende lagret OPPRETT-leveranse og lager deretter én ordinær
-`delivery(operation=INAKTIVER)`. For BRUKERVARSEL og LEDERVARSEL er den thin
-INAKTIVER-payloaden avledet fra create-raden. For ARBEIDSGIVERVARSEL beholdes
-create-payloaden som frosset lukkegrunnlag, sammen med den stabile create-eksternId-en.
-Kanalhandleren bruker
-bare disse lagrede dataene ved lukking, aldri et nytt Nærmeste leder-oppslag.
+FERDIGSTILL-hendelsen bærer aldri meldingstype, sti eller operation. Runtime slår først opp alle
+matchende lagrede OPPRETT-leveranser og lager én ordinær `delivery(operation=INAKTIVER)` per
+gyldig CREATE. Hver dependent peker med `source_create_delivery_id` til sin eksakte source CREATE.
+For BRUKERVARSEL og LEDERVARSEL er den thin INAKTIVER-payloaden avledet fra create-raden. For
+ARBEIDSGIVERVARSEL beholdes create-payloaden som frosset lukkegrunnlag, sammen med den stabile
+create-eksternId-en. Kanalhandleren bruker bare disse lagrede dataene ved lukking, aldri et nytt
+Nærmeste leder-oppslag.
+En manglende eller historisk uavklart eksternId er en terminal feil uten publiserings- eller
+lukke-kall. Under kompatibilitetsmigreringen avstemmes bare ventende avhengige leveranser gjennom
+`source_create_delivery_id`; `SENT` og `FAILED` endres ikke. Lukking forblir deaktivert til
+kompatibel kode er utrullet og gamle replikaer og arbeidere med pågående behandling er stoppet.
+Denne sperren omfatter også gamle inbox-skrivere: alle som skriver til inbox må delta i
+referanselåsingen, mens eldre `saveBatch`-implementasjoner omgår den.
+Uavklarte identiteter krever separat autorisert avstemming før lukking aktiveres for de berørte
+dataene; ikke rull tilbake til reservehandlere mens uavklarte rader eller lukkinger i kø finnes.
 
-Runtime gjør første delivery-oppslag, men låser deretter alltid **alle** matchende OPPRETT-er som
-er `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` — også når oppslaget allerede fant en
-delivery. Etter låsene leses delivery på nytt: vant opprettelsen, avledes vanlig INAKTIVER; alle
-låste hold-kopier markeres samtidig `PROCESSED` uten å materialisere. Ellers markeres de låste
-OPPRETT-ene og FERDIGSTILL `PROCESSED` uten delivery. Opprettelsen låser også sin egen inbox-rad
-før terminal overgang og delivery-write, slik at bare én av disse to utfallene kan vinne.
+En dependent kan først claimes når sin source CREATE er `SENT`; en `FAILED` source terminaliserer
+dependent som `FAILED` uten handlerkall eller nytt forsøk. En PostgreSQL session advisory lock
+serialiserer dispatch av source CREATE og dens dependents per source på tvers av replikaer, og
+holdes gjennom eksternt handlerkall og terminal state-overgang.
+Guarden gir ikke en distribuert transaksjon: stabile nedstrøms-ID-er, idempotens og avstemming er
+fortsatt nødvendige, i tråd med [ADR 0017](adr/0017-kilde-create-lases-ved-avhengig-inactivate.md).
+
+For FERDIGSTILL med `Decision.Processed` tar runtime først referanselåsen og deretter låsen på
+egen claimede inbox-rad. Hvis raden ikke lenger er `CLAIMED`, returneres `Skipped` uten
+delivery- eller kandidatsøk, tilstandsendringer eller nye leveranser. Først etter vunnet claim
+gjør runtime første delivery-oppslag og låser deretter alltid **alle** matchende, ennå ikke
+materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED`, også når oppslaget allerede fant
+en delivery. SQL avgrenser på den lagrede CREATE-discriminatoren før `FOR UPDATE`, slik at
+FERDIGSTILL-rader aldri låses som kandidater. Etter låsene leses delivery på nytt: vant
+opprettelsen, avledes vanlig INAKTIVER; alle låste OPPRETT-er markeres samtidig `PROCESSED` uten å
+materialisere. Ellers markeres de låste OPPRETT-ene og FERDIGSTILL `PROCESSED` uten delivery.
+Opprettelsen låser også sin egen inbox-rad før terminal overgang og delivery-write, slik at bare
+én av disse to utfallene kan vinne.
+
+Referanselåsen beskrevet i [datamodell.md](datamodell.md#transaksjonsgrenser) avgrenser hvilke
+innsettinger kanselleringen omfatter. OPPRETT-er som settes inn før kanselleringen får låsen,
+blir synlige for kandidatsøket og kanselleres hvis de matcher og ennå ikke er materialisert.
+En innsetting som venter til kanselleringen committer, regnes derimot som en senere ankomst
+og kan behandles normalt. FERDIGSTILL etterlater ingen permanent kanselleringsmarkør eller
+sperre mot fremtidige OPPRETT-er.
 
 ### Kantsituasjoner
 
 | Situasjon | Handling |
 | --- | --- |
-| OPPRETT-delivery funnet | Skriv én `delivery(operation=INAKTIVER)` → outbox lukker på kanalen; alle matchende `WAIT`/oppvåknede hold-kopier kanselleres samtidig |
-| Én eller flere matchende OPPRETT-er fortsatt `WAIT` eller oppvåknet `CLAIMED` med `wait_reason` | Lås alle radene og avslutt hver OPPRETT direkte som `PROCESSED`; ingen delivery og ingen egen `CANCELLED`-state |
-| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. Låsen dekker bare `WAIT`/oppvåknet `CLAIMED` med `wait_reason`; en ordinær `RECEIVED` eller vanlig `CLAIMED` OPPRETT (ikke en WAIT-oppvåkning) kan fortsatt materialiseres etter den låste no-match-avgjørelsen. Kafka-partisjonsrekkefølge garanterer ikke workernes tidsrekkefølge på tvers av replikaer. |
+| Én eller flere OPPRETT-deliveries funnet | Skriv én `delivery(operation=INAKTIVER)` per gyldig CREATE → outbox lukker på kanalen; hver dependent peker til sin eksakte source. Ugyldige eller `FAILED` søsken undertrykker ikke gyldige closes. Alle matchende, ikke-materialiserte OPPRETT-er i `RECEIVED`, `WAIT` eller `CLAIMED` kanselleres samtidig |
+| Én eller flere matchende OPPRETT-er fortsatt i inbox | Lås alle CREATE-radene i `RECEIVED`, `WAIT` eller `CLAIMED` og avslutt hver OPPRETT direkte som `PROCESSED`; ingen delivery og ingen egen `CANCELLED`-state |
+| Ingen matchende OPPRETT | Ikke hard feil: inbox → `PROCESSED`, ingen delivery-rad, logg + metrikk `ferdigstill_uten_treff`. Når en matching OPPRETT ennå finnes i inbox, låses den og kanselleres før FERDIGSTILL terminaliseres. Kafka-partisjonsrekkefølge garanterer ikke workernes tidsrekkefølge på tvers av replikaer. |
 | Lagret OPPRETT har ugyldig payload-/kanal-/mottaker-kombinasjon | FERDIGSTILL og alle låste hold-kopier blir `PROCESSED` uten delivery, med PII-fri logg + metrikk `ferdigstill_lagret_opprett_ugyldig`; dette er ikke en manglende runtime-kanal eller en manglende match. |
 
 ### Lukkbarhet per kanal
@@ -136,7 +164,7 @@ før terminal overgang og delivery-write, slik at bare én av disse to utfallene
 | Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme `reference` som `varselId`) |
 | Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
 | Ditt Sykefravær           | **Nei, ikke i dette snittet** | Downstream-adapter og godkjent kontrakt mangler; FERDIGSTILL blir terminal no-op |
-| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret create: BESKJED→`hardDeleteNotifikasjonByEksternId_V2`, OPPGAVE→`oppgaveUtfoertByEksternId_V2`; stabil eksternId kommer fra create-handleren. Fagers `NotifikasjonFinnesIkke` fra en lukking betyr allerede lukket og behandles som vellykket; publiseringsklassifiseringen er uendret. |
+| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret CREATE: BESKJED→`hardDeleteNotifikasjonByEksternId_V2`, OPPGAVE→`oppgaveUtfoertByEksternId_V2`; stabil eksternId kommer fra CREATE-handleren. Fagers `NotifikasjonFinnesIkke` fra en lukking prøves på nytt av den ordinære delivery-mekanikken. Forsøket bruker det konfigurerte attempt-budsjettet; når dette er brukt opp, blir raden `FAILED` gjennom poison-gaten. Nye forsøk avbryter ikke resten av delivery-batchen. |
 | Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
 | Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
 

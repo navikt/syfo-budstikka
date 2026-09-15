@@ -13,7 +13,11 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryAttempt
+import no.nav.budstikka.application.port.DeliveryClaimResult
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.SourceSendGuardResult
+import no.nav.budstikka.application.port.StoredCreateDelivery
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
@@ -137,6 +141,9 @@ class DeliveryWorkerTest :
             event.formattedMessage shouldContain "ThrowingChannelHandler"
             event.formattedMessage shouldContain "IllegalStateException"
             event.throwableProxy shouldBe null
+            repository.attemptedDeliveryIds.shouldContainExactly(deliveryId)
+            repository.sentDeliveryIds.shouldBeEmpty()
+            repository.failedDeliveries.shouldBeEmpty()
         }
 
         test("systemic abort log carries channel and handler with useful stacktrace") {
@@ -219,6 +226,36 @@ class DeliveryWorkerTest :
             metrics.deliveryEmptyPolls.get() shouldBe 0
         }
 
+        test("runOnce leaves a retrying delivery nonterminal and continues with later deliveries") {
+            val retryingId = UUID.fromString("00000000-0000-0000-0000-000000000217")
+            val healthyId = UUID.fromString("00000000-0000-0000-0000-000000000218")
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries = listOf(validMicrofrontendDelivery(retryingId), validMicrofrontendDelivery(healthyId)),
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+
+            workerWith(
+                repository = repository,
+                publisher = publisher,
+                handlers =
+                    mapOf(
+                        Channel.MICROFRONTEND to
+                            ChannelHandler { delivery ->
+                                if (delivery.id == retryingId) {
+                                    DeliveryOutcome.Retry("NotifikasjonFinnesIkke")
+                                } else {
+                                    DeliveryOutcome.Sent
+                                }
+                            },
+                    ),
+            ).runOnce()
+
+            repository.attemptedDeliveryIds.shouldContainExactly(retryingId, healthyId)
+            repository.sentDeliveryIds.shouldContainExactly(healthyId)
+            repository.failedDeliveries.shouldBeEmpty()
+        }
+
         test("runOnce records an empty poll when nothing is claimed") {
             val repository = PollingDeliveryRepository(deliveries = emptyList())
             val publisher = RecordingMicrofrontendPublisher()
@@ -228,6 +265,22 @@ class DeliveryWorkerTest :
 
             metrics.deliveryEmptyPolls.get() shouldBe 1
             metrics.deliveryClaimed.get() shouldBe 0
+        }
+
+        test("runOnce records source guard contention without dispatching") {
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries = listOf(validMicrofrontendDelivery(UUID.randomUUID())),
+                    sourceGuardResult = SourceSendGuardResult.CONTENDED,
+                )
+            val publisher = RecordingMicrofrontendPublisher()
+            val metrics = RecordingDeliveryMetrics()
+
+            workerWith(repository, publisher, metrics = metrics).runOnce()
+
+            metrics.sourceGuardContention.get() shouldBe 1
+            repository.attemptedDeliveryIds.shouldBeEmpty()
+            publisher.published.shouldBeEmpty()
         }
 
         test("runOnce stops draining when the lease budget is exhausted") {
@@ -320,6 +373,7 @@ private class ThrowingChannelHandler : ChannelHandler {
 
 private class PollingDeliveryRepository(
     private val deliveries: List<ClaimedDelivery>,
+    private val sourceGuardResult: SourceSendGuardResult = SourceSendGuardResult.DISPATCHED,
     private val onClaim: () -> Unit = {},
 ) : DeliveryRepository {
     var lastClaimLimit: Int? = null
@@ -335,19 +389,19 @@ private class PollingDeliveryRepository(
         draft: List<DeliveryDraft>,
     ) = Unit
 
-    override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) = null
+    override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) = emptyList<StoredCreateDelivery>()
 
     override suspend fun claim(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
         channels: Set<Channel>,
-    ): List<ClaimedDelivery> {
+    ): DeliveryClaimResult {
         lastClaimLimit = limit
         lastClaimChannels = channels
         claimCount.incrementAndGet()
         onClaim()
-        return deliveries
+        return DeliveryClaimResult(deliveries, failedSourceDependencies = 0)
     }
 
     val attemptedDeliveryIds = mutableListOf<UUID>()
@@ -371,6 +425,26 @@ private class PollingDeliveryRepository(
     ): Boolean {
         failedDeliveries += deliveryId to reason
         return true
+    }
+
+    override suspend fun withSourceSendGuard(
+        delivery: ClaimedDelivery,
+        block: suspend (DeliveryAttempt) -> Unit,
+    ): SourceSendGuardResult {
+        if (sourceGuardResult != SourceSendGuardResult.DISPATCHED) {
+            return sourceGuardResult
+        }
+        block(
+            object : DeliveryAttempt {
+                override suspend fun beginAttempt(maxAttempts: Int): Boolean =
+                    this@PollingDeliveryRepository.beginAttempt(delivery.id, maxAttempts)
+
+                override suspend fun markSent(): Boolean = this@PollingDeliveryRepository.markSent(delivery.id)
+
+                override suspend fun markFailed(reason: String): Boolean = this@PollingDeliveryRepository.markFailed(delivery.id, reason)
+            },
+        )
+        return sourceGuardResult
     }
 }
 

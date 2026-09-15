@@ -45,7 +45,7 @@ class ArbeidsgivervarselChannelHandler(
         }
         val externalId =
             delivery.createExternalId
-                ?: (delivery.inboxEventId ?: delivery.id).toString()
+                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL create is missing frozen external id")
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource ->
@@ -114,6 +114,7 @@ class ArbeidsgivervarselChannelHandler(
                 }
         ) {
             ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
+            is ArbeidsgiverNotificationResponse.Retryable -> DeliveryOutcome.Retry(response.reason)
             is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
         }
     }
@@ -138,6 +139,7 @@ class ArbeidsgivervarselChannelHandler(
                 }
         ) {
             ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
+            is ArbeidsgiverNotificationResponse.Retryable -> DeliveryOutcome.Retry(response.reason)
             is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
         }
     }

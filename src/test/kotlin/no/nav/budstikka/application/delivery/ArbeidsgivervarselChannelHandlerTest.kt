@@ -56,22 +56,27 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.requests.single().eksternId shouldBe frozenExternalId
         }
 
-        test("falls back to the previous CREATE identity when the frozen external id is absent") {
+        test("fails to publish when the frozen CREATE external id is absent") {
             val publisher = RecordingPublisher()
-            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000703")
 
-            handler(publisher).handle(delivery(create(), createExternalId = null)) shouldBe DeliveryOutcome.Sent
-            handler(publisher).handle(
-                delivery(
-                    create(),
-                    id = deliveryId,
-                    inboxEventId = null,
-                    createExternalId = null,
-                ),
-            ) shouldBe DeliveryOutcome.Sent
+            val outcome = handler(publisher).handle(delivery(create(), createExternalId = null))
 
-            publisher.requests.map(ArbeidsgiverNotificationRequest::eksternId) shouldBe
-                listOf("00000000-0000-0000-0000-000000000702", deliveryId.toString())
+            (outcome as DeliveryOutcome.Failed).reason shouldBe
+                "ARBEIDSGIVERVARSEL create is missing frozen external id"
+            publisher.requests shouldHaveSize 0
+        }
+
+        test("fails unknown CREATE without inbox identity before publishing instead of guessing delivery id") {
+            val publisher = RecordingPublisher()
+
+            val outcome =
+                handler(publisher, ThrowingNarmesteLederLookup()).handle(
+                    delivery(create(), inboxEventId = null, createExternalId = null),
+                )
+
+            outcome shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL create is missing frozen external id")
+            publisher.requests shouldBe emptyList()
+            publisher.closeRequests shouldBe emptyList()
         }
 
         listOf(ArbeidsgiverMeldingstype.BESKJED, ArbeidsgiverMeldingstype.OPPGAVE).forEach { meldingstype ->
@@ -116,6 +121,18 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.closeRequests shouldHaveSize 0
         }
 
+        test("maps a retryable close response to a nonterminal retry") {
+            val publisher =
+                RecordingPublisher(
+                    closeResponse = ArbeidsgiverNotificationResponse.Retryable("NotifikasjonFinnesIkke"),
+                )
+
+            handler(publisher).handle(
+                delivery(create(), operation = Operation.INACTIVATE),
+            ) shouldBe DeliveryOutcome.Retry("NotifikasjonFinnesIkke")
+
+            publisher.closeRequests shouldHaveSize 1
+        }
         test("forwards visibleUntil to the notification request") {
             val publisher = RecordingPublisher()
             val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
@@ -394,7 +411,7 @@ private fun delivery(
     id: UUID = UUID.fromString("00000000-0000-0000-0000-000000000701"),
     inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
     operation: Operation = Operation.CREATE,
-    createExternalId: String? = null,
+    createExternalId: String? = "00000000-0000-0000-0000-000000000702",
 ) = ClaimedDelivery(
     id = id,
     inboxEventId = inboxEventId,
@@ -421,7 +438,9 @@ private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
     ): NarmesteLederRelasjon? = error("narmesteleder-register unavailable")
 }
 
-private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
+private class RecordingPublisher(
+    private val closeResponse: ArbeidsgiverNotificationResponse = ArbeidsgiverNotificationResponse.Published,
+) : ArbeidsgiverNotificationPublisher {
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
     val closeRequests = mutableListOf<ArbeidsgiverNotificationCloseRequest>()
 
@@ -432,6 +451,6 @@ private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
 
     override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse {
         closeRequests += request
-        return ArbeidsgiverNotificationResponse.Published
+        return closeResponse
     }
 }

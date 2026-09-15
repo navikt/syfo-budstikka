@@ -153,22 +153,20 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"eksternId":"stable-create-external-id""""
         }
 
-        test("treats NotifikasjonFinnesIkke from close as already closed") {
+        test("returns a retryable result after one close request for NotifikasjonFinnesIkke") {
             listOf(
-                Triple(
+                Pair(
                     ArbeidsgiverMeldingstype.BESKJED,
                     "hardDeleteNotifikasjonByEksternId_V2",
-                    "hardDeleteNotifikasjonByEksternId_V2",
                 ),
-                Triple(
+                Pair(
                     ArbeidsgiverMeldingstype.OPPGAVE,
                     "oppgaveUtfoertByEksternId_V2",
-                    "oppgaveUtfoertByEksternId_V2",
                 ),
-            ).forEach { (meldingstype, responseField, requestField) ->
-                var body = ""
-                client { request ->
-                    body = (request.body as TextContent).text
+            ).forEach { (meldingstype, responseField) ->
+                var requestCount = 0
+                client {
+                    requestCount++
                     respond(
                         """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
                         HttpStatusCode.OK,
@@ -179,9 +177,63 @@ class ArbeidsgiverNotifikasjonClientTest :
                         tag = "Dialogmøte",
                         meldingstype = meldingstype,
                     ),
-                ) shouldBe ArbeidsgiverNotificationResponse.Published
+                ) shouldBe ArbeidsgiverNotificationResponse.Retryable("NotifikasjonFinnesIkke")
+                requestCount shouldBe 1
+            }
+        }
 
-                body shouldContain requestField
+        test("rejects invalid tag and unknown producer from close without retry") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                listOf("UgyldigMerkelapp", "UkjentProdusent").forEach { resultType ->
+                    var requestCount = 0
+                    client {
+                        requestCount++
+                        respond(
+                            """{"data":{"$responseField":{"__typename":"$resultType"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = "stable-create-external-id",
+                            tag = "Dialogmøte",
+                            meldingstype = meldingstype,
+                        ),
+                    ) shouldBe
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request: $resultType",
+                        )
+
+                    requestCount shouldBe 1
+                }
+            }
+        }
+
+        test("does not retry close transport errors") {
+            listOf(
+                Pair(ArbeidsgiverMeldingstype.BESKJED, "hardDeleteNotifikasjonByEksternId_V2"),
+                Pair(ArbeidsgiverMeldingstype.OPPGAVE, "oppgaveUtfoertByEksternId_V2"),
+            ).forEach { (meldingstype, responseField) ->
+                var requestCount = 0
+                shouldThrow<IllegalStateException> {
+                    client {
+                        requestCount++
+                        respond(
+                            """{"data":{"$responseField":{"__typename":"NotifikasjonFinnesIkke"}}}""",
+                            HttpStatusCode.InternalServerError,
+                        )
+                    }.close(
+                        ArbeidsgiverNotificationCloseRequest(
+                            eksternId = "stable-create-external-id",
+                            tag = "Dialogmøte",
+                            meldingstype = meldingstype,
+                        ),
+                    )
+                }
+
+                requestCount shouldBe 1
             }
         }
 
