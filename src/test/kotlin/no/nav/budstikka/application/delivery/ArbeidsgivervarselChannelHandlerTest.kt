@@ -408,7 +408,7 @@ private fun delivery(
     id: UUID = UUID.fromString("00000000-0000-0000-0000-000000000701"),
     inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
     operation: Operation = Operation.CREATE,
-    externalId: String? = null,
+    externalId: String? = "00000000-0000-0000-0000-000000000702",
 ) = ClaimedDelivery(
     id = id,
     inboxEventId = inboxEventId,
