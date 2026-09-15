@@ -53,27 +53,22 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.requests.single().eksternId shouldBe "stored-external-id"
         }
 
-        test("fails to publish when the stored CREATE external id is absent") {
+        test("falls back to the inbox event id for a historical row without an external id") {
             val publisher = RecordingPublisher()
 
-            val outcome = handler(publisher).handle(delivery(create(), externalId = null))
+            handler(publisher).handle(delivery(create(), externalId = null)) shouldBe DeliveryOutcome.Sent
 
-            (outcome as DeliveryOutcome.Failed).reason shouldBe
-                "ARBEIDSGIVERVARSEL create is missing stored external id"
-            publisher.requests shouldHaveSize 0
+            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000702"
         }
 
-        test("fails unknown CREATE without inbox identity before publishing instead of guessing delivery id") {
+        test("falls back to the delivery id when historical inbox identity is also missing") {
             val publisher = RecordingPublisher()
 
-            val outcome =
-                handler(publisher, ThrowingNarmesteLederLookup()).handle(
-                    delivery(create(), inboxEventId = null, externalId = null),
-                )
+            handler(publisher).handle(
+                delivery(create(), externalId = null, inboxEventId = null),
+            ) shouldBe DeliveryOutcome.Sent
 
-            outcome shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL create is missing stored external id")
-            publisher.requests shouldBe emptyList()
-            publisher.closeRequests shouldBe emptyList()
+            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000701"
         }
 
         listOf(ArbeidsgiverMeldingstype.BESKJED, ArbeidsgiverMeldingstype.OPPGAVE).forEach { meldingstype ->
@@ -134,6 +129,7 @@ class ArbeidsgivervarselChannelHandlerTest :
 
             publisher.closeRequests shouldHaveSize 1
         }
+
         test("forwards visibleUntil to the notification request") {
             val publisher = RecordingPublisher()
             val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")

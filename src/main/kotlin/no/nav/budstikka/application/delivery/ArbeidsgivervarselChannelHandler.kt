@@ -45,7 +45,7 @@ class ArbeidsgivervarselChannelHandler(
         }
         val externalId =
             delivery.externalId
-                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL create is missing stored external id")
+                ?: (delivery.inboxEventId ?: delivery.id).toString()
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource ->
