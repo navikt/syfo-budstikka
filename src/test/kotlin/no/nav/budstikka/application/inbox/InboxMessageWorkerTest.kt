@@ -325,7 +325,7 @@ class InboxMessageWorkerTest :
                     storedCreate =
                         StoredCreateDelivery(
                             id = UUID.fromString("00000000-0000-0000-0000-000000000101"),
-                            createExternalId = null,
+                            externalId = null,
                             reference = reference,
                             channel = Channel.BRUKERVARSEL,
                             recipient = Recipient.Person(TEST_SYKMELDT),
@@ -383,7 +383,7 @@ class InboxMessageWorkerTest :
                     storedCreate =
                         StoredCreateDelivery(
                             id = UUID.fromString("00000000-0000-0000-0000-000000000102"),
-                            createExternalId = null,
+                            externalId = null,
                             reference = reference,
                             channel = Channel.BRUKERVARSEL,
                             recipient = Recipient.Person(TEST_SYKMELDT),
