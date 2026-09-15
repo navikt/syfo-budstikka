@@ -321,7 +321,7 @@ class InboxMessageWorkerTest :
                 RecordingDeliveryRepository(
                     storedCreate =
                         StoredCreateDelivery(
-                            createExternalId = null,
+                            externalId = null,
                             reference = reference,
                             channel = Channel.BRUKERVARSEL,
                             recipient = Recipient.Person(TEST_SYKMELDT),
@@ -371,7 +371,7 @@ class InboxMessageWorkerTest :
                 RecordingDeliveryRepository(
                     storedCreate =
                         StoredCreateDelivery(
-                            createExternalId = null,
+                            externalId = null,
                             reference = reference,
                             channel = Channel.BRUKERVARSEL,
                             recipient = Recipient.Person(TEST_SYKMELDT),

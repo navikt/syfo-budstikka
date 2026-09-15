@@ -2,11 +2,19 @@ package no.nav.budstikka.application.inbox
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.contract.Varseltype
+import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
+import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
@@ -19,6 +27,7 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryI
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import java.util.UUID
 import kotlin.time.Duration.Companion.minutes
 
@@ -105,6 +114,96 @@ class EffectuateDecisionIntegrationTest :
             inboxState(eventId) shouldBe "PROCESSED"
         }
 
+        test("Arbeidsgivervarsel FERDIGSTILL carries the stored external id") {
+            val (effectuate, inbox) = effectuator()
+            val reference = "arbeidsgivervarsel-with-external-id"
+            val createEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
+            val closeEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c2")
+            val create = arbeidsgivervarselCreate()
+            val createMessage = inboxMessage(createEventId, reference, create)
+            inbox.saveBatch(listOf(createMessage))
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+            effectuate.effectuate(
+                createMessage,
+                Decision.Processed(
+                    listOf(
+                        DeliveryDraft(
+                            reference = reference,
+                            operation = Operation.CREATE,
+                            channel = Channel.ARBEIDSGIVERVARSEL,
+                            recipient = Recipient.Virksomhet(TEST_ORGNUMMER),
+                            content = create,
+                        ),
+                    ),
+                ),
+            ) shouldBe EffectuationResult.Completed
+
+            val closeMessage =
+                inboxMessage(
+                    closeEventId,
+                    reference,
+                    ArbeidsgivervarselInactivate(reference, TEST_ORGNUMMER),
+                )
+            inbox.saveBatch(listOf(closeMessage))
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+
+            effectuate.effectuate(closeMessage, Decision.Processed(emptyList())) shouldBe
+                EffectuationResult.FerdigstillWithDelivery(deliveryCount = 1)
+
+            fixture.database.transact {
+                val derived =
+                    DeliveryTable
+                        .selectAll()
+                        .where { DeliveryTable.inboxEventId eq closeEventId }
+                        .single()
+                derived[DeliveryTable.operation] shouldBe Operation.INACTIVATE.name
+                derived[DeliveryTable.externalId] shouldBe createEventId.toString()
+            }
+        }
+
+        test("historical Arbeidsgivervarsel CREATE without external_id fails closed for FERDIGSTILL") {
+            val (effectuate, inbox) = effectuator()
+            val reference = "arbeidsgivervarsel-without-external-id"
+            val createEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c3")
+            val closeEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c4")
+            val create = arbeidsgivervarselCreate()
+            val createMessage = inboxMessage(createEventId, reference, create)
+            inbox.saveBatch(listOf(createMessage))
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+            effectuate.effectuate(
+                createMessage,
+                Decision.Processed(
+                    listOf(
+                        DeliveryDraft(
+                            reference = reference,
+                            operation = Operation.CREATE,
+                            channel = Channel.ARBEIDSGIVERVARSEL,
+                            recipient = Recipient.Virksomhet(TEST_ORGNUMMER),
+                            content = create,
+                        ),
+                    ),
+                ),
+            ) shouldBe EffectuationResult.Completed
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.inboxEventId eq createEventId }) {
+                    it[externalId] = null
+                }
+            }
+
+            val closeMessage =
+                inboxMessage(
+                    closeEventId,
+                    reference,
+                    ArbeidsgivervarselInactivate(reference, TEST_ORGNUMMER),
+                )
+            inbox.saveBatch(listOf(closeMessage))
+            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+
+            effectuate.effectuate(closeMessage, Decision.Processed(emptyList())) shouldBe
+                EffectuationResult.FerdigstillWithInvalidStoredCreate()
+            deliveryCount(closeEventId) shouldBe 0L
+        }
+
         test("FERDIGSTILL returns the number of unmaterialized CREATE inbox rows it cancels") {
             val (effectuate, inbox) = effectuator()
             val reference = "ferdigstill-cancellation-only"
@@ -143,3 +242,12 @@ class EffectuateDecisionIntegrationTest :
     })
 
 private fun processed(): Decision.Processed = Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))
+
+private fun arbeidsgivervarselCreate() =
+    ArbeidsgivervarselCreate(
+        orgnummer = TEST_ORGNUMMER,
+        recipient = AltinnResource("synthetic-resource"),
+        tag = "synthetic-tag",
+        text = "synthetic text",
+        link = "https://example.test/synthetic",
+    )

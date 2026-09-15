@@ -54,11 +54,11 @@ class DeliveryRepositoryImpl(
             this[DeliveryTable.recipientType] = type
             this[DeliveryTable.recipientId] = id
             this[DeliveryTable.payload] = draftEntry.content
-            this[DeliveryTable.createExternalId] =
+            this[DeliveryTable.externalId] =
                 if (draftEntry.operation == Operation.CREATE && draftEntry.channel == Channel.ARBEIDSGIVERVARSEL) {
                     inboxEventId.toString()
                 } else {
-                    draftEntry.createExternalId
+                    draftEntry.externalId
                 }
             this[DeliveryTable.createdAt] = Clock.System.now()
         }
@@ -68,7 +68,7 @@ class DeliveryRepositoryImpl(
         val (recipientType, recipientId) = match.recipient.toColumns()
         return DeliveryTable
             .select(
-                DeliveryTable.createExternalId,
+                DeliveryTable.externalId,
                 DeliveryTable.reference,
                 DeliveryTable.channel,
                 DeliveryTable.recipientType,
@@ -87,7 +87,7 @@ class DeliveryRepositoryImpl(
             .singleOrNull()
             ?.let { row ->
                 StoredCreateDelivery(
-                    createExternalId = row[DeliveryTable.createExternalId],
+                    externalId = row[DeliveryTable.externalId],
                     reference = row[DeliveryTable.reference],
                     channel = Channel.valueOf(row[DeliveryTable.channel]),
                     recipient = recipientFromColumns(row[DeliveryTable.recipientType], row[DeliveryTable.recipientId]),
@@ -118,7 +118,7 @@ class DeliveryRepositoryImpl(
                         DeliveryTable.operation,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
-                        DeliveryTable.createExternalId,
+                        DeliveryTable.externalId,
                     ).where {
                         (
                             (DeliveryTable.state eq DeliveryState.READY.name) or
@@ -142,7 +142,7 @@ class DeliveryRepositoryImpl(
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
                             operation = Operation.valueOf(row[DeliveryTable.operation]),
-                            createExternalId = row[DeliveryTable.createExternalId],
+                            externalId = row[DeliveryTable.externalId],
                         )
                     }
             if (claimed.isNotEmpty()) {

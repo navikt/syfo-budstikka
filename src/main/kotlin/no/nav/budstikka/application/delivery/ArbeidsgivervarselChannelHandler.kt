@@ -86,7 +86,7 @@ class ArbeidsgivervarselChannelHandler(
                     publisher.publish(
                         ArbeidsgiverNotificationRequest(
                             virksomhetsnummer = create.orgnummer.value,
-                            eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
+                            eksternId = delivery.externalId ?: (delivery.inboxEventId ?: delivery.id).toString(),
                             grupperingsid = create.sakstilknytning?.sakId,
                             tag = create.tag,
                             tekst = create.text,

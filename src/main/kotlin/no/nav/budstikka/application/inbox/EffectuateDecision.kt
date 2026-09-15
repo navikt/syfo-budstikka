@@ -212,7 +212,7 @@ private fun StoredCreateDelivery.toInactivateDraft(): DeliveryDraft? =
         }
 
         is ArbeidsgivervarselCreate ->
-            if (channel != Channel.ARBEIDSGIVERVARSEL) {
+            if (channel != Channel.ARBEIDSGIVERVARSEL || externalId == null) {
                 null
             } else {
                 val virksomhet = recipient as? Recipient.Virksomhet
@@ -225,7 +225,7 @@ private fun StoredCreateDelivery.toInactivateDraft(): DeliveryDraft? =
                         channel = channel,
                         recipient = recipient,
                         content = create,
-                        createExternalId = createExternalId,
+                        externalId = externalId,
                     )
                 }
             }
