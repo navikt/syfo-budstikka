@@ -10,8 +10,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withTimeoutOrNull
-import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.infrastructure.Heartbeat
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
@@ -20,9 +21,6 @@ import org.apache.kafka.common.config.ConfigException
 import org.apache.kafka.common.errors.AuthenticationException
 import org.apache.kafka.common.errors.AuthorizationException
 import org.apache.kafka.common.errors.WakeupException
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
-import java.lang.invoke.MethodHandles
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -56,7 +54,7 @@ class ConsumerRunner<K, V>(
     private val isFatal: (Throwable) -> Boolean = ::isFatalByDefault,
     private val heartbeat: Heartbeat = Heartbeat(),
 ) : AutoCloseable {
-    private val logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
+    private val logger = applicationLogger(ConsumerRunner::class.java)
     private val running = AtomicBoolean(false)
     private var scope: CoroutineScope? = null
     private var job: Job? = null
@@ -87,14 +85,14 @@ class ConsumerRunner<K, V>(
     fun isAlive(): Boolean = heartbeat.isAlive()
 
     override fun close() {
-        MDC.putCloseable(MdcKeys.CONSUMER, coroutineName).use {
+        ApplicationMdc.putCloseable(MdcKeys.CONSUMER, coroutineName).use {
             logger.info("Shutdown initiated")
             stop()
             val stopped = join(CLOSE_TIMEOUT_SECONDS.seconds)
             if (!stopped) {
-                logger.warn(
-                    "Consumer did not stop within timeout {}",
-                    kv(MdcKeys.TIMEOUT_SECONDS, CLOSE_TIMEOUT_SECONDS),
+                logger.event(
+                    KafkaConsumerLogEvents.shutdownTimedOut,
+                    TimeoutContext(CLOSE_TIMEOUT_SECONDS),
                 )
             }
             logger.info("Shutdown complete")
@@ -140,7 +138,7 @@ class ConsumerRunner<K, V>(
             } catch (error: Throwable) {
                 if (isFatal(error)) {
                     // `consumer` is carried in MDC (launch-MDCContext); do not duplicate coroutineName as kv.
-                    logger.error("Consumer hit a fatal error and will not restart", error)
+                    logger.event(KafkaConsumerLogEvents.fatalFailure, error)
                     running.set(false)
                     onFatalError(error)
                 } else {
@@ -148,14 +146,16 @@ class ConsumerRunner<K, V>(
                     if (lifecycleNanos > healthyResetThreshold.inWholeNanoseconds) {
                         backoffMillis = initialBackoff.inWholeMilliseconds
                         logger.info(
-                            "Consumer was healthy, resetting backoff {} {}",
-                            kv(MdcKeys.HEALTHY_MILLIS, lifecycleNanos / 1_000_000),
-                            kv(MdcKeys.BACKOFF_MILLIS, backoffMillis),
+                            "Consumer was healthy, resetting backoff",
+                            mapOf(
+                                MdcKeys.HEALTHY_MILLIS to lifecycleNanos / 1_000_000,
+                                MdcKeys.BACKOFF_MILLIS to backoffMillis,
+                            ),
                         )
                     }
-                    logger.warn(
-                        "Consumer failed, restarting after backoff {}",
-                        kv(MdcKeys.BACKOFF_MILLIS, backoffMillis),
+                    logger.event(
+                        KafkaConsumerLogEvents.restart,
+                        BackoffContext(backoffMillis),
                         error,
                     )
                 }

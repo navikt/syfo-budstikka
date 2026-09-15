@@ -1,15 +1,16 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import no.nav.budstikka.testsupport.structuredFields
 import org.slf4j.LoggerFactory
 
 class InboxHandlerMdcTest :
@@ -37,8 +38,10 @@ class InboxHandlerMdcTest :
 
             handler.handleBatch(listOf(testRecord(value = payload, eventId = eventId)))
 
-            val event = appender.list.single { it.formattedMessage.contains("Inbox message handled") }
-            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId
+            with(appender.list.single { it.formattedMessage.contains("Inbox message handled") }) {
+                level shouldBe Level.INFO
+                mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId
+            }
         }
 
         test("dead-letter log line carries failureReason as structured field, no eventId in MDC") {
@@ -48,8 +51,12 @@ class InboxHandlerMdcTest :
             // Missing event-id header -> dead-letter; no eventId available to correlate on.
             handler.handleBatch(listOf(testRecord(value = "ugyldig", eventId = null)))
 
-            val event = appender.list.single { it.formattedMessage.contains("dead-lettered") }
-            event.formattedMessage shouldContain "${MdcKeys.REASON}=MISSING_EVENT_ID"
-            event.mdcPropertyMap[MdcKeys.EVENT_ID].shouldBeNull()
+            with(appender.list.single { it.formattedMessage.contains("dead-lettered") }) {
+                level shouldBe Level.WARN
+                val fields = structuredFields()
+                fields["event_type"] shouldBe KafkaConsumerLogEvents.poisonInboxDeadLettered.name
+                fields[MdcKeys.REASON] shouldBe "MISSING_EVENT_ID"
+                mdcPropertyMap[MdcKeys.EVENT_ID].shouldBeNull()
+            }
         }
     })

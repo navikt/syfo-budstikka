@@ -1,13 +1,11 @@
 package no.nav.budstikka.infrastructure.replay
 
-import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.ParseResult
 import no.nav.budstikka.infrastructure.kafka.consumer.parseDispatch
-import org.slf4j.LoggerFactory
 
 data class ReplayResult(
     val replayed: Int,
@@ -18,7 +16,7 @@ class DeadLetterReplayer(
     private val deadLetterMessageRepository: DeadLetterMessageRepository,
     private val inboxMessageRepository: InboxMessageRepository,
 ) {
-    private val logger = LoggerFactory.getLogger(DeadLetterReplayer::class.java)
+    private val logger = applicationLogger(DeadLetterReplayer::class.java)
 
     suspend fun replay(limit: Int): ReplayResult {
         var offset = 0L
@@ -39,9 +37,9 @@ class DeadLetterReplayer(
                                 )
 
                         ParseResult.Failure -> {
-                            logger.warn(
-                                "Dead-letter replay skipped unparseable row {}",
-                                kv(MdcKeys.EVENT_ID, deadLetter.eventId),
+                            logger.event(
+                                ReplayLogEvents.rowSkipped,
+                                ReplayRowContext(deadLetter.eventId.toString()),
                             )
                             null
                         }
@@ -62,11 +60,13 @@ class DeadLetterReplayer(
             }
         }
 
-        logger.warn(
-            "Dead-letter replay stopped after reaching batch limit {} {} {}",
-            kv(MdcKeys.MAX_BATCHES, MAX_BATCHES),
-            kv(MdcKeys.REPLAYED_COUNT, replayed),
-            kv(MdcKeys.SKIPPED_COUNT, skipped),
+        logger.event(
+            ReplayLogEvents.batchLimitReached,
+            ReplayBatchContext(
+                maxBatches = MAX_BATCHES,
+                replayedCount = replayed,
+                skippedCount = skipped,
+            ),
         )
         return ReplayResult(replayed = replayed, skipped = skipped)
     }

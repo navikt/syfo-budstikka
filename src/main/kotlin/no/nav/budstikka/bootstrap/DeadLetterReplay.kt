@@ -1,16 +1,16 @@
 package no.nav.budstikka.bootstrap
 
 import io.ktor.server.application.Application
-import io.ktor.server.application.log
 import io.ktor.server.plugins.di.dependencies
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
-import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.infrastructure.replay.DeadLetterReplayer
 import no.nav.budstikka.infrastructure.replay.config.toDeadLetterReplayConfig
 
 internal fun Application.replayDeadLettersIfEnabled() {
+    val logger = applicationLogger()
     try {
         val config =
             try {
@@ -18,9 +18,9 @@ internal fun Application.replayDeadLettersIfEnabled() {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                log.error(
-                    "Dead-letter replay configuration is invalid; replay skipped {}",
-                    kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName),
+                logger.event(
+                    BootstrapLogEvents.replayConfigurationInvalid,
+                    FailureTypeContext(error.javaClass.simpleName),
                 )
                 return
             }
@@ -28,16 +28,21 @@ internal fun Application.replayDeadLettersIfEnabled() {
             return
         }
         val replayer: DeadLetterReplayer by dependencies
-        log.info("Dead-letter replay starting")
+        logger.info("Dead-letter replay starting")
         val result = runBlocking { replayer.replay(config.batchSize) }
-        log.info(
-            "Dead-letter replay completed {} {}",
-            kv(MdcKeys.REPLAYED_COUNT, result.replayed),
-            kv(MdcKeys.SKIPPED_COUNT, result.skipped),
+        logger.info(
+            "Dead-letter replay completed",
+            mapOf(
+                MdcKeys.REPLAYED_COUNT to result.replayed,
+                MdcKeys.SKIPPED_COUNT to result.skipped,
+            ),
         )
     } catch (error: CancellationException) {
         throw error
     } catch (error: Throwable) {
-        log.error("Dead-letter replay failed {}", kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName))
+        logger.event(
+            BootstrapLogEvents.replayFailed,
+            FailureTypeContext(error.javaClass.simpleName),
+        )
     }
 }

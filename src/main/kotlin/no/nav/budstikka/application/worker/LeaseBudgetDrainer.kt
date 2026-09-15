@@ -3,12 +3,9 @@ package no.nav.budstikka.application.worker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import net.logstash.logback.argument.StructuredArgument
-import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
-import no.nav.budstikka.application.logging.withPlaceholders
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
+import no.nav.budstikka.application.logging.applicationLogger
 import kotlin.time.Clock
 import kotlin.time.Duration
 
@@ -25,7 +22,7 @@ class LeaseBudgetDrainer(
     private val maxConsecutiveItemFailures: Int,
     private val clock: Clock = Clock.System,
 ) {
-    private val logger = LoggerFactory.getLogger(LeaseBudgetDrainer::class.java)
+    private val logger = applicationLogger(LeaseBudgetDrainer::class.java)
 
     init {
         require(leaseBudgetFraction > 0.0 && leaseBudgetFraction <= 1.0) {
@@ -39,7 +36,7 @@ class LeaseBudgetDrainer(
     suspend fun <T> drain(
         leaseDuration: Duration,
         eventId: (T) -> String?,
-        failureFields: (T) -> List<StructuredArgument> = { emptyList() },
+        failureFields: (T) -> Map<String, Any?> = { emptyMap() },
         claim: suspend () -> List<T>,
         process: suspend (T) -> Unit,
     ) {
@@ -59,11 +56,11 @@ class LeaseBudgetDrainer(
     private suspend fun <T> processItem(
         item: T,
         eventId: (T) -> String?,
-        failureFields: (T) -> List<StructuredArgument>,
+        failureFields: (T) -> Map<String, Any?>,
         process: suspend (T) -> Unit,
         consecutiveItemFailures: Int,
     ): Int {
-        val closeable = eventId(item)?.let { MDC.putCloseable(MdcKeys.EVENT_ID, it) }
+        val closeable = eventId(item)?.let { ApplicationMdc.putCloseable(MdcKeys.EVENT_ID, it) }
         return closeable.use { _ ->
             withContext(MDCContext()) {
                 try {
@@ -75,26 +72,20 @@ class LeaseBudgetDrainer(
                     throw error
                 } catch (error: Exception) {
                     val failures = consecutiveItemFailures + 1
-                    val fields =
-                        buildList {
-                            add(kv(MdcKeys.CONSECUTIVE_ITEM_FAILURE_COUNT, failures))
-                            add(kv(MdcKeys.MAX_ITEM_FAILURE_COUNT, maxConsecutiveItemFailures))
-                            add(kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName))
-                            error.cause?.let { add(kv(MdcKeys.CAUSE_TYPE, it.javaClass.simpleName)) }
-                            addAll(failureFields(item))
-                        }
-                    logger.warn(
-                        withPlaceholders("Failed processing claimed row; continuing with next row", fields),
-                        *fields.toTypedArray(),
+                    val context =
+                        ClaimedRowFailureContext(
+                            consecutiveItemFailureCount = failures,
+                            maxItemFailureCount = maxConsecutiveItemFailures,
+                            errorType = error.javaClass.simpleName,
+                            causeType = error.cause?.javaClass?.simpleName,
+                            itemFields = failureFields(item),
+                        )
+                    logger.event(
+                        LeaseWorkerLogEvents.claimedRowProcessingFailed,
+                        context,
                     )
                     if (failures >= maxConsecutiveItemFailures) {
-                        logger.error(
-                            withPlaceholders(
-                                "Aborting batch drain after consecutive item failures; treating this as a systemic failure",
-                                fields,
-                            ),
-                            *(fields + error).toTypedArray(),
-                        )
+                        logger.event(LeaseWorkerLogEvents.batchDrainAborted, context, error)
                         throw AlreadyLoggedWorkerFailure(error)
                     }
                     failures
@@ -107,11 +98,13 @@ class LeaseBudgetDrainer(
         unprocessed: Int,
         total: Int,
     ) {
-        logger.warn(
-            "Stopping batch drain because the lease budget is spent; unprocessed rows keep their lease so a later poll reclaims them. Recurring hits mean batchSize is too high or downstream is too slow {} {} {}",
-            kv(MdcKeys.LEASE_BUDGET_FRACTION, (leaseBudgetFraction * 100).toInt()),
-            kv(MdcKeys.UNPROCESSED_ROWS_COUNT, unprocessed),
-            kv(MdcKeys.CLAIMED_ROWS_COUNT, total),
+        logger.event(
+            LeaseWorkerLogEvents.leaseBudgetExhausted,
+            LeaseBudgetContext(
+                leaseBudgetFraction = (leaseBudgetFraction * 100).toInt(),
+                unprocessedRowsCount = unprocessed,
+                claimedRowsCount = total,
+            ),
         )
     }
 }

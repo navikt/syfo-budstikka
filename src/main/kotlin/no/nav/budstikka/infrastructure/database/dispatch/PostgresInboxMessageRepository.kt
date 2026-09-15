@@ -1,7 +1,6 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
-import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -20,7 +19,6 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
-import org.slf4j.LoggerFactory
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -29,7 +27,7 @@ import kotlin.time.Instant
 class PostgresInboxMessageRepository(
     private val database: Database,
 ) : InboxMessageRepository {
-    private val logger = LoggerFactory.getLogger(PostgresInboxMessageRepository::class.java)
+    private val logger = applicationLogger(PostgresInboxMessageRepository::class.java)
 
     override suspend fun saveBatch(messages: List<InboxMessage>) {
         if (messages.isEmpty()) {
@@ -155,10 +153,12 @@ class PostgresInboxMessageRepository(
             it[waitReason] = null
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
-        logger.warn(
-            "Failed poison inbox message(s) after reaching max attempts {} {}",
-            kv(MdcKeys.POISON_COUNT, poisonIds.size),
-            kv(MdcKeys.MAX_ATTEMPTS, maxAttempts),
+        logger.event(
+            InboxRepositoryLogEvents.poisonRowsFailed,
+            PoisonInboxContext(
+                poisonCount = poisonIds.size,
+                maxAttempts = maxAttempts,
+            ),
         )
     }
 

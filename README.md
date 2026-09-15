@@ -103,6 +103,7 @@ Den interne flyten eies av [docs/flyt.md](docs/flyt.md).
 - [Teststrategi](docs/teststrategi.md) — delt testsubstrat, e2e og lokal kjøring
 - [Helsesjekk](docs/helsesjekk.md) — liveness-kontrakten for Kafka-consumeren
 - [Dead-letter-replay](docs/dead-letter-replay.md) — manuell replay-prosedyre
+- [Applikasjonslogging](docs/logging.md) — struktur, hendelser og personvern
 - [Ordliste](docs/glossary.md) — eier domenevokabularet
 
 ## Kjøre lokalt

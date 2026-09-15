@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.replay
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -10,6 +11,8 @@ import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.infrastructure.database.dispatch.ReplayableDeadLetter
 import no.nav.budstikka.infrastructure.kafka.consumer.FakeDeadLetterRepository
 import no.nav.budstikka.infrastructure.kafka.consumer.FakeInboxMessageRepository
+import no.nav.budstikka.testsupport.renderedLogData
+import no.nav.budstikka.testsupport.structuredFields
 import org.slf4j.LoggerFactory
 import java.util.UUID
 
@@ -44,8 +47,11 @@ class DeadLetterReplayerTest :
             inbox.savedEvents.shouldBeEmpty()
             deadLetters.findReplayable(limit = 100, offset = 0) shouldBe listOf(deadLetter)
             appender.list.forEach { event ->
-                event.formattedMessage shouldNotContain fnr
-                (event.throwableProxy?.message ?: "") shouldNotContain fnr
+                event.renderedLogData() shouldNotContain fnr
+            }
+            with(appender.list.single { it.formattedMessage.contains("skipped unparseable row") }) {
+                level shouldBe Level.WARN
+                structuredFields()["event_type"] shouldBe ReplayLogEvents.rowSkipped.name
             }
         }
 
