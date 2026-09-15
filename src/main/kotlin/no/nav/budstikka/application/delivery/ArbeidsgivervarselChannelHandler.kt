@@ -15,8 +15,8 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
  * has already waited for budstikka's delivery window. A requested external notification without a
  * leader email fails the entire delivery terminally; it does not degrade to in-app only. Closing
- * uses frozen stored CREATE data and its external id. A malformed thin payload or missing frozen
- * external id fails terminally.
+ * uses stored CREATE data and its external id. A malformed thin payload or missing stored external
+ * id fails terminally.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
@@ -44,7 +44,7 @@ class ArbeidsgivervarselChannelHandler(
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
         }
         val externalId =
-            delivery.createExternalId
+            delivery.externalId
                 ?: (delivery.inboxEventId ?: delivery.id).toString()
         val notificationRecipient =
             when (val recipient = create.recipient) {
@@ -123,8 +123,8 @@ class ArbeidsgivervarselChannelHandler(
         create: ArbeidsgivervarselCreate,
     ): DeliveryOutcome {
         val externalId =
-            delivery.createExternalId
-                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate is missing frozen external id")
+            delivery.externalId
+                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate is missing stored external id")
         return when (
             val response =
                 withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "closing notification") {

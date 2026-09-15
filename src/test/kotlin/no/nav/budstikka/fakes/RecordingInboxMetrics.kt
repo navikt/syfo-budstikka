@@ -18,6 +18,7 @@ class RecordingInboxMetrics : InboxMetrics {
     val ferdigstillWithoutMatch = AtomicInteger()
     val ferdigstillWithoutSupportedRuntimeChannel = AtomicInteger()
     val ferdigstillWithInvalidStoredCreate = AtomicInteger()
+    val ferdigstillCancelledCreateCount = AtomicInteger()
 
     override fun claimed(count: Int) {
         claimedCount.addAndGet(count)
@@ -64,5 +65,9 @@ class RecordingInboxMetrics : InboxMetrics {
 
     override fun ferdigstillWithInvalidStoredCreate() {
         ferdigstillWithInvalidStoredCreate.incrementAndGet()
+    }
+
+    override fun ferdigstillCancelledCreates(count: Int) {
+        ferdigstillCancelledCreateCount.addAndGet(count)
     }
 }

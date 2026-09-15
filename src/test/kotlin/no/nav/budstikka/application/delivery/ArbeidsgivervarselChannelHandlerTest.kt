@@ -45,37 +45,34 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
         }
 
-        test("publishes with the frozen CREATE external id when present") {
+        test("publishes the stored external id when present") {
             val publisher = RecordingPublisher()
-            val frozenExternalId = "frozen-create-external-id"
 
-            handler(publisher).handle(
-                delivery(create(), createExternalId = frozenExternalId),
-            ) shouldBe DeliveryOutcome.Sent
+            handler(publisher).handle(delivery(create(), externalId = "stored-external-id")) shouldBe DeliveryOutcome.Sent
 
-            publisher.requests.single().eksternId shouldBe frozenExternalId
+            publisher.requests.single().eksternId shouldBe "stored-external-id"
         }
 
-        test("falls back to the previous CREATE identity when the frozen external id is absent") {
+        test("falls back to the inbox event id for a historical row without an external id") {
             val publisher = RecordingPublisher()
-            val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000703")
 
-            handler(publisher).handle(delivery(create(), createExternalId = null)) shouldBe DeliveryOutcome.Sent
+            handler(publisher).handle(delivery(create(), externalId = null)) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000702"
+        }
+
+        test("falls back to the delivery id when historical inbox identity is also missing") {
+            val publisher = RecordingPublisher()
+
             handler(publisher).handle(
-                delivery(
-                    create(),
-                    id = deliveryId,
-                    inboxEventId = null,
-                    createExternalId = null,
-                ),
+                delivery(create(), externalId = null, inboxEventId = null),
             ) shouldBe DeliveryOutcome.Sent
 
-            publisher.requests.map(ArbeidsgiverNotificationRequest::eksternId) shouldBe
-                listOf("00000000-0000-0000-0000-000000000702", deliveryId.toString())
+            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000701"
         }
 
         listOf(ArbeidsgiverMeldingstype.BESKJED, ArbeidsgiverMeldingstype.OPPGAVE).forEach { meldingstype ->
-            test("closes stored $meldingstype with frozen create data without a NarmesteLeder lookup") {
+            test("closes stored $meldingstype by the source CREATE external id without a NarmesteLeder lookup") {
                 val publisher = RecordingPublisher()
                 val externalId = "00000000-0000-0000-0000-000000000703"
 
@@ -83,7 +80,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                     delivery(
                         create(meldingstype = meldingstype),
                         operation = Operation.INACTIVATE,
-                        createExternalId = externalId,
+                        externalId = externalId,
                     ),
                 ) shouldBe DeliveryOutcome.Sent
 
@@ -99,7 +96,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             }
         }
 
-        test("fails to close when the frozen CREATE external id is absent") {
+        test("does not fall back to inbox event or delivery id when INACTIVATE external id is absent") {
             val publisher = RecordingPublisher()
 
             val outcome =
@@ -107,12 +104,12 @@ class ArbeidsgivervarselChannelHandlerTest :
                     delivery(
                         create(),
                         operation = Operation.INACTIVATE,
-                        createExternalId = null,
+                        externalId = null,
                     ),
                 )
 
             (outcome as DeliveryOutcome.Failed).reason shouldBe
-                "ARBEIDSGIVERVARSEL inactivate is missing frozen external id"
+                "ARBEIDSGIVERVARSEL inactivate is missing stored external id"
             publisher.closeRequests shouldHaveSize 0
         }
 
@@ -394,7 +391,7 @@ private fun delivery(
     id: UUID = UUID.fromString("00000000-0000-0000-0000-000000000701"),
     inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
     operation: Operation = Operation.CREATE,
-    createExternalId: String? = null,
+    externalId: String? = null,
 ) = ClaimedDelivery(
     id = id,
     inboxEventId = inboxEventId,
@@ -402,7 +399,7 @@ private fun delivery(
     channel = Channel.ARBEIDSGIVERVARSEL,
     payload = payload,
     operation = operation,
-    createExternalId = createExternalId,
+    externalId = externalId,
 )
 
 private class FakeNarmesteLederLookup(
