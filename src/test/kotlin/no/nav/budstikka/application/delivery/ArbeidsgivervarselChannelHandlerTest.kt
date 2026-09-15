@@ -113,6 +113,23 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.closeRequests shouldHaveSize 0
         }
 
+        test("maps a retryable close response to a nonterminal retry") {
+            val publisher =
+                RecordingPublisher(
+                    closeResponse = ArbeidsgiverNotificationResponse.Retryable("NotifikasjonFinnesIkke"),
+                )
+
+            handler(publisher).handle(
+                delivery(
+                    create(),
+                    operation = Operation.INACTIVATE,
+                    externalId = "00000000-0000-0000-0000-000000000703",
+                ),
+            ) shouldBe DeliveryOutcome.Retry("NotifikasjonFinnesIkke")
+
+            publisher.closeRequests shouldHaveSize 1
+        }
+
         test("forwards visibleUntil to the notification request") {
             val publisher = RecordingPublisher()
             val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
@@ -418,7 +435,9 @@ private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
     ): NarmesteLederRelasjon? = error("narmesteleder-register unavailable")
 }
 
-private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
+private class RecordingPublisher(
+    private val closeResponse: ArbeidsgiverNotificationResponse = ArbeidsgiverNotificationResponse.Published,
+) : ArbeidsgiverNotificationPublisher {
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
     val closeRequests = mutableListOf<ArbeidsgiverNotificationCloseRequest>()
 
@@ -429,6 +448,6 @@ private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
 
     override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse {
         closeRequests += request
-        return ArbeidsgiverNotificationResponse.Published
+        return closeResponse
     }
 }

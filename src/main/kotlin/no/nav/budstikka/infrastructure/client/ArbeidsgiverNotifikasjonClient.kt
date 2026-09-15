@@ -69,44 +69,77 @@ class ArbeidsgiverNotifikasjonClient(
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
             ArbeidsgiverMeldingstype.BESKJED ->
-                execute(request.eksternId, request.toNyBeskjedMutation()) { data ->
-                    data.nyBeskjed.toNotificationResponse()
-                }
+                execute(
+                    correlationId = request.eksternId,
+                    operation = request.toNyBeskjedMutation(),
+                    badRequestResult =
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request with status 400",
+                        ),
+                ) { data -> data.nyBeskjed.toNotificationResponse() }
             ArbeidsgiverMeldingstype.OPPGAVE ->
-                execute(request.eksternId, request.toNyOppgaveMutation()) { data ->
-                    data.nyOppgave.toNotificationResponse()
-                }
+                execute(
+                    correlationId = request.eksternId,
+                    operation = request.toNyOppgaveMutation(),
+                    badRequestResult =
+                        ArbeidsgiverNotificationResponse.Rejected(
+                            "Arbeidsgiver notification API rejected request with status 400",
+                        ),
+                ) { data -> data.nyOppgave.toNotificationResponse() }
         }
 
     override suspend fun close(request: ArbeidsgiverNotificationCloseRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
             ArbeidsgiverMeldingstype.BESKJED ->
                 execute(
-                    request.eksternId,
-                    HardDeleteNotifikasjonByEksternIdV2Mutation(
-                        merkelapp = request.tag,
-                        eksternId = request.eksternId,
-                    ),
+                    correlationId = request.eksternId,
+                    operation =
+                        HardDeleteNotifikasjonByEksternIdV2Mutation(
+                            merkelapp = request.tag,
+                            eksternId = request.eksternId,
+                        ),
+                    badRequestResult =
+                        FagerCloseResult.Rejected(
+                            ArbeidsgiverNotificationResponse.Rejected(
+                                "Arbeidsgiver notification API rejected request with status 400",
+                            ),
+                        ),
                 ) { data ->
                     hardDeleteNotificationResponse(data.hardDeleteNotifikasjonByEksternId_V2)
-                }
+                }.toCloseResponse()
             ArbeidsgiverMeldingstype.OPPGAVE ->
                 execute(
-                    request.eksternId,
-                    OppgaveUtfoertByEksternIdV2Mutation(
-                        merkelapp = request.tag,
-                        eksternId = request.eksternId,
-                    ),
+                    correlationId = request.eksternId,
+                    operation =
+                        OppgaveUtfoertByEksternIdV2Mutation(
+                            merkelapp = request.tag,
+                            eksternId = request.eksternId,
+                        ),
+                    badRequestResult =
+                        FagerCloseResult.Rejected(
+                            ArbeidsgiverNotificationResponse.Rejected(
+                                "Arbeidsgiver notification API rejected request with status 400",
+                            ),
+                        ),
                 ) { data ->
                     oppgaveUtfoertResponse(data.oppgaveUtfoertByEksternId_V2)
-                }
+                }.toCloseResponse()
         }
 
-    private suspend fun <D : Operation.Data> execute(
+    private fun FagerCloseResult.toCloseResponse(): ArbeidsgiverNotificationResponse =
+        when (this) {
+            FagerCloseResult.Published -> ArbeidsgiverNotificationResponse.Published
+            is FagerCloseResult.Rejected -> response
+            FagerCloseResult.NotifikasjonFinnesIkke ->
+                ArbeidsgiverNotificationResponse.Retryable(NOTIFIKASJON_FINNES_IKKE_RETRY_REASON)
+        }
+
+    private suspend fun <D : Operation.Data, T> execute(
         correlationId: String,
         operation: Operation<D>,
-        classify: (D) -> ArbeidsgiverNotificationResponse,
-    ): ArbeidsgiverNotificationResponse {
+        badRequestResult: T,
+        classify: (D) -> T,
+    ): T {
         val credential = tokenProvider.token(config.scope)
         val response =
             httpClient.post(config.url) {
@@ -115,17 +148,16 @@ class ArbeidsgiverNotifikasjonClient(
                 header(X_REQUEST_ID_HEADER, correlationId)
                 setBody(operation.requestBody())
             }
-        return response.toNotificationResponse(operation, classify)
+        return response.toNotificationResponse(operation, badRequestResult, classify)
     }
 
-    private suspend fun <D : Operation.Data> HttpResponse.toNotificationResponse(
+    private suspend fun <D : Operation.Data, T> HttpResponse.toNotificationResponse(
         operation: Operation<D>,
-        classify: (D) -> ArbeidsgiverNotificationResponse,
-    ): ArbeidsgiverNotificationResponse {
+        badRequestResult: T,
+        classify: (D) -> T,
+    ): T {
         if (status == HttpStatusCode.BadRequest) {
-            return ArbeidsgiverNotificationResponse.Rejected(
-                "Arbeidsgiver notification API rejected request with status ${status.value}",
-            )
+            return badRequestResult
         }
         if (status == HttpStatusCode.Unauthorized || status == HttpStatusCode.Forbidden || status.value in 500..599) {
             error("Arbeidsgiver notification API failed with status ${status.value}")
@@ -295,32 +327,30 @@ class ArbeidsgiverNotifikasjonClient(
 
     private fun hardDeleteNotificationResponse(
         response: HardDeleteNotifikasjonByEksternIdV2Mutation.HardDeleteNotifikasjonByEksternId_V2,
-    ): ArbeidsgiverNotificationResponse =
+    ): FagerCloseResult =
         when {
             response.onHardDeleteNotifikasjonVellykket != null ->
-                ArbeidsgiverNotificationResponse.Published
+                FagerCloseResult.Published
             response.onUgyldigMerkelapp != null ->
-                rejected("UgyldigMerkelapp")
+                FagerCloseResult.Rejected(rejected("UgyldigMerkelapp"))
             response.onNotifikasjonFinnesIkke != null ->
-                ArbeidsgiverNotificationResponse.Published
+                FagerCloseResult.NotifikasjonFinnesIkke
             response.onUkjentProdusent != null ->
-                rejected("UkjentProdusent")
+                FagerCloseResult.Rejected(rejected("UkjentProdusent"))
             else ->
                 error("Arbeidsgiver notification API returned an unexpected HardDeleteNotifikasjon result")
         }
 
-    private fun oppgaveUtfoertResponse(
-        response: OppgaveUtfoertByEksternIdV2Mutation.OppgaveUtfoertByEksternId_V2,
-    ): ArbeidsgiverNotificationResponse =
+    private fun oppgaveUtfoertResponse(response: OppgaveUtfoertByEksternIdV2Mutation.OppgaveUtfoertByEksternId_V2): FagerCloseResult =
         when {
             response.onOppgaveUtfoertVellykket != null ->
-                ArbeidsgiverNotificationResponse.Published
+                FagerCloseResult.Published
             response.onUgyldigMerkelapp != null ->
-                rejected("UgyldigMerkelapp")
+                FagerCloseResult.Rejected(rejected("UgyldigMerkelapp"))
             response.onNotifikasjonFinnesIkke != null ->
-                ArbeidsgiverNotificationResponse.Published
+                FagerCloseResult.NotifikasjonFinnesIkke
             response.onUkjentProdusent != null ->
-                rejected("UkjentProdusent")
+                FagerCloseResult.Rejected(rejected("UkjentProdusent"))
             else ->
                 error("Arbeidsgiver notification API returned an unexpected OppgaveUtfoert result")
         }
@@ -344,8 +374,19 @@ class ArbeidsgiverNotifikasjonClient(
             this@requestBody.composeJsonRequest(this)
         }
 
+    private sealed interface FagerCloseResult {
+        data object Published : FagerCloseResult
+
+        data class Rejected(
+            val response: ArbeidsgiverNotificationResponse.Rejected,
+        ) : FagerCloseResult
+
+        data object NotifikasjonFinnesIkke : FagerCloseResult
+    }
+
     private companion object {
         private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
+        private const val NOTIFIKASJON_FINNES_IKKE_RETRY_REASON = "NotifikasjonFinnesIkke"
         private val OSLO_TIME_ZONE = TimeZone.of("Europe/Oslo")
 
         // Fager documents X-Request-ID as an accepted correlation header in docs/gql/intro.html

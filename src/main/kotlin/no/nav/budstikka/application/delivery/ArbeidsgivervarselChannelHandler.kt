@@ -114,6 +114,7 @@ class ArbeidsgivervarselChannelHandler(
                 }
         ) {
             ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
+            is ArbeidsgiverNotificationResponse.Retryable -> DeliveryOutcome.Retry(response.reason)
             is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
         }
     }
@@ -138,6 +139,7 @@ class ArbeidsgivervarselChannelHandler(
                 }
         ) {
             ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
+            is ArbeidsgiverNotificationResponse.Retryable -> DeliveryOutcome.Retry(response.reason)
             is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
         }
     }
