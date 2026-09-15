@@ -86,6 +86,7 @@ class DeliveryWorker(
                 }
                 when (val outcome = handler.handle(delivery)) {
                     DeliveryOutcome.Sent -> markSent(delivery, attempt)
+                    is DeliveryOutcome.Retry -> logRetry(delivery, outcome.reason)
                     is DeliveryOutcome.Failed -> markFailed(delivery, attempt, outcome.reason)
                 }
             }
@@ -128,5 +129,16 @@ class DeliveryWorker(
         } else {
             logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
         }
+    }
+
+    private fun logRetry(
+        delivery: ClaimedDelivery,
+        reason: String,
+    ) {
+        val fields = delivery.logFields() + kv(MdcKeys.REASON, reason)
+        logger.warn(
+            withPlaceholders("Delivery will be retried by the ordinary delivery mechanism", fields),
+            *fields.toTypedArray(),
+        )
     }
 }
