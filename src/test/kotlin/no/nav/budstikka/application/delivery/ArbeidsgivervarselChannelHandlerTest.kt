@@ -58,6 +58,16 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000702"
         }
 
+        test("falls back to the delivery id when historical inbox identity is also missing") {
+            val publisher = RecordingPublisher()
+
+            handler(publisher).handle(
+                delivery(create(), externalId = null, inboxEventId = null),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().eksternId shouldBe "00000000-0000-0000-0000-000000000701"
+        }
+
         test("forwards visibleUntil to the notification request") {
             val publisher = RecordingPublisher()
             val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
@@ -332,10 +342,11 @@ private fun create(
 private fun delivery(
     payload: no.nav.budstikka.contract.DispatchContent,
     externalId: String? = null,
+    inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
 ) =
     ClaimedDelivery(
         id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
-        inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
+        inboxEventId = inboxEventId,
         reference = "reference",
         channel = Channel.ARBEIDSGIVERVARSEL,
         payload = payload,
