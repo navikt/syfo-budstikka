@@ -13,7 +13,8 @@ import no.nav.budstikka.domain.decision.DropReason
  * - `inbox_message_claimed_total`, `inbox_message_empty_polls_total`,
  *   `inbox_message_processed_total`, `inbox_message_dropped_total{reason}`,
  *   `inbox_message_failed_total`, `inbox_message_decision_cas_lost_total`,
- *   `inbox_dead_letter_persisted_total{reason}`
+ *   `inbox_dead_letter_persisted_total{reason}`,
+ *   `ferdigstill_unmaterialized_create_cancelled_total`
  *
  * Labels are low-cardinality and PII-free. Claim and empty-poll counters are recorded at poll time;
  * decision outcomes are recorded only after a successful state transition, and dead letters only
@@ -36,6 +37,10 @@ class MicrometerInboxMetrics(
                 .register(registry)
         }
     private val decisionCasLostCounter = counter(INBOX_MESSAGE_DECISION_CAS_LOST)
+    private val ferdigstillWithoutMatchCounter = counter(FERDIGSTILL_WITHOUT_MATCH)
+    private val ferdigstillWithoutSupportedRuntimeChannelCounter = counter(FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL)
+    private val ferdigstillWithInvalidStoredCreateCounter = counter(FERDIGSTILL_WITH_INVALID_STORED_CREATE)
+    private val ferdigstillCancelledCreatesCounter = counter(FERDIGSTILL_UNMATERIALIZED_CREATE_CANCELLED)
 
     override fun claimed(count: Int) = claimedCounter.increment(count.toDouble())
 
@@ -65,6 +70,18 @@ class MicrometerInboxMetrics(
 
     override fun decisionCasLost() = decisionCasLostCounter.increment()
 
+    override fun ferdigstillWithoutMatch() = ferdigstillWithoutMatchCounter.increment()
+
+    override fun ferdigstillWithoutSupportedRuntimeChannel() = ferdigstillWithoutSupportedRuntimeChannelCounter.increment()
+
+    override fun ferdigstillWithInvalidStoredCreate() = ferdigstillWithInvalidStoredCreateCounter.increment()
+
+    override fun ferdigstillCancelledCreates(count: Int) {
+        if (count > 0) {
+            ferdigstillCancelledCreatesCounter.increment(count.toDouble())
+        }
+    }
+
     private fun counter(name: String): Counter = Counter.builder(name).register(registry)
 
     /**
@@ -81,6 +98,10 @@ class MicrometerInboxMetrics(
         const val INBOX_OUTSIDE_SENDING_WINDOW = "inbox.outside.sending.window"
         const val INBOX_DEAD_LETTER_PERSISTED = "inbox.dead.letter.persisted"
         const val INBOX_MESSAGE_DECISION_CAS_LOST = "inbox.message.decision.cas.lost"
+        const val FERDIGSTILL_WITHOUT_MATCH = "ferdigstill.uten.treff"
+        const val FERDIGSTILL_WITHOUT_SUPPORTED_RUNTIME_CHANNEL = "ferdigstill.uten.runtime.kanal"
+        const val FERDIGSTILL_WITH_INVALID_STORED_CREATE = "ferdigstill.lagret.opprett.ugyldig"
+        const val FERDIGSTILL_UNMATERIALIZED_CREATE_CANCELLED = "ferdigstill.unmaterialized.create.cancelled"
 
         const val TAG_REASON = "reason"
     }

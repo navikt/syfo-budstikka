@@ -8,8 +8,13 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
@@ -36,8 +41,8 @@ class DeliveryRepositoryIntegrationTest :
         suspend fun saveDraft(
             reference: String,
             draft: DeliveryDraft,
+            inboxEventId: UUID = UUID.randomUUID(),
         ) {
-            val inboxEventId = UUID.randomUUID()
             InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
                 DeliveryRepositoryImpl(fixture.database).saveInTransaction(
@@ -51,6 +56,34 @@ class DeliveryRepositoryIntegrationTest :
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.single()
             }
+
+        test("save and claim preserve the inbox event id as Arbeidsgivervarsel external_id") {
+            val repository = DeliveryRepositoryImpl(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000901")
+            saveDraft(
+                reference = "arbeidsgivervarsel-ref",
+                draft =
+                    DeliveryDraft(
+                        reference = "unused",
+                        operation = Operation.CREATE,
+                        channel = Channel.ARBEIDSGIVERVARSEL,
+                        recipient = Recipient.Virksomhet(TEST_ORGNUMMER),
+                        content = arbeidsgivervarselCreate(),
+                    ),
+                inboxEventId = eventId,
+            )
+
+            rowForReference("arbeidsgivervarsel-ref")[DeliveryTable.externalId] shouldBe eventId.toString()
+
+            val claimed =
+                repository.claim(
+                    limit = 10,
+                    lease = lease,
+                    maxAttempts = 10,
+                    channels = setOf(Channel.ARBEIDSGIVERVARSEL),
+                )
+            claimed.single().externalId shouldBe eventId.toString()
+        }
 
         suspend fun expireLease(deliveryId: UUID) {
             fixture.database.transact {
@@ -245,3 +278,12 @@ class DeliveryRepositoryIntegrationTest :
             rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
         }
     })
+
+private fun arbeidsgivervarselCreate() =
+    ArbeidsgivervarselCreate(
+        orgnummer = TEST_ORGNUMMER,
+        recipient = AltinnResource("synthetic-resource"),
+        tag = "synthetic-tag",
+        text = "synthetic text",
+        link = "https://example.test/synthetic",
+    )
