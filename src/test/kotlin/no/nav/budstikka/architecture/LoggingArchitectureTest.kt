@@ -15,7 +15,11 @@ import java.nio.file.Path
 class LoggingArchitectureTest :
     StringSpec({
         "production code uses only the local application logging binding" {
-            val classes = Path.of(HealthResult::class.java.protectionDomain.codeSource.location.toURI())
+            val classes =
+                Path.of(
+                    HealthResult::class.java.protectionDomain.codeSource.location
+                        .toURI(),
+                )
             val violations =
                 Files.walk(classes).use { files ->
                     files
@@ -82,8 +86,7 @@ private fun compiledClassName(
     classFile: Path,
 ): String = classes.relativize(classFile).joinToString("/") { it.toString() }.removeSuffix(".class")
 
-private fun isProductionClass(className: String): Boolean =
-    className.startsWith(PRODUCTION_PACKAGE) && className != LOCAL_LOGGING_BINDING
+private fun isProductionClass(className: String): Boolean = className.startsWith(PRODUCTION_PACKAGE) && className != LOCAL_LOGGING_BINDING
 
 private fun forbiddenLogging(bytes: ByteArray): List<String> =
     ClassFile
@@ -125,7 +128,9 @@ private class StandardOutputFixture {
 }
 
 private class DirectLibraryFactoryFixture {
-    fun logger(native: org.slf4j.Logger) = no.nav.esyfo.observability.createLogger(native)
+    fun logger(native: org.slf4j.Logger) =
+        no.nav.esyfo.observability
+            .createLogger(native)
 }
 
 private class TracingFixture {
