@@ -37,7 +37,7 @@ erDiagram
         timestamptz next_attempt_time "nullable"
         timestamptz created_at
         text        error_message "nullable"
-        text        create_external_id "nullable, stabil Fager-eksternId eid av AG-OPPRETT"
+        text        external_id "nullable, lagret identitet hos downstream"
         uuid        source_create_delivery_id "nullable FK-lenke til CREATE"
     }
 
@@ -206,13 +206,16 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   retensjons-`DELETE`.
 - `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
   budstikkas database.
-- En ARBEIDSGIVERVARSEL-`OPPRETT` fryser Fagers stabile eksternId i
-  `delivery.create_external_id` ved materialisering: create-radens `inbox_event_id`. En
-  kompatibilitets-trigger i V11 setter samme verdi ved innsetting i `delivery` for eldre skrivere
-  som utelater kolonnen; den beskytter ikke innsetting i inbox. Mangler
-  den opprinnelige inbox-identiteten, kan eksternId ikke gjenopprettes: V9s `delivery.id`-gjett
-  ryddes til ukjent og både publisering og `INAKTIVER` feiler terminalt uten Fager-kall. Samme
-  frosne verdi kopieres til avledet `INAKTIVER`, så en kjent identitet overlever inbox-retensjon.
+- `delivery.external_id` er en nullable, lagret identitet hos downstream.
+- En ny ARBEIDSGIVERVARSEL-`OPPRETT` lagrer `inbox_event_id.toString()` i `external_id`. Dette er
+  samme verdi som brukes som Fagers `eksternId`. En avledet `INAKTIVER` kopierer verdien fra den
+  eksakte kilde-`CREATE`-raden via `source_create_delivery_id`, så identiteten overlever
+  inbox-retensjon.
+- Det finnes verken historisk backfill eller databasetrigger for `external_id`. Historiske rader
+  uten verdien kan ikke brukes til å avlede FERDIGSTILL. Budstikka gjetter ikke identiteten fra
+  `delivery.id` eller andre felt.
+- Produsenter som trenger FERDIGSTILL, onboardes først etter at writer-versjonen er fullt utrullet.
+  Dermed har deres relevante ARBEIDSGIVERVARSEL-`OPPRETT`-rader `external_id`.
 
 ## Observability-koblinger
 

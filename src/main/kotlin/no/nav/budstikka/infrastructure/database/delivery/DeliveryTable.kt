@@ -24,7 +24,7 @@ object DeliveryTable : Table("delivery") {
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)
     val errorMessage = text("error_message").nullable()
-    val createExternalId = text("create_external_id").nullable()
+    val externalId = text("external_id").nullable()
     val sourceCreateDeliveryId = javaUUID("source_create_delivery_id").nullable()
 
     override val primaryKey = PrimaryKey(id)

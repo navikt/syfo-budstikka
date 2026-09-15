@@ -17,11 +17,14 @@ Låsen tas ikke-blokkerende og binder én pooled connection under kallet. Ved us
 forkastes sesjonen. Tap av sesjon eller prosess frigjør låsen, men gir ikke en distribuert
 transaksjon. Stabile nedstrøms-ID-er, idempotens og avstemming er derfor fortsatt nødvendige.
 
-V11 installerer en kompatibilitetstrigger før den reparerer manglende `create_external_id` for
-ARBEIDSGIVERVARSEL-`CREATE` og arver reparert identitet til ventende avhengige `INACTIVATE`.
+V9 innfører den nullable kolonnen `external_id` uten historisk backfill eller databasetrigger.
+Nye ARBEIDSGIVERVARSEL-`CREATE` lagrer inbox-event-ID-en der. Historiske rader uten
+`external_id` kan derfor ikke brukes til å avlede FERDIGSTILL. V10 innfører den tomme
+avhengighetskolonnen `source_create_delivery_id` og indeksen. Ingen avhengige rader trenger
+backfill; avhengigheter opprettes bare når en gyldig, lagret kilde-`CREATE` kan identifiseres.
 Blandede gamle og nye replikaer er utrygt fordi gammel claim- og dispatch-kode ignorerer den nye
 avhengigheten og guarden. Rekkefølgeendringen rulles derfor først ut etter en eksplisitt barriere
 der gamle replikaer og pågående gamle workere har stoppet, før FERDIGSTILL-produsenter aktiveres.
 Rollback til worker-atferd før V10 er ikke trygt mens avhengige rader finnes; gammel retention
-mangler også kildefilteret og kan feile på den nye foreign key-en. V10 og V11 tar blokkerende
-migreringslåser, så deployment-vinduet må vurderes før utrulling.
+mangler også kildefilteret og kan feile på den nye foreign key-en. Migreringen tar en
+tabellås, så deployment-vinduet må vurderes før utrulling.

@@ -232,7 +232,6 @@ class ArbeidsgiverNotifikasjonClientTest :
                         ),
                     )
                 }
-
                 requestCount shouldBe 1
             }
         }

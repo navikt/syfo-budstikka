@@ -62,11 +62,11 @@ class DeliveryRepositoryImpl(
             this[DeliveryTable.recipientType] = type
             this[DeliveryTable.recipientId] = id
             this[DeliveryTable.payload] = draftEntry.content
-            this[DeliveryTable.createExternalId] =
+            this[DeliveryTable.externalId] =
                 if (draftEntry.operation == Operation.CREATE && draftEntry.channel == Channel.ARBEIDSGIVERVARSEL) {
                     inboxEventId.toString()
                 } else {
-                    draftEntry.createExternalId
+                    draftEntry.externalId
                 }
             this[DeliveryTable.sourceCreateDeliveryId] = draftEntry.sourceCreateDeliveryId
             this[DeliveryTable.createdAt] = Clock.System.now()
@@ -78,7 +78,7 @@ class DeliveryRepositoryImpl(
         return DeliveryTable
             .select(
                 DeliveryTable.id,
-                DeliveryTable.createExternalId,
+                DeliveryTable.externalId,
                 DeliveryTable.reference,
                 DeliveryTable.channel,
                 DeliveryTable.recipientType,
@@ -96,7 +96,7 @@ class DeliveryRepositoryImpl(
             ).map { row ->
                 StoredCreateDelivery(
                     id = row[DeliveryTable.id],
-                    createExternalId = row[DeliveryTable.createExternalId],
+                    externalId = row[DeliveryTable.externalId],
                     reference = row[DeliveryTable.reference],
                     channel = Channel.valueOf(row[DeliveryTable.channel]),
                     recipient = recipientFromColumns(row[DeliveryTable.recipientType], row[DeliveryTable.recipientId]),
@@ -129,7 +129,7 @@ class DeliveryRepositoryImpl(
                         DeliveryTable.operation,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
-                        DeliveryTable.createExternalId,
+                        DeliveryTable.externalId,
                         DeliveryTable.sourceCreateDeliveryId,
                     ).where { DeliveryTable.id inList claimedIds }
                     .orderBy(
@@ -143,7 +143,7 @@ class DeliveryRepositoryImpl(
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
                             operation = Operation.valueOf(row[DeliveryTable.operation]),
-                            createExternalId = row[DeliveryTable.createExternalId],
+                            externalId = row[DeliveryTable.externalId],
                             sourceCreateDeliveryId = row[DeliveryTable.sourceCreateDeliveryId],
                         )
                     }

@@ -16,13 +16,13 @@ data class ClaimedDelivery(
     val channel: Channel,
     val payload: DispatchContent,
     val operation: Operation = Operation.CREATE,
-    val createExternalId: String? = null,
+    val externalId: String? = null,
     val sourceCreateDeliveryId: UUID? = null,
 )
 
 data class StoredCreateDelivery(
     val id: UUID,
-    val createExternalId: String?,
+    val externalId: String?,
     val reference: String,
     val channel: Channel,
     val recipient: Recipient,

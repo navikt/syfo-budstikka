@@ -111,16 +111,17 @@ matchende lagrede OPPRETT-leveranser og lager én ordinær `delivery(operation=I
 gyldig CREATE. Hver dependent peker med `source_create_delivery_id` til sin eksakte source CREATE.
 For BRUKERVARSEL og LEDERVARSEL er den thin INAKTIVER-payloaden avledet fra create-raden. For
 ARBEIDSGIVERVARSEL beholdes create-payloaden som frosset lukkegrunnlag, sammen med den stabile
-create-eksternId-en. Kanalhandleren bruker bare disse lagrede dataene ved lukking, aldri et nytt
-Nærmeste leder-oppslag.
-En manglende eller historisk uavklart eksternId er en terminal feil uten publiserings- eller
-lukke-kall. Under kompatibilitetsmigreringen avstemmes bare ventende avhengige leveranser gjennom
-`source_create_delivery_id`; `SENT` og `FAILED` endres ikke. Lukking forblir deaktivert til
-kompatibel kode er utrullet og gamle replikaer og arbeidere med pågående behandling er stoppet.
-Denne sperren omfatter også gamle inbox-skrivere: alle som skriver til inbox må delta i
-referanselåsingen, mens eldre `saveBatch`-implementasjoner omgår den.
-Uavklarte identiteter krever separat autorisert avstemming før lukking aktiveres for de berørte
-dataene; ikke rull tilbake til reservehandlere mens uavklarte rader eller lukkinger i kø finnes.
+eksternId-en. `delivery.external_id` er nullable og lagrer denne downstream-identiteten. Nye
+ARBEIDSGIVERVARSEL-`CREATE`-rader lagrer inbox-event-ID-en som brukes som Fagers `eksternId`.
+Kanalhandleren bruker bare lagret payload og `external_id` ved lukking, aldri et nytt Nærmeste
+leder-oppslag.
+
+Det finnes verken historisk backfill eller databasetrigger for `external_id`. Historiske
+ARBEIDSGIVERVARSEL-`CREATE`-rader uten verdien kan ikke brukes til å avlede FERDIGSTILL, og
+Budstikka gjetter ikke identiteten fra `delivery.id` eller andre felt. Produsenter som trenger
+FERDIGSTILL, onboardes først etter at writer-versjonen er fullt utrullet. Dermed har deres
+relevante CREATE-rader `external_id`. `source_create_delivery_id` knytter hver avledet
+`INACTIVATE` til den eksakte `CREATE`-raden som leverer payload og ekstern identitet.
 
 En dependent kan først claimes når sin source CREATE er `SENT`; en `FAILED` source terminaliserer
 dependent som `FAILED` uten handlerkall eller nytt forsøk. En PostgreSQL session advisory lock

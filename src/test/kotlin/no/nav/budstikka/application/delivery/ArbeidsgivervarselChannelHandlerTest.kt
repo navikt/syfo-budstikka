@@ -45,24 +45,21 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
         }
 
-        test("publishes with the frozen CREATE external id when present") {
+        test("publishes the stored external id when present") {
             val publisher = RecordingPublisher()
-            val frozenExternalId = "frozen-create-external-id"
 
-            handler(publisher).handle(
-                delivery(create(), createExternalId = frozenExternalId),
-            ) shouldBe DeliveryOutcome.Sent
+            handler(publisher).handle(delivery(create(), externalId = "stored-external-id")) shouldBe DeliveryOutcome.Sent
 
-            publisher.requests.single().eksternId shouldBe frozenExternalId
+            publisher.requests.single().eksternId shouldBe "stored-external-id"
         }
 
-        test("fails to publish when the frozen CREATE external id is absent") {
+        test("fails to publish when the stored CREATE external id is absent") {
             val publisher = RecordingPublisher()
 
-            val outcome = handler(publisher).handle(delivery(create(), createExternalId = null))
+            val outcome = handler(publisher).handle(delivery(create(), externalId = null))
 
             (outcome as DeliveryOutcome.Failed).reason shouldBe
-                "ARBEIDSGIVERVARSEL create is missing frozen external id"
+                "ARBEIDSGIVERVARSEL create is missing stored external id"
             publisher.requests shouldHaveSize 0
         }
 
@@ -71,16 +68,16 @@ class ArbeidsgivervarselChannelHandlerTest :
 
             val outcome =
                 handler(publisher, ThrowingNarmesteLederLookup()).handle(
-                    delivery(create(), inboxEventId = null, createExternalId = null),
+                    delivery(create(), inboxEventId = null, externalId = null),
                 )
 
-            outcome shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL create is missing frozen external id")
+            outcome shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL create is missing stored external id")
             publisher.requests shouldBe emptyList()
             publisher.closeRequests shouldBe emptyList()
         }
 
         listOf(ArbeidsgiverMeldingstype.BESKJED, ArbeidsgiverMeldingstype.OPPGAVE).forEach { meldingstype ->
-            test("closes stored $meldingstype with frozen create data without a NarmesteLeder lookup") {
+            test("closes stored $meldingstype by the source CREATE external id without a NarmesteLeder lookup") {
                 val publisher = RecordingPublisher()
                 val externalId = "00000000-0000-0000-0000-000000000703"
 
@@ -88,7 +85,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                     delivery(
                         create(meldingstype = meldingstype),
                         operation = Operation.INACTIVATE,
-                        createExternalId = externalId,
+                        externalId = externalId,
                     ),
                 ) shouldBe DeliveryOutcome.Sent
 
@@ -104,7 +101,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             }
         }
 
-        test("fails to close when the frozen CREATE external id is absent") {
+        test("does not fall back to inbox event or delivery id when INACTIVATE external id is absent") {
             val publisher = RecordingPublisher()
 
             val outcome =
@@ -112,12 +109,12 @@ class ArbeidsgivervarselChannelHandlerTest :
                     delivery(
                         create(),
                         operation = Operation.INACTIVATE,
-                        createExternalId = null,
+                        externalId = null,
                     ),
                 )
 
             (outcome as DeliveryOutcome.Failed).reason shouldBe
-                "ARBEIDSGIVERVARSEL inactivate is missing frozen external id"
+                "ARBEIDSGIVERVARSEL inactivate is missing stored external id"
             publisher.closeRequests shouldHaveSize 0
         }
 
@@ -128,7 +125,11 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
 
             handler(publisher).handle(
-                delivery(create(), operation = Operation.INACTIVATE),
+                delivery(
+                    create(),
+                    operation = Operation.INACTIVATE,
+                    externalId = "00000000-0000-0000-0000-000000000703",
+                ),
             ) shouldBe DeliveryOutcome.Retry("NotifikasjonFinnesIkke")
 
             publisher.closeRequests shouldHaveSize 1
@@ -411,7 +412,7 @@ private fun delivery(
     id: UUID = UUID.fromString("00000000-0000-0000-0000-000000000701"),
     inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
     operation: Operation = Operation.CREATE,
-    createExternalId: String? = "00000000-0000-0000-0000-000000000702",
+    externalId: String? = "00000000-0000-0000-0000-000000000702",
 ) = ClaimedDelivery(
     id = id,
     inboxEventId = inboxEventId,
@@ -419,7 +420,7 @@ private fun delivery(
     channel = Channel.ARBEIDSGIVERVARSEL,
     payload = payload,
     operation = operation,
-    createExternalId = createExternalId,
+    externalId = externalId,
 )
 
 private class FakeNarmesteLederLookup(

@@ -203,7 +203,7 @@ class FerdigstillMatchingIntegrationTest :
 
                     Channel.ARBEIDSGIVERVARSEL -> {
                         row[DeliveryTable.payload] shouldBe create
-                        row[DeliveryTable.createExternalId] shouldBe createEventId.toString()
+                        row[DeliveryTable.externalId] shouldBe createEventId.toString()
                     }
 
                     else -> error("Unsupported test channel")
@@ -250,7 +250,7 @@ class FerdigstillMatchingIntegrationTest :
                 deliveries
                     .claim(limit = 1, lease = lease, maxAttempts = 10, channels = setOf(Channel.ARBEIDSGIVERVARSEL))
                     .single()
-            createDelivery.createExternalId shouldBe createEventId.toString()
+            createDelivery.externalId shouldBe createEventId.toString()
             handler.handle(createDelivery) shouldBe DeliveryOutcome.Sent
             publisher.requests.single().eksternId shouldBe createEventId.toString()
             deliveries.markSent(createDelivery.id) shouldBe true
@@ -259,7 +259,7 @@ class FerdigstillMatchingIntegrationTest :
                 InboxMessageTable.deleteWhere { InboxMessageTable.eventId eq createEventId }
                 val storedCreate = DeliveryTable.selectAll().where { DeliveryTable.id eq createDelivery.id }.single()
                 storedCreate[DeliveryTable.inboxEventId] shouldBe null
-                storedCreate[DeliveryTable.createExternalId] shouldBe createEventId.toString()
+                storedCreate[DeliveryTable.externalId] shouldBe createEventId.toString()
             }
 
             saveAndClaim(inbox, inactivate)
@@ -269,7 +269,7 @@ class FerdigstillMatchingIntegrationTest :
                 deliveries
                     .claim(limit = 1, lease = lease, maxAttempts = 10, channels = setOf(Channel.ARBEIDSGIVERVARSEL))
                     .single()
-            inactivateDelivery.createExternalId shouldBe createEventId.toString()
+            inactivateDelivery.externalId shouldBe createEventId.toString()
             handler.handle(inactivateDelivery) shouldBe DeliveryOutcome.Sent
             publisher.closeRequests shouldBe
                 listOf(

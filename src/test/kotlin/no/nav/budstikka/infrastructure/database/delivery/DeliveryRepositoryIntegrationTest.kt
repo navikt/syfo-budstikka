@@ -18,6 +18,8 @@ import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.fakes.inboxMessage
@@ -53,8 +55,8 @@ class DeliveryRepositoryIntegrationTest :
         suspend fun saveDraft(
             reference: String,
             draft: DeliveryDraft,
+            inboxEventId: UUID = UUID.randomUUID(),
         ) {
-            val inboxEventId = UUID.randomUUID()
             InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
                 DeliveryRepositoryImpl(fixture.database, fixture.dataSource).saveInTransaction(
@@ -68,6 +70,34 @@ class DeliveryRepositoryIntegrationTest :
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.single()
             }
+
+        test("save and claim preserve the inbox event id as Arbeidsgivervarsel external_id") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000901")
+            saveDraft(
+                reference = "arbeidsgivervarsel-ref",
+                draft =
+                    DeliveryDraft(
+                        reference = "unused",
+                        operation = Operation.CREATE,
+                        channel = Channel.ARBEIDSGIVERVARSEL,
+                        recipient = Recipient.Virksomhet(TEST_ORGNUMMER),
+                        content = syntheticCreate(),
+                    ),
+                inboxEventId = eventId,
+            )
+
+            rowForReference("arbeidsgivervarsel-ref")[DeliveryTable.externalId] shouldBe eventId.toString()
+
+            val claimed =
+                repository.claim(
+                    limit = 10,
+                    lease = lease,
+                    maxAttempts = 10,
+                    channels = setOf(Channel.ARBEIDSGIVERVARSEL),
+                )
+            claimed.single().externalId shouldBe eventId.toString()
+        }
 
         suspend fun expireLease(deliveryId: UUID) {
             fixture.database.transact {
