@@ -48,7 +48,7 @@ class PoisonAttemptSemanticsIntegrationTest :
         }
 
         test("an aborted batch never spends attempts on rows that no handler touched") {
-            val deliveries = DeliveryRepositoryImpl(fixture.database)
+            val deliveries = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             val inbox = InboxMessageRepositoryImpl(fixture.database)
             val inboxEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
             inbox.saveBatch(listOf(inboxMessage(inboxEventId)))

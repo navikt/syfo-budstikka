@@ -46,7 +46,7 @@ class EffectuateDecisionIntegrationTest :
                 EffectuateDecision(
                     transactionRunner = TransactionRunnerImpl(fixture.database),
                     inboxMessageRepository = inbox,
-                    deliveryRepository = DeliveryRepositoryImpl(fixture.database),
+                    deliveryRepository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource),
                 )
             return effectuate to inbox
         }
@@ -114,7 +114,7 @@ class EffectuateDecisionIntegrationTest :
             inboxState(eventId) shouldBe "PROCESSED"
         }
 
-        test("Arbeidsgivervarsel FERDIGSTILL carries the stored external id") {
+        test("Arbeidsgivervarsel FERDIGSTILL carries the stored external id and source delivery id") {
             val (effectuate, inbox) = effectuator()
             val reference = "arbeidsgivervarsel-with-external-id"
             val createEventId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
@@ -137,6 +137,13 @@ class EffectuateDecisionIntegrationTest :
                     ),
                 ),
             ) shouldBe EffectuationResult.Completed
+            val sourceDeliveryId =
+                fixture.database.transact {
+                    DeliveryTable
+                        .selectAll()
+                        .where { DeliveryTable.inboxEventId eq createEventId }
+                        .single()[DeliveryTable.id]
+                }
 
             val closeMessage =
                 inboxMessage(
@@ -158,6 +165,7 @@ class EffectuateDecisionIntegrationTest :
                         .single()
                 derived[DeliveryTable.operation] shouldBe Operation.INACTIVATE.name
                 derived[DeliveryTable.externalId] shouldBe createEventId.toString()
+                derived[DeliveryTable.sourceCreateDeliveryId] shouldBe sourceDeliveryId
             }
         }
 
@@ -186,7 +194,7 @@ class EffectuateDecisionIntegrationTest :
             ) shouldBe EffectuationResult.Completed
             fixture.database.transact {
                 DeliveryTable.update({ DeliveryTable.inboxEventId eq createEventId }) {
-                    it[externalId] = null
+                    it[DeliveryTable.externalId] = null
                 }
             }
 

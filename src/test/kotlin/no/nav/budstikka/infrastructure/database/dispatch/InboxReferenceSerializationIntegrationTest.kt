@@ -56,7 +56,7 @@ class InboxReferenceSerializationIntegrationTest :
             EffectuateDecision(
                 TransactionRunnerImpl(fixture.database),
                 repository,
-                DeliveryRepositoryImpl(fixture.database),
+                DeliveryRepositoryImpl(fixture.database, fixture.dataSource),
             )
 
         suspend fun state(message: InboxMessage): String? =
@@ -118,7 +118,7 @@ class InboxReferenceSerializationIntegrationTest :
             val cancellationName = UUID.randomUUID().toString()
             val cancellationDatabase = fixture.writerDatabase(cancellationName)
             val cancellationInbox = InboxMessageRepositoryImpl(cancellationDatabase)
-            val deliveries = DeliveryRepositoryImpl(cancellationDatabase)
+            val deliveries = DeliveryRepositoryImpl(cancellationDatabase, fixture.dataSource)
             val candidateQueries = AtomicInteger()
             val deliveryQueries = AtomicInteger()
             val effectuate =
@@ -131,8 +131,8 @@ class InboxReferenceSerializationIntegrationTest :
                         }
                     },
                     object : DeliveryRepository by deliveries {
-                        override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) =
-                            deliveries.findCreateForFerdigstillInTransaction(match).also { deliveryQueries.incrementAndGet() }
+                        override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) =
+                            deliveries.findCreatesForFerdigstillInTransaction(match).also { deliveryQueries.incrementAndGet() }
                     },
                 )
             val retentionName = UUID.randomUUID().toString()
@@ -231,8 +231,8 @@ class InboxReferenceSerializationIntegrationTest :
                         override fun lockUnmaterializedCreatesForFerdigstillInTransaction(match: FerdigstillMatch): List<UUID> =
                             error("Lost claim must not query cancellation candidates")
                     },
-                    object : DeliveryRepository by DeliveryRepositoryImpl(database) {
-                        override fun findCreateForFerdigstillInTransaction(match: FerdigstillMatch) =
+                    object : DeliveryRepository by DeliveryRepositoryImpl(database, fixture.dataSource) {
+                        override fun findCreatesForFerdigstillInTransaction(match: FerdigstillMatch) =
                             error("Lost claim must not query deliveries")
                     },
                 )
@@ -328,7 +328,7 @@ class InboxReferenceSerializationIntegrationTest :
                 EffectuateDecision(
                     TransactionRunnerImpl(cancellationDatabase),
                     InboxMessageRepositoryImpl(cancellationDatabase),
-                    DeliveryRepositoryImpl(cancellationDatabase),
+                    DeliveryRepositoryImpl(cancellationDatabase, fixture.dataSource),
                 )
 
             DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { gate ->
@@ -381,7 +381,7 @@ class InboxReferenceSerializationIntegrationTest :
                             throw ExpectedRollback()
                         }
                 }
-            val effectuate = EffectuateDecision(rollbackRunner, inbox, DeliveryRepositoryImpl(fixture.database))
+            val effectuate = EffectuateDecision(rollbackRunner, inbox, DeliveryRepositoryImpl(fixture.database, fixture.dataSource))
             val writerName = UUID.randomUUID().toString()
             val writerInbox = InboxMessageRepositoryImpl(fixture.writerDatabase(writerName))
 

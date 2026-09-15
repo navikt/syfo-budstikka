@@ -3,13 +3,12 @@ package no.nav.budstikka.infrastructure.database.delivery
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.Operation
@@ -24,7 +23,10 @@ import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageRepositoryI
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
+import java.sql.Connection
+import java.sql.DriverManager
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -45,7 +47,7 @@ class DeliveryRepositoryIntegrationTest :
         ) {
             InboxMessageRepositoryImpl(fixture.database).saveBatch(listOf(inboxMessage(inboxEventId)))
             fixture.database.transact {
-                DeliveryRepositoryImpl(fixture.database).saveInTransaction(
+                DeliveryRepositoryImpl(fixture.database, fixture.dataSource).saveInTransaction(
                     inboxEventId,
                     listOf(draft.copy(reference = reference)),
                 )
@@ -58,7 +60,7 @@ class DeliveryRepositoryIntegrationTest :
             }
 
         test("save and claim preserve the inbox event id as Arbeidsgivervarsel external_id") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000901")
             saveDraft(
                 reference = "arbeidsgivervarsel-ref",
@@ -68,7 +70,7 @@ class DeliveryRepositoryIntegrationTest :
                         operation = Operation.CREATE,
                         channel = Channel.ARBEIDSGIVERVARSEL,
                         recipient = Recipient.Virksomhet(TEST_ORGNUMMER),
-                        content = arbeidsgivervarselCreate(),
+                        content = syntheticCreate(),
                     ),
                 inboxEventId = eventId,
             )
@@ -106,8 +108,60 @@ class DeliveryRepositoryIntegrationTest :
             }
         }
 
+        fun Connection.tryAcquireSourceSendGuard(sourceId: UUID): Boolean =
+            prepareStatement("SELECT pg_try_advisory_lock(?, ?)").use { statement ->
+                statement.setInt(1, sourceId.advisoryLockKey().first)
+                statement.setInt(2, sourceId.advisoryLockKey().second)
+                statement.executeQuery().use { resultSet ->
+                    resultSet.next()
+                    resultSet.getBoolean(1)
+                }
+            }
+
+        fun Connection.releaseSourceSendGuard(sourceId: UUID) =
+            prepareStatement("SELECT pg_advisory_unlock(?, ?)").use { statement ->
+                statement.setInt(1, sourceId.advisoryLockKey().first)
+                statement.setInt(2, sourceId.advisoryLockKey().second)
+                statement.executeQuery().close()
+            }
+
+        fun executePoisonCleanupFailureSql(vararg statements: String) {
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection.createStatement().use { statement ->
+                    statements.forEach(statement::executeUpdate)
+                }
+            }
+        }
+
+        fun installPoisonCleanupFailure() =
+            executePoisonCleanupFailureSql(
+                """
+                CREATE FUNCTION fail_poison_cleanup()
+                RETURNS trigger
+                LANGUAGE plpgsql
+                AS $$
+                BEGIN
+                    RAISE EXCEPTION 'forced poison cleanup failure';
+                END;
+                $$;
+                """.trimIndent(),
+                """
+                CREATE TRIGGER poison_cleanup_failure
+                BEFORE UPDATE ON delivery
+                FOR EACH ROW
+                WHEN (NEW.state = 'FAILED')
+                EXECUTE FUNCTION fail_poison_cleanup();
+                """.trimIndent(),
+            )
+
+        fun removePoisonCleanupFailure() =
+            executePoisonCleanupFailureSql(
+                "DROP TRIGGER poison_cleanup_failure ON delivery",
+                "DROP FUNCTION fail_poison_cleanup()",
+            )
+
         test("claim picks only requested channels and marks rows CLAIMED") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             saveDraft("bruker-ref", brukervarselDraft())
 
@@ -125,7 +179,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim reclaims a CLAIMED row after lease expiry") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
 
             val initialClaim =
@@ -144,7 +198,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("beginAttempt spends one attempt and refuses once the budget is gone") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -160,7 +214,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("beginAttempt refuses a row that is no longer CLAIMED") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -173,7 +227,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("markSent transitions a CLAIMED row to SENT") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -194,7 +248,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("markFailed transitions a CLAIMED row to FAILED with reason") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("micro-ref", microfrontendDraft())
             val deliveryId =
                 repository
@@ -216,7 +270,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim fails a poison delivery that reached maxAttempts instead of reclaiming it") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("poison-ref", microfrontendDraft())
             val maxAttempts = 3
             val channels = setOf(Channel.MICROFRONTEND)
@@ -242,7 +296,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("claim logs poison delivery with safe correlation fields") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("poison-ref", microfrontendDraft())
             val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
             makePoison(deliveryId, attempt = 2)
@@ -265,7 +319,7 @@ class DeliveryRepositoryIntegrationTest :
         }
 
         test("a poison delivery does not block a healthy newer delivery on the same channel") {
-            val repository = DeliveryRepositoryImpl(fixture.database)
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
             saveDraft("poison-ref", microfrontendDraft())
             saveDraft("healthy-ref", microfrontendDraft())
             val poisonId = rowForReference("poison-ref")[DeliveryTable.id]
@@ -277,13 +331,56 @@ class DeliveryRepositoryIntegrationTest :
             claimed.map { it.id } shouldBe listOf(rowForReference("healthy-ref")[DeliveryTable.id])
             rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
         }
+
+        test("poison cleanup contends with and releases the normal source send guard") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("poison-ref", microfrontendDraft())
+            val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
+            makePoison(deliveryId, attempt = 2)
+
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection.tryAcquireSourceSendGuard(deliveryId) shouldBe true
+                try {
+                    repository
+                        .claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+                        .shouldHaveSize(0)
+                    rowForReference("poison-ref")[DeliveryTable.state] shouldBe "CLAIMED"
+                } finally {
+                    connection.releaseSourceSendGuard(deliveryId)
+                }
+
+                repository
+                    .claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+                    .shouldHaveSize(0)
+                rowForReference("poison-ref")[DeliveryTable.state] shouldBe "FAILED"
+                connection.tryAcquireSourceSendGuard(deliveryId) shouldBe true
+                connection.releaseSourceSendGuard(deliveryId)
+            }
+        }
+
+        test("poison cleanup failure propagates and releases its transaction source guard") {
+            val repository = DeliveryRepositoryImpl(fixture.database, fixture.dataSource)
+            saveDraft("poison-ref", microfrontendDraft())
+            val deliveryId = rowForReference("poison-ref")[DeliveryTable.id]
+            makePoison(deliveryId, attempt = 2)
+            installPoisonCleanupFailure()
+            try {
+                shouldThrow<PSQLException> {
+                    repository.claim(limit = 10, lease = lease, maxAttempts = 2, channels = setOf(Channel.MICROFRONTEND))
+                }.message shouldContain "forced poison cleanup failure"
+            } finally {
+                removePoisonCleanupFailure()
+            }
+
+            DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                connection.tryAcquireSourceSendGuard(deliveryId) shouldBe true
+                connection.releaseSourceSendGuard(deliveryId)
+            }
+            rowForReference("poison-ref")[DeliveryTable.state] shouldBe "CLAIMED"
+        }
     })
 
-private fun arbeidsgivervarselCreate() =
-    ArbeidsgivervarselCreate(
-        orgnummer = TEST_ORGNUMMER,
-        recipient = AltinnResource("synthetic-resource"),
-        tag = "synthetic-tag",
-        text = "synthetic text",
-        link = "https://example.test/synthetic",
-    )
+private fun UUID.advisoryLockKey(): Pair<Int, Int> {
+    val key = mostSignificantBits xor leastSignificantBits
+    return (key ushr 32).toInt() to key.toInt()
+}

@@ -92,6 +92,13 @@ class InboxMessageWorker(
                 return
             }
 
+            is EffectuationResult.FerdigstillWithDelivery -> {
+                if (effectuation.invalidStoredCreateCount > 0) {
+                    metrics.ferdigstillWithInvalidStoredCreate()
+                }
+                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
+            }
+
             is EffectuationResult.FerdigstillWithCancellation -> {
                 metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
                 logPiiFreeFerdigstillOutcome(
@@ -103,9 +110,6 @@ class InboxMessageWorker(
                 )
                 return
             }
-
-            is EffectuationResult.FerdigstillWithDelivery ->
-                metrics.recordCancelledCreates(effectuation.cancelledCreateCount)
 
             EffectuationResult.Completed,
             EffectuationResult.Skipped,

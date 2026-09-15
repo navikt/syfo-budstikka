@@ -15,6 +15,10 @@ interface DeliveryMetrics {
 
     fun failed(channel: Channel)
 
+    fun sourceGuardContention()
+
+    fun failedSourceDependencies(count: Int)
+
     fun narmesteLederMissing(reason: NarmesteLederMissingReason)
 }
 
@@ -26,6 +30,10 @@ object NoDeliveryMetrics : DeliveryMetrics {
     override fun sent(channel: Channel) = Unit
 
     override fun failed(channel: Channel) = Unit
+
+    override fun sourceGuardContention() = Unit
+
+    override fun failedSourceDependencies(count: Int) = Unit
 
     override fun narmesteLederMissing(reason: NarmesteLederMissingReason) = Unit
 }

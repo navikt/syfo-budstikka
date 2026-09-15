@@ -10,9 +10,12 @@ import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -90,17 +93,29 @@ class RetentionRepositoryImpl(
         cutoff: kotlin.time.Instant,
         batchSize: Int,
     ): Int {
+        val dependent = DeliveryTable.alias("dependent")
+        val hasNoDependents =
+            notExists(
+                dependent
+                    .select(dependent[DeliveryTable.id])
+                    .where {
+                        dependent[DeliveryTable.sourceCreateDeliveryId] eq DeliveryTable.id
+                    },
+            )
         val candidateIds =
             DeliveryTable
                 .select(DeliveryTable.id)
                 .where {
                     (DeliveryTable.createdAt less cutoff) and
-                        (DeliveryTable.state inList policy.eligibleDeliveryStates.toList())
+                        (DeliveryTable.state inList policy.eligibleDeliveryStates.toList()) and
+                        hasNoDependents
                 }.orderBy(DeliveryTable.createdAt to SortOrder.ASC, DeliveryTable.id to SortOrder.ASC)
                 .limit(batchSize)
                 .map { it[DeliveryTable.id] }
 
-        return DeliveryTable.deleteWhere { DeliveryTable.id inList candidateIds }
+        return DeliveryTable.deleteWhere {
+            (DeliveryTable.id inList candidateIds) and hasNoDependents
+        }
     }
 
     companion object {

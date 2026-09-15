@@ -34,7 +34,7 @@ fun DependencyRegistry.databaseModule() {
     }
     provide<InboxMessageRepository> { InboxMessageRepositoryImpl(resolve()) }
     provide<DeadLetterMessageRepository> { DeadLetterMessageRepositoryImpl(resolve()) }
-    provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve()) }
+    provide<DeliveryRepository> { DeliveryRepositoryImpl(resolve(), resolve<HikariDataSource>()) }
     provide<OperationalQueueSnapshotRepository> { OperationalQueueSnapshotRepositoryImpl(resolve()) }
     provide { RetentionPolicy() }
     provide<RetentionRepository> { RetentionRepositoryImpl(resolve(), resolve()) }
