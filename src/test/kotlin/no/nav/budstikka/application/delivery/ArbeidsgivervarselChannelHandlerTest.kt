@@ -343,15 +343,14 @@ private fun delivery(
     payload: no.nav.budstikka.contract.DispatchContent,
     externalId: String? = null,
     inboxEventId: UUID? = UUID.fromString("00000000-0000-0000-0000-000000000702"),
-) =
-    ClaimedDelivery(
-        id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
-        inboxEventId = inboxEventId,
-        reference = "reference",
-        channel = Channel.ARBEIDSGIVERVARSEL,
-        payload = payload,
-        externalId = externalId,
-    )
+) = ClaimedDelivery(
+    id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
+    inboxEventId = inboxEventId,
+    reference = "reference",
+    channel = Channel.ARBEIDSGIVERVARSEL,
+    payload = payload,
+    externalId = externalId,
+)
 
 private class FakeNarmesteLederLookup(
     private val relation: NarmesteLederRelasjon?,
