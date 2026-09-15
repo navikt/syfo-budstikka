@@ -1,5 +1,6 @@
 package no.nav.budstikka.infrastructure.worker
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -7,11 +8,12 @@ import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.infrastructure.Heartbeat
 import no.nav.budstikka.infrastructure.MutableClock
+import no.nav.budstikka.testsupport.structuredFields
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -77,9 +79,13 @@ class BackgroundLoopTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Worker failed in iteration") }
-            event.formattedMessage shouldContain "IllegalStateException"
-            event.throwableProxy?.stackTraceElementProxyArray?.isNotEmpty() shouldBe true
+            with(appender.list.single { it.formattedMessage.contains("Worker failed in iteration") }) {
+                level shouldBe Level.ERROR
+                val fields = structuredFields()
+                fields["event_type"] shouldBe BackgroundLoopLogEvents.iterationFailed.name
+                fields[MdcKeys.ERROR_TYPE] shouldBe "IllegalStateException"
+                throwableProxy?.stackTraceElementProxyArray?.isNotEmpty() shouldBe true
+            }
         }
 
         test("already logged iteration failure is not logged again") {

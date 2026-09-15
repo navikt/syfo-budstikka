@@ -9,6 +9,7 @@ object MdcKeys {
     const val DELIVERY_CHANNEL = "delivery_channel"
     const val DELIVERY_COUNT = "delivery_count"
     const val DELIVERY_ID = "delivery_id"
+    const val DELIVERY_OPERATION = "delivery_operation"
     const val ERROR_TYPE = "error_type"
     const val EVENT_ID = "event_id"
     const val HANDLER = "handler"

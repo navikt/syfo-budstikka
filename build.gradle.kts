@@ -131,6 +131,7 @@ dependencies {
     implementation(libs.tms.varsel.java.builder)
     implementation(libs.tms.mikrofrontend.selector.builder)
     implementation(libs.apollo.api)
+    implementation(libs.esyfo.logger)
 
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)

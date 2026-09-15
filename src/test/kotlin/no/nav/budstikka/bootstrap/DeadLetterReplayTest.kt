@@ -1,22 +1,25 @@
 package no.nav.budstikka.bootstrap
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.plugins.di.provide
 import io.ktor.server.testing.TestApplication
 import io.ktor.util.logging.KtorSimpleLogger
+import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import no.nav.budstikka.infrastructure.database.dispatch.ReplayableDeadLetter
 import no.nav.budstikka.infrastructure.kafka.consumer.FakeInboxMessageRepository
 import no.nav.budstikka.infrastructure.replay.DeadLetterReplayer
+import no.nav.budstikka.testsupport.renderedLogData
+import no.nav.budstikka.testsupport.structuredFields
 import org.slf4j.LoggerFactory
 import java.util.UUID
 
@@ -57,10 +60,14 @@ class DeadLetterReplayTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Dead-letter replay failed") }
-            event.formattedMessage shouldContain "IllegalStateException"
-            event.formattedMessage shouldNotContain payload
-            event.throwableProxy shouldBe null
+            with(appender.list.single { it.formattedMessage.contains("Dead-letter replay failed") }) {
+                level shouldBe Level.ERROR
+                val fields = structuredFields()
+                fields["event_type"] shouldBe BootstrapLogEvents.replayFailed.name
+                fields[MdcKeys.ERROR_TYPE] shouldBe "IllegalStateException"
+                renderedLogData() shouldNotContain payload
+                throwableProxy shouldBe null
+            }
         }
 
         test("disabled replay does not use the repository or log a start message") {
@@ -139,11 +146,15 @@ class DeadLetterReplayTest :
             }
 
             repository.calls shouldBe emptyList()
-            val event = appender.list.single { it.formattedMessage.contains("configuration is invalid") }
-            event.formattedMessage shouldContain "IllegalStateException"
-            event.formattedMessage shouldNotContain payload
-            event.formattedMessage shouldNotContain "deadLetterReplay.batchSize must be a positive integer"
-            event.throwableProxy shouldBe null
+            with(appender.list.single { it.formattedMessage.contains("configuration is invalid") }) {
+                level shouldBe Level.ERROR
+                val fields = structuredFields()
+                fields["event_type"] shouldBe BootstrapLogEvents.replayConfigurationInvalid.name
+                fields[MdcKeys.ERROR_TYPE] shouldBe "IllegalStateException"
+                renderedLogData() shouldNotContain payload
+                renderedLogData() shouldNotContain "deadLetterReplay.batchSize must be a positive integer"
+                throwableProxy shouldBe null
+            }
         }
     })
 

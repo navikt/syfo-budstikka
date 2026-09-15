@@ -2,17 +2,14 @@ package no.nav.budstikka.application.delivery
 
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import net.logstash.logback.argument.StructuredArgument
-import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
-import no.nav.budstikka.application.logging.withPlaceholders
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.domain.decision.Channel
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 
 class DeliveryWorker(
     private val repository: DeliveryRepository,
@@ -21,7 +18,7 @@ class DeliveryWorker(
     private val config: LeaseDrainConfig,
     private val metrics: DeliveryMetrics,
 ) {
-    private val logger = LoggerFactory.getLogger(DeliveryWorker::class.java)
+    private val logger = applicationLogger(DeliveryWorker::class.java)
 
     suspend fun runOnce() {
         drainer.drain(
@@ -40,24 +37,24 @@ class DeliveryWorker(
     }
 
     private fun ClaimedDelivery.failureFields() =
-        listOf(
-            kv(MdcKeys.DELIVERY_ID, id.toString()),
-            kv(MdcKeys.DELIVERY_CHANNEL, channel.toString()),
-            kv(MdcKeys.REFERENCE, reference),
-            kv(MdcKeys.HANDLER, handlers[channel]?.javaClass?.simpleName ?: "missing"),
+        mapOf(
+            MdcKeys.DELIVERY_ID to id.toString(),
+            MdcKeys.DELIVERY_CHANNEL to channel.toString(),
+            MdcKeys.REFERENCE to reference,
+            MdcKeys.HANDLER to (handlers[channel]?.javaClass?.simpleName ?: "missing"),
         )
 
-    private fun ClaimedDelivery.logFields(): List<StructuredArgument> =
-        listOf(
-            kv(MdcKeys.EVENT_ID, (inboxEventId ?: id).toString()),
-            kv(MdcKeys.DELIVERY_ID, id.toString()),
-            kv(MdcKeys.REFERENCE, reference),
+    private fun ClaimedDelivery.logFields(): Map<String, Any> =
+        mapOf(
+            MdcKeys.EVENT_ID to (inboxEventId ?: id).toString(),
+            MdcKeys.DELIVERY_ID to id.toString(),
+            MdcKeys.REFERENCE to reference,
         )
 
     private suspend fun dispatch(delivery: ClaimedDelivery) {
         // Keep delivery fields on MDC through suspend points during dispatch.
-        MDC.putCloseable(MdcKeys.DELIVERY_CHANNEL, delivery.channel.toString()).use {
-            MDC.putCloseable(MdcKeys.REFERENCE, delivery.reference).use {
+        ApplicationMdc.putCloseable(MdcKeys.DELIVERY_CHANNEL, delivery.channel.toString()).use {
+            ApplicationMdc.putCloseable(MdcKeys.REFERENCE, delivery.reference).use {
                 withContext(MDCContext()) {
                     dispatchToHandler(delivery)
                 }
@@ -70,12 +67,12 @@ class DeliveryWorker(
         if (handler == null) {
             // Leave row CLAIMED for lease reclaim instead of forcing terminal failure. A missing
             // handler is a configuration error, not poison data, so it must not spend an attempt.
-            logger.error("No handler for claimed channel; leaving row for lease reclaim")
+            logger.event(DeliveryLogEvents.handlerMissing)
             return
         }
         if (!repository.beginAttempt(delivery.id, config.maxAttempts)) {
             // A peer terminated the row, or its attempts are spent and the poison gate owns it.
-            logger.warn("Skipping delivery because the row is no longer claimable or has spent its attempts")
+            logger.event(DeliveryLogEvents.claimSkipped)
             return
         }
         when (val outcome = handler.handle(delivery)) {
@@ -87,10 +84,9 @@ class DeliveryWorker(
     private suspend fun markSent(delivery: ClaimedDelivery) {
         if (repository.markSent(delivery.id)) {
             metrics.sent(delivery.channel)
-            val fields = delivery.logFields()
-            logger.info(withPlaceholders("Delivery sent successfully", fields), *fields.toTypedArray())
+            logger.info("Delivery sent successfully", delivery.logFields())
         } else {
-            logger.warn("Could not mark delivery as SENT because row is no longer CLAIMED")
+            logger.event(DeliveryLogEvents.sentTransitionFailed)
         }
     }
 
@@ -100,10 +96,17 @@ class DeliveryWorker(
     ) {
         if (repository.markFailed(delivery.id, reason)) {
             metrics.failed(delivery.channel)
-            val fields = delivery.logFields() + kv(MdcKeys.REASON, reason)
-            logger.warn(withPlaceholders("Marked delivery as FAILED", fields), *fields.toTypedArray())
+            logger.event(
+                DeliveryLogEvents.markedFailed,
+                DeliveryFailureContext(
+                    eventId = (delivery.inboxEventId ?: delivery.id).toString(),
+                    deliveryId = delivery.id.toString(),
+                    reference = delivery.reference,
+                    reason = reason,
+                ),
+            )
         } else {
-            logger.warn("Could not mark delivery as FAILED because row is no longer CLAIMED")
+            logger.event(DeliveryLogEvents.failedTransitionFailed)
         }
     }
 }

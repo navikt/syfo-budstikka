@@ -2,12 +2,12 @@ package no.nav.budstikka.infrastructure.database.config
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.infrastructure.HealthCheck
 import no.nav.budstikka.infrastructure.HealthResult
-import org.slf4j.LoggerFactory
 import javax.sql.DataSource
 
-private val logger = LoggerFactory.getLogger(DataSourceHealthCheck::class.java)
+private val logger = applicationLogger(DataSourceHealthCheck::class.java)
 
 fun dataSourceHealthCheck(dataSource: DataSource): HealthCheck = DataSourceHealthCheck(dataSource)
 
@@ -24,7 +24,7 @@ private class DataSourceHealthCheck(
                     )
                 }
             } catch (e: Exception) {
-                logger.error("Database health check failed", e)
+                logger.event(DatabaseHealthLogEvents.healthCheckFailed, e)
 
                 HealthResult(
                     healthy = false,

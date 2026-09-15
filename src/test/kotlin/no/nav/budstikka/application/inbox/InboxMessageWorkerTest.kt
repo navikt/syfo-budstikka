@@ -1,5 +1,6 @@
 package no.nav.budstikka.application.inbox
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -49,6 +50,7 @@ import no.nav.budstikka.fakes.deadLookupFor
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
+import no.nav.budstikka.testsupport.structuredFields
 import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -139,11 +141,14 @@ class InboxMessageWorkerTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Inbox message processed") }
-            event.formattedMessage shouldContain "result=PROCESSED"
-            event.formattedMessage shouldContain "${MdcKeys.DELIVERY_COUNT}=1"
-            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId.toString()
-            event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+            with(appender.list.single { it.formattedMessage.contains("Inbox message processed") }) {
+                level shouldBe Level.INFO
+                val fields = structuredFields()
+                fields[MdcKeys.RESULT] shouldBe "PROCESSED"
+                fields[MdcKeys.DELIVERY_COUNT] shouldBe 1
+                mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId.toString()
+                mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+            }
         }
 
         test("runOnce records inbox metrics for processed outcomes") {
