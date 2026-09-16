@@ -1,5 +1,6 @@
 package no.nav.budstikka.application.delivery
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -9,7 +10,6 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
@@ -17,6 +17,7 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
+import no.nav.budstikka.application.worker.LeaseWorkerLogEvents
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.PersonIdentifier
@@ -26,6 +27,7 @@ import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
+import no.nav.budstikka.testsupport.structuredFields
 import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -74,12 +76,15 @@ class DeliveryWorkerTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Delivery sent successfully") }
-            event.formattedMessage shouldContain "${MdcKeys.EVENT_ID}=00000000-0000-0000-0000-000000000301"
-            event.formattedMessage shouldContain "${MdcKeys.DELIVERY_ID}=$deliveryId"
-            event.formattedMessage shouldContain "${MdcKeys.REFERENCE}=ref-1"
-            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000301"
-            event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+            with(appender.list.single { it.formattedMessage.contains("Delivery sent successfully") }) {
+                level shouldBe Level.INFO
+                val fields = structuredFields()
+                fields[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000301"
+                fields[MdcKeys.DELIVERY_ID] shouldBe deliveryId.toString()
+                fields[MdcKeys.REFERENCE] shouldBe "ref-1"
+                mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000301"
+                mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-1"
+            }
         }
 
         test("failed delivery log carries correlation fields") {
@@ -100,13 +105,17 @@ class DeliveryWorkerTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Marked delivery as FAILED") }
-            event.formattedMessage shouldContain "${MdcKeys.EVENT_ID}=00000000-0000-0000-0000-000000000302"
-            event.formattedMessage shouldContain "${MdcKeys.DELIVERY_ID}=$deliveryId"
-            event.formattedMessage shouldContain "${MdcKeys.REFERENCE}=ref-2"
-            event.formattedMessage shouldContain "${MdcKeys.REASON}=Payload does not match MICROFRONTEND channel"
-            event.mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000302"
-            event.mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-2"
+            with(appender.list.single { it.formattedMessage.contains("Marked delivery as FAILED") }) {
+                level shouldBe Level.WARN
+                val fields = structuredFields()
+                fields["event_type"] shouldBe DeliveryLogEvents.markedFailed.name
+                fields[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000302"
+                fields[MdcKeys.DELIVERY_ID] shouldBe deliveryId.toString()
+                fields[MdcKeys.REFERENCE] shouldBe "ref-2"
+                fields[MdcKeys.REASON] shouldBe "Payload does not match MICROFRONTEND channel: BrukervarselCreate"
+                mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe "00000000-0000-0000-0000-000000000302"
+                mdcPropertyMap[MdcKeys.REFERENCE] shouldBe "ref-2"
+            }
         }
 
         test("row failure log carries channel and handler without stacktrace") {
@@ -129,13 +138,17 @@ class DeliveryWorkerTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Failed processing claimed row") }
-            event.formattedMessage shouldContain deliveryId.toString()
-            event.formattedMessage shouldContain "MICROFRONTEND"
-            event.formattedMessage shouldContain "ref-1"
-            event.formattedMessage shouldContain "ThrowingChannelHandler"
-            event.formattedMessage shouldContain "IllegalStateException"
-            event.throwableProxy shouldBe null
+            with(appender.list.single { it.formattedMessage.contains("Failed processing claimed row") }) {
+                level shouldBe Level.WARN
+                val fields = structuredFields()
+                fields["event_type"] shouldBe LeaseWorkerLogEvents.claimedRowProcessingFailed.name
+                fields[MdcKeys.DELIVERY_ID] shouldBe deliveryId.toString()
+                fields[MdcKeys.DELIVERY_CHANNEL] shouldBe "MICROFRONTEND"
+                fields[MdcKeys.REFERENCE] shouldBe "ref-1"
+                fields[MdcKeys.HANDLER] shouldBe "ThrowingChannelHandler"
+                fields[MdcKeys.ERROR_TYPE] shouldBe "IllegalStateException"
+                throwableProxy shouldBe null
+            }
         }
 
         test("systemic abort log carries channel and handler with useful stacktrace") {
@@ -168,11 +181,15 @@ class DeliveryWorkerTest :
                 appender.stop()
             }
 
-            val event = appender.list.single { it.formattedMessage.contains("Aborting batch drain") }
-            event.formattedMessage shouldContain "MICROFRONTEND"
-            event.formattedMessage shouldContain "ThrowingChannelHandler"
-            event.formattedMessage shouldContain "IllegalStateException"
-            event.throwableProxy.className shouldContain "IllegalStateException"
+            with(appender.list.single { it.formattedMessage.contains("Aborting batch drain") }) {
+                level shouldBe Level.ERROR
+                val fields = structuredFields()
+                fields["event_type"] shouldBe LeaseWorkerLogEvents.batchDrainAborted.name
+                fields[MdcKeys.DELIVERY_CHANNEL] shouldBe "MICROFRONTEND"
+                fields[MdcKeys.HANDLER] shouldBe "ThrowingChannelHandler"
+                fields[MdcKeys.ERROR_TYPE] shouldBe "IllegalStateException"
+                throwableProxy.className shouldBe "java.lang.IllegalStateException"
+            }
         }
 
         test("runOnce marks delivery FAILED when payload does not match the channel") {

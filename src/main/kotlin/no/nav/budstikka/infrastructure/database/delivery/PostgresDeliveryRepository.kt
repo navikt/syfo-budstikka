@@ -1,7 +1,6 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
-import net.logstash.logback.argument.StructuredArguments.kv
-import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
@@ -22,7 +21,6 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
-import org.slf4j.LoggerFactory
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -31,7 +29,7 @@ import kotlin.time.Instant
 class PostgresDeliveryRepository(
     private val database: Database,
 ) : DeliveryRepository {
-    private val logger = LoggerFactory.getLogger(PostgresDeliveryRepository::class.java)
+    private val logger = applicationLogger(PostgresDeliveryRepository::class.java)
 
     override fun saveInTransaction(
         inboxEventId: UUID,
@@ -181,15 +179,17 @@ class PostgresDeliveryRepository(
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
         poisonRows.forEach { row ->
-            logger.warn(
-                "Failed poison delivery row after reaching max attempts {} {} {} {} {} {} {}",
-                kv(MdcKeys.DELIVERY_ID, row.id.toString()),
-                kv(MdcKeys.EVENT_ID, row.inboxEventId?.toString()),
-                kv(MdcKeys.REFERENCE, row.reference),
-                kv(MdcKeys.OPERATION, row.operation),
-                kv(MdcKeys.DELIVERY_CHANNEL, row.channel),
-                kv(MdcKeys.DELIVERY_COUNT, row.attempt),
-                kv(MdcKeys.MAX_ATTEMPTS, maxAttempts),
+            logger.event(
+                DeliveryRepositoryLogEvents.poisonRowFailed,
+                PoisonDeliveryContext(
+                    deliveryId = row.id.toString(),
+                    eventId = row.inboxEventId?.toString(),
+                    reference = row.reference,
+                    deliveryOperation = row.operation,
+                    deliveryChannel = row.channel,
+                    deliveryCount = row.attempt,
+                    maxAttempts = maxAttempts,
+                ),
             )
         }
     }

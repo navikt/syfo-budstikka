@@ -21,6 +21,7 @@ tmsVarselJavaBuilder = "2.2.0"
 tmsMikrofrontendSelector = "3.0.0"
 japicmp = "0.4.6"
 apollo = "5.1.0"
+esyfoObservability = "0.2.1"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -69,3 +70,4 @@ testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "tes
 ktor-server-test = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 apollo-api = { module = "com.apollographql.apollo:apollo-api", version.ref = "apollo" }
+esyfo-logger = { module = "no.nav.esyfo.observability:esyfo-logger", version.ref = "esyfoObservability" }

@@ -10,6 +10,7 @@ import no.nav.budstikka.application.inbox.DeadLetterReason
 import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.fakes.RecordingInboxMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import no.nav.budstikka.testsupport.renderedLogData
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -97,8 +98,7 @@ class InboxHandlerTest :
                     .errorMessage
                     .orEmpty() shouldNotContain fnr
                 appender.list.forEach { event ->
-                    event.formattedMessage shouldNotContain fnr
-                    (event.throwableProxy?.message ?: "") shouldNotContain fnr
+                    event.renderedLogData() shouldNotContain fnr
                 }
             }
         }

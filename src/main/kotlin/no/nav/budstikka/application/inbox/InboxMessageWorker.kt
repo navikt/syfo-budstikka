@@ -2,10 +2,9 @@ package no.nav.budstikka.application.inbox
 
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
-import net.logstash.logback.argument.StructuredArgument
-import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
-import no.nav.budstikka.application.logging.withPlaceholders
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
@@ -13,8 +12,6 @@ import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 import java.util.UUID
 
 /**
@@ -30,7 +27,7 @@ class InboxMessageWorker(
     private val config: LeaseDrainConfig,
     private val metrics: InboxMetrics,
 ) {
-    private val logger = LoggerFactory.getLogger(InboxMessageWorker::class.java)
+    private val logger = applicationLogger(InboxMessageWorker::class.java)
 
     suspend fun runOnce() {
         drainer.drain(
@@ -47,11 +44,11 @@ class InboxMessageWorker(
 
     private suspend fun processClaimed(message: InboxMessage) {
         val dispatch = Dispatch(reference = message.reference, content = message.content)
-        MDC.putCloseable(MdcKeys.REFERENCE, message.reference).use {
+        ApplicationMdc.putCloseable(MdcKeys.REFERENCE, message.reference).use {
             withContext(MDCContext()) {
                 if (!repository.beginAttempt(message.eventId, config.maxAttempts)) {
                     // A peer terminated the row, or its attempts are spent and the poison gate owns it.
-                    logger.warn("Skipping inbox message because the row is no longer claimable or has spent its attempts")
+                    logger.event(InboxLogEvents.claimSkipped)
                     return@withContext
                 }
                 completeDecision(message.eventId, decisionProcess.process(dispatch))
@@ -69,11 +66,7 @@ class InboxMessageWorker(
         }
 
         metrics.record(decision)
-        val fields = decision.logFields()
-        logger.info(
-            withPlaceholders("Inbox message processed", fields),
-            *fields.toTypedArray(),
-        )
+        logger.info("Inbox message processed", decision.logFields())
     }
 
     private fun InboxMetrics.record(decision: Decision) {
@@ -85,33 +78,33 @@ class InboxMessageWorker(
         }
     }
 
-    private fun Decision.logFields(): List<StructuredArgument> =
+    private fun Decision.logFields(): Map<String, Any> =
         when (this) {
             is Decision.Processed -> {
-                listOf(
-                    kv(MdcKeys.RESULT, "PROCESSED"),
-                    kv(MdcKeys.DELIVERY_COUNT, deliveries.size),
+                mapOf(
+                    MdcKeys.RESULT to "PROCESSED",
+                    MdcKeys.DELIVERY_COUNT to deliveries.size,
                 )
             }
 
             is Decision.Dropped -> {
-                listOf(
-                    kv(MdcKeys.RESULT, "DROPPED"),
-                    kv(MdcKeys.REASON, reason.name),
+                mapOf(
+                    MdcKeys.RESULT to "DROPPED",
+                    MdcKeys.REASON to reason.name,
                 )
             }
 
             is Decision.Failed -> {
-                listOf(
-                    kv(MdcKeys.RESULT, "FAILED"),
-                    kv(MdcKeys.REASON, errorMessage),
+                mapOf(
+                    MdcKeys.RESULT to "FAILED",
+                    MdcKeys.REASON to errorMessage,
                 )
             }
 
             is Decision.NotInSendingWindow ->
-                listOf(
-                    kv(MdcKeys.RESULT, "WAIT"),
-                    kv(MdcKeys.REASON, reason),
+                mapOf(
+                    MdcKeys.RESULT to "WAIT",
+                    MdcKeys.REASON to reason,
                 )
         }
 }

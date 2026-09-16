@@ -1,10 +1,11 @@
 package no.nav.budstikka.infrastructure.kafka.consumer
 
 import kotlinx.serialization.SerializationException
-import net.logstash.logback.argument.StructuredArguments.kv
 import no.nav.budstikka.application.inbox.DeadLetterReason
 import no.nav.budstikka.application.inbox.InboxMetrics
+import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.contract.Dispatch
@@ -13,8 +14,6 @@ import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 import java.util.UUID
 
 /**
@@ -29,7 +28,7 @@ class InboxMessageHandler(
     private val deadLetterRepository: DeadLetterMessageRepository,
     private val metrics: InboxMetrics,
 ) : BatchMessageHandler<String, String?> {
-    private val logger = LoggerFactory.getLogger(InboxMessageHandler::class.java)
+    private val logger = applicationLogger(InboxMessageHandler::class.java)
 
     override suspend fun handleBatch(records: List<ConsumerRecord<String, String?>>) {
         if (records.isEmpty()) {
@@ -59,12 +58,14 @@ class InboxMessageHandler(
         // A dead letter can lack eventId; correlate by Kafka coordinates and never log its payload.
         deadLetters.forEach { deadLetter ->
             val record = deadLetter.record
-            logger.warn(
-                "Poison inbox message dead-lettered {} {} {} {}",
-                kv(MdcKeys.REASON, record.failureReason),
-                kv(MdcKeys.TOPIC, record.topic),
-                kv(MdcKeys.PARTITION, record.partition),
-                kv(MdcKeys.KAFKA_OFFSET, record.kafkaOffset),
+            logger.event(
+                KafkaConsumerLogEvents.poisonInboxDeadLettered,
+                DeadLetterContext(
+                    reason = record.failureReason,
+                    topic = record.topic,
+                    partition = record.partition,
+                    kafkaOffset = record.kafkaOffset,
+                ),
             )
         }
     }
@@ -75,12 +76,14 @@ class InboxMessageHandler(
         }
         inboxMessageRepository.saveBatch(validEvents.map(ValidRecord::message))
         validEvents.forEach { record ->
-            MDC.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
+            ApplicationMdc.putCloseable(MdcKeys.EVENT_ID, record.message.eventId.toString()).use {
                 logger.info(
-                    "Inbox message handled {} {} {}",
-                    kv(MdcKeys.TOPIC, record.topic),
-                    kv(MdcKeys.PARTITION, record.partition),
-                    kv(MdcKeys.KAFKA_OFFSET, record.kafkaOffset),
+                    "Inbox message handled",
+                    mapOf(
+                        MdcKeys.TOPIC to record.topic,
+                        MdcKeys.PARTITION to record.partition,
+                        MdcKeys.KAFKA_OFFSET to record.kafkaOffset,
+                    ),
                 )
             }
         }

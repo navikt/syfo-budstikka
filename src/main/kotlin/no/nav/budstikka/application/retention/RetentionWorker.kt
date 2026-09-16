@@ -1,24 +1,25 @@
 package no.nav.budstikka.application.retention
 
-import net.logstash.logback.argument.StructuredArguments.kv
-import org.slf4j.LoggerFactory
+import no.nav.budstikka.application.logging.applicationLogger
 
 class RetentionWorker(
     private val repository: RetentionRepository,
     private val batchSize: Int,
     private val metrics: RetentionMetrics,
 ) {
-    private val logger = LoggerFactory.getLogger(RetentionWorker::class.java)
+    private val logger = applicationLogger(RetentionWorker::class.java)
 
     suspend fun runOnce() {
         when (val result = repository.run(batchSize)) {
             is RetentionResult.Completed -> {
                 metrics.completed(result.counts)
                 logger.info(
-                    "Retention cleanup completed {} {} {}",
-                    kv("inbox_deleted", result.counts.inboxMessages),
-                    kv("dead_letter_deleted", result.counts.deadLetterMessages),
-                    kv("delivery_deleted", result.counts.deliveries),
+                    "Retention cleanup completed",
+                    mapOf(
+                        "inbox_deleted" to result.counts.inboxMessages,
+                        "dead_letter_deleted" to result.counts.deadLetterMessages,
+                        "delivery_deleted" to result.counts.deliveries,
+                    ),
                 )
             }
 

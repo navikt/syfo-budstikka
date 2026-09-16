@@ -16,12 +16,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withTimeoutOrNull
-import net.logstash.logback.argument.StructuredArguments.kv
+import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.infrastructure.Heartbeat
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -47,7 +46,7 @@ class BackgroundLoop(
     meterRegistry: MeterRegistry? = null,
     private val iteration: suspend () -> Unit,
 ) : AutoCloseable {
-    private val logger = LoggerFactory.getLogger(this::class.java)
+    private val logger = applicationLogger(BackgroundLoop::class.java)
     private var scope: CoroutineScope? = null
     private var job: Job? = null
 
@@ -78,14 +77,14 @@ class BackgroundLoop(
         val activeScope = scope ?: return
         val activeJob = job ?: return
 
-        MDC.putCloseable(MdcKeys.WORKER, name).use {
+        ApplicationMdc.putCloseable(MdcKeys.WORKER, name).use {
             logger.info("Shutdown initiated")
             activeScope.cancel()
             val stopped = runBlocking { withTimeoutOrNull(CLOSE_TIMEOUT_SECONDS.seconds) { activeJob.join() } != null }
             if (!stopped) {
-                logger.warn(
-                    "Worker did not stop within timeout {}",
-                    kv(MdcKeys.TIMEOUT_SECONDS, CLOSE_TIMEOUT_SECONDS),
+                logger.event(
+                    BackgroundLoopLogEvents.shutdownTimedOut,
+                    TimeoutContext(CLOSE_TIMEOUT_SECONDS),
                 )
             }
             logger.info("Shutdown complete")
@@ -112,7 +111,11 @@ class BackgroundLoop(
         } catch (error: Throwable) {
             failuresCounter?.increment()
             if (error !is AlreadyLoggedWorkerFailure) {
-                logger.error("Worker failed in iteration {}", kv(MdcKeys.ERROR_TYPE, error.javaClass.simpleName), error)
+                logger.event(
+                    BackgroundLoopLogEvents.iterationFailed,
+                    FailureTypeContext(error.javaClass.simpleName),
+                    error,
+                )
             }
         } finally {
             durationTimer?.record(start.elapsedNow().toJavaDuration())
