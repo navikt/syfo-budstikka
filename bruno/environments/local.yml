@@ -1,0 +1,5 @@
+variables:
+  - name: baseUrl
+    value: http://localhost:8282
+  - name: budstikkaTopic
+    value: team-esyfo.budstikka.v1

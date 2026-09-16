@@ -1,0 +1,35 @@
+info:
+  name: Produce MicrofrontendCreate Wrong Body
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/local/produce"
+  body:
+    type: json
+    data: |-
+      {
+        "topic": "{{budstikkaTopic}}",
+        "key": "12345678901",
+        "value": "{\"reference\":\"bruno-ref-1\",\"content\":{\"type\":\"MicrofrontendEnableXXX\",\"personIdentifier\":\"12345678901\",\"microfrontendId\":\"syfo-microfrontend\"}}",
+        "headers": {
+          "eventId": "{{eventId}}"
+        }
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: bru.setVar("eventId", crypto.randomUUID());
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
