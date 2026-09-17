@@ -22,6 +22,8 @@ tmsMikrofrontendSelector = "3.0.0"
 japicmp = "0.4.6"
 apollo = "5.1.0"
 esyfoObservability = "0.2.1"
+jacksonBom = "2.21.6"
+toolsJacksonBom = "3.1.6"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -71,3 +73,5 @@ ktor-server-test = { module = "io.ktor:ktor-server-test-host", version.ref = "kt
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 apollo-api = { module = "com.apollographql.apollo:apollo-api", version.ref = "apollo" }
 esyfo-logger = { module = "no.nav.esyfo.observability:esyfo-logger", version.ref = "esyfoObservability" }
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jacksonBom" }
+tools-jackson-bom = { module = "tools.jackson:jackson-bom", version.ref = "toolsJacksonBom" }
