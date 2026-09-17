@@ -95,6 +95,10 @@ listOf("jib", "jibDockerBuild", "jibBuildTar").forEach { jibTask ->
 }
 
 dependencies {
+    // Temporary security floors for transitive Jackson dependencies; remove when TMS builders and logstash-logback-encoder request patched versions.
+    implementation(platform(libs.jackson.bom))
+    implementation(platform(libs.tools.jackson.bom))
+
     constraints {
         implementationWithKtorVersionCheck(
             dependencyNotation = "io.netty:netty-handler:4.2.17.Final",
