@@ -52,31 +52,25 @@ internal fun DispatchContent.gatedSendingWindow(): SendingWindow? =
         -> null
     }
 
-internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
+/**
+ * Produces drafts that can be materialized without referring to earlier stored state.
+ *
+ * FERDIGSTILL variants deliberately return null: their delivery is derived from the matching CREATE
+ * row inside the transactional effectuation, never from their thin wire payload.
+ */
+internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft? =
     when (this) {
         is BrukervarselCreate ->
             draft(reference, Operation.CREATE, Channel.BRUKERVARSEL, Recipient.Person(personIdentifier))
 
-        is BrukervarselInactivate ->
-            draft(reference, Operation.INACTIVATE, Channel.BRUKERVARSEL, Recipient.Person(sykmeldt))
-
         is LedervarselCreate ->
             draft(reference, Operation.CREATE, Channel.LEDERVARSEL, Recipient.Person(sykmeldt))
-
-        is LedervarselInactivate ->
-            draft(reference, Operation.INACTIVATE, Channel.LEDERVARSEL, Recipient.Person(sykmeldt))
 
         is DittSykefravaerCreate ->
             draft(reference, Operation.CREATE, Channel.DITT_SYKEFRAVAER, Recipient.Person(personIdentifier))
 
-        is DittSykefravaerInactivate ->
-            draft(reference, Operation.INACTIVATE, Channel.DITT_SYKEFRAVAER, Recipient.Person(sykmeldt))
-
         is ArbeidsgivervarselCreate ->
             draft(reference, Operation.CREATE, Channel.ARBEIDSGIVERVARSEL, Recipient.Virksomhet(orgnummer))
-
-        is ArbeidsgivervarselInactivate ->
-            draft(reference, Operation.INACTIVATE, Channel.ARBEIDSGIVERVARSEL, Recipient.Virksomhet(orgnummer))
 
         is BrevCreate ->
             draft(reference, Operation.CREATE, Channel.BREV, Recipient.Person(personIdentifier))
@@ -86,6 +80,12 @@ internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
 
         is MicrofrontendDisable ->
             draft(reference, Operation.INACTIVATE, Channel.MICROFRONTEND, Recipient.Person(personIdentifier))
+
+        is BrukervarselInactivate,
+        is LedervarselInactivate,
+        is DittSykefravaerInactivate,
+        is ArbeidsgivervarselInactivate,
+        -> null
     }
 
 private fun DispatchContent.draft(
