@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.kafka.config
 import io.ktor.server.plugins.di.DependencyRegistry
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
@@ -15,6 +16,7 @@ import no.nav.budstikka.infrastructure.kafka.consumer.ConsumerRunner
 import no.nav.budstikka.infrastructure.kafka.consumer.InboxMessageHandler
 import no.nav.budstikka.infrastructure.kafka.producer.KafkaMessagePublisher
 import no.nav.budstikka.infrastructure.kafka.producer.MessagePublisher
+import no.nav.budstikka.infrastructure.kafka.producer.dittSykefravaerPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.ledervarselPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.microfrontendPublisher
 import no.nav.budstikka.infrastructure.kafka.producer.minSideBrukervarselPublisher
@@ -66,6 +68,12 @@ fun DependencyRegistry.kafkaModule() {
                 ?: error("Missing Kafka producer config: ${ProducerNames.DINESYKMELDTE_HENDELSER}")
         ledervarselPublisher(topic = topic, messagePublisher = resolve())
     }
+    provide<DittSykefravaerPublisher> {
+        val topic =
+            resolve<KafkaConfig>().producers[ProducerNames.DITT_SYKEFRAVAER_MELDING]?.topic
+                ?: error("Missing Kafka producer config: ${ProducerNames.DITT_SYKEFRAVAER_MELDING}")
+        dittSykefravaerPublisher(topic = topic, messagePublisher = resolve())
+    }
     provide<List<ConsumerRunner<*, *>>> {
         val kafkaConfig = resolve<KafkaConfig>()
         val registry = resolve<PrometheusMeterRegistry>()
@@ -104,6 +112,7 @@ object ProducerNames {
     const val MINSIDE_MICROFRONTEND = "minside-microfrontend"
     const val MINSIDE_BRUKERVARSEL = "minside-brukervarsel"
     const val DINESYKMELDTE_HENDELSER = "dinesykmeldte-hendelser"
+    const val DITT_SYKEFRAVAER_MELDING = "ditt-sykefravaer-melding"
 }
 
 private suspend fun DependencyRegistry.handlerForConsumer(name: String): BatchMessageHandler<String, String?> =

@@ -10,6 +10,8 @@ import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
 import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryMetrics
 import no.nav.budstikka.application.delivery.DeliveryWorker
+import no.nav.budstikka.application.delivery.DittSykefravaerChannelHandler
+import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
@@ -50,6 +52,7 @@ fun DependencyRegistry.workerModule() {
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
+            Channel.DITT_SYKEFRAVAER to DittSykefravaerChannelHandler(resolve<DittSykefravaerPublisher>()),
             Channel.MICROFRONTEND to MicrofrontendChannelHandler(resolve<MicrofrontendPublisher>()),
             Channel.BREV to BrevChannelHandler(resolve<DocumentDistributor>()),
             Channel.ARBEIDSGIVERVARSEL to
