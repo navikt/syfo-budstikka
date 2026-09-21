@@ -72,7 +72,8 @@ data class DittSykefravaerCreate(
     val text: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-) : DispatchContent {
+    val meldingType: String? = null,
+) : DittSykefravaer {
     override val partitionKey: String get() = personIdentifier.value
 
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
