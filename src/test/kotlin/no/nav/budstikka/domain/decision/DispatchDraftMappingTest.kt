@@ -45,7 +45,11 @@ class DispatchDraftMappingTest :
                 ),
                 Case(
                     "DittSykefravaer",
-                    DittSykefravaerCreate(TEST_SYKMELDT, "text"),
+                    DittSykefravaerCreate(
+                        personIdentifier = TEST_SYKMELDT,
+                        text = "text",
+                        meldingType = "TEST",
+                    ),
                     Channel.DITT_SYKEFRAVAER,
                     Operation.CREATE,
                     Recipient.Person(TEST_SYKMELDT),
