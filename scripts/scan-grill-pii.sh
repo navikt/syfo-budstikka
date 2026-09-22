@@ -25,22 +25,17 @@ rule_regex=(
 
 # scan_file <visningsetikett> <fil-på-disk>
 scan_file() {
-  local label="$1" file="$2" i name pat lines normalized approved_env_reference
+  local label="$1" file="$2" i name pat lines normalized
   # Kanonisk syntetisk personident i eksempler er BARE NULLER (jf. «tydelig syntetiske verdier»
   # i docs/sende-varsler.md og README-quickstarten). Bare-nuller er ugyldig som fnr/d-nr og
   # utvetydig ikke-PII, så den nulles ut før skanning; alle andre 11-sifrede sekvenser flagges
   # fortsatt — også om de står på samme linje som den syntetiske verdien.
   normalized="$(mktemp)"
   sed 's/00000000000/SYNTETISK-PERSONIDENT/g' "$file" > "$normalized" 2>/dev/null || cp "$file" "$normalized"
-  approved_env_reference='^[[:space:]]*(passord|password|secret|client[_-]?secret|api[_-]?key|token)[[:space:]]*[:=][[:space:]]*\$\{\?[A-Za-z_][A-Za-z0-9_]*\}[[:space:]]*$'
   for i in "${!rule_names[@]}"; do
     name="${rule_names[$i]}"; pat="${rule_regex[$i]}"
     # -I hopper binærfiler, -n gir linjenr; vi beholder KUN linjenrene (kaster innholdet).
-    if [ "$name" = "hemmelighet" ]; then
-      lines="$(sed -E "/$approved_env_reference/{s/.*//;}" "$normalized" | grep -InE -e "$pat" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
-    else
-      lines="$(grep -InE -e "$pat" "$normalized" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
-    fi
+    lines="$(grep -InE -e "$pat" "$normalized" 2>/dev/null | cut -d: -f1 | paste -sd, -)" || true
     if [ -n "$lines" ]; then
       echo "PII-mistanke ($name) i $label — linje(r): $lines"
       hits=1
