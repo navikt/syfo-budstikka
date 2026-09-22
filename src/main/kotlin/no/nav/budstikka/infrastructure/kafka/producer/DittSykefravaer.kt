@@ -40,21 +40,22 @@ private fun DittSykefravaer.toMessage(clock: Clock): String =
             dittSykefravaerJson.encodeToString(
                 DittSykefravaerMeldingDto(
                     opprettMelding =
-                        OpprettMeldingDto(
+                        DittSykefravaerMeldingDto.OpprettMeldingDto(
                             tekst = text,
                             lenke = link,
                             meldingType = messageType,
                             synligFremTil = visibleUntil?.toString(),
                         ),
-                    lukkMelding = null,
                     fnr = personIdentifier.value,
                 ),
             )
         is DittSykefravaerInactivate ->
             dittSykefravaerJson.encodeToString(
                 DittSykefravaerMeldingDto(
-                    opprettMelding = null,
-                    lukkMelding = LukkMeldingDto(timestamp = clock.now().toString()),
+                    lukkMelding =
+                        DittSykefravaerMeldingDto.LukkMeldingDto(
+                            timestamp = clock.now().toString(),
+                        ),
                     fnr = sykmeldt.value,
                 ),
             )
@@ -63,22 +64,22 @@ private fun DittSykefravaer.toMessage(clock: Clock): String =
 /** Local mirror of Flex's consumer DTO; deliberately not a shared JVM contract. */
 @Serializable
 private data class DittSykefravaerMeldingDto(
-    val opprettMelding: OpprettMeldingDto?,
-    val lukkMelding: LukkMeldingDto?,
+    val opprettMelding: OpprettMeldingDto? = null,
+    val lukkMelding: LukkMeldingDto? = null,
     val fnr: String,
-)
+) {
+    @Serializable
+    data class OpprettMeldingDto(
+        val tekst: String,
+        val lenke: String?,
+        val variant: String = "INFO",
+        val lukkbar: Boolean = true,
+        val meldingType: String,
+        val synligFremTil: String?,
+    )
 
-@Serializable
-private data class OpprettMeldingDto(
-    val tekst: String,
-    val lenke: String?,
-    val variant: String = "INFO",
-    val lukkbar: Boolean = true,
-    val meldingType: String,
-    val synligFremTil: String?,
-)
-
-@Serializable
-private data class LukkMeldingDto(
-    val timestamp: String,
-)
+    @Serializable
+    data class LukkMeldingDto(
+        val timestamp: String,
+    )
+}
