@@ -100,6 +100,42 @@ class BudstikkaProducerApiTest :
                     """{"reference":"ref-1","content":{"type":"BrukervarselInactivate",""" +
                     """"referanse":"ref-1","sykmeldt":"00000000000"}}"""
             }
+
+            context("dittSykefravaer") {
+                test("create exposes the producer-supplied messageType through the public facade") {
+                    val encoded =
+                        Budstikka.dittSykefravaerCreate(
+                            eventId = EVENT_ID,
+                            reference = REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            text = SYNTHETIC_TEXT,
+                            messageType = "DIALOGMOTE_INNKALLING",
+                            link = "https://nav.no/syk",
+                            visibleUntil = VISIBLE_UNTIL,
+                        )
+
+                    encoded.key shouldBe SYNTHETIC_SYKMELDT.value
+                    encoded.value shouldBe
+                        """{"reference":"ref-1","content":{"type":"DittSykefravaerCreate",""" +
+                        """"personIdentifier":"00000000000","text":"SYNTETISK-VARSELTEKST",""" +
+                        """"messageType":"DIALOGMOTE_INNKALLING","link":"https://nav.no/syk",""" +
+                        """"visibleUntil":"2026-01-01T00:00:00Z"}}"""
+                }
+
+                test("inactivate uses the same ingress partition key as create") {
+                    val encoded =
+                        Budstikka.dittSykefravaerInactivate(
+                            eventId = EVENT_ID,
+                            reference = REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                        )
+
+                    encoded.key shouldBe SYNTHETIC_SYKMELDT.value
+                    encoded.value shouldBe
+                        """{"reference":"ref-1","content":{"type":"DittSykefravaerInactivate",""" +
+                        """"referanse":"ref-1","sykmeldt":"00000000000"}}"""
+                }
+            }
         }
 
         context("dineSykmeldteVarselCreate") {
@@ -470,6 +506,8 @@ class BudstikkaProducerApiTest :
                 listOf(
                     "brukervarselCreate",
                     "brukervarselInactivate",
+                    "dittSykefravaerCreate",
+                    "dittSykefravaerInactivate",
                     "dineSykmeldteVarselCreate",
                     "dineSykmeldteVarselInactivate",
                     "arbeidsgivervarselCreate",

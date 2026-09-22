@@ -23,9 +23,6 @@ import kotlin.time.Instant
  * )
  * ```
  *
- * Variants a Produsent cannot send through the facade yet are deliberately absent, even where the
- * wire type exists. DittSykefravaer has no registered channel.
- *
  * Every function validates required identifiers, references and mandatory values before
  * encoding, and fails with [IllegalArgumentException] naming the offending parameter — never its
  * value, since these values are person data and free text. Semantic constraints owned downstream
@@ -99,6 +96,59 @@ object Budstikka {
         requireReference(reference)
         sykmeldt.requirePersonIdentifier("sykmeldt")
         return BrukervarselInactivate(reference = reference, sykmeldt = sykmeldt).encode(eventId, reference)
+    }
+
+    /**
+     * Sends an in-app notification to Ditt Sykefravær. The downstream contract fixes the
+     * presentation to INFO and lets the recipient close the message. [messageType] is a stable,
+     * analytics-visible producer category and must never contain personal data.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this notification, used when it is inactivated later.
+     * @param sykmeldt the person who receives the notification and the ingress partition anchor.
+     * @param text the notification text shown to the person.
+     * @param messageType stable, non-person-identifying category required by Ditt Sykefravær.
+     * @param link optional target for the notification.
+     * @param visibleUntil when Ditt Sykefravær stops showing the notification.
+     */
+    fun dittSykefravaerCreate(
+        eventId: EventId,
+        reference: String,
+        sykmeldt: PersonIdentifier,
+        text: String,
+        messageType: String,
+        link: String? = null,
+        visibleUntil: Instant? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        sykmeldt.requirePersonIdentifier("sykmeldt")
+        requireNotBlank(text, "text")
+        requireNotBlank(messageType, "messageType")
+        requireNullOrNotBlank(link, "link")
+        return DittSykefravaerCreate(
+            personIdentifier = sykmeldt,
+            text = text,
+            messageType = messageType,
+            link = link,
+            visibleUntil = visibleUntil,
+        ).encode(eventId, reference)
+    }
+
+    /**
+     * Closes a Ditt Sykefravær notification created earlier with [dittSykefravaerCreate].
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference the reference of the create notification to close.
+     * @param sykmeldt the same person as in the create; it anchors both on one partition.
+     */
+    fun dittSykefravaerInactivate(
+        eventId: EventId,
+        reference: String,
+        sykmeldt: PersonIdentifier,
+    ): EncodedDispatch {
+        requireReference(reference)
+        sykmeldt.requirePersonIdentifier("sykmeldt")
+        return DittSykefravaerInactivate(reference = reference, sykmeldt = sykmeldt).encode(eventId, reference)
     }
 
     /**

@@ -66,6 +66,9 @@ class BudstikkaTestApp private constructor(
     val dineSykmeldteTopic: String
         get() = appConfig.property("kafka.producers.dinesykmeldte-hendelser.topic").getString()
 
+    val dittSykefravaerTopic: String
+        get() = appConfig.property("kafka.producers.ditt-sykefravaer-melding.topic").getString()
+
     fun produce(
         topic: String,
         key: String?,

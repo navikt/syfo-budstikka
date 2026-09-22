@@ -25,12 +25,19 @@ settes sammen i en produsent.
 | `brukervarselInactivate` | Lukk et tidligere brukervarsel. |
 | `dineSykmeldteVarselCreate` | Opprett in-app-aktivitet i Dine Sykmeldte. |
 | `dineSykmeldteVarselInactivate` | Lukk en tidligere aktivitet i Dine Sykmeldte. |
+| `dittSykefravaerCreate` | Opprett INFO-melding i Ditt Sykefravær. |
+| `dittSykefravaerInactivate` | Lukk en tidligere Ditt Sykefravær-melding. |
 | `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
 
-`DittSykefravaer` er ikke en funksjon på fasaden fordi den mangler runtime-støtte.
+`dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
+aldri må inneholde personopplysninger. Budstikka sender alltid downstream-varianten `INFO`
+med `lukkbar = true`; produsenten velger ikke presentasjonsvariant. `reference` kobler
+opprettelse og lukking, og begge operasjonene må bruke samme `reference` og `sykmeldt`.
+Dette er Budstikkas additive producer-API. Flexs eksisterende Kafka-kontrakt på
+`flex.ditt-sykefravaer-melding` eies fortsatt av `ditt-sykefravaer-backend`.
 
 ## Opprett og lukk
 

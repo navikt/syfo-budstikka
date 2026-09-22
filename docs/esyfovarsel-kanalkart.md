@@ -16,14 +16,14 @@ esyfovarsel (egen sidebane utenom `SenderFacade`, aldri logget i `UTSENDT_VARSEL
 egen tabell `MIKROFRONTEND_SYNLIGHET` og egen opprydningsjobb). Budstikka har
 microfrontend som førsteklasses variant og har dermed allerede tettet den asymmetrien.
 
-| Kanal (esyfovarsel) | Nedstrøms | Budstikka-variant |
-|---|---|---|
-| `BRUKERNOTIFIKASJON` | Kafka `min-side.aapen-brukervarsel-v1` (tms varsel-builder) | `BrukervarselCreate` |
-| `DINE_SYKMELDTE` | Kafka `team-esyfo.dinesykmeldte-hendelser-v2` | `LedervarselCreate` (fasade: `dineSykmeldteVarselCreate`) |
-| `DITT_SYKEFRAVAER` | Kafka `flex.ditt-sykefravaer-melding` | `DittSykefravaerCreate` (ikke sendbar ennå) |
-| `ARBEIDSGIVERNOTIFIKASJON` | GraphQL mot `notifikasjon-produsent-api` (fager) | `ArbeidsgivervarselCreate` (fasade: `arbeidsgivervarselCreate`) |
-| `BREV` | REST `dokdistfordeling` `/rest/v1/distribuerjournalpost` | `BrevCreate` |
-| (microfrontend, utenfor `Kanal`) | Kafka `min-side.aapen-microfrontend-v1` | `MicrofrontendEnable`/`-Disable` |
+| Kanal (esyfovarsel)              | Nedstrøms                                                   | Budstikka-variant                                               |
+| -------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| `BRUKERNOTIFIKASJON`             | Kafka `min-side.aapen-brukervarsel-v1` (tms varsel-builder) | `BrukervarselCreate`                                            |
+| `DINE_SYKMELDTE`                 | Kafka `team-esyfo.dinesykmeldte-hendelser-v2`               | `LedervarselCreate` (fasade: `dineSykmeldteVarselCreate`)       |
+| `DITT_SYKEFRAVAER`               | Kafka `flex.ditt-sykefravaer-melding`                       | `DittSykefravaerCreate` / `DittSykefravaerInactivate`           |
+| `ARBEIDSGIVERNOTIFIKASJON`       | GraphQL mot `notifikasjon-produsent-api` (fager)            | `ArbeidsgivervarselCreate` (fasade: `arbeidsgivervarselCreate`) |
+| `BREV`                           | REST `dokdistfordeling` `/rest/v1/distribuerjournalpost`    | `BrevCreate`                                                    |
+| (microfrontend, utenfor `Kanal`) | Kafka `min-side.aapen-microfrontend-v1`                     | `MicrofrontendEnable`/`-Disable`                                |
 
 Merk om `ARBEIDSGIVERNOTIFIKASJON`: esyfovarsel bruker fire operasjonstyper mot
 notifikasjon-produsent-api — beskjed/oppgave (med NL-mottaker *eller*
@@ -43,16 +43,16 @@ når `tvingSentralPrint = true`. `SenderFacade` har to metoder som bare skiller 
 det flagget — og navnene lyver: `sendBrevTilFysiskPrint` tvinger *ikke* print
 (`tvingSentralPrint = false`, dokdist velger kanal; ikke-reserverte får Digipost).
 
-| Kallsted | tvingKanal | Trigger |
-|---|---|---|
-| `AktivitetspliktForhandsvarselService` | ordinær | KRR-fallback (`canUserBeDigitallyNotified == false`) |
-| `MerVeiledningVarselService` | ordinær | KRR-fallback |
-| `DialogmoteInnkallingSykmeldtVarselService` | ordinær (type `ANNET`) | KRR-fallback |
-| `ArbeidsuforhetForhandsvarselService` | ordinær | **Primærkanal, ingen KRR-sjekk** |
-| `ManglendeMedvirkningVarselService` | ordinær | **Primærkanal, ingen KRR-sjekk** |
-| `FriskmeldingTilArbeidsformidlingVedtakService` | ordinær | **Primærkanal, ingen KRR-sjekk** |
-| `ResendFailedVarslerJob` | ordinær | Retry av feilede BREV-utsendinger |
-| `SendAktivitetspliktLetterToSentralPrintJob` | **PRINT** | Renotifisering: ulest aktivitetsplikt-brukervarsel, 1–14 dager, har journalpostId |
+| Kallsted                                        | tvingKanal             | Trigger                                                                           |
+| ----------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------- |
+| `AktivitetspliktForhandsvarselService`          | ordinær                | KRR-fallback (`canUserBeDigitallyNotified == false`)                              |
+| `MerVeiledningVarselService`                    | ordinær                | KRR-fallback                                                                      |
+| `DialogmoteInnkallingSykmeldtVarselService`     | ordinær (type `ANNET`) | KRR-fallback                                                                      |
+| `ArbeidsuforhetForhandsvarselService`           | ordinær                | **Primærkanal, ingen KRR-sjekk**                                                  |
+| `ManglendeMedvirkningVarselService`             | ordinær                | **Primærkanal, ingen KRR-sjekk**                                                  |
+| `FriskmeldingTilArbeidsformidlingVedtakService` | ordinær                | **Primærkanal, ingen KRR-sjekk**                                                  |
+| `ResendFailedVarslerJob`                        | ordinær                | Retry av feilede BREV-utsendinger                                                 |
+| `SendAktivitetspliktLetterToSentralPrintJob`    | **PRINT**              | Renotifisering: ulest aktivitetsplikt-brukervarsel, 1–14 dager, har journalpostId |
 
 Altså: 7 av 8 ordinær løype; tre varseltyper har brev som eneste kanal uten
 KRR-sjekk (ikke-reserverte får disse digitalt i Digipost i dag); kun
@@ -96,16 +96,16 @@ Per-kanal-håndtering for personer med `kanVarsles = false` i esyfovarsel:
 `AG_` = virksomhet. Ruting i `VarselBusService.processVarselHendelse`. Utvalg som
 viser mønstrene:
 
-| HendelseType | Kanaler |
-|---|---|
-| `SM_DIALOGMOTE_INNKALT` | Brukervarsel (OPPGAVE) *eller* brev (KRR-fallback) + Ditt sykefravær (alltid) + microfrontend |
-| `NL_DIALOGMOTE_INNKALT` | Dine sykmeldte + AG-sak (`nySak`) + AG-kalenderavtale (med leder-e-post) |
-| `SM_MER_VEILEDNING` | Brukervarsel *eller* brev + Ditt sykefravær (alltid) + microfrontend |
-| `SM_AKTIVITETSPLIKT` | Brukervarsel *eller* brev + microfrontend; + tvungen print-jobb etter 1–14 dager ulest |
-| `SM_ARBEIDSUFORHET_FORHANDSVARSEL` | **Kun brev** (ordinær løype, ingen KRR-sjekk) |
-| `SM_FORHANDSVARSEL_MANGLENDE_MEDVIRKNING` | **Kun brev** (ordinær løype, ingen KRR-sjekk) |
-| `SM_VEDTAK_FRISKMELDING_TIL_ARBEIDSFORMIDLING` | **Kun brev** (ordinær løype, ingen KRR-sjekk) |
-| `AG_VARSEL_ALTINN_RESSURS` | AG-notifikasjon (Altinn-ressurs) + sak |
+| HendelseType                                   | Kanaler                                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `SM_DIALOGMOTE_INNKALT`                        | Brukervarsel (OPPGAVE) *eller* brev (KRR-fallback) + Ditt sykefravær (alltid) + microfrontend |
+| `NL_DIALOGMOTE_INNKALT`                        | Dine sykmeldte + AG-sak (`nySak`) + AG-kalenderavtale (med leder-e-post)                      |
+| `SM_MER_VEILEDNING`                            | Brukervarsel *eller* brev + Ditt sykefravær (alltid) + microfrontend                          |
+| `SM_AKTIVITETSPLIKT`                           | Brukervarsel *eller* brev + microfrontend; + tvungen print-jobb etter 1–14 dager ulest        |
+| `SM_ARBEIDSUFORHET_FORHANDSVARSEL`             | **Kun brev** (ordinær løype, ingen KRR-sjekk)                                                 |
+| `SM_FORHANDSVARSEL_MANGLENDE_MEDVIRKNING`      | **Kun brev** (ordinær løype, ingen KRR-sjekk)                                                 |
+| `SM_VEDTAK_FRISKMELDING_TIL_ARBEIDSFORMIDLING` | **Kun brev** (ordinær løype, ingen KRR-sjekk)                                                 |
+| `AG_VARSEL_ALTINN_RESSURS`                     | AG-notifikasjon (Altinn-ressurs) + sak                                                        |
 
 `DineSykmeldteHendelseType` i esyfovarsel mapper
 [`NL_OPPFOLGINGSPLAN_VARSELBESTILLING` til wire-verdien `OPPFOLGINGSPLAN_PAAMINNELSE`](https://github.com/navikt/esyfovarsel/blob/4a29705189f584f5caa9371bc5ae51caffef379e/src/main/kotlin/no/nav/syfo/kafka/consumers/varselbus/domain/DineSykmeldteHendelseType.kt#L10-L15).

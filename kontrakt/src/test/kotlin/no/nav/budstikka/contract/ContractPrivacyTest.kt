@@ -100,6 +100,7 @@ class ContractPrivacyTest :
                     DittSykefravaerCreate(
                         personIdentifier = SYNTHETIC_SYKMELDT,
                         text = SYNTHETIC_TEXT,
+                        messageType = "DIALOGMOTE",
                         link = SYNTHETIC_LINK,
                     ),
                     DittSykefravaerInactivate(reference = SYNTHETIC_REFERENCE, sykmeldt = SYNTHETIC_SYKMELDT),
@@ -207,6 +208,21 @@ class ContractPrivacyTest :
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                         ),
+                    "dittSykefravaerCreate" to
+                        Budstikka.dittSykefravaerCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            text = SYNTHETIC_TEXT,
+                            messageType = "DIALOGMOTE",
+                            link = SYNTHETIC_LINK,
+                        ),
+                    "dittSykefravaerInactivate" to
+                        Budstikka.dittSykefravaerInactivate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                        ),
                     "arbeidsgivervarselCreate" to
                         Budstikka.arbeidsgivervarselCreate(
                             eventId = EVENT_ID,
@@ -288,6 +304,18 @@ class ContractPrivacyTest :
                     altinn.externalNotification!!,
                     Arbeidsgivervarsel.CaseAssociation(SYNTHETIC_SAK_ID),
                 ).forEach { it.toString().shouldNotLeak() }
+            }
+
+            test("Ditt Sykefravær validation names messageType without exposing its value") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.dittSykefravaerCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        text = SYNTHETIC_TEXT,
+                        messageType = " ",
+                    )
+                }.message!!.also { it shouldContain "messageType" }.shouldNotLeak()
             }
 
             test("validation failures name only the parameter") {

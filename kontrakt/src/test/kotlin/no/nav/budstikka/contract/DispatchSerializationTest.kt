@@ -37,6 +37,7 @@ class DispatchSerializationTest :
                         DittSykefravaerCreate(
                             personIdentifier = SYNTHETIC_SYKMELDT,
                             text = "Nytt på Ditt sykefravær",
+                            messageType = "DIALOGMOTE",
                         ),
                     "ArbeidsgivervarselCreate-NL-without-external-varsling" to
                         ArbeidsgivervarselCreate(

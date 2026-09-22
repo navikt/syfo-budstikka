@@ -28,10 +28,17 @@ class BudstikkaTopicConfigTest :
 
             consumers.getValue(BUDSTIKKA_CONSUMER).topic shouldBe Budstikka.TOPIC
         }
+
+        test("the shipped configuration declares Flex's Ditt Sykefravær producer topic") {
+            val producers = shippedConfig().toKafkaConfig().producers
+
+            producers.getValue(DITT_SYKEFRAVAER_PRODUCER).topic shouldBe "flex.ditt-sykefravaer-melding"
+        }
     })
 
 /** The consumer key `application.conf` declares for the Budstikka contract stream. */
 private const val BUDSTIKKA_CONSUMER = "budstikka"
+private const val DITT_SYKEFRAVAER_PRODUCER = "ditt-sykefravaer-melding"
 
 /**
  * Loads the packaged `application.conf` deterministically: the environment is switched off during

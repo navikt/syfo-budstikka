@@ -51,12 +51,16 @@ data class DittSykefravaerInactivate(
     @SerialName("referanse")
     val reference: String,
     val sykmeldt: PersonIdentifier,
-) : DispatchContent {
+) : DittSykefravaer {
     override val partitionKey: String get() = sykmeldt.value
 
     /** Omits the reference and recipient. */
     override fun toString(): String = "DittSykefravaerInactivate()"
 }
+
+/** Shared internal wire type for Ditt Sykefravær create and inactivate deliveries. */
+@InternalBudstikkaWire
+sealed interface DittSykefravaer : DispatchContent
 
 /** Close Arbeidsgivervarsel; matching key = organisation. */
 @InternalBudstikkaWire

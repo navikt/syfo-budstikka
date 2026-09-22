@@ -33,7 +33,12 @@ class DeathGateTest :
         val gatedCreates =
             listOf(
                 "Brukervarsel" to BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "text"),
-                "DittSykefravaer" to DittSykefravaerCreate(TEST_SYKMELDT, "text"),
+                "DittSykefravaer" to
+                    DittSykefravaerCreate(
+                        personIdentifier = TEST_SYKMELDT,
+                        text = "text",
+                        messageType = "TEST",
+                    ),
                 "Brev" to BrevCreate(TEST_SYKMELDT, "jp-1"),
             )
 

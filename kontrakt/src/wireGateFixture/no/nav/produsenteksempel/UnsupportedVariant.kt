@@ -14,11 +14,10 @@ import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Sakstilknytning
 
 /**
- * DittSykefravaer and Arbeidsgivervarsel have no registered channel: budstikka would accept these and
- * never deliver them. They must not read as ordinary producer API.
+ * Raw wire types require an internal opt-in and are never ordinary producer API.
  */
 fun rawDittSykefravaerCreate(sykmeldt: PersonIdentifier): DispatchContent =
-    DittSykefravaerCreate(personIdentifier = sykmeldt, text = "tekst")
+    DittSykefravaerCreate(personIdentifier = sykmeldt, text = "tekst", messageType = "FIXTURE")
 
 fun rawDittSykefravaerInactivate(sykmeldt: PersonIdentifier): DispatchContent =
     DittSykefravaerInactivate(reference = "fixture", sykmeldt = sykmeldt)
