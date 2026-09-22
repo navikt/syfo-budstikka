@@ -8,6 +8,7 @@ import no.nav.budstikka.contract.DittSykefravaer
 import no.nav.budstikka.contract.DittSykefravaerCreate
 import no.nav.budstikka.contract.DittSykefravaerInactivate
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Maps Ditt Sykefravær to Flex's existing Kafka contract. The Kafka key is the stable Budstikka
@@ -44,7 +45,7 @@ private fun DittSykefravaer.toMessage(clock: Clock): String =
                             tekst = text,
                             lenke = link,
                             meldingType = messageType,
-                            synligFremTil = visibleUntil?.toString(),
+                            synligFremTil = visibleUntil,
                         ),
                     fnr = personIdentifier.value,
                 ),
@@ -54,7 +55,7 @@ private fun DittSykefravaer.toMessage(clock: Clock): String =
                 DittSykefravaerMeldingDto(
                     lukkMelding =
                         DittSykefravaerMeldingDto.LukkMeldingDto(
-                            timestamp = clock.now().toString(),
+                            timestamp = clock.now(),
                         ),
                     fnr = sykmeldt.value,
                 ),
@@ -75,11 +76,11 @@ private data class DittSykefravaerMeldingDto(
         val variant: String = "INFO",
         val lukkbar: Boolean = true,
         val meldingType: String,
-        val synligFremTil: String?,
+        val synligFremTil: Instant?,
     )
 
     @Serializable
     data class LukkMeldingDto(
-        val timestamp: String,
+        val timestamp: Instant,
     )
 }
