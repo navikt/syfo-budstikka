@@ -37,7 +37,7 @@ class DispatchSerializationTest :
                         DittSykefravaerCreate(
                             personIdentifier = SYNTHETIC_SYKMELDT,
                             text = "Nytt på Ditt sykefravær",
-                            meldingType = "DIALOGMOTE",
+                            messageType = "DIALOGMOTE",
                         ),
                     "ArbeidsgivervarselCreate-NL-without-external-varsling" to
                         ArbeidsgivervarselCreate(
@@ -209,27 +209,6 @@ class DispatchSerializationTest :
 
         test("partitionKey is not serialized (computed getter without backing field)") {
             dispatchJson.encodeToString(envelope(BrevCreate(SYNTHETIC_SYKMELDT, "jp-9"))) shouldNotContain "partitionKey"
-        }
-
-        test("legacy DittSykefravaerCreate without meldingType decodes with a null meldingType") {
-            val legacyPayload =
-                """{"reference":"ref-legacy","content":{"type":"DittSykefravaerCreate","personIdentifier":"${SYNTHETIC_SYKMELDT.value}","text":"Hei"}}"""
-
-            val dispatch = dispatchJson.decodeFromString<Dispatch>(legacyPayload)
-
-            (dispatch.content as DittSykefravaerCreate).meldingType shouldBe null
-        }
-
-        test("legacy positional third argument remains link") {
-            val create =
-                DittSykefravaerCreate(
-                    SYNTHETIC_SYKMELDT,
-                    "Hei",
-                    "https://nav.no/sykefravaer",
-                )
-
-            create.link shouldBe "https://nav.no/sykefravaer"
-            create.meldingType shouldBe null
         }
 
         context("SendingWindow null-tolerance (legacy messages produced before non-null migration)") {

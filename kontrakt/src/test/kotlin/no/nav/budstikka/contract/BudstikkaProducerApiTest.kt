@@ -102,14 +102,14 @@ class BudstikkaProducerApiTest :
             }
 
             context("dittSykefravaer") {
-                test("create exposes the producer-supplied meldingType through the public facade") {
+                test("create exposes the producer-supplied messageType through the public facade") {
                     val encoded =
                         Budstikka.dittSykefravaerCreate(
                             eventId = EVENT_ID,
                             reference = REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             text = SYNTHETIC_TEXT,
-                            meldingType = "DIALOGMOTE_INNKALLING",
+                            messageType = "DIALOGMOTE_INNKALLING",
                             link = "https://nav.no/syk",
                             visibleUntil = VISIBLE_UNTIL,
                         )
@@ -118,8 +118,8 @@ class BudstikkaProducerApiTest :
                     encoded.value shouldBe
                         """{"reference":"ref-1","content":{"type":"DittSykefravaerCreate",""" +
                         """"personIdentifier":"00000000000","text":"SYNTETISK-VARSELTEKST",""" +
-                        """"link":"https://nav.no/syk","visibleUntil":"2026-01-01T00:00:00Z",""" +
-                        """"meldingType":"DIALOGMOTE_INNKALLING"}}"""
+                        """"messageType":"DIALOGMOTE_INNKALLING","link":"https://nav.no/syk",""" +
+                        """"visibleUntil":"2026-01-01T00:00:00Z"}}"""
                 }
 
                 test("inactivate uses the same ingress partition key as create") {

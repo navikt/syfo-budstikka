@@ -1,8 +1,6 @@
 package no.nav.budstikka.infrastructure.kafka.producer
 
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import no.nav.budstikka.contract.DittSykefravaerCreate
 import no.nav.budstikka.contract.DittSykefravaerInactivate
@@ -22,7 +20,7 @@ class DittSykefravaerPublisherTest :
                     DittSykefravaerCreate(
                         personIdentifier = TEST_SYKMELDT,
                         text = "Ny innkalling",
-                        meldingType = "DIALOGMOTE_INNKALLING",
+                        messageType = "DIALOGMOTE_INNKALLING",
                         link = "https://nav.no/sykefravaer",
                         visibleUntil = Instant.parse("2026-08-01T00:00:00Z"),
                     ),
@@ -59,30 +57,12 @@ class DittSykefravaerPublisherTest :
                     DittSykefravaerCreate(
                         personIdentifier = TEST_SYKMELDT,
                         text = "Uten lenke",
-                        meldingType = "VEILEDNING",
+                        messageType = "VEILEDNING",
                     ),
                 )
 
                 recording.published.single().value shouldBe
                     """{"opprettMelding":{"tekst":"Uten lenke","lenke":null,"variant":"INFO","lukkbar":true,"meldingType":"VEILEDNING","synligFremTil":null},"lukkMelding":null,"fnr":"${TEST_SYKMELDT.value}"}"""
-            }
-        }
-
-        test("rejects a legacy create without meldingType before publishing") {
-            with(PublisherFixture()) {
-                val failure =
-                    shouldThrow<IllegalArgumentException> {
-                        dittSykefravaerPublisher(topic, recording, MutableClock(now)).publish(
-                            reference,
-                            DittSykefravaerCreate(
-                                personIdentifier = TEST_SYKMELDT,
-                                text = "Legacy melding",
-                            ),
-                        )
-                    }
-
-                failure.message shouldBe "DittSykefravaerCreate requires meldingType before publication"
-                recording.published.shouldBeEmpty()
             }
         }
     })

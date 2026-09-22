@@ -43,10 +43,7 @@ private fun DittSykefravaer.toMessage(clock: Clock): String =
                         OpprettMeldingDto(
                             tekst = text,
                             lenke = link,
-                            meldingType =
-                                requireNotNull(meldingType) {
-                                    "DittSykefravaerCreate requires meldingType before publication"
-                                },
+                            meldingType = messageType,
                             synligFremTil = visibleUntil?.toString(),
                         ),
                     lukkMelding = null,

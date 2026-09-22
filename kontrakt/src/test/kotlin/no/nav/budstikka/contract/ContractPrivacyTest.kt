@@ -100,7 +100,7 @@ class ContractPrivacyTest :
                     DittSykefravaerCreate(
                         personIdentifier = SYNTHETIC_SYKMELDT,
                         text = SYNTHETIC_TEXT,
-                        meldingType = "DIALOGMOTE",
+                        messageType = "DIALOGMOTE",
                         link = SYNTHETIC_LINK,
                     ),
                     DittSykefravaerInactivate(reference = SYNTHETIC_REFERENCE, sykmeldt = SYNTHETIC_SYKMELDT),
@@ -214,7 +214,7 @@ class ContractPrivacyTest :
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             text = SYNTHETIC_TEXT,
-                            meldingType = "DIALOGMOTE",
+                            messageType = "DIALOGMOTE",
                             link = SYNTHETIC_LINK,
                         ),
                     "dittSykefravaerInactivate" to
@@ -306,16 +306,16 @@ class ContractPrivacyTest :
                 ).forEach { it.toString().shouldNotLeak() }
             }
 
-            test("Ditt Sykefravær validation names meldingType without exposing its value") {
+            test("Ditt Sykefravær validation names messageType without exposing its value") {
                 shouldThrow<IllegalArgumentException> {
                     Budstikka.dittSykefravaerCreate(
                         eventId = EVENT_ID,
                         reference = SYNTHETIC_REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         text = SYNTHETIC_TEXT,
-                        meldingType = " ",
+                        messageType = " ",
                     )
-                }.message!!.also { it shouldContain "meldingType" }.shouldNotLeak()
+                }.message!!.also { it shouldContain "messageType" }.shouldNotLeak()
             }
 
             test("validation failures name only the parameter") {

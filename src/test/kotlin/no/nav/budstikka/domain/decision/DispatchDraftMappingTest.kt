@@ -48,7 +48,7 @@ class DispatchDraftMappingTest :
                     DittSykefravaerCreate(
                         personIdentifier = TEST_SYKMELDT,
                         text = "text",
-                        meldingType = "TEST",
+                        messageType = "TEST",
                     ),
                     Channel.DITT_SYKEFRAVAER,
                     Operation.CREATE,

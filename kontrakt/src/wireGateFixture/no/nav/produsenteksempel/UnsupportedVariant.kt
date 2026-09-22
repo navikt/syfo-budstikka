@@ -17,7 +17,7 @@ import no.nav.budstikka.contract.Sakstilknytning
  * Raw wire types require an internal opt-in and are never ordinary producer API.
  */
 fun rawDittSykefravaerCreate(sykmeldt: PersonIdentifier): DispatchContent =
-    DittSykefravaerCreate(personIdentifier = sykmeldt, text = "tekst", meldingType = "FIXTURE")
+    DittSykefravaerCreate(personIdentifier = sykmeldt, text = "tekst", messageType = "FIXTURE")
 
 fun rawDittSykefravaerInactivate(sykmeldt: PersonIdentifier): DispatchContent =
     DittSykefravaerInactivate(reference = "fixture", sykmeldt = sykmeldt)

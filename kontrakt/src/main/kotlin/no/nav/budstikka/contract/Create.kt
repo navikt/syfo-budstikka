@@ -70,9 +70,9 @@ data class LedervarselCreate(
 data class DittSykefravaerCreate(
     val personIdentifier: PersonIdentifier,
     val text: String,
+    val messageType: String,
     val link: String? = null,
     val visibleUntil: Instant? = null,
-    val meldingType: String? = null,
 ) : DittSykefravaer {
     override val partitionKey: String get() = personIdentifier.value
 

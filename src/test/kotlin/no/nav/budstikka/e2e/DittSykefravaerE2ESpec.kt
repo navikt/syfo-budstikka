@@ -28,7 +28,7 @@ class DittSykefravaerE2ESpec :
                     DittSykefravaerCreate(
                         personIdentifier = TEST_SYKMELDT,
                         text = "Ny innkalling",
-                        meldingType = "DIALOGMOTE_INNKALLING",
+                        messageType = "DIALOGMOTE_INNKALLING",
                     ),
                     DittSykefravaerInactivate(reference, TEST_SYKMELDT),
                 ).forEach { content ->

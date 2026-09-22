@@ -37,7 +37,7 @@ class DeathGateTest :
                     DittSykefravaerCreate(
                         personIdentifier = TEST_SYKMELDT,
                         text = "text",
-                        meldingType = "TEST",
+                        messageType = "TEST",
                     ),
                 "Brev" to BrevCreate(TEST_SYKMELDT, "jp-1"),
             )

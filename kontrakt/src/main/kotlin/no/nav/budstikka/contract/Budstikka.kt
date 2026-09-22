@@ -100,14 +100,14 @@ object Budstikka {
 
     /**
      * Sends an in-app notification to Ditt Sykefravær. The downstream contract fixes the
-     * presentation to INFO and lets the recipient close the message. [meldingType] is a stable,
+     * presentation to INFO and lets the recipient close the message. [messageType] is a stable,
      * analytics-visible producer category and must never contain personal data.
      *
      * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
      * @param reference your own id for this notification, used when it is inactivated later.
      * @param sykmeldt the person who receives the notification and the ingress partition anchor.
      * @param text the notification text shown to the person.
-     * @param meldingType stable, non-person-identifying category required by Ditt Sykefravær.
+     * @param messageType stable, non-person-identifying category required by Ditt Sykefravær.
      * @param link optional target for the notification.
      * @param visibleUntil when Ditt Sykefravær stops showing the notification.
      */
@@ -116,19 +116,19 @@ object Budstikka {
         reference: String,
         sykmeldt: PersonIdentifier,
         text: String,
-        meldingType: String,
+        messageType: String,
         link: String? = null,
         visibleUntil: Instant? = null,
     ): EncodedDispatch {
         requireReference(reference)
         sykmeldt.requirePersonIdentifier("sykmeldt")
         requireNotBlank(text, "text")
-        requireNotBlank(meldingType, "meldingType")
+        requireNotBlank(messageType, "messageType")
         requireNullOrNotBlank(link, "link")
         return DittSykefravaerCreate(
             personIdentifier = sykmeldt,
             text = text,
-            meldingType = meldingType,
+            messageType = messageType,
             link = link,
             visibleUntil = visibleUntil,
         ).encode(eventId, reference)

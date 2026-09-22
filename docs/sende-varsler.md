@@ -32,7 +32,7 @@ settes sammen i en produsent.
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
 
-`dittSykefravaerCreate` krever `meldingType`: en stabil, analytics-synlig kategori som
+`dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
 aldri må inneholde personopplysninger. Budstikka sender alltid downstream-varianten `INFO`
 med `lukkbar = true`; produsenten velger ikke presentasjonsvariant. `reference` kobler
 opprettelse og lukking, og begge operasjonene må bruke samme `reference` og `sykmeldt`.

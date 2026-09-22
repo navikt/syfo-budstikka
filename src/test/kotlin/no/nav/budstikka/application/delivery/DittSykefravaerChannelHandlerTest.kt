@@ -24,7 +24,7 @@ class DittSykefravaerChannelHandlerTest :
                 DittSykefravaerCreate(
                     personIdentifier = TEST_SYKMELDT,
                     text = "Ny melding",
-                    meldingType = "DIALOGMOTE",
+                    messageType = "DIALOGMOTE",
                 )
 
             DittSykefravaerChannelHandler(publisher).handle(delivery(payload)) shouldBe DeliveryOutcome.Sent
@@ -51,18 +51,6 @@ class DittSykefravaerChannelHandlerTest :
 
             outcome.shouldBeInstanceOf<DeliveryOutcome.Failed>()
             outcome.reason.shouldContain("MicrofrontendEnable")
-            publisher.published.shouldBeEmpty()
-        }
-
-        test("returns terminal failure without publishing a legacy create without meldingType") {
-            val publisher = RecordingDittSykefravaerPublisher()
-
-            val outcome =
-                DittSykefravaerChannelHandler(publisher).handle(
-                    delivery(DittSykefravaerCreate(TEST_SYKMELDT, "Legacy melding")),
-                )
-
-            outcome shouldBe DeliveryOutcome.Failed("DITT_SYKEFRAVAER create requires meldingType")
             publisher.published.shouldBeEmpty()
         }
     })
