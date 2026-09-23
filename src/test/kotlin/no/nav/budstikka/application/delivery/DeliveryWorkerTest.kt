@@ -246,6 +246,34 @@ class DeliveryWorkerTest :
             metrics.deliveryClaimed.get() shouldBe 0
         }
 
+        test("lost sent and failed transitions count claim loss and log WARN without counting outcomes") {
+            val repository =
+                PollingDeliveryRepository(
+                    deliveries =
+                        listOf(
+                            validMicrofrontendDelivery(UUID.randomUUID()),
+                            nonMicrofrontendPayload(UUID.randomUUID()),
+                        ),
+                    transitionSucceeds = false,
+                )
+            val metrics = RecordingDeliveryMetrics()
+            val logbackLogger = LoggerFactory.getLogger(DeliveryWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, RecordingMicrofrontendPublisher(), metrics = metrics).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.deliveryClaimLost[Channel.MICROFRONTEND]?.get() shouldBe 2
+            metrics.deliverySent[Channel.MICROFRONTEND] shouldBe null
+            metrics.deliveryFailed[Channel.MICROFRONTEND] shouldBe null
+            appender.list.filter { it.formattedMessage.contains("Delivery claim lost") }.map { it.level } shouldBe
+                listOf(Level.WARN, Level.WARN)
+        }
+
         test("runOnce stops draining when the lease budget is exhausted") {
             val clock = MutableClock(fromEpochMilliseconds(0))
             val repository =
@@ -336,6 +364,7 @@ private class ThrowingChannelHandler : ChannelHandler {
 
 private class PollingDeliveryRepository(
     private val deliveries: List<ClaimedDelivery>,
+    private val transitionSucceeds: Boolean = true,
     private val onClaim: () -> Unit = {},
 ) : DeliveryRepository {
     var lastClaimLimit: Int? = null
@@ -368,21 +397,31 @@ private class PollingDeliveryRepository(
 
     override suspend fun beginAttempt(
         deliveryId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean {
+        check(deliveries.single { it.id == deliveryId }.claimToken == claimToken)
         attemptedDeliveryIds += deliveryId
         return true
     }
 
-    override suspend fun markSent(deliveryId: UUID): Boolean {
+    override suspend fun markSent(
+        deliveryId: UUID,
+        claimToken: UUID,
+    ): Boolean {
+        check(deliveries.single { it.id == deliveryId }.claimToken == claimToken)
+        if (!transitionSucceeds) return false
         sentDeliveryIds += deliveryId
         return true
     }
 
     override suspend fun markFailed(
         deliveryId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean {
+        check(deliveries.single { it.id == deliveryId }.claimToken == claimToken)
+        if (!transitionSucceeds) return false
         failedDeliveries += deliveryId to reason
         return true
     }
@@ -391,6 +430,7 @@ private class PollingDeliveryRepository(
 private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000303"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000301"),
         reference = "ref-1",
         channel = Channel.MICROFRONTEND,
@@ -404,6 +444,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
 private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000304"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000302"),
         reference = "ref-2",
         channel = Channel.MICROFRONTEND,

@@ -118,11 +118,13 @@ class PoisonAttemptSemanticsIntegrationTest :
                     val row = DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.single()
                     row[DeliveryTable.state] shouldBe "FAILED"
                     row[DeliveryTable.attempt] shouldBe maxAttempts
+                    row[DeliveryTable.claimToken] shouldBe null
                 }
                 healthyRefs.forEach { reference ->
                     val row = DeliveryTable.selectAll().where { DeliveryTable.reference eq reference }.single()
                     row[DeliveryTable.state] shouldBe "SENT"
                     row[DeliveryTable.attempt] shouldBe 1
+                    row[DeliveryTable.claimToken] shouldBe null
                 }
             }
         }

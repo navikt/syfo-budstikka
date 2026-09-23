@@ -73,6 +73,7 @@ class LedervarselChannelHandlerTest :
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000603"),
         id = UUID.fromString("00000000-0000-0000-0000-000000000601"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000602"),
         reference = "ledervarsel-reference",

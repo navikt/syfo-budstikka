@@ -8,6 +8,7 @@ import kotlin.time.Duration
 
 data class ClaimedDelivery(
     val id: UUID,
+    val claimToken: UUID,
     val inboxEventId: UUID?,
     val reference: String,
     val channel: Channel,
@@ -34,7 +35,8 @@ interface DeliveryRepository {
 
     /**
      * Authorises one delivery attempt for a claimed row and spends it, atomically. Returns `false`
-     * when the row is no longer CLAIMED (a peer terminated it) or has already spent [maxAttempts];
+     * when the row is no longer CLAIMED under this caller's claim token (a peer terminated or
+     * reclaimed it) or has already spent [maxAttempts];
      * the caller must then skip the row and leave it to the poison gate.
      *
      * `attempt` counts durable authorisations to START a delivery, not proven external sends.
@@ -44,13 +46,20 @@ interface DeliveryRepository {
      */
     suspend fun beginAttempt(
         deliveryId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean
 
-    suspend fun markSent(deliveryId: UUID): Boolean
+    /** Returns `false` if the row is no longer CLAIMED under this caller's claim token. */
+    suspend fun markSent(
+        deliveryId: UUID,
+        claimToken: UUID,
+    ): Boolean
 
+    /** Returns `false` if the row is no longer CLAIMED under this caller's claim token. */
     suspend fun markFailed(
         deliveryId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean
 }

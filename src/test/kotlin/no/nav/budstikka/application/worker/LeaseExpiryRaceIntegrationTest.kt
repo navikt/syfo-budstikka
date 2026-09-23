@@ -3,13 +3,14 @@ package no.nav.budstikka.application.worker
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.DeliveryWorker
-import no.nav.budstikka.application.delivery.NoDeliveryMetrics
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
+import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
@@ -30,9 +31,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Pins what happens when a lease expires while the worker that claimed the row is still working.
  *
- * The two sides of the pipeline behave differently, and the difference is the whole point:
- * effectuation writes its terminal CAS BEFORE any external effect, while delivery performs the
- * external send BEFORE its terminal CAS.
+ * Effectuation writes its terminal CAS before any external effect. Delivery sends externally before
+ * its terminal CAS: fencing prevents an expired worker from recording an outcome after a peer
+ * reclaims the row, but cannot prevent a second external send (delivery remains at-least-once).
  */
 class LeaseExpiryRaceIntegrationTest :
     FunSpec({
@@ -92,7 +93,7 @@ class LeaseExpiryRaceIntegrationTest :
             }
         }
 
-        test("delivery: a lease expiring mid-send makes a peer send the same delivery a second time") {
+        test("delivery: an expired worker cannot record SENT while a peer holds the reclaimed claim") {
             val deliveries = PostgresDeliveryRepository(fixture.database)
             val inbox = PostgresInboxMessageRepository(fixture.database)
             val inboxEventId = UUID.fromString("00000000-0000-0000-0000-0000000000b2")
@@ -101,7 +102,8 @@ class LeaseExpiryRaceIntegrationTest :
                 deliveries.saveInTransaction(inboxEventId, listOf(microfrontendDraft(reference = "race-ref")))
             }
 
-            val sends = mutableListOf<UUID>()
+            val metrics = RecordingDeliveryMetrics()
+            var peerClaimToken: UUID? = null
             val config =
                 LeaseDrainConfig(
                     interval = 3.seconds,
@@ -112,46 +114,114 @@ class LeaseExpiryRaceIntegrationTest :
                     maxConsecutiveItemFailures = 3,
                 )
 
-            fun workerWith(handler: ChannelHandler) =
+            // A's external send outlives its lease. B reclaims directly but has not recorded an
+            // outcome yet, so the row remains CLAIMED when A attempts its terminal CAS.
+            val replicaA =
                 DeliveryWorker(
                     repository = deliveries,
-                    handlers = mapOf(Channel.MICROFRONTEND to handler),
+                    handlers =
+                        mapOf(
+                            Channel.MICROFRONTEND to
+                                ChannelHandler { delivery ->
+                                    expireDeliveryLease(delivery.id)
+                                    val peer =
+                                        deliveries
+                                            .claim(10, lease, 10, setOf(Channel.MICROFRONTEND))
+                                            .single()
+                                    peer.id shouldBe delivery.id
+                                    peer.claimToken shouldNotBe delivery.claimToken
+                                    peerClaimToken = peer.claimToken
+                                    DeliveryOutcome.Sent
+                                },
+                        ),
                     drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8, maxConsecutiveItemFailures = 3),
                     config = config,
-                    metrics = NoDeliveryMetrics,
+                    metrics = metrics,
                 )
 
-            // Replica B simply sends whatever it claims.
+            replicaA.runOnce()
+
+            val peerToken = checkNotNull(peerClaimToken)
+            metrics.deliveryClaimLost[Channel.MICROFRONTEND]?.get() shouldBe 1
+            metrics.deliverySent[Channel.MICROFRONTEND] shouldBe null
+            val deliveryId =
+                fixture.database.transact {
+                    val row = DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq inboxEventId }.single()
+                    row[DeliveryTable.state] shouldBe "CLAIMED"
+                    row[DeliveryTable.claimToken] shouldBe peerToken
+                    row[DeliveryTable.attempt] shouldBe 1
+                    row[DeliveryTable.id]
+                }
+            deliveries.markFailed(deliveryId, peerToken, "peer outcome") shouldBe true
+            fixture.database.transact {
+                val row = DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq inboxEventId }.single()
+                row[DeliveryTable.state] shouldBe "FAILED"
+                row[DeliveryTable.errorMessage] shouldBe "peer outcome"
+                row[DeliveryTable.claimToken] shouldBe null
+            }
+        }
+
+        test("delivery: a lease expiring mid-send still sends twice, but only the peer records the outcome") {
+            val deliveries = PostgresDeliveryRepository(fixture.database)
+            val inbox = PostgresInboxMessageRepository(fixture.database)
+            val inboxEventId = UUID.fromString("00000000-0000-0000-0000-0000000000b3")
+            inbox.saveBatch(listOf(inboxMessage(inboxEventId)))
+            fixture.database.transact {
+                deliveries.saveInTransaction(inboxEventId, listOf(microfrontendDraft(reference = "race-ref")))
+            }
+
+            val sends = mutableListOf<UUID>()
+            val metricsA = RecordingDeliveryMetrics()
+            val metricsB = RecordingDeliveryMetrics()
+            val config =
+                LeaseDrainConfig(
+                    interval = 3.seconds,
+                    batchSize = 25,
+                    leaseDuration = lease,
+                    leaseBudgetFraction = 0.8,
+                    maxAttempts = 10,
+                    maxConsecutiveItemFailures = 3,
+                )
+
+            fun workerWith(
+                metrics: RecordingDeliveryMetrics,
+                handler: ChannelHandler,
+            ) = DeliveryWorker(
+                repository = deliveries,
+                handlers = mapOf(Channel.MICROFRONTEND to handler),
+                drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8, maxConsecutiveItemFailures = 3),
+                config = config,
+                metrics = metrics,
+            )
+
             val replicaB =
-                workerWith { delivery ->
+                workerWith(metricsB) { delivery ->
                     sends += delivery.id
                     DeliveryOutcome.Sent
                 }
 
-            // Replica A's send outlives its lease: the row becomes claimable again while A is still
-            // inside handler.handle(), so B reclaims and sends before A reaches markSent.
-            var peerHasRun = false
+            // A's send outlives its lease, so B reclaims, sends and records SENT before A returns.
             val replicaA =
-                workerWith { delivery ->
+                workerWith(metricsA) { delivery ->
                     sends += delivery.id
-                    if (!peerHasRun) {
-                        peerHasRun = true
-                        expireDeliveryLease(delivery.id)
-                        replicaB.runOnce()
-                    }
+                    expireDeliveryLease(delivery.id)
+                    replicaB.runOnce()
                     DeliveryOutcome.Sent
                 }
 
             replicaA.runOnce()
 
-            // The external side effect happened twice for one delivery row; the terminal CAS only
-            // decided which replica got to record it.
-            sends shouldHaveSize 2
-            sends.distinct() shouldHaveSize 1
+            // Fencing cannot undo an external effect: delivery stays at-least-once.
+            sends.size shouldBe 2
+            sends.distinct().size shouldBe 1
+            metricsB.deliverySent[Channel.MICROFRONTEND]?.get() shouldBe 1
+            metricsA.deliverySent[Channel.MICROFRONTEND] shouldBe null
+            metricsA.deliveryClaimLost[Channel.MICROFRONTEND]?.get() shouldBe 1
             fixture.database.transact {
                 val row = DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq inboxEventId }.single()
                 row[DeliveryTable.state] shouldBe "SENT"
                 row[DeliveryTable.attempt] shouldBe 2
+                row[DeliveryTable.claimToken] shouldBe null
             }
         }
     })

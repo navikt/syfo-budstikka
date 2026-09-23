@@ -502,13 +502,18 @@ private class RecordingDeliveryRepository : DeliveryRepository {
 
     override suspend fun beginAttempt(
         deliveryId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean = true
 
-    override suspend fun markSent(deliveryId: UUID): Boolean = true
+    override suspend fun markSent(
+        deliveryId: UUID,
+        claimToken: UUID,
+    ): Boolean = true
 
     override suspend fun markFailed(
         deliveryId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean = true
 }

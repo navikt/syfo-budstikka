@@ -139,6 +139,7 @@ private class ThrowingDocumentDistributor : DocumentDistributor {
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000703"),
         id = DELIVERY_ID,
         inboxEventId = INBOX_EVENT_ID,
         reference = "brev-reference",

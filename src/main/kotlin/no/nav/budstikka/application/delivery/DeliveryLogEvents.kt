@@ -27,7 +27,7 @@ internal object DeliveryLogEvents {
         Event<Unit>(
             name = "delivery.sent_transition.failed",
             level = ApplicationLogLevel.WARN,
-            message = "Could not mark delivery as SENT because row is no longer CLAIMED",
+            message = "Delivery claim lost; could not mark SENT because row is no longer CLAIMED under this worker's claim",
             operation = "delivery.mark_sent",
             errorCode = "DELIVERY_STATE_CONFLICT",
         )
@@ -52,7 +52,7 @@ internal object DeliveryLogEvents {
         Event<Unit>(
             name = "delivery.failed_transition.failed",
             level = ApplicationLogLevel.WARN,
-            message = "Could not mark delivery as FAILED because row is no longer CLAIMED",
+            message = "Delivery claim lost; could not mark FAILED because row is no longer CLAIMED under this worker's claim",
             operation = "delivery.mark_failed",
             errorCode = "DELIVERY_STATE_CONFLICT",
         )
