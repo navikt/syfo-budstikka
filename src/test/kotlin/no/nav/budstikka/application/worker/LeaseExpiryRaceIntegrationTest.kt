@@ -1,16 +1,20 @@
 package no.nav.budstikka.application.worker
 
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.inbox.EffectuateDecision
+import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
+import no.nav.budstikka.domain.decision.DecisionProcess
+import no.nav.budstikka.domain.decision.DecisionRule
+import no.nav.budstikka.domain.decision.ResolvedRule
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
+import no.nav.budstikka.fakes.RecordingInboxMetrics
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
@@ -60,7 +64,7 @@ class LeaseExpiryRaceIntegrationTest :
             }
         }
 
-        test("inbox: a peer reclaiming an expired lease does not produce a second set of delivery rows") {
+        test("inbox: an expired worker cannot effectuate after a peer reclaims its lease") {
             val inbox = PostgresInboxMessageRepository(fixture.database)
             val effectuate =
                 EffectuateDecision(
@@ -72,24 +76,27 @@ class LeaseExpiryRaceIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
 
             // Replica A claims and starts enrichment (PDL/KRR), which outlives the lease.
-            inbox.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+            val tokenA = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
             expireInboxLease(eventId)
 
-            // Replica B reclaims the same row and enriches it a second time. The row stays CLAIMED,
-            // so A's terminal CAS below still finds the state it guards on.
-            inbox.claim(limit = 10, lease = lease, maxAttempts = 10).shouldHaveSize(1)
+            // Replica B reclaims the same row with a new token while A is still working.
+            val tokenB = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
+            tokenB shouldNotBe tokenA
 
-            // Both replicas now effectuate the same message.
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref"))))
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref"))))
+            effectuate.effectuate(eventId, tokenA, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe false
+            fixture.database.transact {
+                DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 0L
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "CLAIMED"
+                row[InboxMessageTable.claimToken] shouldBe tokenB
+            }
+            effectuate.effectuate(eventId, tokenB, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe true
 
-            // CLAIMED->PROCESSED is a one-shot transition, so only the first effectuation writes.
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 1L
-                InboxMessageTable
-                    .selectAll()
-                    .where { InboxMessageTable.eventId eq eventId }
-                    .single()[InboxMessageTable.state] shouldBe "PROCESSED"
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "PROCESSED"
+                row[InboxMessageTable.claimToken] shouldBe null
             }
         }
 
@@ -222,6 +229,55 @@ class LeaseExpiryRaceIntegrationTest :
                 row[DeliveryTable.state] shouldBe "SENT"
                 row[DeliveryTable.attempt] shouldBe 2
                 row[DeliveryTable.claimToken] shouldBe null
+            }
+        }
+
+        test("inbox worker: a decision computed after a peer reclaims the lease counts as claim lost") {
+            val inbox = PostgresInboxMessageRepository(fixture.database)
+            val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000b4")
+            inbox.saveBatch(listOf(inboxMessage(eventId)))
+            val metrics = RecordingInboxMetrics()
+            var peerClaimToken: UUID? = null
+
+            // Enrichment outlives the lease; a peer reclaims the row before A's decision is persisted.
+            val slowEnrichment =
+                DecisionRule {
+                    expireInboxLease(eventId)
+                    peerClaimToken = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
+                    ResolvedRule { deliveries -> Decision.Processed(deliveries) }
+                }
+            val worker =
+                InboxMessageWorker(
+                    repository = inbox,
+                    effectuator =
+                        EffectuateDecision(
+                            transactionRunner = PostgresTransactionRunner(fixture.database),
+                            inboxMessageRepository = inbox,
+                            deliveryRepository = PostgresDeliveryRepository(fixture.database),
+                        ),
+                    decisionProcess = DecisionProcess(listOf(slowEnrichment)),
+                    drainer = LeaseBudgetDrainer(leaseBudgetFraction = 0.8, maxConsecutiveItemFailures = 3),
+                    config =
+                        LeaseDrainConfig(
+                            interval = 3.seconds,
+                            batchSize = 25,
+                            leaseDuration = lease,
+                            leaseBudgetFraction = 0.8,
+                            maxAttempts = 10,
+                            maxConsecutiveItemFailures = 3,
+                        ),
+                    metrics = metrics,
+                )
+
+            worker.runOnce()
+
+            metrics.decisionCasLostCount.get() shouldBe 1
+            metrics.processedCount.get() shouldBe 0
+            fixture.database.transact {
+                DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 0L
+                val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
+                row[InboxMessageTable.state] shouldBe "CLAIMED"
+                row[InboxMessageTable.claimToken] shouldBe checkNotNull(peerClaimToken)
             }
         }
     })

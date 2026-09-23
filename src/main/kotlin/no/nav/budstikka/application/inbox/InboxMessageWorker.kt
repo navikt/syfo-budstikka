@@ -5,7 +5,7 @@ import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.logging.applicationLogger
-import no.nav.budstikka.application.port.InboxMessage
+import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
@@ -32,7 +32,7 @@ class InboxMessageWorker(
     suspend fun runOnce() {
         drainer.drain(
             leaseDuration = config.leaseDuration,
-            eventId = { it.eventId.toString() },
+            eventId = { it.message.eventId.toString() },
             claim = {
                 repository.claim(config.batchSize, config.leaseDuration, config.maxAttempts).also { claimed ->
                     if (claimed.isEmpty()) metrics.emptyPoll() else metrics.claimed(claimed.size)
@@ -42,25 +42,27 @@ class InboxMessageWorker(
         )
     }
 
-    private suspend fun processClaimed(message: InboxMessage) {
+    private suspend fun processClaimed(claimed: ClaimedInboxMessage) {
+        val message = claimed.message
         val dispatch = Dispatch(reference = message.reference, content = message.content)
         ApplicationMdc.putCloseable(MdcKeys.REFERENCE, message.reference).use {
             withContext(MDCContext()) {
-                if (!repository.beginAttempt(message.eventId, config.maxAttempts)) {
-                    // A peer terminated the row, or its attempts are spent and the poison gate owns it.
+                if (!repository.beginAttempt(message.eventId, claimed.claimToken, config.maxAttempts)) {
+                    // A peer reclaimed or terminated the row, or the poison gate owns its spent attempts.
                     logger.event(InboxLogEvents.claimSkipped)
                     return@withContext
                 }
-                completeDecision(message.eventId, decisionProcess.process(dispatch))
+                completeDecision(message.eventId, claimed.claimToken, decisionProcess.process(dispatch))
             }
         }
     }
 
     private suspend fun completeDecision(
         eventId: UUID,
+        claimToken: UUID,
         decision: Decision,
     ) {
-        if (!effectuator.effectuate(eventId, decision)) {
+        if (!effectuator.effectuate(eventId, claimToken, decision)) {
             metrics.decisionCasLost()
             return
         }

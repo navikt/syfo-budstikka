@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
 import no.nav.budstikka.application.logging.applicationLogger
+import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -48,11 +49,12 @@ class PostgresInboxMessageRepository(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
-    ): List<InboxMessage> {
+    ): List<ClaimedInboxMessage> {
         require(limit > 0) { "limit must be greater than 0" }
         require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
         return database.transact {
             val now = Clock.System.now()
+            val claimToken = UUID.randomUUID()
             failPoisonRows(now, maxAttempts)
             val claimed =
                 InboxMessageTable
@@ -69,15 +71,20 @@ class PostgresInboxMessageRepository(
                     ).limit(limit)
                     .forUpdate(ForUpdateOption.PostgreSQL.ForUpdate(ForUpdateOption.PostgreSQL.MODE.SKIP_LOCKED))
                     .map { row ->
-                        InboxMessage(
-                            eventId = row[InboxMessageTable.eventId],
-                            reference = row[InboxMessageTable.reference],
-                            content = row[InboxMessageTable.content],
+                        ClaimedInboxMessage(
+                            message =
+                                InboxMessage(
+                                    eventId = row[InboxMessageTable.eventId],
+                                    reference = row[InboxMessageTable.reference],
+                                    content = row[InboxMessageTable.content],
+                                ),
+                            claimToken = claimToken,
                         )
                     }
             if (claimed.isNotEmpty()) {
-                InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.eventId } }) {
+                InboxMessageTable.update({ InboxMessageTable.eventId inList claimed.map { it.message.eventId } }) {
                     it[state] = InboxMessageState.CLAIMED.name
+                    it[InboxMessageTable.claimToken] = claimToken
                     it[nextAttemptTime] = now + lease
                 }
             }
@@ -93,6 +100,7 @@ class PostgresInboxMessageRepository(
      */
     override suspend fun beginAttempt(
         eventId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean {
         require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
@@ -100,6 +108,7 @@ class PostgresInboxMessageRepository(
             InboxMessageTable.update({
                 (InboxMessageTable.eventId eq eventId) and
                     (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+                    (InboxMessageTable.claimToken eq claimToken) and
                     (InboxMessageTable.attempt less maxAttempts)
             }) {
                 it[attempt] = attempt + 1
@@ -148,6 +157,7 @@ class PostgresInboxMessageRepository(
         }
         InboxMessageTable.update({ InboxMessageTable.eventId inList poisonIds }) {
             it[state] = InboxMessageState.FAILED.name
+            it[claimToken] = null
             it[nextAttemptTime] = null
             it[processedAt] = now
             it[waitReason] = null
@@ -162,28 +172,36 @@ class PostgresInboxMessageRepository(
         )
     }
 
-    override fun markProcessedInTransaction(eventId: UUID): Boolean =
-        terminate(eventId, state = InboxMessageState.PROCESSED, dropReason = null, errorMessage = null)
+    override fun markProcessedInTransaction(
+        eventId: UUID,
+        claimToken: UUID,
+    ): Boolean = terminate(eventId, claimToken, state = InboxMessageState.PROCESSED, dropReason = null, errorMessage = null)
 
     override fun markDroppedInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
-    ): Boolean = terminate(eventId, state = InboxMessageState.DROPPED, dropReason = reason, errorMessage = null)
+    ): Boolean = terminate(eventId, claimToken, state = InboxMessageState.DROPPED, dropReason = reason, errorMessage = null)
 
     override fun markFailedInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
-    ): Boolean = terminate(eventId, state = InboxMessageState.FAILED, dropReason = null, errorMessage = reason)
+    ): Boolean = terminate(eventId, claimToken, state = InboxMessageState.FAILED, dropReason = null, errorMessage = reason)
 
     override fun markOutsideSendingWindowInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
         nextRetry: Instant,
     ): Boolean =
         InboxMessageTable.update({
-            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+            (InboxMessageTable.eventId eq eventId) and
+                (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+                (InboxMessageTable.claimToken eq claimToken)
         }) {
             it[InboxMessageTable.state] = InboxMessageState.WAIT.name
+            it[InboxMessageTable.claimToken] = null
             it[InboxMessageTable.waitReason] = reason
             it[InboxMessageTable.nextAttemptTime] = nextRetry
             // Reaching a hold decision is a successful evaluation, not a failure. The attempt spent
@@ -194,14 +212,18 @@ class PostgresInboxMessageRepository(
 
     private fun terminate(
         eventId: UUID,
+        claimToken: UUID,
         state: InboxMessageState,
         dropReason: String?,
         errorMessage: String?,
     ): Boolean =
         InboxMessageTable.update({
-            (InboxMessageTable.eventId eq eventId) and (InboxMessageTable.state eq InboxMessageState.CLAIMED.name)
+            (InboxMessageTable.eventId eq eventId) and
+                (InboxMessageTable.state eq InboxMessageState.CLAIMED.name) and
+                (InboxMessageTable.claimToken eq claimToken)
         }) {
             it[InboxMessageTable.state] = state.name
+            it[InboxMessageTable.claimToken] = null
             it[InboxMessageTable.dropReason] = dropReason
             it[InboxMessageTable.errorMessage] = errorMessage
             it[InboxMessageTable.waitReason] = null
