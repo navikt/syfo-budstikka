@@ -52,9 +52,9 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a1")
             inbox.saveBatch(listOf(inboxMessage(eventId)))
-            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+            val claimToken = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
+            effectuate.effectuate(eventId, claimToken, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
@@ -64,9 +64,9 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a2")
             inbox.saveBatch(listOf(inboxMessage(eventId)))
-            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+            val claimToken = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
 
-            effectuate.effectuate(eventId, Decision.Failed("boom")) shouldBe true
+            effectuate.effectuate(eventId, claimToken, Decision.Failed("boom")) shouldBe true
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "FAILED"
@@ -76,9 +76,9 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a3")
             inbox.saveBatch(listOf(inboxMessage(eventId)))
-            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+            val claimToken = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
 
-            effectuate.effectuate(eventId, Decision.Dropped(DropReason.DEAD)) shouldBe true
+            effectuate.effectuate(eventId, claimToken, Decision.Dropped(DropReason.DEAD)) shouldBe true
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "DROPPED"
@@ -88,10 +88,10 @@ class EffectuateDecisionIntegrationTest :
             val (effectuate, inbox) = effectuator()
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000a4")
             inbox.saveBatch(listOf(inboxMessage(eventId)))
-            inbox.claim(limit = 10, lease = lease, maxAttempts = 10)
+            val claimToken = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
 
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
-            effectuate.effectuate(eventId, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe false
+            effectuate.effectuate(eventId, claimToken, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
+            effectuate.effectuate(eventId, claimToken, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe false
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"

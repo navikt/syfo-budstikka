@@ -14,6 +14,7 @@ object InboxMessageTable : Table("inbox_message") {
     val content = jsonb<DispatchContent>("content", dispatchJson)
     val reference = text("reference")
     val state = text("state").default(InboxMessageState.RECEIVED.name)
+    val claimToken = javaUUID("claim_token").nullable()
     val dropReason = text("drop_reason").nullable()
     val attempt = integer("attempt").default(0)
     val nextAttemptTime = timestamp("next_attempt_time").nullable()

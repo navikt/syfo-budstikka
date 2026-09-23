@@ -315,6 +315,7 @@ private fun create(
 
 private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
     ClaimedDelivery(
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000703"),
         id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
         reference = "reference",

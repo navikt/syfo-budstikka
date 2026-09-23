@@ -11,11 +11,11 @@ import no.nav.budstikka.domain.decision.Channel
  * names follow the Prometheus convention (Micrometer dot names → `snake_case`, counters gain `_total`):
  *
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
+ * - `delivery_claim_lost_total{channel}`
  * - `narmeste_leder_missing_total{reason}`
  *
- * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. Counting
- * happens before the final state transition is guaranteed, so these metrics are observability
- * signals rather than an accounting source.
+ * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. These
+ * counters are observability signals rather than an accounting source.
  */
 class MicrometerDeliveryMetrics(
     private val registry: MeterRegistry,
@@ -30,6 +30,13 @@ class MicrometerDeliveryMetrics(
     override fun sent(channel: Channel) = delivery(channel, result = RESULT_SENT)
 
     override fun failed(channel: Channel) = delivery(channel, result = RESULT_FAILED)
+
+    override fun claimLost(channel: Channel) =
+        Counter
+            .builder(DELIVERY_CLAIM_LOST)
+            .tag(TAG_CHANNEL, channel.name.lowercase())
+            .register(registry)
+            .increment()
 
     override fun narmesteLederMissing(reason: NarmesteLederMissingReason) =
         Counter
@@ -57,6 +64,7 @@ class MicrometerDeliveryMetrics(
      */
     companion object {
         const val DELIVERY_CLAIMED = "delivery.claimed"
+        const val DELIVERY_CLAIM_LOST = "delivery.claim.lost"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
         const val DELIVERY = "delivery"
         const val NARMESTE_LEDER_MISSING = "narmeste.leder.missing"

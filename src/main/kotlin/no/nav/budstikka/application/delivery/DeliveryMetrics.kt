@@ -15,6 +15,9 @@ interface DeliveryMetrics {
 
     fun failed(channel: Channel)
 
+    /** A worker finished after its claim was lost to a peer or terminal transition; its outcome was not recorded. */
+    fun claimLost(channel: Channel)
+
     fun narmesteLederMissing(reason: NarmesteLederMissingReason)
 }
 
@@ -26,6 +29,8 @@ object NoDeliveryMetrics : DeliveryMetrics {
     override fun sent(channel: Channel) = Unit
 
     override fun failed(channel: Channel) = Unit
+
+    override fun claimLost(channel: Channel) = Unit
 
     override fun narmesteLederMissing(reason: NarmesteLederMissingReason) = Unit
 }

@@ -24,7 +24,7 @@ interface InboxMetrics {
         count: Int,
     )
 
-    /** A decision was computed after another worker had already moved the row away from CLAIMED. */
+    /** The decision was computed after the row left CLAIMED or was reclaimed by a peer (claim lost). */
     fun decisionCasLost()
 }
 

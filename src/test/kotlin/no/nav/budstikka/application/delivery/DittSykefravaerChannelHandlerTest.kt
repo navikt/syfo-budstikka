@@ -57,6 +57,7 @@ class DittSykefravaerChannelHandlerTest :
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000703"),
         id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
         reference = "ditt-sykefravaer-reference",

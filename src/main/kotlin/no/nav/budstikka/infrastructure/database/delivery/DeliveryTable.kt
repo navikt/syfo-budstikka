@@ -20,6 +20,7 @@ object DeliveryTable : Table("delivery") {
     val recipientId = text("recipient_id")
     val payload = jsonb<DispatchContent>("payload", dispatchJson)
     val state = text("state").default("READY")
+    val claimToken = javaUUID("claim_token").nullable()
     val attempt = integer("attempt").default(0)
     val nextAttemptTime = timestamp("next_attempt_time").nullable()
     val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp)

@@ -97,6 +97,7 @@ private class ThrowingMinSideBrukervarselPublisher : MinSideBrukervarselPublishe
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
+        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000503"),
         id = UUID.fromString("00000000-0000-0000-0000-000000000501"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000502"),
         reference = "brukervarsel-reference",

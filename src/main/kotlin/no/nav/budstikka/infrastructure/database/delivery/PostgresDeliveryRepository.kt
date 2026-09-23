@@ -62,6 +62,7 @@ class PostgresDeliveryRepository(
         require(channels.isNotEmpty()) { "channels must not be empty" }
         return database.transact {
             val now = Clock.System.now()
+            val claimToken = UUID.randomUUID()
             val channelNames = channels.map(Channel::name)
             failPoisonRows(now, maxAttempts, channelNames)
             val claimed =
@@ -90,6 +91,7 @@ class PostgresDeliveryRepository(
                     .map { row ->
                         ClaimedDelivery(
                             id = row[DeliveryTable.id],
+                            claimToken = claimToken,
                             inboxEventId = row[DeliveryTable.inboxEventId],
                             reference = row[DeliveryTable.reference],
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
@@ -99,6 +101,7 @@ class PostgresDeliveryRepository(
             if (claimed.isNotEmpty()) {
                 DeliveryTable.update({ DeliveryTable.id inList claimed.map { it.id } }) {
                     it[state] = DeliveryState.CLAIMED.name
+                    it[DeliveryTable.claimToken] = claimToken
                     it[nextAttemptTime] = now + lease
                 }
             }
@@ -113,6 +116,7 @@ class PostgresDeliveryRepository(
      */
     override suspend fun beginAttempt(
         deliveryId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean {
         require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
@@ -120,6 +124,7 @@ class PostgresDeliveryRepository(
             DeliveryTable.update({
                 (DeliveryTable.id eq deliveryId) and
                     (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
+                    (DeliveryTable.claimToken eq claimToken) and
                     (DeliveryTable.attempt less maxAttempts)
             }) {
                 it[attempt] = attempt + 1
@@ -175,6 +180,7 @@ class PostgresDeliveryRepository(
         val poisonIds = poisonRows.map { it.id }
         DeliveryTable.update({ DeliveryTable.id inList poisonIds }) {
             it[state] = DeliveryState.FAILED.name
+            it[claimToken] = null
             it[nextAttemptTime] = null
             it[errorMessage] = "Poison row failed after reaching $maxAttempts attempts"
         }
@@ -203,27 +209,34 @@ class PostgresDeliveryRepository(
         val attempt: Int,
     )
 
-    override suspend fun markSent(deliveryId: UUID): Boolean =
-        markClaimedAsTerminal(deliveryId, state = DeliveryState.SENT, errorMessage = null)
+    override suspend fun markSent(
+        deliveryId: UUID,
+        claimToken: UUID,
+    ): Boolean = markClaimedAsTerminal(deliveryId, claimToken, state = DeliveryState.SENT, errorMessage = null)
 
     override suspend fun markFailed(
         deliveryId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean {
         require(reason.isNotBlank()) { "reason must not be blank" }
-        return markClaimedAsTerminal(deliveryId, state = DeliveryState.FAILED, errorMessage = reason)
+        return markClaimedAsTerminal(deliveryId, claimToken, state = DeliveryState.FAILED, errorMessage = reason)
     }
 
     private suspend fun markClaimedAsTerminal(
         deliveryId: UUID,
+        claimToken: UUID,
         state: DeliveryState,
         errorMessage: String?,
     ): Boolean =
         database.transact {
             DeliveryTable.update({
-                (DeliveryTable.id eq deliveryId) and (DeliveryTable.state eq DeliveryState.CLAIMED.name)
+                (DeliveryTable.id eq deliveryId) and
+                    (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
+                    (DeliveryTable.claimToken eq claimToken)
             }) {
                 it[DeliveryTable.state] = state.name
+                it[DeliveryTable.claimToken] = null
                 it[DeliveryTable.nextAttemptTime] = null
                 it[DeliveryTable.errorMessage] = errorMessage
             } > 0

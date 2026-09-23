@@ -9,7 +9,7 @@ import java.util.UUID
 /**
  * Persists one [Decision] atomically: delivery rows and inbox state commit or roll back together.
  * External lookups must finish before this transaction begins. Returns whether this worker won the
- * state transition and persisted the decision.
+ * state transition under its claim token and persisted the decision.
  */
 class EffectuateDecision(
     private val transactionRunner: TransactionRunner,
@@ -18,13 +18,14 @@ class EffectuateDecision(
 ) {
     suspend fun effectuate(
         inboxEventId: UUID,
+        claimToken: UUID,
         decision: Decision,
     ): Boolean =
         transactionRunner.transaction {
             when (decision) {
                 is Decision.Processed -> {
                     // Only the worker winning CLAIMED->PROCESSED writes delivery rows.
-                    val transitioned = inboxMessageRepository.markProcessedInTransaction(inboxEventId)
+                    val transitioned = inboxMessageRepository.markProcessedInTransaction(inboxEventId, claimToken)
                     if (transitioned) {
                         deliveryRepository.saveInTransaction(inboxEventId, decision.deliveries)
                     }
@@ -32,14 +33,15 @@ class EffectuateDecision(
                 }
 
                 is Decision.Dropped ->
-                    inboxMessageRepository.markDroppedInTransaction(inboxEventId, decision.reason.name)
+                    inboxMessageRepository.markDroppedInTransaction(inboxEventId, claimToken, decision.reason.name)
 
                 is Decision.Failed ->
-                    inboxMessageRepository.markFailedInTransaction(inboxEventId, decision.errorMessage)
+                    inboxMessageRepository.markFailedInTransaction(inboxEventId, claimToken, decision.errorMessage)
 
                 is Decision.NotInSendingWindow ->
                     inboxMessageRepository.markOutsideSendingWindowInTransaction(
                         inboxEventId,
+                        claimToken,
                         decision.reason,
                         decision.nextRetry,
                     )

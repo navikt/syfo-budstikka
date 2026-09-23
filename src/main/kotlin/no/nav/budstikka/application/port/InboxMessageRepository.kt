@@ -12,6 +12,11 @@ data class InboxMessage(
     val content: DispatchContent,
 )
 
+data class ClaimedInboxMessage(
+    val message: InboxMessage,
+    val claimToken: UUID,
+)
+
 interface InboxMessageRepository {
     suspend fun saveBatch(messages: List<InboxMessage>)
 
@@ -30,12 +35,13 @@ interface InboxMessageRepository {
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
-    ): List<InboxMessage>
+    ): List<ClaimedInboxMessage>
 
     /**
      * Authorises one processing attempt for a claimed row and spends it, atomically. Returns `false`
-     * when the row is no longer CLAIMED (a peer terminated it) or has already spent [maxAttempts];
-     * the caller must then skip the message and leave it to the poison gate.
+     * when the row is no longer CLAIMED under this caller's claim token (a peer terminated or
+     * reclaimed it) or has already spent [maxAttempts]; the caller must then skip the message and
+     * leave it to the poison gate.
      *
      * `attempt` counts durable authorisations to START processing, not proven external effects.
      * Callers therefore invoke this BEFORE the first fallible, message-specific work, so a crash,
@@ -44,6 +50,7 @@ interface InboxMessageRepository {
      */
     suspend fun beginAttempt(
         eventId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean
 
@@ -52,23 +59,29 @@ interface InboxMessageRepository {
      * inside [TransactionRunner.transaction] with delivery writes, so one message is effectuated all
      * or nothing. The transition applies only while the row is CLAIMED and is idempotent for
      * rows already moved away from CLAIMED: those return `false`. Processed, dropped and failed are
-     * terminal, while a message outside its sending window moves to WAIT. Claims have no owner or
-     * fencing token, so this compare-and-set does not distinguish a stale worker from a later reclaimer.
+     * terminal, while a message outside its sending window moves to WAIT. Each transition applies
+     * only while CLAIMED under the caller's claim token; a worker whose lease was reclaimed gets `false`.
      */
-    fun markProcessedInTransaction(eventId: UUID): Boolean
+    fun markProcessedInTransaction(
+        eventId: UUID,
+        claimToken: UUID,
+    ): Boolean
 
     fun markDroppedInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean
 
     fun markFailedInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean
 
     fun markOutsideSendingWindowInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
         nextRetry: Instant,
     ): Boolean

@@ -21,6 +21,7 @@ import kotlinx.datetime.toInstant
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
@@ -168,12 +169,12 @@ class InboxMessageWorkerTest :
             metrics.emptyPollCount.get() shouldBe 0
         }
 
-        test("runOnce counts a lost decision CAS without recording or logging a domain outcome") {
+        test("runOnce counts a reclaimed claim as a lost decision CAS without logging a domain outcome") {
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val repository =
                 PollingInboxMessageRepository(
                     messages = listOf(inboxMessage(eventId, reference = "lost-cas")),
-                    terminalTransitionResult = false,
+                    reclaimAfterAttempt = true,
                 )
             val metrics = RecordingInboxMetrics()
             val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
@@ -422,7 +423,7 @@ private fun workerWith(
 
 private class PollingInboxMessageRepository(
     private val messages: List<InboxMessage>,
-    private val terminalTransitionResult: Boolean = true,
+    private val reclaimAfterAttempt: Boolean = false,
     private val onPoll: () -> Unit = {},
 ) : InboxMessageRepository {
     var lastPollLimit: Int? = null
@@ -431,6 +432,7 @@ private class PollingInboxMessageRepository(
     val processedEventIds = mutableListOf<UUID>()
     val failedMessages = mutableListOf<Pair<UUID, String>>()
     val waitingMessages = mutableMapOf<UUID, Pair<String, Instant>>()
+    private var currentToken: UUID? = null
 
     override suspend fun saveBatch(messages: List<InboxMessage>) = Unit
 
@@ -438,48 +440,62 @@ private class PollingInboxMessageRepository(
         limit: Int,
         lease: Duration,
         maxAttempts: Int,
-    ): List<InboxMessage> {
+    ): List<ClaimedInboxMessage> {
         lastPollLimit = limit
         pollCount.incrementAndGet()
         onPoll()
-        return messages
+        val claimToken = UUID.randomUUID()
+        currentToken = claimToken
+        return messages.map { ClaimedInboxMessage(it, claimToken) }
     }
 
     val attemptedEventIds = mutableListOf<UUID>()
 
     override suspend fun beginAttempt(
         eventId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean {
         attemptedEventIds += eventId
+        if (claimToken != currentToken) return false
+        if (reclaimAfterAttempt) currentToken = UUID.randomUUID()
         return true
     }
 
-    override fun markProcessedInTransaction(eventId: UUID): Boolean {
-        if (terminalTransitionResult) processedEventIds += eventId
-        return terminalTransitionResult
+    override fun markProcessedInTransaction(
+        eventId: UUID,
+        claimToken: UUID,
+    ): Boolean {
+        if (claimToken != currentToken) return false
+        processedEventIds += eventId
+        return true
     }
 
     override fun markDroppedInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
-    ): Boolean = terminalTransitionResult
+    ): Boolean = claimToken == currentToken
 
     override fun markFailedInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean {
-        if (terminalTransitionResult) failedMessages += eventId to reason
-        return terminalTransitionResult
+        if (claimToken != currentToken) return false
+        failedMessages += eventId to reason
+        return true
     }
 
     override fun markOutsideSendingWindowInTransaction(
         eventId: UUID,
+        claimToken: UUID,
         reason: String,
         nextRetry: Instant,
     ): Boolean {
-        if (terminalTransitionResult) waitingMessages += eventId to (reason to nextRetry)
-        return terminalTransitionResult
+        if (claimToken != currentToken) return false
+        waitingMessages += eventId to (reason to nextRetry)
+        return true
     }
 }
 
@@ -502,13 +518,18 @@ private class RecordingDeliveryRepository : DeliveryRepository {
 
     override suspend fun beginAttempt(
         deliveryId: UUID,
+        claimToken: UUID,
         maxAttempts: Int,
     ): Boolean = true
 
-    override suspend fun markSent(deliveryId: UUID): Boolean = true
+    override suspend fun markSent(
+        deliveryId: UUID,
+        claimToken: UUID,
+    ): Boolean = true
 
     override suspend fun markFailed(
         deliveryId: UUID,
+        claimToken: UUID,
         reason: String,
     ): Boolean = true
 }
