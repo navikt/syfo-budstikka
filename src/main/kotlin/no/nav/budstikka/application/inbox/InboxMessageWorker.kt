@@ -6,13 +6,13 @@ import no.nav.budstikka.application.logging.ApplicationMdc
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.ClaimedInboxMessage
+import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
-import java.util.UUID
 
 /**
  * Claims hydrated inbox messages, decides them through [DecisionProcess], and persists each outcome
@@ -47,22 +47,21 @@ class InboxMessageWorker(
         val dispatch = Dispatch(reference = message.reference, content = message.content)
         ApplicationMdc.putCloseable(MdcKeys.REFERENCE, message.reference).use {
             withContext(MDCContext()) {
-                if (!repository.beginAttempt(message.eventId, claimed.claimToken, config.maxAttempts)) {
+                if (!repository.beginAttempt(claimed.claim, config.maxAttempts)) {
                     // A peer reclaimed or terminated the row, or the poison gate owns its spent attempts.
                     logger.event(InboxLogEvents.claimSkipped)
                     return@withContext
                 }
-                completeDecision(message.eventId, claimed.claimToken, decisionProcess.process(dispatch))
+                completeDecision(claimed.claim, decisionProcess.process(dispatch))
             }
         }
     }
 
     private suspend fun completeDecision(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         decision: Decision,
     ) {
-        if (!effectuator.effectuate(eventId, claimToken, decision)) {
+        if (!effectuator.effectuate(claim, decision)) {
             metrics.decisionCasLost()
             return
         }

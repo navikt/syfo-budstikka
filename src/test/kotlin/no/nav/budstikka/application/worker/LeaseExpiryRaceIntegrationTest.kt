@@ -8,6 +8,7 @@ import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
@@ -76,21 +77,21 @@ class LeaseExpiryRaceIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
 
             // Replica A claims and starts enrichment (PDL/KRR), which outlives the lease.
-            val tokenA = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
+            val claimA = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
             expireInboxLease(eventId)
 
             // Replica B reclaims the same row with a new token while A is still working.
-            val tokenB = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
-            tokenB shouldNotBe tokenA
+            val claimB = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
+            claimB.token shouldNotBe claimA.token
 
-            effectuate.effectuate(eventId, tokenA, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe false
+            effectuate.effectuate(claimA, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe false
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 0L
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                row[InboxMessageTable.claimToken] shouldBe tokenB
+                row[InboxMessageTable.claimToken] shouldBe claimB.token.value
             }
-            effectuate.effectuate(eventId, tokenB, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe true
+            effectuate.effectuate(claimB, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe true
 
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 1L
@@ -237,7 +238,7 @@ class LeaseExpiryRaceIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000b4")
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             val metrics = RecordingInboxMetrics()
-            var peerClaimToken: UUID? = null
+            var peerClaimToken: ClaimToken? = null
 
             // Enrichment outlives the lease; a peer reclaims the row before A's decision is persisted.
             val slowEnrichment =
@@ -277,7 +278,7 @@ class LeaseExpiryRaceIntegrationTest :
                 DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 0L
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                row[InboxMessageTable.claimToken] shouldBe checkNotNull(peerClaimToken)
+                row[InboxMessageTable.claimToken] shouldBe checkNotNull(peerClaimToken).value
             }
         }
     })

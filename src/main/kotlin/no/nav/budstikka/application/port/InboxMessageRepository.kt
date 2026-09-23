@@ -14,7 +14,14 @@ data class InboxMessage(
 
 data class ClaimedInboxMessage(
     val message: InboxMessage,
-    val claimToken: UUID,
+    val claimToken: ClaimToken,
+) {
+    val claim: InboxClaim get() = InboxClaim(message.eventId, claimToken)
+}
+
+data class InboxClaim(
+    val eventId: UUID,
+    val token: ClaimToken,
 )
 
 interface InboxMessageRepository {
@@ -39,7 +46,7 @@ interface InboxMessageRepository {
 
     /**
      * Authorises one processing attempt for a claimed row and spends it, atomically. Returns `false`
-     * when the row is no longer CLAIMED under this caller's claim token (a peer terminated or
+     * when the row is no longer CLAIMED under this caller's [claim] (a peer terminated or
      * reclaimed it) or has already spent [maxAttempts]; the caller must then skip the message and
      * leave it to the poison gate.
      *
@@ -49,8 +56,7 @@ interface InboxMessageRepository {
      * `UPDATE` as the increment, so a read-then-update race cannot exceed [maxAttempts].
      */
     suspend fun beginAttempt(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         maxAttempts: Int,
     ): Boolean
 
@@ -60,28 +66,22 @@ interface InboxMessageRepository {
      * or nothing. The transition applies only while the row is CLAIMED and is idempotent for
      * rows already moved away from CLAIMED: those return `false`. Processed, dropped and failed are
      * terminal, while a message outside its sending window moves to WAIT. Each transition applies
-     * only while CLAIMED under the caller's claim token; a worker whose lease was reclaimed gets `false`.
+     * only while CLAIMED under the caller's claim; a worker whose lease was reclaimed gets `false`.
      */
-    fun markProcessedInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
-    ): Boolean
+    fun markProcessedInTransaction(claim: InboxClaim): Boolean
 
     fun markDroppedInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         reason: String,
     ): Boolean
 
     fun markFailedInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         reason: String,
     ): Boolean
 
     fun markOutsideSendingWindowInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         reason: String,
         nextRetry: Instant,
     ): Boolean

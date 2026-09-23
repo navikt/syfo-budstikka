@@ -4,6 +4,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import no.nav.budstikka.application.port.ClaimToken
+import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -91,10 +93,12 @@ class InboxDispatchRepositoryIntegrationTest :
 
             claimed.shouldHaveSize(1)
             claimed.single().message.eventId shouldBe eventId1
+            claimed.single().claim.eventId shouldBe eventId1
+            claimed.single().claim.token shouldBe claimed.single().claimToken
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId1 }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                row[InboxMessageTable.claimToken] shouldBe claimed.single().claimToken
+                row[InboxMessageTable.claimToken] shouldBe claimed.single().claimToken.value
                 // Claiming reserves the row but does not spend a processing attempt (#157).
                 row[InboxMessageTable.attempt] shouldBe 0
                 row[InboxMessageTable.nextAttemptTime] shouldNotBe null
@@ -120,7 +124,7 @@ class InboxDispatchRepositoryIntegrationTest :
             claimed.map { it.claimToken }.distinct().shouldHaveSize(1)
             fixture.database.transact {
                 InboxMessageTable.selectAll().map { it[InboxMessageTable.claimToken] }.distinct() shouldBe
-                    listOf(claimed.first().claimToken)
+                    listOf(claimed.first().claimToken.value)
             }
         }
 
@@ -128,30 +132,29 @@ class InboxDispatchRepositoryIntegrationTest :
             val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.randomUUID()
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            val stale = repository.claim(1, lease, 10).single().claimToken
+            val stale = repository.claim(1, lease, 10).single().claim
             expireLease(eventId)
-            val current = repository.claim(1, lease, 10).single().claimToken
+            val current = repository.claim(1, lease, 10).single().claim
             current shouldNotBe stale
 
-            repository.beginAttempt(eventId, stale, 10) shouldBe false
+            repository.beginAttempt(stale, 10) shouldBe false
             fixture.database.transact {
-                repository.markProcessedInTransaction(eventId, stale) shouldBe false
-                repository.markDroppedInTransaction(eventId, stale, "stale") shouldBe false
-                repository.markFailedInTransaction(eventId, stale, "stale") shouldBe false
+                repository.markProcessedInTransaction(stale) shouldBe false
+                repository.markDroppedInTransaction(stale, "stale") shouldBe false
+                repository.markFailedInTransaction(stale, "stale") shouldBe false
                 repository.markOutsideSendingWindowInTransaction(
-                    eventId,
                     stale,
                     "stale",
                     Clock.System.now(),
                 ) shouldBe false
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                row[InboxMessageTable.claimToken] shouldBe current
+                row[InboxMessageTable.claimToken] shouldBe current.token.value
                 row[InboxMessageTable.attempt] shouldBe 0
             }
-            repository.beginAttempt(eventId, current, 10) shouldBe true
+            repository.beginAttempt(current, 10) shouldBe true
             fixture.database.transact {
-                repository.markDroppedInTransaction(eventId, current, "current") shouldBe true
+                repository.markDroppedInTransaction(current, "current") shouldBe true
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "DROPPED"
                 row[InboxMessageTable.claimToken] shouldBe null
@@ -174,7 +177,7 @@ class InboxDispatchRepositoryIntegrationTest :
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 // Reclaiming an expired lease does not spend an attempt either (#157).
                 row[InboxMessageTable.attempt] shouldBe 0
-                row[InboxMessageTable.claimToken] shouldBe reclaimed.single().claimToken
+                row[InboxMessageTable.claimToken] shouldBe reclaimed.single().claimToken.value
             }
         }
 
@@ -182,11 +185,11 @@ class InboxDispatchRepositoryIntegrationTest :
             val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000005")
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            val claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
+            val claim = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            repository.beginAttempt(eventId, claimToken, maxAttempts = 2) shouldBe true
-            repository.beginAttempt(eventId, claimToken, maxAttempts = 2) shouldBe true
-            repository.beginAttempt(eventId, claimToken, maxAttempts = 2) shouldBe false
+            repository.beginAttempt(claim, maxAttempts = 2) shouldBe true
+            repository.beginAttempt(claim, maxAttempts = 2) shouldBe true
+            repository.beginAttempt(claim, maxAttempts = 2) shouldBe false
 
             fixture.database.transact {
                 InboxMessageTable
@@ -201,16 +204,16 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000006")
             repository.saveBatch(listOf(inboxMessage(eventId)))
 
-            repository.beginAttempt(eventId, UUID.randomUUID(), maxAttempts = 10) shouldBe false
+            repository.beginAttempt(InboxClaim(eventId, ClaimToken.generate()), maxAttempts = 10) shouldBe false
         }
 
         test("markProcessedInTransaction transitions a CLAIMED row to PROCESSED") {
             val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000010")
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            val claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
+            val claim = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            fixture.database.transact { repository.markProcessedInTransaction(eventId, claimToken) } shouldBe true
+            fixture.database.transact { repository.markProcessedInTransaction(claim) } shouldBe true
 
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
@@ -226,7 +229,9 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000012")
             repository.saveBatch(listOf(inboxMessage(eventId)))
 
-            fixture.database.transact { repository.markProcessedInTransaction(eventId, UUID.randomUUID()) } shouldBe false
+            fixture.database.transact {
+                repository.markProcessedInTransaction(InboxClaim(eventId, ClaimToken.generate()))
+            } shouldBe false
         }
 
         test("markFailedInTransaction transitions a CLAIMED row to FAILED with reason") {
@@ -234,9 +239,9 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000011")
             val reason = "Invalid dispatch payload"
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            val claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
+            val claim = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            fixture.database.transact { repository.markFailedInTransaction(eventId, claimToken, reason) } shouldBe true
+            fixture.database.transact { repository.markFailedInTransaction(claim, reason) } shouldBe true
 
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
@@ -253,11 +258,11 @@ class InboxDispatchRepositoryIntegrationTest :
             val reason = "Closed Sunday"
             val nextRetry = Clock.System.now() + 30.minutes
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            val claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
-            repository.beginAttempt(eventId, claimToken, maxAttempts = 10) shouldBe true
+            val claim = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
+            repository.beginAttempt(claim, maxAttempts = 10) shouldBe true
 
             fixture.database.transact {
-                repository.markOutsideSendingWindowInTransaction(eventId, claimToken, reason, nextRetry)
+                repository.markOutsideSendingWindowInTransaction(claim, reason, nextRetry)
             } shouldBe true
 
             fixture.database.transact {
@@ -278,12 +283,11 @@ class InboxDispatchRepositoryIntegrationTest :
             val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000051")
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            val firstToken = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claimToken
-            repository.beginAttempt(eventId, firstToken, maxAttempts = 10) shouldBe true
+            val firstClaim = repository.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
+            repository.beginAttempt(firstClaim, maxAttempts = 10) shouldBe true
             fixture.database.transact {
                 repository.markOutsideSendingWindowInTransaction(
-                    eventId,
-                    firstToken,
+                    firstClaim,
                     "Closed Sunday",
                     Clock.System.now() + 30.minutes,
                 )
@@ -295,11 +299,11 @@ class InboxDispatchRepositoryIntegrationTest :
 
             reclaimed.shouldHaveSize(1)
             reclaimed.single().message.eventId shouldBe eventId
-            reclaimed.single().claimToken shouldNotBe firstToken
+            reclaimed.single().claimToken shouldNotBe firstClaim.token
             fixture.database.transact {
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
-                row[InboxMessageTable.claimToken] shouldBe reclaimed.single().claimToken
+                row[InboxMessageTable.claimToken] shouldBe reclaimed.single().claimToken.value
                 // Waking from WAIT is a scheduled resume with a fresh budget: the hold handed the
                 // spent attempt back, and neither the wake nor the claim consumes one.
                 row[InboxMessageTable.attempt] shouldBe 0
@@ -312,22 +316,21 @@ class InboxDispatchRepositoryIntegrationTest :
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000052")
             val maxAttempts = 2
             repository.saveBatch(listOf(inboxMessage(eventId)))
-            var claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).single().claimToken
+            var claim = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).single().claim
 
             // Spend, hold and wake more times than maxAttempts; every hold must hand the spent
             // attempt back, so beginAttempt keeps authorising new processing starts.
             repeat(maxAttempts + 2) {
-                repository.beginAttempt(eventId, claimToken, maxAttempts) shouldBe true
+                repository.beginAttempt(claim, maxAttempts) shouldBe true
                 fixture.database.transact {
                     repository.markOutsideSendingWindowInTransaction(
-                        eventId,
-                        claimToken,
+                        claim,
                         "Closed Sunday",
                         Clock.System.now() + 30.minutes,
                     )
                 }
                 expireLease(eventId)
-                claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).single().claimToken
+                claim = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).single().claim
             }
 
             fixture.database.transact {
@@ -346,8 +349,8 @@ class InboxDispatchRepositoryIntegrationTest :
             // Drive the row through maxAttempts processing attempts without terminating it
             // (simulates a deterministic processing failure that always leaves the row CLAIMED).
             repeat(maxAttempts) {
-                val claimToken = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).single().claimToken
-                repository.beginAttempt(eventId, claimToken, maxAttempts) shouldBe true
+                val claim = repository.claim(limit = 10, lease = lease, maxAttempts = maxAttempts).single().claim
+                repository.beginAttempt(claim, maxAttempts) shouldBe true
                 expireLease(eventId)
             }
 
