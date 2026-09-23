@@ -13,6 +13,8 @@ import no.nav.budstikka.contract.DispatchHeader
 import no.nav.budstikka.contract.DittSykefravaerCreate
 import no.nav.budstikka.contract.DittSykefravaerInactivate
 import no.nav.budstikka.contract.dispatchJson
+import no.nav.budstikka.domain.decision.DeathLookup
+import no.nav.budstikka.fakes.FakeDeathLookup
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.testsupport.BudstikkaTestApp
 import java.util.UUID
@@ -22,7 +24,7 @@ import kotlin.time.Duration.Companion.seconds
 class DittSykefravaerE2ESpec :
     FunSpec({
         test("create and inactivate reach Flex's topic with the stable reference as key") {
-            BudstikkaTestApp.start().use { app ->
+            BudstikkaTestApp.start { provide<DeathLookup> { FakeDeathLookup() } }.use { app ->
                 val reference = "e2e-ditt-sykefravaer-${UUID.randomUUID()}"
                 listOf(
                     DittSykefravaerCreate(
