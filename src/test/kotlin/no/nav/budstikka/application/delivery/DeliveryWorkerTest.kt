@@ -12,7 +12,9 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryClaim
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
@@ -396,33 +398,28 @@ private class PollingDeliveryRepository(
     val attemptedDeliveryIds = mutableListOf<UUID>()
 
     override suspend fun beginAttempt(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         maxAttempts: Int,
     ): Boolean {
-        check(deliveries.single { it.id == deliveryId }.claimToken == claimToken)
-        attemptedDeliveryIds += deliveryId
+        check(deliveries.single { it.id == claim.deliveryId }.claim == claim)
+        attemptedDeliveryIds += claim.deliveryId
         return true
     }
 
-    override suspend fun markSent(
-        deliveryId: UUID,
-        claimToken: UUID,
-    ): Boolean {
-        check(deliveries.single { it.id == deliveryId }.claimToken == claimToken)
+    override suspend fun markSent(claim: DeliveryClaim): Boolean {
+        check(deliveries.single { it.id == claim.deliveryId }.claim == claim)
         if (!transitionSucceeds) return false
-        sentDeliveryIds += deliveryId
+        sentDeliveryIds += claim.deliveryId
         return true
     }
 
     override suspend fun markFailed(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         reason: String,
     ): Boolean {
-        check(deliveries.single { it.id == deliveryId }.claimToken == claimToken)
+        check(deliveries.single { it.id == claim.deliveryId }.claim == claim)
         if (!transitionSucceeds) return false
-        failedDeliveries += deliveryId to reason
+        failedDeliveries += claim.deliveryId to reason
         return true
     }
 }
@@ -430,7 +427,7 @@ private class PollingDeliveryRepository(
 private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
-        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000303"),
+        claimToken = ClaimToken(UUID.fromString("00000000-0000-0000-0000-000000000303")),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000301"),
         reference = "ref-1",
         channel = Channel.MICROFRONTEND,
@@ -444,7 +441,7 @@ private fun validMicrofrontendDelivery(deliveryId: UUID): ClaimedDelivery =
 private fun nonMicrofrontendPayload(deliveryId: UUID): ClaimedDelivery =
     ClaimedDelivery(
         id = deliveryId,
-        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000304"),
+        claimToken = ClaimToken(UUID.fromString("00000000-0000-0000-0000-000000000304")),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000302"),
         reference = "ref-2",
         channel = Channel.MICROFRONTEND,

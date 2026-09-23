@@ -20,9 +20,12 @@ import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.ClaimedInboxMessage
+import no.nav.budstikka.application.port.DeliveryClaim
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
@@ -432,7 +435,7 @@ private class PollingInboxMessageRepository(
     val processedEventIds = mutableListOf<UUID>()
     val failedMessages = mutableListOf<Pair<UUID, String>>()
     val waitingMessages = mutableMapOf<UUID, Pair<String, Instant>>()
-    private var currentToken: UUID? = null
+    private var currentToken: ClaimToken? = null
 
     override suspend fun saveBatch(messages: List<InboxMessage>) = Unit
 
@@ -444,7 +447,7 @@ private class PollingInboxMessageRepository(
         lastPollLimit = limit
         pollCount.incrementAndGet()
         onPoll()
-        val claimToken = UUID.randomUUID()
+        val claimToken = ClaimToken.generate()
         currentToken = claimToken
         return messages.map { ClaimedInboxMessage(it, claimToken) }
     }
@@ -452,49 +455,42 @@ private class PollingInboxMessageRepository(
     val attemptedEventIds = mutableListOf<UUID>()
 
     override suspend fun beginAttempt(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         maxAttempts: Int,
     ): Boolean {
-        attemptedEventIds += eventId
-        if (claimToken != currentToken) return false
-        if (reclaimAfterAttempt) currentToken = UUID.randomUUID()
+        attemptedEventIds += claim.eventId
+        if (claim.token != currentToken) return false
+        if (reclaimAfterAttempt) currentToken = ClaimToken.generate()
         return true
     }
 
-    override fun markProcessedInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
-    ): Boolean {
-        if (claimToken != currentToken) return false
-        processedEventIds += eventId
+    override fun markProcessedInTransaction(claim: InboxClaim): Boolean {
+        if (claim.token != currentToken) return false
+        processedEventIds += claim.eventId
         return true
     }
 
     override fun markDroppedInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         reason: String,
-    ): Boolean = claimToken == currentToken
+    ): Boolean = claim.token == currentToken
 
     override fun markFailedInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         reason: String,
     ): Boolean {
-        if (claimToken != currentToken) return false
-        failedMessages += eventId to reason
+        if (claim.token != currentToken) return false
+        failedMessages += claim.eventId to reason
         return true
     }
 
     override fun markOutsideSendingWindowInTransaction(
-        eventId: UUID,
-        claimToken: UUID,
+        claim: InboxClaim,
         reason: String,
         nextRetry: Instant,
     ): Boolean {
-        if (claimToken != currentToken) return false
-        waitingMessages += eventId to (reason to nextRetry)
+        if (claim.token != currentToken) return false
+        waitingMessages += claim.eventId to (reason to nextRetry)
         return true
     }
 }
@@ -517,19 +513,14 @@ private class RecordingDeliveryRepository : DeliveryRepository {
     ): List<ClaimedDelivery> = emptyList()
 
     override suspend fun beginAttempt(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         maxAttempts: Int,
     ): Boolean = true
 
-    override suspend fun markSent(
-        deliveryId: UUID,
-        claimToken: UUID,
-    ): Boolean = true
+    override suspend fun markSent(claim: DeliveryClaim): Boolean = true
 
     override suspend fun markFailed(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         reason: String,
     ): Boolean = true
 }

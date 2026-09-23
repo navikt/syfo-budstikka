@@ -70,7 +70,7 @@ class DeliveryWorker(
             logger.event(DeliveryLogEvents.handlerMissing)
             return
         }
-        if (!repository.beginAttempt(delivery.id, delivery.claimToken, config.maxAttempts)) {
+        if (!repository.beginAttempt(delivery.claim, config.maxAttempts)) {
             // A peer reclaimed or terminated the row, or the poison gate owns its spent attempts.
             logger.event(DeliveryLogEvents.claimSkipped)
             return
@@ -82,7 +82,7 @@ class DeliveryWorker(
     }
 
     private suspend fun markSent(delivery: ClaimedDelivery) {
-        if (repository.markSent(delivery.id, delivery.claimToken)) {
+        if (repository.markSent(delivery.claim)) {
             metrics.sent(delivery.channel)
             logger.info("Delivery sent successfully", delivery.logFields())
         } else {
@@ -95,7 +95,7 @@ class DeliveryWorker(
         delivery: ClaimedDelivery,
         reason: String,
     ) {
-        if (repository.markFailed(delivery.id, delivery.claimToken, reason)) {
+        if (repository.markFailed(delivery.claim, reason)) {
             metrics.failed(delivery.channel)
             logger.event(
                 DeliveryLogEvents.markedFailed,
