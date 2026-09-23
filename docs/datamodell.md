@@ -102,6 +102,11 @@ kan jobbe parallelt uten dobbelt-claim:
    slik at en claimet rad som aldri behandles (bunke-abort, oppbrukt lease-budsjett,
    krasj) beholder budsjettet sitt og ikke kan poison-`FAILED`-es urørt (ADR 0004).
 
+`claim_token` er bare satt mens raden er `CLAIMED`, og er `NULL` i alle andre
+tilstander. Kolonnen er derfor nullable med vilje. Gamle podder verken skriver
+eller sjekker tokenet, så fencingen virker fullt først når alle podder kjører ny
+kode (ADR 0004).
+
 ### Transaksjonsgrenser
 
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med

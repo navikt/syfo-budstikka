@@ -6,15 +6,16 @@
 
 Flere replikaer claimer ulike rader uten overlapp med `FOR UPDATE SKIP LOCKED` og en
 tidsbegrenset lease. Claimet committes før eksterne oppslag, og terminale
-tilstandsendringer er atomiske. Hver claim skriver en ny `claim_token`, og
+tilstandsendringer er atomiske. Hver claim-batch skriver en ny `claim_token`, og
 `beginAttempt`, terminale overganger og overgang til WAIT bruker compare-and-set
 på `CLAIMED` og `claim_token`. En worker som fullfører etter at leasen er utløpt,
 kan dermed ikke overskrive en nyere claim. Utløpt lease gjør raden tilgjengelig
-igjen etter krasj. Kolonnen er nullable for rullerende utrulling. Gamle podder
-verken skriver eller sjekker tokenet, så fencingen virker fullt først når alle
-podder kjører ny kode. En tilstandsavhengig CHECK-constraint krever derfor at
-utrullingen er ferdig og at gjenværende token på rader utenfor `CLAIMED` er
-nullstilt først.
+igjen etter krasj. `claim_token` er bare satt mens raden er `CLAIMED`, og er
+`NULL` i alle andre tilstander. Gamle podder verken skriver eller sjekker
+tokenet, så fencingen virker fullt først når alle podder kjører ny kode. En
+CHECK som binder tokenet til `CLAIMED` kan derfor først innføres etter
+utrullingen, og da må rader utenfor `CLAIMED` få tokenet nullstilt og
+`CLAIMED`-rader uten token få et token.
 
 Dette ble valgt fremfor å holde en databaselås over nettverks-I/O eller la flere
 replikaer gjøre de samme oppslagene før en avsluttende konkurranse. En lease kan
