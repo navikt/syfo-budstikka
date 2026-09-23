@@ -9,6 +9,7 @@ import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.port.ClaimToken
+import no.nav.budstikka.application.port.DeliveryClaim
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
@@ -111,7 +112,7 @@ class LeaseExpiryRaceIntegrationTest :
             }
 
             val metrics = RecordingDeliveryMetrics()
-            var peerClaimToken: UUID? = null
+            var peerClaimToken: ClaimToken? = null
             val config =
                 LeaseDrainConfig(
                     interval = 3.seconds,
@@ -156,11 +157,11 @@ class LeaseExpiryRaceIntegrationTest :
                 fixture.database.transact {
                     val row = DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq inboxEventId }.single()
                     row[DeliveryTable.state] shouldBe "CLAIMED"
-                    row[DeliveryTable.claimToken] shouldBe peerToken
+                    row[DeliveryTable.claimToken] shouldBe peerToken.value
                     row[DeliveryTable.attempt] shouldBe 1
                     row[DeliveryTable.id]
                 }
-            deliveries.markFailed(deliveryId, peerToken, "peer outcome") shouldBe true
+            deliveries.markFailed(DeliveryClaim(deliveryId, peerToken), "peer outcome") shouldBe true
             fixture.database.transact {
                 val row = DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq inboxEventId }.single()
                 row[DeliveryTable.state] shouldBe "FAILED"

@@ -1,7 +1,9 @@
 package no.nav.budstikka.infrastructure.database.delivery
 
 import no.nav.budstikka.application.logging.applicationLogger
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.application.port.DeliveryClaim
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
@@ -62,7 +64,7 @@ class PostgresDeliveryRepository(
         require(channels.isNotEmpty()) { "channels must not be empty" }
         return database.transact {
             val now = Clock.System.now()
-            val claimToken = UUID.randomUUID()
+            val claimToken = ClaimToken.generate()
             val channelNames = channels.map(Channel::name)
             failPoisonRows(now, maxAttempts, channelNames)
             val claimed =
@@ -101,7 +103,7 @@ class PostgresDeliveryRepository(
             if (claimed.isNotEmpty()) {
                 DeliveryTable.update({ DeliveryTable.id inList claimed.map { it.id } }) {
                     it[state] = DeliveryState.CLAIMED.name
-                    it[DeliveryTable.claimToken] = claimToken
+                    it[DeliveryTable.claimToken] = claimToken.value
                     it[nextAttemptTime] = now + lease
                 }
             }
@@ -115,16 +117,15 @@ class PostgresDeliveryRepository(
      * claimed but never sent (batch abort, spent lease budget, crash) must keep its budget.
      */
     override suspend fun beginAttempt(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         maxAttempts: Int,
     ): Boolean {
         require(maxAttempts > 0) { "maxAttempts must be greater than 0" }
         return database.transact {
             DeliveryTable.update({
-                (DeliveryTable.id eq deliveryId) and
+                (DeliveryTable.id eq claim.deliveryId) and
                     (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
-                    (DeliveryTable.claimToken eq claimToken) and
+                    (DeliveryTable.claimToken eq claim.token.value) and
                     (DeliveryTable.attempt less maxAttempts)
             }) {
                 it[attempt] = attempt + 1
@@ -209,31 +210,27 @@ class PostgresDeliveryRepository(
         val attempt: Int,
     )
 
-    override suspend fun markSent(
-        deliveryId: UUID,
-        claimToken: UUID,
-    ): Boolean = markClaimedAsTerminal(deliveryId, claimToken, state = DeliveryState.SENT, errorMessage = null)
+    override suspend fun markSent(claim: DeliveryClaim): Boolean =
+        markClaimedAsTerminal(claim, state = DeliveryState.SENT, errorMessage = null)
 
     override suspend fun markFailed(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         reason: String,
     ): Boolean {
         require(reason.isNotBlank()) { "reason must not be blank" }
-        return markClaimedAsTerminal(deliveryId, claimToken, state = DeliveryState.FAILED, errorMessage = reason)
+        return markClaimedAsTerminal(claim, state = DeliveryState.FAILED, errorMessage = reason)
     }
 
     private suspend fun markClaimedAsTerminal(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         state: DeliveryState,
         errorMessage: String?,
     ): Boolean =
         database.transact {
             DeliveryTable.update({
-                (DeliveryTable.id eq deliveryId) and
+                (DeliveryTable.id eq claim.deliveryId) and
                     (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
-                    (DeliveryTable.claimToken eq claimToken)
+                    (DeliveryTable.claimToken eq claim.token.value)
             }) {
                 it[DeliveryTable.state] = state.name
                 it[DeliveryTable.claimToken] = null

@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.BrevCreate
 import no.nav.budstikka.contract.DispatchContent
@@ -139,7 +140,7 @@ private class ThrowingDocumentDistributor : DocumentDistributor {
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
-        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000703"),
+        claimToken = ClaimToken(UUID.fromString("00000000-0000-0000-0000-000000000703")),
         id = DELIVERY_ID,
         inboxEventId = INBOX_EVENT_ID,
         reference = "brev-reference",

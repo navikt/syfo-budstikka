@@ -23,6 +23,7 @@ import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.ClaimedInboxMessage
+import no.nav.budstikka.application.port.DeliveryClaim
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
@@ -512,19 +513,14 @@ private class RecordingDeliveryRepository : DeliveryRepository {
     ): List<ClaimedDelivery> = emptyList()
 
     override suspend fun beginAttempt(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         maxAttempts: Int,
     ): Boolean = true
 
-    override suspend fun markSent(
-        deliveryId: UUID,
-        claimToken: UUID,
-    ): Boolean = true
+    override suspend fun markSent(claim: DeliveryClaim): Boolean = true
 
     override suspend fun markFailed(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         reason: String,
     ): Boolean = true
 }

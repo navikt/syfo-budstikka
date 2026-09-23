@@ -6,6 +6,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.DittSykefravaer
@@ -57,7 +58,7 @@ class DittSykefravaerChannelHandlerTest :
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
-        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000703"),
+        claimToken = ClaimToken(UUID.fromString("00000000-0000-0000-0000-000000000703")),
         id = UUID.fromString("00000000-0000-0000-0000-000000000701"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000702"),
         reference = "ditt-sykefravaer-reference",

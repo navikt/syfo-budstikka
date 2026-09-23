@@ -8,11 +8,18 @@ import kotlin.time.Duration
 
 data class ClaimedDelivery(
     val id: UUID,
-    val claimToken: UUID,
+    val claimToken: ClaimToken,
     val inboxEventId: UUID?,
     val reference: String,
     val channel: Channel,
     val payload: DispatchContent,
+) {
+    val claim: DeliveryClaim get() = DeliveryClaim(id, claimToken)
+}
+
+data class DeliveryClaim(
+    val deliveryId: UUID,
+    val token: ClaimToken,
 )
 
 /**
@@ -35,7 +42,7 @@ interface DeliveryRepository {
 
     /**
      * Authorises one delivery attempt for a claimed row and spends it, atomically. Returns `false`
-     * when the row is no longer CLAIMED under this caller's claim token (a peer terminated or
+     * when the row is no longer CLAIMED under this caller's [claim] (a peer terminated or
      * reclaimed it) or has already spent [maxAttempts];
      * the caller must then skip the row and leave it to the poison gate.
      *
@@ -45,21 +52,16 @@ interface DeliveryRepository {
      * increment, so a read-then-update race cannot exceed [maxAttempts].
      */
     suspend fun beginAttempt(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         maxAttempts: Int,
     ): Boolean
 
-    /** Returns `false` if the row is no longer CLAIMED under this caller's claim token. */
-    suspend fun markSent(
-        deliveryId: UUID,
-        claimToken: UUID,
-    ): Boolean
+    /** Returns `false` if the row is no longer CLAIMED under this caller's [claim]. */
+    suspend fun markSent(claim: DeliveryClaim): Boolean
 
-    /** Returns `false` if the row is no longer CLAIMED under this caller's claim token. */
+    /** Returns `false` if the row is no longer CLAIMED under this caller's [claim]. */
     suspend fun markFailed(
-        deliveryId: UUID,
-        claimToken: UUID,
+        claim: DeliveryClaim,
         reason: String,
     ): Boolean
 }

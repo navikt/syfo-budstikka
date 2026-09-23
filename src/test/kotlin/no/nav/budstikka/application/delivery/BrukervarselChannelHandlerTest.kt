@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.Brukervarsel
 import no.nav.budstikka.contract.BrukervarselCreate
@@ -97,7 +98,7 @@ private class ThrowingMinSideBrukervarselPublisher : MinSideBrukervarselPublishe
 
 private fun delivery(payload: DispatchContent): ClaimedDelivery =
     ClaimedDelivery(
-        claimToken = UUID.fromString("00000000-0000-0000-0000-000000000503"),
+        claimToken = ClaimToken(UUID.fromString("00000000-0000-0000-0000-000000000503")),
         id = UUID.fromString("00000000-0000-0000-0000-000000000501"),
         inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000502"),
         reference = "brukervarsel-reference",
