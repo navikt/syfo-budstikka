@@ -14,6 +14,7 @@ erDiagram
         text        reference
         jsonb       content
         text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED|WAIT"
+        uuid        claim_token "nullable"
         text        drop_reason "nullable"
         int         attempt
         timestamptz next_attempt_time "nullable"
@@ -33,6 +34,7 @@ erDiagram
         text        recipient_id
         jsonb       payload
         text        state "READY|CLAIMED|SENT|FAILED"
+        uuid        claim_token "nullable"
         int         attempt
         timestamptz next_attempt_time "nullable"
         timestamptz created_at
@@ -94,8 +96,9 @@ kan jobbe parallelt uten dobbelt-claim:
    - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
 3. Sorter deterministisk (`received_at`/`created_at`, deretter ID) og `LIMIT batchSize`.
 4. Oppdater de valgte radene i samme transaksjon: `state = CLAIMED`,
-   `next_attempt_time = now + lease`. Claim rører ikke `attempt`: forsøket spanderes
-   først av `beginAttempt` (atomisk, gatet `UPDATE`) rett før første feilbare arbeid,
+   `next_attempt_time = now + lease` og en ny `claim_token` per batch. Claim rører
+   ikke `attempt`: forsøket spanderes først av `beginAttempt` (atomisk, gatet
+   `UPDATE`) rett før første feilbare arbeid,
    slik at en claimet rad som aldri behandles (bunke-abort, oppbrukt lease-budsjett,
    krasj) beholder budsjettet sitt og ikke kan poison-`FAILED`-es urørt (ADR 0004).
 
@@ -104,9 +107,10 @@ kan jobbe parallelt uten dobbelt-claim:
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
   `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
 - **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
-  `markProcessedInTransaction(eventId)` først (CAS), deretter `saveInTransaction(...)`
-  av delivery-rader bare hvis CAS lykkes. `DeliveryRepository.saveInTransaction`
-  bruker `batchInsert(draft)` for 0..N rader for samme inbox-melding.
+  `markProcessedInTransaction(eventId, claimToken)` først (CAS), deretter
+  `saveInTransaction(...)` av delivery-rader bare hvis CAS lykkes.
+  `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader
+  for samme inbox-melding.
 
 ### `inbox_message.state`
 
@@ -127,9 +131,10 @@ WAIT    -> CLAIMED (sendevindu åpnet: next_attempt_time passert)
   Ellers kunne gjentatte sendevindu-hold poison-`FAILED`-e en legitimt ventende melding.
 - Ventårsaken lagres i `wait_reason` (ikke `error_message`, som er forbeholdt reelle feil).
   `wait_reason` nullstilles ved terminal overgang og ved poison-`FAILED`.
-- Terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) er compare-and-set fra `CLAIMED`:
-  raden oppdateres atomisk bare mens den fortsatt har forventet state. Dette hindrer
-  dobbeltprosessering når flere workere konkurrerer om samme rad.
+- `beginAttempt`, terminal overgang (`PROCESSED`/`DROPPED`/`FAILED`) og WAIT er
+  compare-and-set på `CLAIMED` og `claim_token`. En re-claim skriver et nytt token, så en
+  worker med en utløpt og erstattet claim treffer ingen rad. Overganger ut av `CLAIMED`
+  nullstiller tokenet.
 
 ### `delivery.state`
 
@@ -142,7 +147,9 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
-- `markSent` og `markFailed` er compare-and-set fra `CLAIMED`.
+- `beginAttempt`, `markSent` og `markFailed` er compare-and-set på `CLAIMED` og
+  `claim_token`. En re-claim skriver et nytt token, så en utløpt worker treffer ingen rad.
+  Overganger ut av `CLAIMED` nullstiller tokenet.
 - `attempt` spanderes av `beginAttempt` rett før handleren kalles, ikke ved claim.
   Manglende handler er en konfigurasjonsfeil og brenner ikke et forsøk.
 
