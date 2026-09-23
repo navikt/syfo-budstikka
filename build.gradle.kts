@@ -1,6 +1,5 @@
 import com.adarshr.gradle.testlogger.theme.ThemeType
 import com.google.cloud.tools.jib.gradle.JibExtension
-import org.gradle.api.artifacts.dsl.DependencyConstraintHandler
 import org.gradle.api.tasks.Exec
 import org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask
 import java.net.URI
@@ -99,12 +98,11 @@ dependencies {
     implementation(platform(libs.jackson.bom))
     implementation(platform(libs.tools.jackson.bom))
 
-    constraints {
-        implementationWithKtorVersionCheck(
-            dependencyNotation = "io.netty:netty-handler:4.2.18.Final",
-            expectedKtorVersion = "3.5.2",
-        )
-    }
+    // Security floor for all Netty modules; remove when Ktor ships Netty 4.2.18.Final or newer.
+    implementationPlatformWithKtorVersionCheck(
+        bomNotation = "io.netty:netty-bom:4.2.18.Final",
+        expectedKtorVersion = "3.6.0",
+    )
 
     // The wire contract and its producer API. The app is a consumer of its own published contract:
     // there is exactly one contract model, in :kontrakt.
@@ -215,15 +213,15 @@ registerFagerSchemaCheck(
     taskDescription = "Checks the local Fager schema for changes on the upstream main branch.",
 )
 
-fun DependencyConstraintHandler.implementationWithKtorVersionCheck(
-    dependencyNotation: String,
+fun DependencyHandler.implementationPlatformWithKtorVersionCheck(
+    bomNotation: String,
     expectedKtorVersion: String,
 ) {
     val currentKtorVersion = libs.versions.ktor.get()
     check(currentKtorVersion == expectedKtorVersion) {
-        "Review the $dependencyNotation constraint before changing Ktor from $expectedKtorVersion to $currentKtorVersion"
+        "Review the $bomNotation platform before changing Ktor from $expectedKtorVersion to $currentKtorVersion"
     }
-    add("implementation", dependencyNotation)
+    add("implementation", platform(bomNotation))
 }
 
 tasks {
