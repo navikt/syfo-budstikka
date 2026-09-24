@@ -3,7 +3,9 @@ package no.nav.budstikka.infrastructure.database.delivery
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -29,6 +31,7 @@ object DeliveryTable : Table("delivery") {
     override val primaryKey = PrimaryKey(id)
 
     init {
+        check("delivery_claim_token_state_check") { (state eq DeliveryState.CLAIMED.name) eq claimToken.isNotNull() }
         index("delivery_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("delivery_inbox_event_id_idx", false, inboxEventId)
         index(

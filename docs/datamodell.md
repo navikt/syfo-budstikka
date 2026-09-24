@@ -14,7 +14,7 @@ erDiagram
         text        reference
         jsonb       content
         text        state "RECEIVED|CLAIMED|PROCESSED|DROPPED|FAILED|WAIT"
-        uuid        claim_token "nullable"
+        uuid        claim_token "nullable; CHECK: satt kun ved CLAIMED"
         text        drop_reason "nullable"
         int         attempt
         timestamptz next_attempt_time "nullable"
@@ -34,7 +34,7 @@ erDiagram
         text        recipient_id
         jsonb       payload
         text        state "READY|CLAIMED|SENT|FAILED"
-        uuid        claim_token "nullable"
+        uuid        claim_token "nullable; CHECK: satt kun ved CLAIMED"
         int         attempt
         timestamptz next_attempt_time "nullable"
         timestamptz created_at
@@ -103,9 +103,8 @@ kan jobbe parallelt uten dobbelt-claim:
    krasj) beholder budsjettet sitt og ikke kan poison-`FAILED`-es urørt (ADR 0004).
 
 `claim_token` er bare satt mens raden er `CLAIMED`, og er `NULL` i alle andre
-tilstander. Kolonnen er derfor nullable med vilje. Gamle podder verken skriver
-eller sjekker tokenet, så fencingen virker fullt først når alle podder kjører ny
-kode (ADR 0004).
+tilstander. Kolonnen er derfor nullable med vilje. En CHECK på begge tabellene
+håndhever dette (ADR 0004).
 
 ### Transaksjonsgrenser
 

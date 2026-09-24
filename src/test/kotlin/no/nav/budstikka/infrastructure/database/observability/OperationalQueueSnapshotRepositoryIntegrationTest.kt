@@ -7,6 +7,7 @@ import no.nav.budstikka.application.observability.DeliveryQueueKey
 import no.nav.budstikka.application.observability.DeliveryQueueState
 import no.nav.budstikka.application.observability.InboxQueueState
 import no.nav.budstikka.application.observability.QueueStats
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
@@ -113,6 +114,9 @@ private suspend fun PostgresTestFixture.insertInbox(
             it[content] = message.content
             it[reference] = message.reference
             it[InboxMessageTable.state] = state.name
+            if (state == InboxMessageState.CLAIMED) {
+                it[claimToken] = ClaimToken.generate().value
+            }
             it[InboxMessageTable.receivedAt] = receivedAt
             if (nextAttemptAt != null) {
                 it[nextAttemptTime] = nextAttemptAt
@@ -137,6 +141,9 @@ private suspend fun PostgresTestFixture.insertDelivery(
             it[recipientId] = "recipient"
             it[payload] = inboxMessage().content
             it[DeliveryTable.state] = state.name
+            if (state == DeliveryState.CLAIMED) {
+                it[claimToken] = ClaimToken.generate().value
+            }
             it[DeliveryTable.createdAt] = createdAt
             if (nextAttemptAt != null) {
                 it[nextAttemptTime] = nextAttemptAt

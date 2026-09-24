@@ -48,6 +48,7 @@ class InboxDispatchRepositoryIntegrationTest :
             fixture.database.transact {
                 InboxMessageTable.update({ InboxMessageTable.eventId eq eventId }) {
                     it[state] = InboxMessageState.CLAIMED.name
+                    it[claimToken] = ClaimToken.generate().value
                     it[InboxMessageTable.attempt] = attempt
                     it[nextAttemptTime] = Clock.System.now() - 1.minutes
                 }

@@ -3,6 +3,8 @@ package no.nav.budstikka.infrastructure.database.dispatch
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -26,6 +28,7 @@ object InboxMessageTable : Table("inbox_message") {
     override val primaryKey = PrimaryKey(eventId)
 
     init {
+        check("inbox_message_claim_token_state_check") { (state eq InboxMessageState.CLAIMED.name) eq claimToken.isNotNull() }
         index("inbox_message_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("inbox_message_received_at_event_id_idx", false, receivedAt, eventId)
     }
