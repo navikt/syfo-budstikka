@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       image:
-        description: "Full image reference (repo:tag) from the build job"
+        description: "Full image reference (repo:tag@digest) from the build job"
         required: true
         type: string
 
