@@ -73,15 +73,19 @@ erDiagram
   `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon
   dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
 - **Retensjon:** Oppryddingen er implementert og styres av
-  `workers.retentionCleanup.enabled`. Workeren er aktivert i dev, men deaktivert i prod.
-  Prodaktivering og policyverdiene 100/180 dager krever juridisk godkjenning. Når den er
-  aktivert, sletter workeren hardt de 100 eldste kandidatene per tabell hver time
+  `workers.retentionCleanup.enabled`. Workeren er aktivert i både dev og prod. Teamet har
+  godkjent prodaktivering og policyverdiene 100/180 dager (#239) fordi `inbox_message`,
+  `dead_letter_message` og `delivery` er tekniske tabeller for utsending av meldinger.
+  Workeren sletter hardt de 100 eldste kandidatene per tabell hver time
   (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
   må ha samme slette-disiplin. Bare terminale `delivery`-rader (`SENT`/`FAILED`) med
   `created_at` strengt eldre enn 180 dager slettes. En PostgreSQL advisory lock lar én replika
   kjøre hver opprydding; en replika som ikke får låsen hopper over runden. Sletting av en
-  inbox-rad setter tilhørende `delivery.inbox_event_id` til `NULL` via FK-en.
+  inbox-rad setter tilhørende `delivery.inbox_event_id` til `NULL` via FK-en. Ved behov for
+  tilbakerulling: Sett `WORKER_RETENTION_CLEANUP_ENABLED` til `"false"` i
+  `nais/nais-prod.yaml` og rull ut på nytt. Rader som allerede er slettet, kan ikke
+  gjenopprettes ved tilbakerulling (hard sletting).
 
 ## Worker-flyt og state-overganger
 

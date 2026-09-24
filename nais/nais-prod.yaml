@@ -84,7 +84,7 @@ spec:
             envVarPrefix: BUDSTIKKA_DB
   env:
     - name: WORKER_RETENTION_CLEANUP_ENABLED
-      value: "false"
+      value: "true"
     - name: PDL_URL
       value: https://pdl-api.prod-fss-pub.nais.io/graphql
     - name: PDL_SCOPE
