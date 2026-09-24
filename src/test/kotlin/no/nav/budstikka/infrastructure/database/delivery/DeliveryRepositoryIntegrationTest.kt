@@ -10,6 +10,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.application.logging.MdcKeys
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.brukervarselDraft
@@ -74,6 +75,7 @@ class DeliveryRepositoryIntegrationTest :
             fixture.database.transact {
                 DeliveryTable.update({ DeliveryTable.id eq deliveryId }) {
                     it[state] = DeliveryState.CLAIMED.name
+                    it[claimToken] = ClaimToken.generate().value
                     it[DeliveryTable.attempt] = attempt
                     it[nextAttemptTime] = Clock.System.now() - 1.minutes
                 }

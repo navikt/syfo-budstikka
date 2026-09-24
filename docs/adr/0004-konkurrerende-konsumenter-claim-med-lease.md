@@ -2,7 +2,7 @@
 
 - Status: Besluttet, implementert
 - Dato: 2026-07-10
-- Oppdatert: 2026-09-23
+- Oppdatert: 2026-09-24
 
 Flere replikaer claimer ulike rader uten overlapp med `FOR UPDATE SKIP LOCKED` og en
 tidsbegrenset lease. Claimet committes før eksterne oppslag, og terminale
@@ -12,10 +12,9 @@ på `CLAIMED` og `claim_token`. En worker som fullfører etter at leasen er utl�
 kan dermed ikke overskrive en nyere claim. Utløpt lease gjør raden tilgjengelig
 igjen etter krasj. `claim_token` er bare satt mens raden er `CLAIMED`, og er
 `NULL` i alle andre tilstander. Gamle podder verken skriver eller sjekker
-tokenet, så fencingen virker fullt først når alle podder kjører ny kode. En
-CHECK som binder tokenet til `CLAIMED` kan derfor først innføres etter
-utrullingen, og da må rader utenfor `CLAIMED` få tokenet nullstilt og
-`CLAIMED`-rader uten token få et token.
+tokenet, så fencingen virker fullt først når alle podder kjører ny kode.
+Etter utrullingen håndhever en CHECK på begge tabellene at tokenet er satt
+akkurat når raden er `CLAIMED`.
 
 Dette ble valgt fremfor å holde en databaselås over nettverks-I/O eller la flere
 replikaer gjøre de samme oppslagene før en avsluttende konkurranse. En lease kan

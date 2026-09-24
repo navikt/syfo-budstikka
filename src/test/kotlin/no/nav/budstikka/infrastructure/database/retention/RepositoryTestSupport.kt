@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.retention.RetentionCounts
 import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionResult
@@ -87,6 +88,9 @@ internal class RepositoryTestSupport : AutoCloseable {
                 it[recipientId] = "recipient"
                 it[payload] = inboxMessage(UUID.randomUUID()).content
                 it[DeliveryTable.state] = state.name
+                if (state == DeliveryState.CLAIMED) {
+                    it[claimToken] = ClaimToken.generate().value
+                }
                 it[DeliveryTable.createdAt] = createdAt
             }
         }
