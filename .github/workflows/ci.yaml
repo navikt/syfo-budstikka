@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC for nais/login and nais/deploy
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -21,6 +20,9 @@ concurrency:
 jobs:
   ci:
     name: CI
+    permissions:
+      contents: read
+      id-token: write # OIDC for nais/login and nais/deploy in the reusable workflow
     uses: ./.github/workflows/ci-reusable.yml
 
   merge-gate:
