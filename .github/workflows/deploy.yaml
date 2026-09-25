@@ -2,7 +2,8 @@ name: Deploy
 
 # Build job builds, pushes, and signs the image with Jib;
 # deploy jobs reuse deploy-nais.yaml with the same image, so all environments deploy the same artifact.
-# PR gate (model pins + build + lint + test + jibBuildTar) is in build.yml.
+# PR gate (build + lint + test + jibBuildTar) is ci.yaml/ci-reusable.yml. The merge queue runs it on the
+# exact squash commit that lands on main, so this workflow builds the image without re-running tests.
 on:
   push:
     branches:
@@ -42,14 +43,14 @@ jobs:
         with:
           team: team-esyfo
 
-      - name: Build, test and push image with Jib
+      - name: Build and push image with Jib
         id: build-image
         run: |
           IMAGE_REPOSITORY="${{ steps.login.outputs.registry }}/syfo-budstikka"
           ./gradlew --no-daemon \
             -Pdocker.image.repository="$IMAGE_REPOSITORY" \
             -Pdocker.image.tag="$VERSION" \
-            build jib
+            jib
           DIGEST="$(cat build/jib-image.digest)"
           if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "Invalid Jib image digest" >&2
