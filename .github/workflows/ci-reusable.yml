@@ -83,7 +83,6 @@ jobs:
         run: ./gradlew jibBuildTar --no-daemon
 
       # Next steps (follow .github/instructions/github-actions.instructions.md):
-      # SCA/CVE scan (Trivy) + secret scan (gitleaks) — add with PINNED
-      # version/SHA, .trivyignore-baseline, and for org-repo gitleaks license. Kept
+      # SCA/CVE scan (Trivy) — add with PINNED version/SHA and a .trivyignore baseline. Kept
       # outside here until version + baseline is verified, so the gate does not turn red on
-      # unverified basis.
+      # unverified basis. Secret scanning is covered by GitHub secret scanning + push protection.
