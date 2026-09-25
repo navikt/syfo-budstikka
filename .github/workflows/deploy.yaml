@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC for nais/login og nais/deploy
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -23,10 +22,15 @@ jobs:
     name: Build, push and sign image
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # OIDC for nais/login and nais/attest-sign
     outputs:
       image: ${{ steps.build-image.outputs.image }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -45,8 +49,10 @@ jobs:
 
       - name: Build and push image with Jib
         id: build-image
+        env:
+          REGISTRY: ${{ steps.login.outputs.registry }}
         run: |
-          IMAGE_REPOSITORY="${{ steps.login.outputs.registry }}/syfo-budstikka"
+          IMAGE_REPOSITORY="$REGISTRY/syfo-budstikka"
           ./gradlew --no-daemon \
             -Pdocker.image.repository="$IMAGE_REPOSITORY" \
             -Pdocker.image.tag="$VERSION" \
@@ -67,6 +73,9 @@ jobs:
   deploy-dev:
     name: Deploy to dev-gcp
     needs: build
+    permissions:
+      contents: read
+      id-token: write # OIDC for nais/deploy in the reusable workflow
     uses: ./.github/workflows/deploy-nais.yaml
     with:
       cluster: dev-gcp
@@ -77,6 +86,9 @@ jobs:
     name: Deploy to prod-gcp
     if: github.ref == 'refs/heads/main'
     needs: [ build, deploy-dev ]
+    permissions:
+      contents: read
+      id-token: write # OIDC for nais/deploy in the reusable workflow
     uses: ./.github/workflows/deploy-nais.yaml
     with:
       cluster: prod-gcp
