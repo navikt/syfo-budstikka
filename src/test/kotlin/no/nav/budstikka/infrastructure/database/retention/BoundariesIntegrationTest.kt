@@ -8,6 +8,7 @@ import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -49,6 +50,64 @@ class BoundariesIntegrationTest :
                 DeliveryTable.selectAll().where { DeliveryTable.id eq boundarySent }.count() shouldBe 1
                 DeliveryTable.selectAll().where { DeliveryTable.id eq expiredReady }.count() shouldBe 1
                 DeliveryTable.selectAll().where { DeliveryTable.id eq expiredClaimed }.count() shouldBe 1
+            }
+        }
+
+        test("keeps old non-terminal inbox rows and deletes only terminal rows strictly before the cutoff") {
+            val cutoff = support.clock.now() - support.policy.inboxAndDeadLetterRetention
+            val nonTerminalIds =
+                listOf(InboxMessageState.RECEIVED, InboxMessageState.CLAIMED, InboxMessageState.WAIT).map { state ->
+                    support.inbox(cutoff - 1.seconds, state)
+                }
+            val terminalIds =
+                listOf(InboxMessageState.PROCESSED, InboxMessageState.DROPPED, InboxMessageState.FAILED).map { state ->
+                    support.inbox(cutoff - 1.seconds, state)
+                }
+            val boundaryId = support.inbox(cutoff, InboxMessageState.PROCESSED)
+
+            support.run(batchSize = 100) shouldBe
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 3, deadLetterMessages = 0, deliveries = 0),
+                )
+            support.rowCounts() shouldBe RetentionCounts(inboxMessages = 4, deadLetterMessages = 0, deliveries = 0)
+
+            support.fixture.database.transact {
+                nonTerminalIds.forEach { id ->
+                    InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq id }.count() shouldBe 1
+                }
+                terminalIds.forEach { id ->
+                    InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq id }.count() shouldBe 0
+                }
+                InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq boundaryId }.count() shouldBe 1
+            }
+        }
+
+        test("deletes non-terminal inbox rows strictly past the absolute ceiling and counts only those as unprocessed") {
+            val absoluteCutoff = support.clock.now() - support.policy.inboxAbsoluteRetention
+            val normalCutoff = support.clock.now() - support.policy.inboxAndDeadLetterRetention
+            val expiredNonTerminalIds =
+                listOf(InboxMessageState.RECEIVED, InboxMessageState.CLAIMED, InboxMessageState.WAIT).map { state ->
+                    support.inbox(absoluteCutoff - 1.seconds, state)
+                }
+            val expiredTerminalIds =
+                listOf(InboxMessageState.PROCESSED, InboxMessageState.DROPPED, InboxMessageState.FAILED).map { state ->
+                    support.inbox(absoluteCutoff - 1.seconds, state)
+                }
+            val boundaryId = support.inbox(absoluteCutoff, InboxMessageState.WAIT)
+            val olderThanNormalId = support.inbox(normalCutoff - 1.seconds, InboxMessageState.RECEIVED)
+
+            support.run(batchSize = 100) shouldBe
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 6, deadLetterMessages = 0, deliveries = 0, unprocessedInboxMessages = 3),
+                )
+            support.rowCounts() shouldBe RetentionCounts(inboxMessages = 2, deadLetterMessages = 0, deliveries = 0)
+
+            support.fixture.database.transact {
+                (expiredNonTerminalIds + expiredTerminalIds).forEach { id ->
+                    InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq id }.count() shouldBe 0
+                }
+                InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq boundaryId }.count() shouldBe 1
+                InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq olderThanNormalId }.count() shouldBe 1
             }
         }
     })

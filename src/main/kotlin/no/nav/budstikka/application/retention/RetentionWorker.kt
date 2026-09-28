@@ -17,10 +17,14 @@ class RetentionWorker(
                     "Retention cleanup completed",
                     mapOf(
                         "inbox_deleted" to result.counts.inboxMessages,
+                        "inbox_unprocessed_deleted" to result.counts.unprocessedInboxMessages,
                         "dead_letter_deleted" to result.counts.deadLetterMessages,
                         "delivery_deleted" to result.counts.deliveries,
                     ),
                 )
+                if (result.counts.unprocessedInboxMessages > 0) {
+                    logger.event(RetentionLogEvents.unprocessedInboxDeleted, result.counts)
+                }
             }
 
             RetentionResult.SkippedDueToLockContention -> {

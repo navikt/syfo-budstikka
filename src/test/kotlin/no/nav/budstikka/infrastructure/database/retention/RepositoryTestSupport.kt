@@ -15,6 +15,7 @@ import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -38,7 +39,10 @@ internal class RepositoryTestSupport : AutoCloseable {
 
     suspend fun <T> withExclusiveCleanup(block: suspend () -> T): T = retentionCleanupMutex.withLock { block() }
 
-    suspend fun inbox(receivedAt: Instant): UUID {
+    suspend fun inbox(
+        receivedAt: Instant,
+        state: InboxMessageState = InboxMessageState.PROCESSED,
+    ): UUID {
         val eventId = UUID.randomUUID()
         val message = inboxMessage(eventId)
         fixture.database.transact {
@@ -46,6 +50,10 @@ internal class RepositoryTestSupport : AutoCloseable {
                 it[InboxMessageTable.eventId] = eventId
                 it[content] = message.content
                 it[reference] = message.reference
+                it[InboxMessageTable.state] = state.name
+                if (state == InboxMessageState.CLAIMED) {
+                    it[claimToken] = ClaimToken.generate().value
+                }
                 it[InboxMessageTable.receivedAt] = receivedAt
             }
         }

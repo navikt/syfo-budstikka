@@ -7,6 +7,7 @@ import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.time.Duration.Companion.days
@@ -26,6 +27,23 @@ class ForeignKeyIntegrationTest :
             support.run(batchSize = 100) shouldBe
                 RetentionResult.Completed(
                     RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
+                )
+
+            support.fixture.database.transact {
+                DeliveryTable
+                    .selectAll()
+                    .where { DeliveryTable.id eq deliveryId }
+                    .single()[DeliveryTable.inboxEventId] shouldBe null
+            }
+        }
+
+        test("deleting an unprocessed inbox row past the absolute ceiling clears the linked delivery reference") {
+            val inboxEventId = support.inbox(support.clock.now() - 366.days, InboxMessageState.WAIT)
+            val deliveryId = support.delivery(support.clock.now(), DeliveryState.READY, inboxEventId)
+
+            support.run(batchSize = 100) shouldBe
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0, unprocessedInboxMessages = 1),
                 )
 
             support.fixture.database.transact {
