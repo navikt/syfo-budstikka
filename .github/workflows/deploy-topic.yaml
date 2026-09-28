@@ -36,7 +36,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Deploy topics to dev
-        uses: nais/deploy/actions/deploy@v2 # internal Nav action
+        uses: nais/deploy/actions/deploy@v3 # internal Nav action
         env:
           VAR: kafka-pool=nav-dev
           CLUSTER: dev-gcp
@@ -57,7 +57,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Deploy topics to prod
-        uses: nais/deploy/actions/deploy@v2 # internal Nav action
+        uses: nais/deploy/actions/deploy@v3 # internal Nav action
         env:
           VAR: kafka-pool=nav-prod
           CLUSTER: prod-gcp
