@@ -9,7 +9,7 @@ import java.sql.DriverManager
 class NextAttemptTimeConstraintIntegrationTest :
     FunSpec({
         val fixture = PostgresTestFixture()
-        val waitConstraint = "inbox_message_wait_next_attempt_time_check"
+        val inboxConstraint = "inbox_message_next_attempt_time_state_check"
 
         beforeSpec { fixture.migrate() }
         afterTest { fixture.reset() }
@@ -23,7 +23,7 @@ class NextAttemptTimeConstraintIntegrationTest :
                     VALUES ('constraint-test', '{}'::jsonb, 'WAIT')
                     """.trimIndent(),
                 )
-            }.serverErrorMessage?.constraint shouldBe waitConstraint
+            }.serverErrorMessage?.constraint shouldBe inboxConstraint
         }
 
         test("updating a row to WAIT without next_attempt_time is rejected") {
@@ -36,7 +36,7 @@ class NextAttemptTimeConstraintIntegrationTest :
 
             shouldThrow<PSQLException> {
                 fixture.executeUpdate("UPDATE inbox_message SET state = 'WAIT' WHERE reference = 'constraint-test'")
-            }.serverErrorMessage?.constraint shouldBe waitConstraint
+            }.serverErrorMessage?.constraint shouldBe inboxConstraint
         }
 
         // Waking a valid WAIT via claim is covered by InboxDispatchRepositoryIntegrationTest:
@@ -51,7 +51,7 @@ class NextAttemptTimeConstraintIntegrationTest :
         }
 
         listOf("inbox_message", "delivery").forEach { table ->
-            val constraint = "${table}_claimed_next_attempt_time_check"
+            val constraint = "${table}_next_attempt_time_state_check"
 
             test("$table rejects inserting CLAIMED without next_attempt_time") {
                 shouldThrow<PSQLException> {

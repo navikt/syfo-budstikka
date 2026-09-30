@@ -6,7 +6,7 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.java.javaUUID
-import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
@@ -31,9 +31,8 @@ object InboxMessageTable : Table("inbox_message") {
 
     init {
         check("inbox_message_claim_token_state_check") { (state eq InboxMessageState.CLAIMED.name) eq claimToken.isNotNull() }
-        check("inbox_message_wait_next_attempt_time_check") { (state neq InboxMessageState.WAIT.name) or nextAttemptTime.isNotNull() }
-        check("inbox_message_claimed_next_attempt_time_check") {
-            (state neq InboxMessageState.CLAIMED.name) or nextAttemptTime.isNotNull()
+        check("inbox_message_next_attempt_time_state_check") {
+            (state notInList listOf(InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)) or nextAttemptTime.isNotNull()
         }
         index("inbox_message_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("inbox_message_received_at_event_id_idx", false, receivedAt, eventId)
