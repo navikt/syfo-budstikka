@@ -17,7 +17,7 @@ erDiagram
         uuid        claim_token "nullable; CHECK: satt kun ved CLAIMED"
         text        drop_reason "nullable"
         int         attempt
-        timestamptz next_attempt_time "nullable"
+        timestamptz next_attempt_time "nullable; CHECK: satt ved WAIT"
         timestamptz received_at
         timestamptz processed_at "nullable"
         text        error_message "nullable"
@@ -115,6 +115,9 @@ kan jobbe parallelt uten dobbelt-claim:
 `claim_token` er bare satt mens raden er `CLAIMED`, og er `NULL` i alle andre
 tilstander. Kolonnen er derfor nullable med vilje. En CHECK på begge tabellene
 håndhever dette (ADR 0004).
+
+`WAIT` krever `next_attempt_time`, ellers ville raden aldri blitt vekket; en CHECK på
+`inbox_message` håndhever dette.
 
 ### Transaksjonsgrenser
 
