@@ -22,8 +22,8 @@ tmsMikrofrontendSelector = "3.0.0"
 japicmp = "0.4.6"
 apollo = "5.2.0"
 esyfoObservability = "0.2.1"
-jacksonBom = "2.22.2"
-toolsJacksonBom = "3.2.2"
+jacksonBom = "2.22.3"
+toolsJacksonBom = "3.2.3"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
