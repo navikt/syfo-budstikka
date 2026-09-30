@@ -12,6 +12,7 @@ import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Compan
 import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TABLE_DELIVERY
 import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TABLE_INBOX
 import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.TAG_TABLE
+import no.nav.budstikka.infrastructure.metrics.MicrometerRetentionMetrics.Companion.UNPROCESSED_INBOX_DELETED
 
 class MicrometerRetentionMetricsTest :
     FunSpec({
@@ -19,14 +20,22 @@ class MicrometerRetentionMetricsTest :
             val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
             val metrics = MicrometerRetentionMetrics(registry)
 
-            metrics.completed(RetentionCounts(inboxMessages = 2, deadLetterMessages = 3, deliveries = 4))
+            metrics.completed(
+                RetentionCounts(inboxMessages = 2, deadLetterMessages = 3, deliveries = 4, unprocessedInboxMessages = 1),
+            )
+            metrics.completed(RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0))
 
-            registry.get(COMPLETED_RUNS).counter().count() shouldBe 1.0
+            registry.get(COMPLETED_RUNS).counter().count() shouldBe 2.0
             registry
                 .get(DELETED_ROWS)
                 .tag(TAG_TABLE, TABLE_INBOX)
                 .counter()
-                .count() shouldBe 2.0
+                .count() shouldBe 3.0
+            registry.get(UNPROCESSED_INBOX_DELETED).counter().count() shouldBe 1.0
+            registry
+                .get(UNPROCESSED_INBOX_DELETED)
+                .counter()
+                .id.tags.size shouldBe 0
             registry
                 .get(DELETED_ROWS)
                 .tag(TAG_TABLE, TABLE_DEAD_LETTER)

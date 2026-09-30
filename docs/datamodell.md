@@ -77,9 +77,15 @@ erDiagram
   godkjent prodaktivering og policyverdiene 100/180 dager (#239) fordi `inbox_message`,
   `dead_letter_message` og `delivery` er tekniske tabeller for utsending av meldinger.
   Workeren sletter hardt de 100 eldste kandidatene per tabell hver time
-  (konfigurerbart). `inbox_message` og `dead_letter_message` slettes når `received_at` er
-  strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer); DL bærer rå payload m/fnr og
-  må ha samme slette-disiplin. Bare terminale `delivery`-rader (`SENT`/`FAILED`) med
+  (konfigurerbart). Bare terminale `inbox_message`-rader (`PROCESSED`/`DROPPED`/`FAILED`)
+  slettes når `received_at` er strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer).
+  Ikke-terminale rader (`RECEIVED`/`CLAIMED`/`WAIT`) beholdes til de er ferdig behandlet,
+  men aldri lenger enn 365 dager etter `received_at` (absolutt grense for personopplysninger).
+  Rader som slettes ved denne grensen mens de fortsatt er ubehandlet, telles i
+  `retention.cleanup.inbox.unprocessed.deleted` og logges på WARN-nivå med kun antall.
+  `dead_letter_message` slettes når `received_at` er
+  strengt eldre enn 100 dager; DL bærer rå payload m/fnr og må ha samme slette-disiplin.
+  Bare terminale `delivery`-rader (`SENT`/`FAILED`) med
   `created_at` strengt eldre enn 180 dager slettes. En PostgreSQL advisory lock lar én replika
   kjøre hver opprydding; en replika som ikke får låsen hopper over runden. Sletting av en
   inbox-rad setter tilhørende `delivery.inbox_event_id` til `NULL` via FK-en. Ved behov for

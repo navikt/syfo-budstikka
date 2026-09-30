@@ -4,6 +4,7 @@ data class RetentionCounts(
     val inboxMessages: Int,
     val deadLetterMessages: Int,
     val deliveries: Int,
+    val unprocessedInboxMessages: Int = 0,
 )
 
 sealed interface RetentionResult {

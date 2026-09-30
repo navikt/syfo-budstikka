@@ -13,6 +13,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -35,12 +36,19 @@ class PostgresRetentionRepository(
                 return@transact RetentionResult.SkippedDueToLockContention
             }
             val now = clock.now()
+            val inboxCounts =
+                deleteOldInboxMessages(
+                    now - policy.inboxAndDeadLetterRetention,
+                    now - policy.inboxAbsoluteRetention,
+                    batchSize,
+                )
             RetentionResult.Completed(
                 RetentionCounts(
-                    inboxMessages = deleteOldInboxMessages(now - policy.inboxAndDeadLetterRetention, batchSize),
+                    inboxMessages = inboxCounts.total,
                     deadLetterMessages =
                         deleteOldDeadLetterMessages(now - policy.inboxAndDeadLetterRetention, batchSize),
                     deliveries = deleteOldTerminalDeliveries(now - policy.deliveryRetention, batchSize),
+                    unprocessedInboxMessages = inboxCounts.unprocessed,
                 ),
             )
         }
@@ -56,19 +64,37 @@ class PostgresRetentionRepository(
             }
         }
 
+    /**
+     * Deletes inbox messages received before [eligibleStateCutoff] whose state is in
+     * [RetentionPolicy.eligibleInboxStates], plus messages received before [anyStateCutoff]
+     * regardless of state. The second cutoff lets stuck, unprocessed messages expire eventually;
+     * those deletions are reported separately as `unprocessed`.
+     */
     private fun deleteOldInboxMessages(
-        cutoff: kotlin.time.Instant,
+        eligibleStateCutoff: kotlin.time.Instant,
+        anyStateCutoff: kotlin.time.Instant,
         batchSize: Int,
-    ): Int {
-        val candidateIds =
+    ): InboxDeletionCounts {
+        val candidates =
             InboxMessageTable
-                .select(InboxMessageTable.eventId)
-                .where { InboxMessageTable.receivedAt less cutoff }
-                .orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
+                .select(InboxMessageTable.eventId, InboxMessageTable.state)
+                .where {
+                    (InboxMessageTable.receivedAt less eligibleStateCutoff) and
+                        (
+                            (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) or
+                                (InboxMessageTable.receivedAt less anyStateCutoff)
+                        )
+                }.orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
                 .limit(batchSize)
-                .map { it[InboxMessageTable.eventId] }
+                .forUpdate()
+                .map { it[InboxMessageTable.eventId] to it[InboxMessageTable.state] }
 
-        return InboxMessageTable.deleteWhere { InboxMessageTable.eventId inList candidateIds }
+        val deleted = InboxMessageTable.deleteWhere { InboxMessageTable.eventId inList candidates.map { it.first } }
+        check(deleted == candidates.size) { "Inbox retention deletion count differs from selected candidates" }
+        return InboxDeletionCounts(
+            total = deleted,
+            unprocessed = candidates.count { (_, state) -> state !in policy.eligibleInboxStates },
+        )
     }
 
     private fun deleteOldDeadLetterMessages(
@@ -102,6 +128,11 @@ class PostgresRetentionRepository(
 
         return DeliveryTable.deleteWhere { DeliveryTable.id inList candidateIds }
     }
+
+    private data class InboxDeletionCounts(
+        val total: Int,
+        val unprocessed: Int,
+    )
 
     companion object {
         internal const val RETENTION_CLEANUP_LOCK_NAMESPACE = 0x42554453

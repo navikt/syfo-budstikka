@@ -14,6 +14,7 @@ class MicrometerRetentionMetrics(
 ) : RetentionMetrics {
     private val completedRuns = counter(COMPLETED_RUNS)
     private val lockContentions = counter(LOCK_CONTENTIONS)
+    private val unprocessedInboxDeleted = counter(UNPROCESSED_INBOX_DELETED)
     private val deletedRows =
         mapOf(
             TABLE_INBOX to deletedRowsCounter(TABLE_INBOX),
@@ -24,6 +25,7 @@ class MicrometerRetentionMetrics(
     override fun completed(counts: RetentionCounts) {
         completedRuns.increment()
         deletedRows.getValue(TABLE_INBOX).increment(counts.inboxMessages.toDouble())
+        unprocessedInboxDeleted.increment(counts.unprocessedInboxMessages.toDouble())
         deletedRows.getValue(TABLE_DEAD_LETTER).increment(counts.deadLetterMessages.toDouble())
         deletedRows.getValue(TABLE_DELIVERY).increment(counts.deliveries.toDouble())
     }
@@ -38,6 +40,7 @@ class MicrometerRetentionMetrics(
         const val COMPLETED_RUNS = "retention.cleanup.completed"
         const val LOCK_CONTENTIONS = "retention.cleanup.lock.contention"
         const val DELETED_ROWS = "retention.cleanup.deleted"
+        const val UNPROCESSED_INBOX_DELETED = "retention.cleanup.inbox.unprocessed.deleted"
         const val TAG_TABLE = "table"
         const val TABLE_INBOX = "inbox"
         const val TABLE_DEAD_LETTER = "dead_letter"
