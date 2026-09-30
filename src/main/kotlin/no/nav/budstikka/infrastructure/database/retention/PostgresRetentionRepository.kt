@@ -64,19 +64,25 @@ class PostgresRetentionRepository(
             }
         }
 
+    /**
+     * Deletes inbox messages received before [eligibleStateCutoff] whose state is in
+     * [RetentionPolicy.eligibleInboxStates], plus messages received before [anyStateCutoff]
+     * regardless of state. The second cutoff lets stuck, unprocessed messages expire eventually;
+     * those deletions are reported separately as `unprocessed`.
+     */
     private fun deleteOldInboxMessages(
-        cutoff: kotlin.time.Instant,
-        absoluteCutoff: kotlin.time.Instant,
+        eligibleStateCutoff: kotlin.time.Instant,
+        anyStateCutoff: kotlin.time.Instant,
         batchSize: Int,
     ): InboxDeletionCounts {
         val candidates =
             InboxMessageTable
                 .select(InboxMessageTable.eventId, InboxMessageTable.state)
                 .where {
-                    (InboxMessageTable.receivedAt less cutoff) and
+                    (InboxMessageTable.receivedAt less eligibleStateCutoff) and
                         (
                             (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) or
-                                (InboxMessageTable.receivedAt less absoluteCutoff)
+                                (InboxMessageTable.receivedAt less anyStateCutoff)
                         )
                 }.orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
                 .limit(batchSize)
