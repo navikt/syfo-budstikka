@@ -17,7 +17,7 @@ erDiagram
         uuid        claim_token "nullable; CHECK: satt kun ved CLAIMED"
         text        drop_reason "nullable"
         int         attempt
-        timestamptz next_attempt_time "nullable"
+        timestamptz next_attempt_time "nullable; CHECK: satt ved CLAIMED og WAIT"
         timestamptz received_at
         timestamptz processed_at "nullable"
         text        error_message "nullable"
@@ -36,7 +36,7 @@ erDiagram
         text        state "READY|CLAIMED|SENT|FAILED"
         uuid        claim_token "nullable; CHECK: satt kun ved CLAIMED"
         int         attempt
-        timestamptz next_attempt_time "nullable"
+        timestamptz next_attempt_time "nullable; CHECK: satt ved CLAIMED"
         timestamptz created_at
         text        error_message "nullable"
     }
@@ -115,6 +115,10 @@ kan jobbe parallelt uten dobbelt-claim:
 `claim_token` er bare satt mens raden er `CLAIMED`, og er `NULL` i alle andre
 tilstander. Kolonnen er derfor nullable med vilje. En CHECK på begge tabellene
 håndhever dette (ADR 0004).
+
+`CLAIMED` krever `next_attempt_time` som utløpstid for leasen i begge tabellene;
+uten den blir raden aldri reclaimet. `WAIT` finnes bare i `inbox_message` og
+krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
 
 ### Transaksjonsgrenser
 

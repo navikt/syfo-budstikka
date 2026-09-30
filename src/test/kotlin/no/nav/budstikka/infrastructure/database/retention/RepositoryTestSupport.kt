@@ -21,6 +21,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.sql.DriverManager
 import java.util.UUID
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 internal class RepositoryTestSupport : AutoCloseable {
@@ -53,6 +54,10 @@ internal class RepositoryTestSupport : AutoCloseable {
                 it[InboxMessageTable.state] = state.name
                 if (state == InboxMessageState.CLAIMED) {
                     it[claimToken] = ClaimToken.generate().value
+                    it[InboxMessageTable.nextAttemptTime] = clock.now() + 1.hours
+                }
+                if (state == InboxMessageState.WAIT) {
+                    it[InboxMessageTable.nextAttemptTime] = clock.now() + 1.hours
                 }
                 it[InboxMessageTable.receivedAt] = receivedAt
             }
@@ -98,6 +103,7 @@ internal class RepositoryTestSupport : AutoCloseable {
                 it[DeliveryTable.state] = state.name
                 if (state == DeliveryState.CLAIMED) {
                     it[claimToken] = ClaimToken.generate().value
+                    it[DeliveryTable.nextAttemptTime] = clock.now() + 1.hours
                 }
                 it[DeliveryTable.createdAt] = createdAt
             }

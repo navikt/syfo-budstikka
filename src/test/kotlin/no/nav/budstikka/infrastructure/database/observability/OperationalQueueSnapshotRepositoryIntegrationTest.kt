@@ -35,7 +35,7 @@ class OperationalQueueSnapshotRepositoryIntegrationTest :
         test("groups active durable work and ignores terminal history") {
             fixture.insertInbox(InboxMessageState.RECEIVED, observedAt - 10.minutes)
             fixture.insertInbox(InboxMessageState.CLAIMED, observedAt - 8.minutes, observedAt - 1.minutes)
-            fixture.insertInbox(InboxMessageState.CLAIMED, observedAt - 11.minutes, nextAttemptAt = null)
+            fixture.insertInbox(InboxMessageState.CLAIMED, observedAt - 12.minutes, observedAt - 11.minutes)
             fixture.insertInbox(InboxMessageState.CLAIMED, observedAt - 7.minutes, observedAt + 1.minutes)
             fixture.insertInbox(InboxMessageState.WAIT, observedAt - 6.minutes, observedAt - 1.minutes)
             fixture.insertInbox(InboxMessageState.WAIT, observedAt - 5.minutes, observedAt + 1.hours)
@@ -49,7 +49,7 @@ class OperationalQueueSnapshotRepositoryIntegrationTest :
                 observedAt - 8.minutes,
                 observedAt - 1.minutes,
             )
-            fixture.insertDelivery(Channel.MICROFRONTEND, DeliveryState.CLAIMED, observedAt - 10.minutes)
+            fixture.insertDelivery(Channel.MICROFRONTEND, DeliveryState.CLAIMED, observedAt - 11.minutes, observedAt - 10.minutes)
             fixture.insertDelivery(
                 Channel.BRUKERVARSEL,
                 DeliveryState.CLAIMED,
