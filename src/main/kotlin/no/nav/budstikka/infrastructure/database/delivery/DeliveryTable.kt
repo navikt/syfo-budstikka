@@ -7,6 +7,8 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.java.javaUUID
+import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
@@ -32,6 +34,7 @@ object DeliveryTable : Table("delivery") {
 
     init {
         check("delivery_claim_token_state_check") { (state eq DeliveryState.CLAIMED.name) eq claimToken.isNotNull() }
+        check("delivery_claimed_next_attempt_time_check") { (state neq DeliveryState.CLAIMED.name) or nextAttemptTime.isNotNull() }
         index("delivery_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("delivery_inbox_event_id_idx", false, inboxEventId)
         index(

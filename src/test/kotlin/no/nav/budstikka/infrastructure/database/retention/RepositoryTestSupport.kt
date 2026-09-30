@@ -54,6 +54,7 @@ internal class RepositoryTestSupport : AutoCloseable {
                 it[InboxMessageTable.state] = state.name
                 if (state == InboxMessageState.CLAIMED) {
                     it[claimToken] = ClaimToken.generate().value
+                    it[InboxMessageTable.nextAttemptTime] = clock.now() + 1.hours
                 }
                 if (state == InboxMessageState.WAIT) {
                     it[InboxMessageTable.nextAttemptTime] = clock.now() + 1.hours
@@ -102,6 +103,7 @@ internal class RepositoryTestSupport : AutoCloseable {
                 it[DeliveryTable.state] = state.name
                 if (state == DeliveryState.CLAIMED) {
                     it[claimToken] = ClaimToken.generate().value
+                    it[DeliveryTable.nextAttemptTime] = clock.now() + 1.hours
                 }
                 it[DeliveryTable.createdAt] = createdAt
             }

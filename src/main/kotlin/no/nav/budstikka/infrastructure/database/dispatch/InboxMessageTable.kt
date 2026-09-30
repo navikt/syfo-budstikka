@@ -32,6 +32,9 @@ object InboxMessageTable : Table("inbox_message") {
     init {
         check("inbox_message_claim_token_state_check") { (state eq InboxMessageState.CLAIMED.name) eq claimToken.isNotNull() }
         check("inbox_message_wait_next_attempt_time_check") { (state neq InboxMessageState.WAIT.name) or nextAttemptTime.isNotNull() }
+        check("inbox_message_claimed_next_attempt_time_check") {
+            (state neq InboxMessageState.CLAIMED.name) or nextAttemptTime.isNotNull()
+        }
         index("inbox_message_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("inbox_message_received_at_event_id_idx", false, receivedAt, eventId)
     }
