@@ -94,16 +94,6 @@ listOf("jib", "jibDockerBuild", "jibBuildTar").forEach { jibTask ->
 }
 
 dependencies {
-    // Temporary security floors for transitive Jackson dependencies; remove when TMS builders and logstash-logback-encoder request patched versions.
-    implementation(platform(libs.jackson.bom))
-    implementation(platform(libs.tools.jackson.bom))
-
-    // Security floor for all Netty modules; remove when Ktor ships Netty 4.2.18.Final or newer.
-    implementationPlatformWithKtorVersionCheck(
-        bomNotation = "io.netty:netty-bom:4.2.19.Final",
-        expectedKtorVersion = "3.6.0",
-    )
-
     // The wire contract and its producer API. The app is a consumer of its own published contract:
     // there is exactly one contract model, in :kontrakt.
     implementation(project(":kontrakt"))
@@ -212,17 +202,6 @@ registerFagerSchemaCheck(
     revision = "main",
     taskDescription = "Checks the local Fager schema for changes on the upstream main branch.",
 )
-
-fun DependencyHandler.implementationPlatformWithKtorVersionCheck(
-    bomNotation: String,
-    expectedKtorVersion: String,
-) {
-    val currentKtorVersion = libs.versions.ktor.get()
-    check(currentKtorVersion == expectedKtorVersion) {
-        "Review the $bomNotation platform before changing Ktor from $expectedKtorVersion to $currentKtorVersion"
-    }
-    add("implementation", platform(bomNotation))
-}
 
 tasks {
     named<BaseKtLintCheckTask>("runKtlintCheckOverMainSourceSet") {
