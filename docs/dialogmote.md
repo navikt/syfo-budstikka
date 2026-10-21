@@ -9,7 +9,7 @@ Fakta om esyfovarsel er kontrollert mot [`navikt/esyfovarsel` `56ed5eb`](https:/
 - `budstikka-kontrakt` 0.7.0 eller nyere, og skrivetilgang til `team-esyfo.budstikka.v1`.
 - `EventId` lagres transaksjonelt med møteendringen før sending. Ved retry gjenbrukes samme id.
 - Alle kall bruker `SendingWindow.ONGOING` der funksjonen har parameteret. En lukking skal ikke kunne nå fram før en opprettelse som venter på sendevinduet. Unntaket er referatbeskjeden til leder (se under).
-- Microfrontenden `syfo-dialog` har isdialogmote som eneste produsent. Det krever at møtebehov har fått egen id (`syfo-motebehov`). Planlagt skjuling med `visibleUntil` krever at #282 er rullet ut.
+- Microfrontenden `syfo-dialog` deles med syfomotebehov. Se [Delt microfrontend](#delt-microfrontend). Planlagt skjuling med `visibleUntil` krever at #282 er rullet ut.
 - isdialogmote sender bare SM-hendelser når den sykmeldte kan varsles digitalt, og distribuerer brev selv. Bruk derfor ikke `brevFallback`. Budstikka slår uansett opp KRR når ekstern varsling er bedt om (ADR 0009).
 
 ## Referanser
@@ -43,6 +43,24 @@ Lenkebase i prod er `https://www.nav.no/syk/dialogmoter`. Ekstern varsling er `E
 - **Lukking av brukervarsler:** isdialogmote sender i dag LEST for åpne INNKALT- og NYTT_TID_STED-varsler før avlysning, nytt tid/sted og referat. Det blir `brukervarselInactivate` for hver referanse, sendt før det nye varselet. Gjør det samme for ENDRET.
 - **`messageType`:** Ditt Sykefravær krever en stabil kategori. esyfovarsel bruker `ESYFOVARSEL_DIALOGMOTE_<TYPE>`, og ENDRET blir `ESYFOVARSEL_DIALOGMOTE_ENDRET`. Behold verdiene hvis analyse eller Flex er avhengig av dem; avklar ellers nye verdier med Flex.
 - **`visibleUntil` for microfrontend:** esyfovarsel skjuler panelet fra første jobbkjøring kl. 07 på møtedagen. Anbefalingen er møtetidspunktet, slik at panelet vises fram til møtet starter. Velg starten av møtedagen hvis dere vil ha uendret oppførsel. Grensen er 335 dager fram.
+
+## Delt microfrontend
+
+`syfo-dialog` er ett kort, «Dialogmøte med Nav». Det viser dialogmøtepanelet når siste brev er en innkalling eller endring, ellers møtebehovpanelet når et svar etterspørres, og ellers ingenting. Både isdialogmote og syfomotebehov skrur kortet av og på, og i Budstikka vinner siste kommando per sykmeldt og microfrontend.
+
+Fordi kortet ikke viser noe når ingenting er aktuelt, er en overflødig enable ufarlig. Den eneste farlige feilen er en disable mens den andre produsenten trenger kortet. Det gir to regler:
+
+- **isdialogmote** sender enable med `visibleUntil` ved innkalling, nytt tid/sted og endring, og disable ved avlysning og referat. Den trenger ikke vite noe om møtebehov.
+- **syfomotebehov** sender enable når den ber om svar på møtebehov, og bare når det ikke finnes et aktivt møte, slik som i dag. Den sender **aldri disable mens det finnes et aktivt møte**, verken når møtebehovet ferdigstilles ved innkalling eller når kandidaten avsluttes. syfomotebehov vet om aktive møter fra statusendringene fra isdialogmote.
+
+Dette erstatter flettingen esyfovarsel gjør i tabellen `MIKROFRONTEND_SYNLIGHET`.
+
+Det som gjenstår, er enten ufarlig eller likt som i dag:
+
+- En møtebehov-enable som kommer rett før statusendringen for en innkalling, overstyrer den planlagte skjulingen. Kortet står da på etter møtet uten å vise noe, til avlysning eller referat skrur det av.
+- Etter en avlysning kommer ikke møtebehovpanelet tilbake av seg selv. Slik er det også i dag.
+
+**Rekkefølge i overgangen.** syfomotebehov må flytte sin del av microfrontenden til Budstikka, med regelen over, før eller samtidig med isdialogmote. Flytter isdialogmote først, ser ikke esyfovarsel lenger dialogmøtet. Den skrur da av kortet når møtebehovet ferdigstilles ved innkalling. Samtidig med flyttingen må esyfovarsel slutte å la `SM_DIALOGMOTE_SVAR_MOTEBEHOV` påvirke microfrontenden, og alltid sende enable ved innkalling og nytt tid/sted for møter som fortsatt går via esyfovarsel.
 
 ## Nærmeste leder
 
