@@ -21,7 +21,8 @@ erDiagram
         timestamptz received_at
         timestamptz processed_at "nullable"
         text        error_message "nullable"
-        text        wait_reason "nullable (sendevindu-hold, ADR 0014)"
+        text        wait_reason "nullable (sendevindu-hold ADR 0014, SCHEDULED_DISABLE ADR 0018)"
+        uuid        source_event_id "nullable; satt kun på avledede rader (ADR 0018)"
     }
 
     delivery {
@@ -81,6 +82,8 @@ erDiagram
   slettes når `received_at` er strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer).
   Ikke-terminale rader (`RECEIVED`/`CLAIMED`/`WAIT`) beholdes til de er ferdig behandlet,
   men aldri lenger enn 365 dager etter `received_at` (absolutt grense for personopplysninger).
+  En planlagt disable arver kildens `received_at` og fyrer senest 335 dager etter den,
+  altså minst 30 dager før grensen (ADR 0018).
   Rader som slettes ved denne grensen mens de fortsatt er ubehandlet, telles i
   `retention.cleanup.inbox.unprocessed.deleted` og logges på WARN-nivå med kun antall.
   `dead_letter_message` slettes når `received_at` er
@@ -129,6 +132,13 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
   `saveInTransaction(...)` av delivery-rader bare hvis CAS lykkes.
   `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader
   for samme inbox-melding.
+- **Microfrontend (ADR 0018):** Før CAS tar effektueringen en advisory-lås per
+  `(sykmeldt, microfrontendId)` og låser deretter raden og ventende avledede disables fra
+  eldre kommandoer, sortert på `(received_at, event_id)` som i oppbevaringsjobben. I samme
+  transaksjon settes de ventende radene til `PROCESSED` (kansellering). En enable med
+  `visibleUntil` skriver en avledet rad med `MicrofrontendDisable` i `WAIT` til
+  `visibleUntil` (`insert ... on conflict do nothing`). Det skjer ikke hvis en nyere
+  kommando for nøkkelen allerede er besluttet.
 
 ### `inbox_message.state`
 
@@ -138,8 +148,12 @@ RECEIVED -> CLAIMED -> PROCESSED
                    -> FAILED
                    -> WAIT       (utenfor sendevindu, ADR 0014)
 
-CLAIMED -> CLAIMED (lease utløpt, kan re-claimes)
-WAIT    -> CLAIMED (sendevindu åpnet: next_attempt_time passert)
+(ny avledet rad)   -> WAIT       (planlagt disable, ADR 0018)
+
+CLAIMED -> CLAIMED   (lease utløpt, kan re-claimes)
+WAIT    -> CLAIMED   (sendevindu åpnet eller visibleUntil nådd: next_attempt_time passert)
+WAIT    -> PROCESSED (planlagt disable kansellert av en nyere kommando)
+CLAIMED -> PROCESSED (vekket, ikke besluttet disable kansellert; workeren taper CAS)
 ```
 
 - Claim bruker `FOR UPDATE SKIP LOCKED` og lease via `next_attempt_time`.
@@ -175,6 +189,8 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `inbox_message_received_at_event_id_idx` på `(received_at, event_id)`
+- `inbox_message_microfrontend_key_idx` på `((content ->> 'personIdentifier'), (content ->> 'microfrontendId'))`
+  der `(content ->> 'microfrontendId') IS NOT NULL`
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
 - `delivery_created_at_id_sent_failed_idx` på `(created_at, id)` der `state IN ('SENT', 'FAILED')`
@@ -192,8 +208,9 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   id-en leses tilbake i stedet for å sendes inn (ikke `.autoGenerate()`, som lager en
   klient-side v4). Tidssortering gir B-tree-lokalitet og støtter alders-basert
   retensjons-`DELETE`.
-- `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
-  budstikkas database.
+- `event_id` settes av produsenten (Kafka-headeren i kontrakten), aldri av
+  budstikkas database. Unntaket er avledede rader: der avleder Budstikka `event_id`
+  deterministisk fra kildens (ADR 0018).
 
 ## Observability-koblinger
 
