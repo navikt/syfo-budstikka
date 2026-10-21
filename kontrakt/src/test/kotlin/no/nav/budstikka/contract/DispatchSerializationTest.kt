@@ -118,6 +118,51 @@ class DispatchSerializationTest :
                             reference = "ref-123",
                             orgnummer = SYNTHETIC_ORGNUMMER,
                         ),
+                    "ArbeidsgiversakCreate" to
+                        ArbeidsgiversakCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = AltinnResource(resource = "nav_syfo_dialogmote"),
+                            tag = "Dialogmøte",
+                            sakstilknytning = Sakstilknytning(sakId = "sak-1"),
+                            title = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            initialStatus = Saksstatus.UNDER_BEHANDLING,
+                            hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
+                        ),
+                    "ArbeidsgiversakStatus" to
+                        ArbeidsgiversakStatus(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            tag = "Dialogmøte",
+                            sakstilknytning = Sakstilknytning(sakId = "sak-1"),
+                            status = Saksstatus.FERDIG,
+                            statusText = "Avlyst",
+                        ),
+                    "KalenderavtaleCreate" to
+                        KalenderavtaleCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                NarmesteLeder(
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    externalVarsling = NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                ),
+                            tag = "Dialogmøte",
+                            sakstilknytning = Sakstilknytning(sakId = "sak-1"),
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                            endAt = Instant.parse("2026-11-02T10:00:00Z"),
+                            location = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
+                            digital = true,
+                            state = Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT,
+                        ),
+                    "KalenderavtaleUpdate" to
+                        KalenderavtaleUpdate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
+                            tag = "Dialogmøte",
+                            newState = Kalenderavtaletilstand.AVLYST,
+                            newText = "Avlyst",
+                        ),
                 )
 
             variants.forEach { (name, content) ->
