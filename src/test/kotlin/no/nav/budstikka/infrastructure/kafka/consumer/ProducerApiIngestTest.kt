@@ -5,6 +5,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.inbox.NoInboxMetrics
+import no.nav.budstikka.contract.Arbeidsgiversak
+import no.nav.budstikka.contract.ArbeidsgiversakCreate
+import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrevCreate
@@ -15,6 +18,9 @@ import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.EncodedDispatch
 import no.nav.budstikka.contract.EventId
 import no.nav.budstikka.contract.ExternalNotification
+import no.nav.budstikka.contract.Kalenderavtale
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate
 import no.nav.budstikka.contract.MicrofrontendDisable
@@ -28,6 +34,7 @@ import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
 import java.util.Optional
 import java.util.UUID
+import kotlin.time.Instant
 
 private val SYKMELDT = PersonIdentifier("1".repeat(11))
 private val ORGNUMMER = Orgnummer("999999999")
@@ -103,6 +110,46 @@ class ProducerApiIngestTest :
                             sykmeldt = SYKMELDT,
                             microfrontendId = "syk-dialog",
                         ),
+                    "arbeidsgiversakCreate" to
+                        Budstikka.arbeidsgiversakCreate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            recipient = Arbeidsgiversak.NarmesteLeder(SYKMELDT),
+                            tag = "Dialogmøte",
+                            caseId = "mote-1",
+                            title = "Dialogmøte",
+                        ),
+                    "arbeidsgiversakStatus" to
+                        Budstikka.arbeidsgiversakStatus(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            tag = "Dialogmøte",
+                            caseId = "mote-1",
+                            status = Arbeidsgiversak.Status.DONE,
+                        ),
+                    "kalenderavtaleCreate" to
+                        Budstikka.kalenderavtaleCreate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            sykmeldt = SYKMELDT,
+                            tag = "Dialogmøte",
+                            caseId = "mote-1",
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                        ),
+                    "kalenderavtaleUpdate" to
+                        Budstikka.kalenderavtaleUpdate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            sykmeldt = SYKMELDT,
+                            tag = "Dialogmøte",
+                            newState = Kalenderavtale.State.CANCELLED,
+                        ),
                 )
             val expectedTypes =
                 mapOf(
@@ -114,6 +161,10 @@ class ProducerApiIngestTest :
                     "brevCreate" to BrevCreate::class,
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,
+                    "arbeidsgiversakCreate" to ArbeidsgiversakCreate::class,
+                    "arbeidsgiversakStatus" to ArbeidsgiversakStatus::class,
+                    "kalenderavtaleCreate" to KalenderavtaleCreate::class,
+                    "kalenderavtaleUpdate" to KalenderavtaleUpdate::class,
                 )
 
             variants.forEach { (name, encoded) ->
