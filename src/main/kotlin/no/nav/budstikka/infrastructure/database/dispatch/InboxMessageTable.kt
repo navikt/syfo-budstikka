@@ -2,12 +2,15 @@ package no.nav.budstikka.infrastructure.database.dispatch
 
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
+import org.jetbrains.exposed.v1.core.CustomOperator
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
@@ -27,6 +30,9 @@ object InboxMessageTable : Table("inbox_message") {
     val errorMessage = text("error_message").nullable()
     val waitReason = text("wait_reason").nullable()
 
+    /** Set only on a row derived from another inbox row; it names the source (ADR 0018). */
+    val sourceEventId = javaUUID("source_event_id").nullable()
+
     override val primaryKey = PrimaryKey(eventId)
 
     init {
@@ -36,5 +42,14 @@ object InboxMessageTable : Table("inbox_message") {
         }
         index("inbox_message_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("inbox_message_received_at_event_id_idx", false, receivedAt, eventId)
+        index(
+            "inbox_message_microfrontend_key_idx",
+            false,
+            functions = listOf(contentText("personIdentifier"), contentText("microfrontendId")),
+            filterCondition = { contentText("microfrontendId").isNotNull() },
+        )
     }
+
+    /** `content ->> 'field'`, the expression the microfrontend key index is built on. */
+    private fun contentText(field: String) = CustomOperator<String>("->>", TextColumnType(), content, stringLiteral(field))
 }

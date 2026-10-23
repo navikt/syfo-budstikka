@@ -12,4 +12,13 @@ internal object InboxLogEvents {
             operation = "inbox.process",
             errorCode = "INBOX_NOT_CLAIMABLE",
         )
+
+    val scheduledDisableCapped =
+        Event<Unit>(
+            name = "inbox.scheduled_disable.capped",
+            level = ApplicationLogLevel.WARN,
+            message = "Microfrontend visibleUntil lies beyond the retention horizon; disable scheduled at the horizon",
+            operation = "inbox.process",
+            errorCode = "VISIBLE_UNTIL_BEYOND_HORIZON",
+        )
 }
