@@ -209,6 +209,28 @@ class BudstikkaProducerApiTest :
 
                 encoded.value shouldContain """"oppgavetype":"OPPFOLGINGSPLAN_PAAMINNELSE""""
             }
+
+            listOf(
+                Oppgavetype.DIALOGMOTE_INNKALLING to "DIALOGMOTE_INNKALLING",
+                Oppgavetype.DIALOGMOTE_ENDRING to "DIALOGMOTE_ENDRING",
+                Oppgavetype.DIALOGMOTE_AVLYSNING to "DIALOGMOTE_AVLYSNING",
+                Oppgavetype.DIALOGMOTE_REFERAT to "DIALOGMOTE_REFERAT",
+            ).forEach { (oppgavetype, wireValue) ->
+                test("encodes $oppgavetype as its exact wire value") {
+                    val encoded =
+                        Budstikka.dineSykmeldteVarselCreate(
+                            eventId = EVENT_ID,
+                            reference = REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            oppgavetype = oppgavetype,
+                            text = SYNTHETIC_TEXT,
+                        )
+
+                    oppgavetype.wireValue shouldBe wireValue
+                    encoded.value shouldContain """"oppgavetype":"$wireValue""""
+                }
+            }
         }
 
         context("dineSykmeldteVarselInactivate") {

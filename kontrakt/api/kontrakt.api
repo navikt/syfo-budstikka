@@ -232,7 +232,10 @@ public final class no/nav/budstikka/contract/ExternalNotification$Companion {
 }
 
 public final class no/nav/budstikka/contract/Oppgavetype : java/lang/Enum {
+	public static final field DIALOGMOTE_AVLYSNING Lno/nav/budstikka/contract/Oppgavetype;
+	public static final field DIALOGMOTE_ENDRING Lno/nav/budstikka/contract/Oppgavetype;
 	public static final field DIALOGMOTE_INNKALLING Lno/nav/budstikka/contract/Oppgavetype;
+	public static final field DIALOGMOTE_REFERAT Lno/nav/budstikka/contract/Oppgavetype;
 	public static final field OPPFOLGINGSPLAN_PAAMINNELSE Lno/nav/budstikka/contract/Oppgavetype;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public final fun getWireValue ()Ljava/lang/String;

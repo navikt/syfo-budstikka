@@ -79,27 +79,28 @@ class LedervarselPublisherTest :
             }
         }
 
-        test("forwards Oppgavetype.wireValue unchanged for OPPFOLGINGSPLAN_PAAMINNELSE") {
-            with(PublisherFixture()) {
-                ledervarselPublisher(topic, recording, MutableClock(now)).publish(
-                    reference = reference,
-                    ledervarsel =
-                        LedervarselCreate(
-                            sykmeldt = TEST_SYKMELDT,
-                            orgnummer = TEST_ORGNUMMER,
-                            oppgavetype = Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE,
-                            text = "Påminnelse om oppfølgingsplan",
-                        ),
-                )
+        Oppgavetype.entries.forEach { oppgavetype ->
+            test("forwards Oppgavetype.wireValue unchanged for $oppgavetype") {
+                with(PublisherFixture()) {
+                    ledervarselPublisher(topic, recording, MutableClock(now)).publish(
+                        reference = reference,
+                        ledervarsel =
+                            LedervarselCreate(
+                                sykmeldt = TEST_SYKMELDT,
+                                orgnummer = TEST_ORGNUMMER,
+                                oppgavetype = oppgavetype,
+                                text = "Syntetisk varseltekst",
+                            ),
+                    )
 
-                val opprett =
-                    recording.published
-                        .single()
-                        .value
-                        .parseJson()["opprettHendelse"]!!
-                        .jsonObject
-                opprett["oppgavetype"]!!.jsonPrimitive.content shouldBe
-                    Oppgavetype.OPPFOLGINGSPLAN_PAAMINNELSE.wireValue
+                    val opprett =
+                        recording.published
+                            .single()
+                            .value
+                            .parseJson()["opprettHendelse"]!!
+                            .jsonObject
+                    opprett["oppgavetype"]!!.jsonPrimitive.content shouldBe oppgavetype.wireValue
+                }
             }
         }
 
