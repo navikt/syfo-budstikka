@@ -80,28 +80,31 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
-        return when (
-            val response =
-                withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
-                    publisher.publish(
-                        ArbeidsgiverNotificationRequest(
-                            virksomhetsnummer = create.orgnummer.value,
-                            eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
-                            grupperingsid = create.sakstilknytning?.sakId,
-                            tag = create.tag,
-                            tekst = create.text,
-                            lenke = create.link,
-                            recipient = notificationRecipient,
-                            meldingstype = create.meldingstype,
-                            visibleUntil = create.visibleUntil,
-                        ),
-                    )
-                }
-        ) {
-            ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
-            is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
+        val request =
+            ArbeidsgiverNotificationRequest(
+                virksomhetsnummer = create.orgnummer.value,
+                eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
+                grupperingsid = create.sakstilknytning?.sakId,
+                tag = create.tag,
+                tekst = create.text,
+                lenke = create.link,
+                recipient = notificationRecipient,
+                meldingstype = create.meldingstype,
+                visibleUntil = create.visibleUntil,
+            )
+        val response = publish(request)
+        // A case is locked to the leader it was created for. After a leader change, the notification
+        // still reaches the current leader, but outside the case, as esyfovarsel did.
+        if (response is ArbeidsgiverNotificationResponse.InvalidRecipient && request.grupperingsid != null) {
+            return publish(request.copy(grupperingsid = null)).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
         }
+        return response.toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
     }
+
+    private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
+        withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
+            publisher.publish(request)
+        }
 
     private fun AltinnResource.toNotificationRecipient() =
         ArbeidsgiverNotificationRecipient.AltinnRessurs(
@@ -142,7 +145,7 @@ class ArbeidsgivervarselChannelHandler(
         }
 }
 
-private fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
+internal fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
     resolveEmailHtmlBody(emailText, emailBodyFormat)
 
 private fun no.nav.budstikka.contract.AltinnExternalVarsling.resolvedEmailHtmlBody(): String? =

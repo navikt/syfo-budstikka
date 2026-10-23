@@ -1,11 +1,14 @@
 package no.nav.budstikka.contract
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 private const val REFERENCE = "ref-1"
@@ -393,20 +396,46 @@ class BudstikkaProducerApiTest :
 
         context("microfrontend") {
             test("enable carries the optional visibility limit") {
+                val visibleUntil = Clock.System.now() + 30.days
                 val encoded =
                     Budstikka.microfrontendEnable(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         microfrontendId = "syk-dialog",
-                        visibleUntil = VISIBLE_UNTIL,
+                        visibleUntil = visibleUntil,
                     )
 
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendEnable",""" +
                     """"personIdentifier":"00000000000","microfrontendId":"syk-dialog",""" +
-                    """"visibleUntil":"2026-01-01T00:00:00Z"}}"""
+                    """"visibleUntil":"$visibleUntil"}}"""
+            }
+
+            test("enable accepts a visibility limit up to 335 days ahead") {
+                Budstikka
+                    .microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = Clock.System.now() + 334.days,
+                    ).value shouldContain "\"visibleUntil\":"
+            }
+
+            test("enable rejects a visibility limit in the past or more than 335 days ahead") {
+                listOf(Clock.System.now() - 1.days, Clock.System.now() + 336.days).forEach { visibleUntil ->
+                    shouldThrow<IllegalArgumentException> {
+                        Budstikka.microfrontendEnable(
+                            eventId = EVENT_ID,
+                            reference = REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            microfrontendId = "syk-dialog",
+                            visibleUntil = visibleUntil,
+                        )
+                    }.message shouldContain "visibleUntil"
+                }
             }
 
             test("enable without a visibility limit stays visible until disabled") {
@@ -431,6 +460,141 @@ class BudstikkaProducerApiTest :
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendDisable",""" +
                     """"personIdentifier":"00000000000","microfrontendId":"syk-dialog"}}"""
+            }
+        }
+
+        context("arbeidsgiversak") {
+            test("create keys on orgnummer and carries the case identity as sakstilknytning") {
+                val encoded =
+                    Budstikka.arbeidsgiversakCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        tag = "Dialogmøte",
+                        caseId = "sak-1",
+                        title = "Dialogmøte med Test",
+                        link = "https://nav.no/ag",
+                        hardDeleteAt = VISIBLE_UNTIL,
+                    )
+
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgiversakCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":null},"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},""" +
+                    """"title":"Dialogmøte med Test","link":"https://nav.no/ag","initialStatus":"MOTTATT",""" +
+                    """"hardDeleteAt":"2026-01-01T00:00:00Z"}}"""
+            }
+
+            test("create for an Altinn resource maps the status to the wire value") {
+                Budstikka
+                    .arbeidsgiversakCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgiversak.AltinnResource("nav_syfo_dialogmote"),
+                        tag = "Dialogmøte",
+                        caseId = "sak-1",
+                        title = "Dialogmøte",
+                        initialStatus = Arbeidsgiversak.Status.IN_PROGRESS,
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgiversakCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                    """"externalVarsling":null},"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},""" +
+                    """"title":"Dialogmøte","link":null,"initialStatus":"UNDER_BEHANDLING","hardDeleteAt":null}}"""
+            }
+
+            test("status update keys on orgnummer and maps DONE to FERDIG") {
+                val encoded =
+                    Budstikka.arbeidsgiversakStatus(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        tag = "Dialogmøte",
+                        caseId = "sak-1",
+                        status = Arbeidsgiversak.Status.DONE,
+                        statusText = "Avlyst",
+                    )
+
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgiversakStatus",""" +
+                    """"orgnummer":"999999999","tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},""" +
+                    """"status":"FERDIG","statusText":"Avlyst","hardDeleteAt":null}}"""
+            }
+        }
+
+        context("kalenderavtale") {
+            test("create keys on orgnummer and carries leader, time, place and HTML email") {
+                val encoded =
+                    Budstikka.kalenderavtaleCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        tag = "Dialogmøte",
+                        caseId = "sak-1",
+                        text = "Dialogmøte med Test",
+                        link = "https://nav.no/ag",
+                        startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                        endAt = Instant.parse("2026-11-02T10:00:00Z"),
+                        location = Kalenderavtale.Location("Gate 1", "0001", "Oslo"),
+                        digital = true,
+                        email = Kalenderavtale.LeaderEmail.html("Tittel", "<p>E-post</p>"),
+                    )
+
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"KalenderavtaleCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","emailBodyFormat":"HTML"}},""" +
+                    """"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},"text":"Dialogmøte med Test",""" +
+                    """"link":"https://nav.no/ag","startAt":"2026-11-02T09:00:00Z","endAt":"2026-11-02T10:00:00Z",""" +
+                    """"location":{"adresse":"Gate 1","postnummer":"0001","poststed":"Oslo"},"digital":true,""" +
+                    """"state":"VENTER_SVAR_FRA_ARBEIDSGIVER"}}"""
+            }
+
+            test("update carries only the requested changes and a plain-text email") {
+                Budstikka
+                    .kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        tag = "Dialogmøte",
+                        newState = Kalenderavtale.State.CANCELLED,
+                        email = Kalenderavtale.LeaderEmail.plainText("Tittel", "E-post"),
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"KalenderavtaleUpdate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"tag":"Dialogmøte",""" +
+                    """"newState":"AVLYST","newText":null}}"""
+            }
+
+            test("every state maps to its own wire value") {
+                Kalenderavtale.State.entries
+                    .map { state ->
+                        Budstikka
+                            .kalenderavtaleUpdate(
+                                eventId = EVENT_ID,
+                                reference = REFERENCE,
+                                orgnummer = SYNTHETIC_ORGNUMMER,
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                tag = "Dialogmøte",
+                                newState = state,
+                            ).value
+                            .substringAfter("\"newState\":\"")
+                            .substringBefore('"')
+                    } shouldContainExactlyInAnyOrder
+                    listOf(
+                        "VENTER_SVAR_FRA_ARBEIDSGIVER",
+                        "ARBEIDSGIVER_VIL_AVLYSE",
+                        "ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED",
+                        "ARBEIDSGIVER_HAR_GODTATT",
+                        "AVLYST",
+                        "AVHOLDT",
+                    )
             }
         }
 
@@ -514,6 +678,10 @@ class BudstikkaProducerApiTest :
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",
+                    "arbeidsgiversakCreate",
+                    "arbeidsgiversakStatus",
+                    "kalenderavtaleCreate",
+                    "kalenderavtaleUpdate",
                 )
         }
     })

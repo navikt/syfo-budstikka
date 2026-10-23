@@ -27,6 +27,8 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.AltinnResource**",
         "no.nav.budstikka.contract.ArbeidsgiverMeldingstype",
         "no.nav.budstikka.contract.ArbeidsgiverRecipient**",
+        "no.nav.budstikka.contract.ArbeidsgiversakCreate**",
+        "no.nav.budstikka.contract.ArbeidsgiversakStatus**",
         "no.nav.budstikka.contract.ArbeidsgivervarselCreate**",
         "no.nav.budstikka.contract.ArbeidsgivervarselInactivate**",
         "no.nav.budstikka.contract.BrevCreate**",
@@ -35,9 +37,14 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.DispatchKt",
         "no.nav.budstikka.contract.Dispatch**",
         "no.nav.budstikka.contract.EmailBodyFormat**",
+        "no.nav.budstikka.contract.KalenderavtaleCreate**",
+        "no.nav.budstikka.contract.Kalenderavtalelokasjon**",
+        "no.nav.budstikka.contract.Kalenderavtaletilstand**",
+        "no.nav.budstikka.contract.KalenderavtaleUpdate**",
         "no.nav.budstikka.contract.Ledervarsel**",
         "no.nav.budstikka.contract.Microfrontend**",
         "no.nav.budstikka.contract.NarmesteLeder**",
+        "no.nav.budstikka.contract.Saksstatus**",
         "no.nav.budstikka.contract.Sakstilknytning**",
     )
 

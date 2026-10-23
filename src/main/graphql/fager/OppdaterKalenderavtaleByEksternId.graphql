@@ -1,0 +1,36 @@
+mutation OppdaterKalenderavtaleByEksternId(
+  $merkelapp: String!
+  $eksternId: String!
+  $nyTilstand: KalenderavtaleTilstand
+  $nyTekst: String
+  $idempotencyKey: String
+  $eksterneVarsler: [EksterntVarselInput!]!
+) {
+  oppdaterKalenderavtaleByEksternId(
+    merkelapp: $merkelapp
+    eksternId: $eksternId
+    nyTilstand: $nyTilstand
+    nyTekst: $nyTekst
+    idempotencyKey: $idempotencyKey
+    eksterneVarsler: $eksterneVarsler
+  ) {
+    ... on OppdaterKalenderavtaleVellykket {
+      __typename
+    }
+    ... on NotifikasjonFinnesIkke {
+      __typename
+    }
+    ... on Konflikt {
+      __typename
+    }
+    ... on UgyldigKalenderavtale {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+  }
+}

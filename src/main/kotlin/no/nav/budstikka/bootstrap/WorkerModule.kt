@@ -4,6 +4,8 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgiversakChannelHandler
+import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
@@ -13,6 +15,7 @@ import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.DittSykefravaerChannelHandler
 import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
+import no.nav.budstikka.application.delivery.KalenderavtaleChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
@@ -58,6 +61,18 @@ fun DependencyRegistry.workerModule() {
             Channel.ARBEIDSGIVERVARSEL to
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
+                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
+                    metrics = resolve<DeliveryMetrics>(),
+                ),
+            Channel.ARBEIDSGIVERSAK to
+                ArbeidsgiversakChannelHandler(
+                    publisher = resolve<ArbeidsgiversakPublisher>(),
+                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
+                    metrics = resolve<DeliveryMetrics>(),
+                ),
+            Channel.KALENDERAVTALE to
+                KalenderavtaleChannelHandler(
+                    publisher = resolve<ArbeidsgiversakPublisher>(),
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
                     metrics = resolve<DeliveryMetrics>(),
                 ),

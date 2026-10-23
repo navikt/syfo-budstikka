@@ -174,7 +174,9 @@ class ArbeidsgiverNotifikasjonClientTest :
                     "UgyldigMerkelapp" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMerkelapp"),
                     "UgyldigMottaker" to
-                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMottaker"),
+                        ArbeidsgiverNotificationResponse.InvalidRecipient(
+                            "Arbeidsgiver notification API rejected request: UgyldigMottaker",
+                        ),
                     "UkjentProdusent" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UkjentProdusent"),
                     "UkjentRolle" to
@@ -197,7 +199,9 @@ class ArbeidsgiverNotifikasjonClientTest :
                     "UgyldigMerkelapp" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMerkelapp"),
                     "UgyldigMottaker" to
-                        ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UgyldigMottaker"),
+                        ArbeidsgiverNotificationResponse.InvalidRecipient(
+                            "Arbeidsgiver notification API rejected request: UgyldigMottaker",
+                        ),
                     "UkjentProdusent" to
                         ArbeidsgiverNotificationResponse.Rejected("Arbeidsgiver notification API rejected request: UkjentProdusent"),
                     "UkjentRolle" to
