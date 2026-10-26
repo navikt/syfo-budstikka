@@ -74,4 +74,6 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 apollo-api = { module = "com.apollographql.apollo:apollo-api", version.ref = "apollo" }
 esyfo-logger = { module = "no.nav.esyfo.observability:esyfo-logger", version.ref = "esyfoObservability" }
 jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jacksonBom" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jacksonBom" }
 tools-jackson-bom = { module = "tools.jackson:jackson-bom", version.ref = "toolsJacksonBom" }
+tools-jackson-core = { module = "tools.jackson.core:jackson-core", version.ref = "toolsJacksonBom" }
