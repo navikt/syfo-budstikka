@@ -20,3 +20,9 @@ spec:
     - team: team-esyfo
       application: syfo-oppfolgingsplan-backend
       access: write
+    - team: team-esyfo
+      application: syfomotebehov
+      access: write
+    - team: teamsykefravr
+      application: isdialogmote
+      access: write

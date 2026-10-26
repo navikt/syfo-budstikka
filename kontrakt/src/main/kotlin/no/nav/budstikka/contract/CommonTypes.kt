@@ -33,6 +33,15 @@ enum class Oppgavetype(
     /** Invitation to a dialogue meeting. */
     DIALOGMOTE_INNKALLING("DIALOGMOTE_INNKALLING"),
 
+    /** Change to a dialogue meeting, such as a new time, place or participant. */
+    DIALOGMOTE_ENDRING("DIALOGMOTE_ENDRING"),
+
+    /** Cancellation of a dialogue meeting. */
+    DIALOGMOTE_AVLYSNING("DIALOGMOTE_AVLYSNING"),
+
+    /** Minutes from a dialogue meeting. */
+    DIALOGMOTE_REFERAT("DIALOGMOTE_REFERAT"),
+
     /** Reminder about a follow-up plan. */
     OPPFOLGINGSPLAN_PAAMINNELSE("OPPFOLGINGSPLAN_PAAMINNELSE"),
 }
