@@ -69,6 +69,9 @@ class BudstikkaTestApp private constructor(
     val dittSykefravaerTopic: String
         get() = appConfig.property("kafka.producers.ditt-sykefravaer-melding.topic").getString()
 
+    val minsideMicrofrontendTopic: String
+        get() = appConfig.property("kafka.producers.minside-microfrontend.topic").getString()
+
     fun produce(
         topic: String,
         key: String?,
