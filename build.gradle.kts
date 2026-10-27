@@ -94,6 +94,27 @@ listOf("jib", "jibDockerBuild", "jibBuildTar").forEach { jibTask ->
 }
 
 dependencies {
+    // Temporary security floors for transitive Jackson dependencies; remove when TMS builders and logstash-logback-encoder request patched versions.
+    implementation(platform(libs.jackson.bom))
+    implementation(platform(libs.tools.jackson.bom))
+
+    constraints {
+        // The BOM platforms above already resolve patched versions, but GitHub's dependency graph
+        // reports the requested transitive versions and ignores platform() constraints, so the
+        // Dependabot alerts stay open without these explicit floors.
+        //
+        // jackson-databind 2.20.1 comes in via tms-varsel java-builder -> jackson-datatype-jsr310;
+        // no patched builder release exists yet. Same approach as navikt/esyfo-narmesteleder#728.
+        implementation(libs.jackson.databind) {
+            because("CVE-2026-91776 (GHSA-wv8q-qhhj-9h54)")
+        }
+        // jackson-core 3.0.1 comes in via logstash-logback-encoder -> tools.jackson.core:jackson-databind;
+        // no patched encoder release exists yet.
+        implementation(libs.tools.jackson.core) {
+            because("GHSA-2m67-wjpj-xhg9")
+        }
+    }
+
     // The wire contract and its producer API. The app is a consumer of its own published contract:
     // there is exactly one contract model, in :kontrakt.
     implementation(project(":kontrakt"))
