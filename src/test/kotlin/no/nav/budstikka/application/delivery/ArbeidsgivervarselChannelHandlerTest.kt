@@ -15,6 +15,7 @@ import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Sakstilknytning
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
@@ -41,6 +42,38 @@ class ArbeidsgivervarselChannelHandlerTest :
                     meldingstype = no.nav.budstikka.contract.ArbeidsgiverMeldingstype.BESKJED,
                     visibleUntil = null,
                 )
+        }
+
+        test("republishes outside the case when the recipient is not on the linked case") {
+            val publisher =
+                RecordingPublisher(ArbeidsgiverNotificationResponse.InvalidRecipient("UgyldigMottaker"))
+
+            handler(publisher).handle(delivery(create(sakstilknytning = Sakstilknytning("sak-1")))) shouldBe
+                DeliveryOutcome.Sent
+
+            publisher.requests.map { it.grupperingsid } shouldBe listOf("sak-1", null)
+            publisher.requests.map { it.eksternId }.distinct() shouldBe listOf("00000000-0000-0000-0000-000000000702")
+        }
+
+        test("fails when the republish outside the case is also rejected") {
+            val publisher =
+                RecordingPublisher(
+                    ArbeidsgiverNotificationResponse.InvalidRecipient("UgyldigMottaker"),
+                    ArbeidsgiverNotificationResponse.Rejected("UkjentRolle"),
+                )
+
+            handler(publisher).handle(delivery(create(sakstilknytning = Sakstilknytning("sak-1")))) shouldBe
+                DeliveryOutcome.Failed("UkjentRolle")
+            publisher.requests.map { it.grupperingsid } shouldBe listOf("sak-1", null)
+        }
+
+        test("fails an invalid recipient without a case and does not retry the publish") {
+            val publisher =
+                RecordingPublisher(ArbeidsgiverNotificationResponse.InvalidRecipient("UgyldigMottaker"))
+
+            handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Failed("UgyldigMottaker")
+
+            publisher.requests.size shouldBe 1
         }
 
         test("forwards visibleUntil to the notification request") {
@@ -305,12 +338,14 @@ private fun create(
     recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),
     tag: String = "producer-tag",
     visibleUntil: Instant? = null,
+    sakstilknytning: Sakstilknytning? = null,
 ) = ArbeidsgivervarselCreate(
     TEST_ORGNUMMER,
     recipient,
     tag,
     "Tekst",
     "https://nav.no/lenke",
+    sakstilknytning = sakstilknytning,
     visibleUntil = visibleUntil,
 )
 
@@ -340,11 +375,14 @@ private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
     ): NarmesteLederRelasjon? = error("narmesteleder-register unavailable")
 }
 
-private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
+private class RecordingPublisher(
+    vararg responses: ArbeidsgiverNotificationResponse,
+) : ArbeidsgiverNotificationPublisher {
+    private val responses = ArrayDeque(responses.toList())
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
 
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
         requests += request
-        return ArbeidsgiverNotificationResponse.Published
+        return responses.removeFirstOrNull() ?: ArbeidsgiverNotificationResponse.Published
     }
 }
