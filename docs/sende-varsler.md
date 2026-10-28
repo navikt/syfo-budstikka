@@ -31,6 +31,10 @@ settes sammen i en produsent.
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
+| `arbeidsgiversakCreate` | Opprett en sak i Min side – arbeidsgiver. |
+| `arbeidsgiversakStatus` | Sett ny status på en sak. |
+| `kalenderavtaleCreate` | Opprett en kalenderavtale for Nærmeste leder i en sak. |
+| `kalenderavtaleUpdate` | Endre tilstand eller tekst på en kalenderavtale. |
 
 `dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
 aldri må inneholde personopplysninger. Budstikka sender alltid downstream-varianten `INFO`
@@ -46,7 +50,10 @@ ikke-tom referanse som appen kan finne igjen. For `brukervarselInactivate` og
 `dineSykmeldteVarselInactivate` bruker du samme `reference` og samme mottaker som ved opprettelse.
 
 Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `microfrontendId`, ikke
-på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Brev kan
+på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
+`visibleUntil` skjuler Budstikka mikrofrontenden igjen på det tidspunktet, når planlagt skjuling (#282) er
+rullet ut. Tidspunktet må ligge fram
+i tid og høyst 335 dager fram. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan
 ikke lukkes.
 
 ## EventId, retry og partisjonering
@@ -99,6 +106,38 @@ feiler leveringen også terminalt hvis lederen mangler e-postadresse. Til tross 
 ikke `visibleUntil` bare synlighet. Feltet planlegger ugjenkallelig hard sletting av varselet og
 tilhørende data fra Fagers database og Kafka. Det stopper ikke eksterne varsler som allerede er
 planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
+
+## Sak og kalenderavtale
+
+Saker og kalenderavtaler i Min side – arbeidsgiver er tilstandsobjekter som produsenten eier.
+Budstikka utfører hver operasjon, men lagrer ingen sakstilstand og ingen Fager-id-er:
+
+- **Sak:** `caseId` er sakens identitet og blir Fagers grupperingsid. Opprett saken én gang med
+  `arbeidsgiversakCreate`, og bruk samme `caseId` i `arbeidsgiversakStatus`, `kalenderavtaleCreate` og
+  `Arbeidsgivervarsel.CaseAssociation` for varsler som hører til saken. En `caseId` kan aldri gjenbrukes,
+  heller ikke etter at saken er slettet. Bruk aldri fødselsnummer.
+- **Kalenderavtale:** `reference` i `kalenderavtaleCreate` er avtalens identitet. Bruk samme
+  `reference` i `kalenderavtaleUpdate`. Start og slutt kan ikke endres. Ved nytt tidspunkt setter du den
+  gamle avtalen til `CANCELLED` og oppretter en ny med ny `reference`.
+- **Duplikater:** svarer Fager at saken eller avtalen allerede finnes med annet innhold, slår Budstikka opp det eksisterende objektet. En sak i samme virksomhet, eller en avtale i samme sak, regnes som allerede opprettet. Det gjør retry trygt, også etter at avtalen er oppdatert eller lederen er byttet. Ellers feiler leveransen terminalt. Nøklene må være unike for merkelappen på tvers av saker og virksomheter, for eksempel møtets og brevets uuid.
+- **Rekkefølge:** alle operasjonene partisjoneres på `orgnummer`. Send saken før innholdet. Innhold som
+  når Fager før saken, prøves på nytt til saken finnes. Budstikka garanterer foreløpig ikke rekkefølgen
+  mellom to oppdateringer av samme sak eller avtale. Meldinger i samme Kafka-batch sorteres tilfeldig, og en
+  oppdatering som prøves på nytt kan passere en nyere (#315). Fager lar siste skriving vinne, så to tette
+  oppdateringer av samme avtale kan gi feil sluttilstand.
+- **Mottaker:** Budstikka slår opp aktiv Nærmeste leder ved utsending. Saken er låst til lederen den
+  ble opprettet for. Etter et lederbytte feiler nye kalenderavtaler i saken terminalt. Beskjed og oppgave
+  med `CaseAssociation` sendes da uten saksgruppering. Et sjeldent tilfelle: kalenderavtalen er opprettet,
+  men svaret gikk tapt, og lederen byttes før neste forsøk. Da feiler leveransen selv om avtalen finnes.
+- **E-post:** e-post på kalenderavtaler sendes til lederens registrerte adresser i Fagers åpningstid for
+  NAV Kontaktsenter. Den sendes ikke hvis avtalen avlyses først. Fager dedupliserer ikke oppdateringer
+  av kalenderavtaler. Et retry etter en vellykket oppdatering med e-post kan derfor gi dobbel e-post.
+  Legg e-post på oppdateringer bare der det er nødvendig.
+- **Sletting:** `hardDeleteAt` på saken sletter saken og alt innhold i den. Uten fristen sletter Fager
+  saken etter fire måneder. `arbeidsgiversakStatus` med `hardDeleteAt` erstatter fristen, også med et
+  tidligere tidspunkt.
+
+Bakgrunnen for valget står i [ADR 0019](adr/0019-sak-og-kalenderavtale-er-generiske-operasjoner-i-budstikka.md).
 
 ## Feil og personvern
 

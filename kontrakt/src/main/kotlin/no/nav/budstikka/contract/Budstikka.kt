@@ -5,6 +5,8 @@
 
 package no.nav.budstikka.contract
 
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 /**
@@ -410,7 +412,10 @@ object Budstikka {
      *   use reference-based inactivate matching. Required all the same, so every dispatch is traceable.
      * @param sykmeldt the person for whom Min side makes the microfrontend visible.
      * @param microfrontendId the id Min side knows the microfrontend by.
-     * @param visibleUntil when Min side hides it automatically; omit to keep it until disabled.
+     * @param visibleUntil when Budstikka hides it again by sending a disable; omit to keep it until
+     *   disabled. Must be in the future and at most 335 days ahead. The last command for the same
+     *   `(sykmeldt, microfrontendId)` wins: a later enable or disable cancels a pending scheduled
+     *   hide, and a new enable with a later [visibleUntil] extends the visibility.
      */
     fun microfrontendEnable(
         eventId: EventId,
@@ -422,6 +427,7 @@ object Budstikka {
         requireReference(reference)
         sykmeldt.requirePersonIdentifier("sykmeldt")
         requireNotBlank(microfrontendId, "microfrontendId")
+        visibleUntil?.let { requireVisibleUntilWithinLimit(it) }
         return MicrofrontendEnable(
             personIdentifier = sykmeldt,
             microfrontendId = microfrontendId,
@@ -451,6 +457,203 @@ object Budstikka {
         return MicrofrontendDisable(
             personIdentifier = sykmeldt,
             microfrontendId = microfrontendId,
+        ).encode(eventId, reference)
+    }
+
+    /**
+     * Creates a case in Arbeidsgivernotifikasjoner. Create it once per [caseId], before any content
+     * that refers to it; content that arrives first is retried until the case exists.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this dispatch, used for correlation and bookkeeping.
+     * @param orgnummer the organisation that owns the case and the partition anchor.
+     * @param recipient the active Nærmeste leder for a Sykmeldt, or an Altinn resource. Content in
+     *   the case must reach the same recipient.
+     * @param tag the registered merkelapp; content in the case must use the same tag.
+     * @param caseId your stable case identity, used downstream as grupperingsid. It can never be
+     *   reused, not even after the case is deleted. Never use a personident. If a case already exists
+     *   for this id, it counts as created only when it belongs to the same organisation.
+     * @param title the case title shown to the recipient, at most 140 characters.
+     * @param initialStatus the status the case starts in.
+     * @param link optional target for the case; omit to use the case page in Min side arbeidsgiver.
+     * @param hardDeleteAt when Arbeidsgivernotifikasjoner permanently deletes the case and all
+     *   content in it. Omit to use the four-month retention period.
+     */
+    fun arbeidsgiversakCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgiversak.Recipient,
+        tag: String,
+        caseId: String,
+        title: String,
+        initialStatus: Arbeidsgiversak.Status = Arbeidsgiversak.Status.RECEIVED,
+        link: String? = null,
+        hardDeleteAt: Instant? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        requireNotBlank(tag, "tag")
+        requireNotBlank(caseId, "caseId")
+        requireNotBlank(title, "title")
+        requireMaxLength(title, MAX_CASE_TITLE_LENGTH, "title")
+        requireNullOrNotBlank(link, "link")
+        return ArbeidsgiversakCreate(
+            orgnummer = orgnummer,
+            recipient = recipient.toWireRecipient(),
+            tag = tag,
+            sakstilknytning = Sakstilknytning(caseId),
+            title = title,
+            link = link,
+            initialStatus = initialStatus.toWireStatus(),
+            hardDeleteAt = hardDeleteAt,
+        ).encode(eventId, reference)
+    }
+
+    /**
+     * Sets a new status on a case created with [arbeidsgiversakCreate]. Retrying the same dispatch
+     * with the same [eventId] does not add a second status entry.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this dispatch, used for correlation and bookkeeping.
+     * @param orgnummer the same organisation as in the create; the partition anchor.
+     * @param tag the same merkelapp as in the create.
+     * @param caseId the same case identity as in the create.
+     * @param status the new status.
+     * @param statusText optional text that replaces the default status text.
+     * @param hardDeleteAt optional new deletion time for the case and its content; it replaces any
+     *   earlier time, also an earlier one.
+     */
+    fun arbeidsgiversakStatus(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        tag: String,
+        caseId: String,
+        status: Arbeidsgiversak.Status,
+        statusText: String? = null,
+        hardDeleteAt: Instant? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        requireNotBlank(tag, "tag")
+        requireNotBlank(caseId, "caseId")
+        requireNullOrNotBlank(statusText, "statusText")
+        return ArbeidsgiversakStatus(
+            orgnummer = orgnummer,
+            tag = tag,
+            sakstilknytning = Sakstilknytning(caseId),
+            status = status.toWireStatus(),
+            statusText = statusText,
+            hardDeleteAt = hardDeleteAt,
+        ).encode(eventId, reference)
+    }
+
+    /**
+     * Creates a calendar event for the active Nærmeste leder in a case created with
+     * [arbeidsgiversakCreate]. [reference] is the event's identity downstream: use it again in
+     * [kalenderavtaleUpdate]. Start and end cannot be changed later; for a new time, cancel this
+     * event and create a new one with a new [reference].
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your stable id for this calendar event, unique for the tag across cases. If an
+     *   event already exists for it, it counts as created only when it is in the same case.
+     * @param orgnummer the organisation of the case; the partition anchor.
+     * @param sykmeldt the Sykmeldt whose active Nærmeste leder receives the event. The leader must
+     *   be the same as on the case.
+     * @param tag the same merkelapp as on the case.
+     * @param caseId the case identity from [arbeidsgiversakCreate].
+     * @param text the event text shown to the leader, at most 300 characters.
+     * @param link required target for the event.
+     * @param startAt when the event starts.
+     * @param endAt optional end; must be after [startAt].
+     * @param location optional physical meeting place.
+     * @param digital whether the leader can attend digitally.
+     * @param state the initial state.
+     * @param email optional email to the leader. It is sent during Arbeidsgivernotifikasjoner's
+     *   contact-centre hours and is not sent if the event is cancelled first.
+     */
+    fun kalenderavtaleCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        sykmeldt: PersonIdentifier,
+        tag: String,
+        caseId: String,
+        text: String,
+        link: String,
+        startAt: Instant,
+        endAt: Instant? = null,
+        location: Kalenderavtale.Location? = null,
+        digital: Boolean = false,
+        state: Kalenderavtale.State = Kalenderavtale.State.AWAITING_RESPONSE,
+        email: Kalenderavtale.LeaderEmail? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        sykmeldt.requirePersonIdentifier("sykmeldt")
+        requireNotBlank(tag, "tag")
+        requireNotBlank(caseId, "caseId")
+        requireNotBlank(text, "text")
+        requireMaxLength(text, MAX_CALENDAR_TEXT_LENGTH, "text")
+        requireNotBlank(link, "link")
+        endAt?.let { require(it > startAt) { "endAt must be after startAt" } }
+        return KalenderavtaleCreate(
+            orgnummer = orgnummer,
+            recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
+            tag = tag,
+            sakstilknytning = Sakstilknytning(caseId),
+            text = text,
+            link = link,
+            startAt = startAt,
+            endAt = endAt,
+            location = location?.toWireLocation(),
+            digital = digital,
+            state = state.toWireState(),
+        ).encode(eventId, reference)
+    }
+
+    /**
+     * Updates a calendar event created with [kalenderavtaleCreate]. Set at least one of [newState],
+     * [newText] and [email].
+     *
+     * Known downstream limitation: Arbeidsgivernotifikasjoner does not deduplicate retried updates.
+     * If a retry follows an update that already succeeded, an [email] can be sent twice.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference the [kalenderavtaleCreate] reference of the event to update.
+     * @param orgnummer the same organisation as in the create; the partition anchor.
+     * @param sykmeldt the same Sykmeldt as in the create; used to resolve the leader's email.
+     * @param tag the same merkelapp as in the create.
+     * @param newState optional new state.
+     * @param newText optional new text, at most 300 characters.
+     * @param email optional email to the leader about the change.
+     */
+    fun kalenderavtaleUpdate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        sykmeldt: PersonIdentifier,
+        tag: String,
+        newState: Kalenderavtale.State? = null,
+        newText: String? = null,
+        email: Kalenderavtale.LeaderEmail? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        sykmeldt.requirePersonIdentifier("sykmeldt")
+        requireNotBlank(tag, "tag")
+        requireNullOrNotBlank(newText, "newText")
+        newText?.let { requireMaxLength(it, MAX_CALENDAR_TEXT_LENGTH, "newText") }
+        require(newState != null || newText != null || email != null) {
+            "newState, newText or email must be set"
+        }
+        return KalenderavtaleUpdate(
+            orgnummer = orgnummer,
+            recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
+            tag = tag,
+            newState = newState?.toWireState(),
+            newText = newText,
         ).encode(eventId, reference)
     }
 }
@@ -509,6 +712,16 @@ private fun requireNotBlank(
     value: String,
     parameter: String,
 ) = require(value.isNotBlank()) { "$parameter must not be blank" }
+
+private fun requireMaxLength(
+    value: String,
+    maxLength: Int,
+    parameter: String,
+) = require(value.length <= maxLength) { "$parameter must be at most $maxLength characters" }
+
+/** Arbeidsgivernotifikasjoner rejects longer case titles and calendar texts. */
+private const val MAX_CASE_TITLE_LENGTH = 140
+private const val MAX_CALENDAR_TEXT_LENGTH = 300
 
 private fun requireNullOrNotBlank(
     value: String?,
@@ -630,3 +843,61 @@ private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeld
         Arbeidsgivervarsel.MessageType.BESKJED -> ArbeidsgiverMeldingstype.BESKJED
         Arbeidsgivervarsel.MessageType.OPPGAVE -> ArbeidsgiverMeldingstype.OPPGAVE
     }
+
+/**
+ * A scheduled hide is held in Budstikka's inbox, whose absolute retention cap is 365 days. The
+ * 30-day margin keeps the hide well inside that cap; the same limit applies when Budstikka decides.
+ */
+private val MAX_MICROFRONTEND_VISIBILITY = 335.days
+
+private fun requireVisibleUntilWithinLimit(visibleUntil: Instant) {
+    val now = Clock.System.now()
+    require(visibleUntil > now) { "visibleUntil must be in the future" }
+    require(visibleUntil <= now + MAX_MICROFRONTEND_VISIBILITY) {
+        "visibleUntil must be at most ${MAX_MICROFRONTEND_VISIBILITY.inWholeDays} days ahead"
+    }
+}
+
+private fun Arbeidsgiversak.Recipient.toWireRecipient(): ArbeidsgiverRecipient =
+    when (this) {
+        is Arbeidsgiversak.NarmesteLeder -> {
+            sykmeldt.requirePersonIdentifier("recipient.sykmeldt")
+            NarmesteLeder(sykmeldt = sykmeldt)
+        }
+        is Arbeidsgiversak.AltinnResource ->
+            AltinnResource(resource = resource.also { requireNotBlank(it, "recipient.resource") })
+    }
+
+private fun Arbeidsgiversak.Status.toWireStatus(): Saksstatus =
+    when (this) {
+        Arbeidsgiversak.Status.RECEIVED -> Saksstatus.MOTTATT
+        Arbeidsgiversak.Status.IN_PROGRESS -> Saksstatus.UNDER_BEHANDLING
+        Arbeidsgiversak.Status.DONE -> Saksstatus.FERDIG
+    }
+
+private fun Kalenderavtale.State.toWireState(): Kalenderavtaletilstand =
+    when (this) {
+        Kalenderavtale.State.AWAITING_RESPONSE -> Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER
+        Kalenderavtale.State.EMPLOYER_WANTS_TO_CANCEL -> Kalenderavtaletilstand.ARBEIDSGIVER_VIL_AVLYSE
+        Kalenderavtale.State.EMPLOYER_WANTS_TO_RESCHEDULE -> Kalenderavtaletilstand.ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED
+        Kalenderavtale.State.EMPLOYER_ACCEPTED -> Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT
+        Kalenderavtale.State.CANCELLED -> Kalenderavtaletilstand.AVLYST
+        Kalenderavtale.State.HELD -> Kalenderavtaletilstand.AVHOLDT
+    }
+
+private fun Kalenderavtale.Location.toWireLocation(): Kalenderavtalelokasjon {
+    requireNotBlank(address, "location.address")
+    requireNotBlank(postalCode, "location.postalCode")
+    requireNotBlank(city, "location.city")
+    return Kalenderavtalelokasjon(adresse = address, postnummer = postalCode, poststed = city)
+}
+
+private fun Kalenderavtale.LeaderEmail.toWireExternalVarsling(): NarmesteLederExternalVarsling {
+    requireNotBlank(title, "email.title")
+    requireNotBlank(body, "email.body")
+    return NarmesteLederExternalVarsling(
+        emailTitle = title,
+        emailText = body,
+        emailBodyFormat = if (isHtml) EmailBodyFormat.HTML else null,
+    )
+}

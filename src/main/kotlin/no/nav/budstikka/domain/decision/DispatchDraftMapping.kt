@@ -1,5 +1,7 @@
 package no.nav.budstikka.domain.decision
 
+import no.nav.budstikka.contract.ArbeidsgiversakCreate
+import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.BrevCreate
@@ -8,6 +10,8 @@ import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.DittSykefravaerCreate
 import no.nav.budstikka.contract.DittSykefravaerInactivate
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate
 import no.nav.budstikka.contract.MicrofrontendDisable
@@ -33,6 +37,10 @@ internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
         is ArbeidsgivervarselInactivate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
+        is ArbeidsgiversakCreate,
+        is ArbeidsgiversakStatus,
+        is KalenderavtaleCreate,
+        is KalenderavtaleUpdate,
         -> null
     }
 
@@ -49,6 +57,10 @@ internal fun DispatchContent.gatedSendingWindow(): SendingWindow? =
         is BrevCreate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
+        is ArbeidsgiversakCreate,
+        is ArbeidsgiversakStatus,
+        is KalenderavtaleCreate,
+        is KalenderavtaleUpdate,
         -> null
     }
 
@@ -86,6 +98,18 @@ internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
 
         is MicrofrontendDisable ->
             draft(reference, Operation.INACTIVATE, Channel.MICROFRONTEND, Recipient.Person(personIdentifier))
+
+        is ArbeidsgiversakCreate ->
+            draft(reference, Operation.CREATE, Channel.ARBEIDSGIVERSAK, Recipient.Virksomhet(orgnummer))
+
+        is ArbeidsgiversakStatus ->
+            draft(reference, Operation.UPDATE, Channel.ARBEIDSGIVERSAK, Recipient.Virksomhet(orgnummer))
+
+        is KalenderavtaleCreate ->
+            draft(reference, Operation.CREATE, Channel.KALENDERAVTALE, Recipient.Virksomhet(orgnummer))
+
+        is KalenderavtaleUpdate ->
+            draft(reference, Operation.UPDATE, Channel.KALENDERAVTALE, Recipient.Virksomhet(orgnummer))
     }
 
 private fun DispatchContent.draft(

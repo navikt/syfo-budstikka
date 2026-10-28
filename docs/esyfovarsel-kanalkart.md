@@ -29,8 +29,8 @@ Merk om `ARBEIDSGIVERNOTIFIKASJON`: esyfovarsel bruker fire operasjonstyper mot
 notifikasjon-produsent-api — beskjed/oppgave (med NL-mottaker *eller*
 Altinn-ressurs-mottaker), **sak** (`nySak`, `nyStatusSakByGrupperingsid`) og
 **kalenderavtale** (opprett/oppdater, med leders e-post). Sak og kalenderavtale er
-stateful objekter, ikke engangsvarsler; kontraktens dekning av disse er en egen
-beslutning.
+stateful objekter, ikke engangsvarsler. Budstikka dekker dem med egne operasjoner der
+produsenten eier identitet og overganger ([ADR 0019](adr/0019-sak-og-kalenderavtale-er-generiske-operasjoner-i-budstikka.md)).
 
 Budstikka slår opp aktiv nærmeste leder ved utsending. Når produsenten har bedt om
 ekstern varsling og den aktive lederen mangler e-postadresse, feiler hele leveransen
