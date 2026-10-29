@@ -2,51 +2,36 @@ package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
-import no.nav.budstikka.contract.ArbeidsgiversakCreate
 import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
- * Creates producer-owned cases and sets their status in Arbeidsgivernotifikasjoner. The case is
- * addressed by the producer's case identity (grupperingsid), so budstikka keeps no case state. A
- * Nærmeste leder recipient is resolved at send time, like for ARBEIDSGIVERVARSEL; content linked to
- * the case must later reach the same leader.
+ * Sets the status of a producer-owned case in Arbeidsgivernotifikasjoner. The case is made to exist
+ * first, so a status change also works for a new leader whose case has no content yet. A Nærmeste
+ * leder recipient is resolved at send time and selects the case of the current leader relation.
+ * Budstikka keeps no case state.
  */
 class ArbeidsgiversakChannelHandler(
     private val publisher: ArbeidsgiversakPublisher,
     private val narmesteLederLookup: NarmesteLederLookup,
     private val metrics: DeliveryMetrics,
 ) : ChannelHandler {
-    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome =
-        when (val payload = delivery.payload) {
-            is ArbeidsgiversakCreate -> create(delivery, payload)
-            is ArbeidsgiversakStatus -> updateStatus(delivery, payload)
-            else ->
-                DeliveryOutcome.Failed(
-                    "Payload does not match ARBEIDSGIVERSAK channel: ${payload::class.simpleName}",
+    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
+        val status =
+            delivery.payload as? ArbeidsgiversakStatus
+                ?: return DeliveryOutcome.Failed(
+                    "Payload does not match ARBEIDSGIVERSAK channel: ${delivery.payload::class.simpleName}",
                 )
-        }
-
-    private suspend fun create(
-        delivery: ClaimedDelivery,
-        create: ArbeidsgiversakCreate,
-    ): DeliveryOutcome {
-        blankField(
-            "tag" to create.tag,
-            "sakstilknytning.sakId" to create.sakstilknytning.sakId,
-            "title" to create.title,
-        )?.let { return it }
-        if (create.title.length > MAX_CASE_TITLE_LENGTH) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERSAK title must be at most $MAX_CASE_TITLE_LENGTH characters")
-        }
-        val recipient =
-            when (val recipient = create.recipient) {
+        if (status.tag.isBlank()) return DeliveryOutcome.Failed("ARBEIDSGIVERSAK tag must not be blank")
+        status.sakstilknytning.invalidCaseDescription(Channel.ARBEIDSGIVERSAK)?.let { return it }
+        val (recipient, lederrelasjon) =
+            when (val recipient = status.recipient) {
                 is AltinnResource ->
                     if (recipient.resource.isBlank()) {
                         return DeliveryOutcome.Failed("ARBEIDSGIVERSAK recipient.resource must not be blank")
                     } else {
-                        ArbeidsgiverNotificationRecipient.AltinnRessurs(recipient.resource)
+                        ArbeidsgiverNotificationRecipient.AltinnRessurs(recipient.resource) to null
                     }
                 is NarmesteLederRecipient ->
                     when (
@@ -54,7 +39,7 @@ class ArbeidsgiversakChannelHandler(
                             narmesteLederLookup.resolveForDelivery(
                                 channel = Channel.ARBEIDSGIVERSAK,
                                 sykmeldt = recipient.sykmeldt,
-                                orgnummer = create.orgnummer,
+                                orgnummer = status.orgnummer,
                                 requireEmail = false,
                                 metrics = metrics,
                             )
@@ -64,53 +49,31 @@ class ArbeidsgiversakChannelHandler(
                             ArbeidsgiverNotificationRecipient.NarmesteLeder(
                                 narmesteLederFnr = resolution.relation.narmesteLederFnr,
                                 ansattFnr = recipient.sykmeldt,
-                            )
+                            ) to resolution.relation.relasjonId
                     }
             }
-        return withChannelHandlerFailureContext(Channel.ARBEIDSGIVERSAK, "creating case") {
-            publisher.createCase(
-                ArbeidsgiversakCreateRequest(
-                    virksomhetsnummer = create.orgnummer.value,
-                    grupperingsid = create.sakstilknytning.sakId,
-                    tag = create.tag,
-                    tittel = create.title,
-                    lenke = create.link,
-                    initiellStatus = create.initialStatus,
-                    hardDeleteAt = create.hardDeleteAt,
-                    recipient = recipient,
-                    correlationId = delivery.correlationId(),
-                ),
-            )
-        }.toDeliveryOutcome(Channel.ARBEIDSGIVERSAK)
-    }
-
-    private suspend fun updateStatus(
-        delivery: ClaimedDelivery,
-        status: ArbeidsgiversakStatus,
-    ): DeliveryOutcome {
-        blankField(
-            "tag" to status.tag,
-            "sakstilknytning.sakId" to status.sakstilknytning.sakId,
-        )?.let { return it }
+        val grupperingsid = status.sakstilknytning.grupperingsid(lederrelasjon)
+        publisher
+            .ensureCase(
+                channel = Channel.ARBEIDSGIVERSAK,
+                sak = status.sakstilknytning,
+                grupperingsid = grupperingsid,
+                virksomhetsnummer = status.orgnummer.value,
+                tag = status.tag,
+                recipient = recipient,
+                correlationId = delivery.correlationId(),
+            )?.let { return it }
         return withChannelHandlerFailureContext(Channel.ARBEIDSGIVERSAK, "updating case status") {
             publisher.updateCaseStatus(
                 ArbeidsgiversakStatusRequest(
-                    grupperingsid = status.sakstilknytning.sakId,
+                    grupperingsid = grupperingsid,
                     tag = status.tag,
                     status = status.status,
                     statustekst = status.statusText,
-                    hardDeleteAt = status.hardDeleteAt,
+                    hardDeleteAt = status.sakstilknytning.hardDeleteAt,
                     idempotencyKey = delivery.correlationId(),
                 ),
             )
         }.toDeliveryOutcome(Channel.ARBEIDSGIVERSAK)
     }
-
-    private fun blankField(vararg fields: Pair<String, String>): DeliveryOutcome.Failed? =
-        fields
-            .firstOrNull { (_, value) -> value.isBlank() }
-            ?.let { (name, _) -> DeliveryOutcome.Failed("ARBEIDSGIVERSAK $name must not be blank") }
 }
-
-/** Arbeidsgivernotifikasjoner rejects longer case titles. */
-private const val MAX_CASE_TITLE_LENGTH = 140

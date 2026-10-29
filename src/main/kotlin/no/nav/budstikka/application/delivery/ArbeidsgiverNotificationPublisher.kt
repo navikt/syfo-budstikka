@@ -60,11 +60,6 @@ sealed interface ArbeidsgiverNotificationResponse {
         val reason: String,
     ) : ArbeidsgiverNotificationResponse
 
-    /** The recipient is not valid for the request, for example because it is not on the linked case. */
-    data class InvalidRecipient(
-        val reason: String,
-    ) : ArbeidsgiverNotificationResponse
-
     /**
      * An object the request depends on does not exist downstream yet, for example a case that is
      * still being created. Retrying later may succeed.

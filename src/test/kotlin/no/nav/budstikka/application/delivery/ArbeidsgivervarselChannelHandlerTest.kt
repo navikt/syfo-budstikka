@@ -15,9 +15,12 @@ import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstilknytning
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
+import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
@@ -44,32 +47,80 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
         }
 
-        test("republishes outside the case when the recipient is not on the linked case") {
-            val publisher =
-                RecordingPublisher(ArbeidsgiverNotificationResponse.InvalidRecipient("UgyldigMottaker"))
+        test("ensures the leader relation's case, without the notification's email, before publishing in it") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+            val lookup =
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID))
 
-            handler(publisher).handle(delivery(create(sakstilknytning = Sakstilknytning("sak-1")))) shouldBe
-                DeliveryOutcome.Sent
+            handler(publisher, lookup, casePublisher = casePublisher).handle(
+                delivery(
+                    create(
+                        NarmesteLeder(TEST_SYKMELDT, NarmesteLederExternalVarsling("Tittel", "Tekst")),
+                        sakstilknytning = DESCRIBED_CASE,
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
 
-            publisher.requests.map { it.grupperingsid } shouldBe listOf("sak-1", null)
-            publisher.requests.map { it.eksternId }.distinct() shouldBe listOf("00000000-0000-0000-0000-000000000702")
+            casePublisher.caseCreates.single() shouldBe
+                ArbeidsgiversakCreateRequest(
+                    virksomhetsnummer = TEST_ORGNUMMER.value,
+                    grupperingsid = "sak-1:$TEST_LEDERRELASJON_ID",
+                    tag = "producer-tag",
+                    tittel = "Oppfølging",
+                    lenke = null,
+                    initiellStatus = Saksstatus.MOTTATT,
+                    hardDeleteAt = null,
+                    recipient = ArbeidsgiverNotificationRecipient.NarmesteLeder(LEDER, TEST_SYKMELDT),
+                    correlationId = "00000000-0000-0000-0000-000000000702",
+                )
+            publisher.requests.single().grupperingsid shouldBe "sak-1:$TEST_LEDERRELASJON_ID"
         }
 
-        test("fails when the republish outside the case is also rejected") {
-            val publisher =
-                RecordingPublisher(
-                    ArbeidsgiverNotificationResponse.InvalidRecipient("UgyldigMottaker"),
-                    ArbeidsgiverNotificationResponse.Rejected("UkjentRolle"),
-                )
+        test("uses the sakId as the case of an Altinn resource") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
 
-            handler(publisher).handle(delivery(create(sakstilknytning = Sakstilknytning("sak-1")))) shouldBe
-                DeliveryOutcome.Failed("UkjentRolle")
-            publisher.requests.map { it.grupperingsid } shouldBe listOf("sak-1", null)
+            handler(publisher, casePublisher = casePublisher).handle(delivery(create(sakstilknytning = DESCRIBED_CASE))) shouldBe
+                DeliveryOutcome.Sent
+
+            casePublisher.caseCreates.single().grupperingsid shouldBe "sak-1"
+            publisher.requests.single().grupperingsid shouldBe "sak-1"
+        }
+
+        test("does not publish when the case cannot be ensured") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("Konflikt"))
+
+            handler(publisher, casePublisher = casePublisher).handle(delivery(create(sakstilknytning = DESCRIBED_CASE))) shouldBe
+                DeliveryOutcome.Failed("Konflikt")
+            publisher.requests shouldBe emptyList()
+        }
+
+        test("fails an invalid case description before publishing") {
+            val publisher = RecordingPublisher()
+
+            handler(publisher).handle(
+                delivery(create(sakstilknytning = Sakstilknytning("sak-1", title = " "))),
+            ) shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL sakstilknytning.title must not be blank")
+            publisher.requests shouldBe emptyList()
+        }
+
+        test("publishes a link-only case association from the deprecated overloads unchanged") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher, casePublisher = casePublisher).handle(
+                delivery(create(sakstilknytning = Sakstilknytning("sak-1"))),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().grupperingsid shouldBe "sak-1"
+            casePublisher.requests shouldBe emptyList()
         }
 
         test("fails an invalid recipient without a case and does not retry the publish") {
             val publisher =
-                RecordingPublisher(ArbeidsgiverNotificationResponse.InvalidRecipient("UgyldigMottaker"))
+                RecordingPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMottaker"))
 
             handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Failed("UgyldigMottaker")
 
@@ -115,7 +166,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val publisher = RecordingPublisher()
             handler(
                 publisher,
-                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
             ).handle(delivery(create(NarmesteLeder(TEST_SYKMELDT)))) shouldBe DeliveryOutcome.Sent
 
             publisher.requests.single().recipient shouldBe
@@ -127,7 +178,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             handler(
                 publisher,
                 FakeNarmesteLederLookup(
-                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test")),
+                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test"), TEST_LEDERRELASJON_ID),
                 ),
             ).handle(
                 delivery(
@@ -160,7 +211,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val publisher = RecordingPublisher()
             handler(
                 publisher,
-                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"))),
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID)),
             ).handle(
                 delivery(
                     create(
@@ -285,7 +336,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val outcome =
                 handler(
                     RecordingPublisher(),
-                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
                     metrics,
                 ).handle(
                     delivery(
@@ -327,12 +378,14 @@ class ArbeidsgivervarselChannelHandlerTest :
     })
 
 private val LEDER = PersonIdentifier("2".repeat(11))
+private val DESCRIBED_CASE = Sakstilknytning("sak-1", title = "Oppfølging")
 
 private fun handler(
     publisher: RecordingPublisher,
     lookup: NarmesteLederLookup = FakeNarmesteLederLookup(null),
     metrics: RecordingDeliveryMetrics = RecordingDeliveryMetrics(),
-) = ArbeidsgivervarselChannelHandler(publisher, lookup, metrics)
+    casePublisher: FakeArbeidsgiversakPublisher = FakeArbeidsgiversakPublisher(),
+) = ArbeidsgivervarselChannelHandler(publisher, casePublisher, lookup, metrics)
 
 private fun create(
     recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),

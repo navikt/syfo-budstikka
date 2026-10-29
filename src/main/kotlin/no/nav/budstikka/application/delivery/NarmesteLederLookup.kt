@@ -2,6 +2,7 @@ package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
+import java.util.UUID
 
 fun interface NarmesteLederLookup {
     /**
@@ -13,9 +14,14 @@ fun interface NarmesteLederLookup {
     ): NarmesteLederRelasjon?
 }
 
+/**
+ * @property relasjonId the leader relation's id in esyfo-narmesteleder. It identifies this leader for
+ *   this Sykmeldt and organisation, so content can be grouped per relation without a personident.
+ */
 data class NarmesteLederRelasjon(
     val narmesteLederFnr: PersonIdentifier,
     val epostadresser: List<String>,
+    val relasjonId: UUID,
 ) {
     override fun toString(): String = "NarmesteLederRelasjon(hasEmailAddresses=${epostadresser.isNotEmpty()})"
 }

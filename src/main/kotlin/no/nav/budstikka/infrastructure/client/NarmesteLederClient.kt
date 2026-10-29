@@ -19,6 +19,7 @@ import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.NarmesteLederConfig
 import sharedJson
+import java.util.UUID
 
 class NarmesteLederClient(
     private val httpClient: HttpClient,
@@ -64,6 +65,10 @@ class NarmesteLederClient(
                 NarmesteLederRelasjon(
                     narmesteLederFnr = PersonIdentifier(relation.nationalIdentificationNumber),
                     epostadresser = relation.emailAddresses,
+                    relasjonId =
+                        runCatching { UUID.fromString(relation.id) }.getOrElse {
+                            error("Narmeste leder register returned an invalid relation id")
+                        },
                 )
             }
         }
@@ -83,6 +88,7 @@ internal data class NarmesteLederResponse(
 
 @Serializable
 internal data class NarmesteLederResponseRelation(
+    val id: String,
     val nationalIdentificationNumber: String,
     val emailAddresses: List<String>,
 )

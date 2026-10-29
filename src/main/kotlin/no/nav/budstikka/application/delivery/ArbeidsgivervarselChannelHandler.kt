@@ -6,6 +6,7 @@ import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.domain.decision.Channel
+import java.util.UUID
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
@@ -13,11 +14,13 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * the active leader at send time, so a deferred delivery follows leader changes without persisting
  * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
  * has already waited for budstikka's delivery window. A requested external notification without a
- * leader email fails the entire delivery terminally; it does not degrade to in-app only. Closing
- * remains a permanent failure.
+ * leader email fails the entire delivery terminally; it does not degrade to in-app only. A described
+ * case is made to exist for the same recipient before the notification; for a Nærmeste leder the case
+ * belongs to the leader relation. Closing remains a permanent failure.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
+    private val casePublisher: ArbeidsgiversakPublisher,
     private val narmesteLederLookup: NarmesteLederLookup,
     private val metrics: DeliveryMetrics,
 ) : ChannelHandler {
@@ -31,6 +34,11 @@ class ArbeidsgivervarselChannelHandler(
         if (create.tag.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
         }
+        val sak = create.sakstilknytning
+        if (sak?.title != null) {
+            sak.invalidCaseDescription(Channel.ARBEIDSGIVERVARSEL)?.let { return it }
+        }
+        var lederrelasjon: UUID? = null
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource ->
@@ -65,6 +73,7 @@ class ArbeidsgivervarselChannelHandler(
                     if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
                         return narmesteLederFailure(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
                     }
+                    lederrelasjon = relation.relasjonId
                     ArbeidsgiverNotificationRecipient.NarmesteLeder(
                         narmesteLederFnr = relation.narmesteLederFnr,
                         ansattFnr = recipient.sykmeldt,
@@ -80,11 +89,24 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
+        val grupperingsid = sak?.grupperingsid(lederrelasjon)
+        if (sak?.title != null && grupperingsid != null) {
+            casePublisher
+                .ensureCase(
+                    channel = Channel.ARBEIDSGIVERVARSEL,
+                    sak = sak,
+                    grupperingsid = grupperingsid,
+                    virksomhetsnummer = create.orgnummer.value,
+                    tag = create.tag,
+                    recipient = notificationRecipient,
+                    correlationId = delivery.correlationId(),
+                )?.let { return it }
+        }
         val request =
             ArbeidsgiverNotificationRequest(
                 virksomhetsnummer = create.orgnummer.value,
                 eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
-                grupperingsid = create.sakstilknytning?.sakId,
+                grupperingsid = grupperingsid,
                 tag = create.tag,
                 tekst = create.text,
                 lenke = create.link,
@@ -92,13 +114,7 @@ class ArbeidsgivervarselChannelHandler(
                 meldingstype = create.meldingstype,
                 visibleUntil = create.visibleUntil,
             )
-        val response = publish(request)
-        // A case is locked to the leader it was created for. After a leader change, the notification
-        // still reaches the current leader, but outside the case, as esyfovarsel did.
-        if (response is ArbeidsgiverNotificationResponse.InvalidRecipient && request.grupperingsid != null) {
-            return publish(request.copy(grupperingsid = null)).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
-        }
-        return response.toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
+        return publish(request).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
     }
 
     private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =

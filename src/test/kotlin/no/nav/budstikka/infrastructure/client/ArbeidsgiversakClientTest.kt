@@ -72,7 +72,7 @@ class ArbeidsgiversakClientTest :
                     "DuplikatGrupperingsidEtterDelete" to
                         ArbeidsgiverNotificationResponse.Rejected(REJECTED + "DuplikatGrupperingsidEtterDelete"),
                     "UgyldigMerkelapp" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMerkelapp"),
-                    "UgyldigMottaker" to ArbeidsgiverNotificationResponse.InvalidRecipient(REJECTED + "UgyldigMottaker"),
+                    "UgyldigMottaker" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMottaker"),
                     "UkjentProdusent" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentProdusent"),
                     "UkjentRolle" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentRolle"),
                 ).forEach { (typeName, expected) ->
@@ -220,7 +220,7 @@ class ArbeidsgiversakClientTest :
                     "SakFinnesIkke" to ArbeidsgiverNotificationResponse.NotYetAvailable(NOT_FOUND + "SakFinnesIkke"),
                     "UgyldigKalenderavtale" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigKalenderavtale"),
                     "UgyldigMerkelapp" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMerkelapp"),
-                    "UgyldigMottaker" to ArbeidsgiverNotificationResponse.InvalidRecipient(REJECTED + "UgyldigMottaker"),
+                    "UgyldigMottaker" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMottaker"),
                     "UkjentProdusent" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentProdusent"),
                 ).forEach { (typeName, expected) ->
                     client {

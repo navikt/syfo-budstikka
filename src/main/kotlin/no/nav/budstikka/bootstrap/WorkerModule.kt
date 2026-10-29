@@ -61,6 +61,7 @@ fun DependencyRegistry.workerModule() {
             Channel.ARBEIDSGIVERVARSEL to
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
+                    casePublisher = resolve<ArbeidsgiversakPublisher>(),
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
                     metrics = resolve<DeliveryMetrics>(),
                 ),

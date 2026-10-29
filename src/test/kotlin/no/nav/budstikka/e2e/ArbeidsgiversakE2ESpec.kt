@@ -4,12 +4,15 @@ import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.delivery.NarmesteLederRelasjon
 import no.nav.budstikka.contract.Arbeidsgiversak
+import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.Budstikka
 import no.nav.budstikka.contract.EncodedDispatch
 import no.nav.budstikka.contract.EventId
@@ -17,8 +20,10 @@ import no.nav.budstikka.contract.Kalenderavtale
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
+import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
+import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -36,42 +41,50 @@ private val LEADER = PersonIdentifier("00000000000")
 @Tags("E2E")
 class ArbeidsgiversakE2ESpec :
     FunSpec({
-        test("case, calendar event, calendar update and case status reach Fager and SENT") {
-            val publisher = FakeArbeidsgiversakPublisher()
+        test("calendar event, notification and case status land in the leader relation's case and reach SENT") {
+            val casePublisher = FakeArbeidsgiversakPublisher()
+            val notificationPublisher = FakeArbeidsgiverNotificationPublisher()
             val lookup =
                 FakeNarmesteLederLookup().apply {
-                    registerActive(TEST_SYKMELDT, TEST_ORGNUMMER, NarmesteLederRelasjon(LEADER, listOf("leder@example.test")))
+                    registerActive(
+                        TEST_SYKMELDT,
+                        TEST_ORGNUMMER,
+                        NarmesteLederRelasjon(LEADER, listOf("leder@example.test"), TEST_LEDERRELASJON_ID),
+                    )
                 }
-            val caseId = "mote-${UUID.randomUUID()}"
+            val sak = Arbeidsgiversak(sakId = "mote-${UUID.randomUUID()}", title = "Dialogmøte")
             val calendarReference = "avtale-${UUID.randomUUID()}"
+            val leaderCase = "${sak.sakId}:$TEST_LEDERRELASJON_ID"
 
             BudstikkaTestApp
                 .start {
-                    provide<ArbeidsgiversakPublisher> { publisher }
+                    provide<ArbeidsgiversakPublisher> { casePublisher }
+                    provide<ArbeidsgiverNotificationPublisher> { notificationPublisher }
                     provide<NarmesteLederLookup> { lookup }
                 }.use { app ->
                     val dispatches =
                         listOf(
-                            Budstikka.arbeidsgiversakCreate(
-                                eventId = EventId.new(),
-                                reference = caseId,
-                                orgnummer = TEST_ORGNUMMER,
-                                recipient = Arbeidsgiversak.NarmesteLeder(TEST_SYKMELDT),
-                                tag = "Dialogmøte",
-                                caseId = caseId,
-                                title = "Dialogmøte",
-                            ),
                             Budstikka.kalenderavtaleCreate(
                                 eventId = EventId.new(),
                                 reference = calendarReference,
                                 orgnummer = TEST_ORGNUMMER,
                                 sykmeldt = TEST_SYKMELDT,
                                 tag = "Dialogmøte",
-                                caseId = caseId,
+                                sak = sak,
                                 text = "Dialogmøte",
                                 link = "https://nav.no/e2e/dialogmote",
                                 startAt = Instant.parse("2026-11-02T09:00:00Z"),
-                                email = Kalenderavtale.LeaderEmail.plainText("Innkalling", "Du er innkalt"),
+                                email = Kalenderavtale.EmailNotification.plainText("Innkalling", "Du er innkalt"),
+                            ),
+                            Budstikka.arbeidsgivervarselCreate(
+                                eventId = EventId.new(),
+                                reference = "e2e-varsel-${UUID.randomUUID()}",
+                                orgnummer = TEST_ORGNUMMER,
+                                recipient = Arbeidsgivervarsel.NarmesteLeder(TEST_SYKMELDT),
+                                sak = sak,
+                                tag = "Dialogmøte",
+                                text = "Du er innkalt til dialogmøte",
+                                link = "https://nav.no/e2e/dialogmote",
                             ),
                             Budstikka.kalenderavtaleUpdate(
                                 eventId = EventId.new(),
@@ -79,15 +92,16 @@ class ArbeidsgiversakE2ESpec :
                                 orgnummer = TEST_ORGNUMMER,
                                 sykmeldt = TEST_SYKMELDT,
                                 tag = "Dialogmøte",
-                                newState = Kalenderavtale.State.CANCELLED,
+                                tilstand = Kalenderavtale.Tilstand.AVLYST,
                             ),
                             Budstikka.arbeidsgiversakStatus(
                                 eventId = EventId.new(),
-                                reference = caseId,
+                                reference = sak.sakId,
                                 orgnummer = TEST_ORGNUMMER,
+                                recipient = Arbeidsgiversak.NarmesteLeder(TEST_SYKMELDT),
                                 tag = "Dialogmøte",
-                                caseId = caseId,
-                                status = Arbeidsgiversak.Status.DONE,
+                                sak = sak,
+                                status = Arbeidsgiversak.Status.FERDIG,
                             ),
                         )
                     dispatches.forEach { app.produce(it) }
@@ -96,28 +110,30 @@ class ArbeidsgiversakE2ESpec :
                         app.deliveryStatesFor(dispatches.map { it.eventId.value }) shouldContainExactly
                             List(dispatches.size) { DeliveryState.SENT.name }
 
-                        publisher.caseCreates.single().apply {
-                            grupperingsid shouldBe caseId
-                            recipient shouldBe ArbeidsgiverNotificationRecipient.NarmesteLeder(LEADER, TEST_SYKMELDT)
+                        casePublisher.caseCreates shouldHaveSize 3
+                        casePublisher.caseCreates.forEach {
+                            it.grupperingsid shouldBe leaderCase
+                            it.recipient shouldBe ArbeidsgiverNotificationRecipient.NarmesteLeder(LEADER, TEST_SYKMELDT)
                         }
-                        publisher.calendarCreates.single().apply {
-                            grupperingsid shouldBe caseId
+                        casePublisher.calendarCreates.single().apply {
+                            grupperingsid shouldBe leaderCase
                             eksternId shouldBe calendarReference
                             recipient.externalVarsling?.epostadresser shouldBe listOf("leder@example.test")
                         }
-                        publisher.calendarUpdates.single().apply {
+                        notificationPublisher.requests.single().grupperingsid shouldBe leaderCase
+                        casePublisher.calendarUpdates.single().apply {
                             eksternId shouldBe calendarReference
                             nyTilstand shouldBe Kalenderavtaletilstand.AVLYST
                         }
-                        publisher.caseStatuses.single().apply {
-                            grupperingsid shouldBe caseId
+                        casePublisher.caseStatuses.single().apply {
+                            grupperingsid shouldBe leaderCase
                             status shouldBe Saksstatus.FERDIG
                         }
                     }
                 }
         }
 
-        test("a case for a Sykmeldt without an active leader reaches terminal FAILED without calling Fager") {
+        test("a case status for a Sykmeldt without an active leader reaches terminal FAILED without calling Fager") {
             val publisher = FakeArbeidsgiversakPublisher()
 
             BudstikkaTestApp
@@ -126,14 +142,14 @@ class ArbeidsgiversakE2ESpec :
                     provide<NarmesteLederLookup> { FakeNarmesteLederLookup() }
                 }.use { app ->
                     val dispatch =
-                        Budstikka.arbeidsgiversakCreate(
+                        Budstikka.arbeidsgiversakStatus(
                             eventId = EventId.new(),
                             reference = "e2e-case",
                             orgnummer = TEST_ORGNUMMER,
                             recipient = Arbeidsgiversak.NarmesteLeder(TEST_SYKMELDT),
                             tag = "Dialogmøte",
-                            caseId = "mote-${UUID.randomUUID()}",
-                            title = "Dialogmøte",
+                            sak = Arbeidsgiversak(sakId = "mote-${UUID.randomUUID()}", title = "Dialogmøte"),
+                            status = Arbeidsgiversak.Status.UNDER_BEHANDLING,
                         )
                     app.produce(dispatch)
 

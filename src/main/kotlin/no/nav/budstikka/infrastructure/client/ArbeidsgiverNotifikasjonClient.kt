@@ -274,7 +274,7 @@ class ArbeidsgiverNotifikasjonClient(
             onUgyldigMerkelapp != null ->
                 rejected("UgyldigMerkelapp")
             onUgyldigMottaker != null ->
-                invalidRecipient("UgyldigMottaker")
+                rejected("UgyldigMottaker")
             onUkjentProdusent != null ->
                 rejected("UkjentProdusent")
             onUkjentRolle != null ->
@@ -292,7 +292,7 @@ class ArbeidsgiverNotifikasjonClient(
             onUgyldigMerkelapp != null ->
                 rejected("UgyldigMerkelapp")
             onUgyldigMottaker != null ->
-                invalidRecipient("UgyldigMottaker")
+                rejected("UgyldigMottaker")
             onUkjentProdusent != null ->
                 rejected("UkjentProdusent")
             onUkjentRolle != null ->
@@ -387,13 +387,14 @@ class ArbeidsgiverNotifikasjonClient(
         when {
             onNySakVellykket != null -> ArbeidsgiverNotificationResponse.Published
             // Fager answers an identical replay with success, so a duplicate means the key exists with
-            // other content: our own earlier attempt after a leader change, or a caseId reused by
-            // mistake. Only the first counts as created, so the existing case is checked.
+            // other content: the same case described differently by another operation (for example
+            // a later hardDeleteAt or a status change since), or a sakId reused by mistake. Only the
+            // first counts as existing, so the existing case is checked.
             onDuplikatGrupperingsid != null ->
                 verifyExistingCase(request, onDuplikatGrupperingsid.idTilEksisterende)
             onDuplikatGrupperingsidEtterDelete != null -> rejected("DuplikatGrupperingsidEtterDelete")
             onUgyldigMerkelapp != null -> rejected("UgyldigMerkelapp")
-            onUgyldigMottaker != null -> invalidRecipient("UgyldigMottaker")
+            onUgyldigMottaker != null -> rejected("UgyldigMottaker")
             onUkjentProdusent != null -> rejected("UkjentProdusent")
             onUkjentRolle != null -> rejected("UkjentRolle")
             else -> error("Arbeidsgiver notification API returned an unexpected NySak result")
@@ -419,7 +420,7 @@ class ArbeidsgiverNotifikasjonClient(
                 verifyExistingCalendarEvent(request, onDuplikatEksternIdOgMerkelapp.idTilEksisterende)
             onUgyldigKalenderavtale != null -> rejected("UgyldigKalenderavtale")
             onUgyldigMerkelapp != null -> rejected("UgyldigMerkelapp")
-            onUgyldigMottaker != null -> invalidRecipient("UgyldigMottaker")
+            onUgyldigMottaker != null -> rejected("UgyldigMottaker")
             onUkjentProdusent != null -> rejected("UkjentProdusent")
             else -> error("Arbeidsgiver notification API returned an unexpected NyKalenderavtale result")
         }
@@ -466,11 +467,6 @@ class ArbeidsgiverNotifikasjonClient(
 
     private fun rejected(resultType: String) =
         ArbeidsgiverNotificationResponse.Rejected(
-            "Arbeidsgiver notification API rejected request: $resultType",
-        )
-
-    private fun invalidRecipient(resultType: String) =
-        ArbeidsgiverNotificationResponse.InvalidRecipient(
             "Arbeidsgiver notification API rejected request: $resultType",
         )
 

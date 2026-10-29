@@ -6,14 +6,15 @@ import no.nav.budstikka.contract.KalenderavtaleCreate
 import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.domain.decision.Channel
+import java.util.UUID
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
  * Creates and updates calendar events in a producer-owned case. The dispatch reference is the
  * event's eksternId downstream, so an update addresses the event by the same reference. Only a
- * Nærmeste leder recipient is supported. A requested email without a leader email address fails
- * terminally. A case that does not exist yet is retried; a leader who is not on the case is terminal,
- * because a calendar event cannot exist outside its case.
+ * Nærmeste leder recipient is supported. A create first makes sure the case of the current leader
+ * relation exists, so the event lands in the case of the leader who receives it. A requested email
+ * without a leader email address fails terminally.
  */
 class KalenderavtaleChannelHandler(
     private val publisher: ArbeidsgiversakPublisher,
@@ -36,7 +37,6 @@ class KalenderavtaleChannelHandler(
     ): DeliveryOutcome {
         listOf(
             "tag" to create.tag,
-            "sakstilknytning.sakId" to create.sakstilknytning.sakId,
             "text" to create.text,
             "link" to create.link,
         ).firstOrNull { (_, value) -> value.isBlank() }
@@ -44,26 +44,38 @@ class KalenderavtaleChannelHandler(
         if (create.text.length > MAX_CALENDAR_TEXT_LENGTH) {
             return DeliveryOutcome.Failed("KALENDERAVTALE text must be at most $MAX_CALENDAR_TEXT_LENGTH characters")
         }
-        val recipient =
+        create.sakstilknytning.invalidCaseDescription(Channel.KALENDERAVTALE)?.let { return it }
+        val leader =
             when (val resolved = resolveLeader(create.recipient, create.orgnummer)) {
                 is ResolvedRecipient.Failure -> return resolved.outcome
-                is ResolvedRecipient.Leader -> resolved.recipient
+                is ResolvedRecipient.Leader -> resolved
             }
+        val grupperingsid = create.sakstilknytning.grupperingsid(leader.relasjonId)
+        publisher
+            .ensureCase(
+                channel = Channel.KALENDERAVTALE,
+                sak = create.sakstilknytning,
+                grupperingsid = grupperingsid,
+                virksomhetsnummer = create.orgnummer.value,
+                tag = create.tag,
+                recipient = leader.recipient,
+                correlationId = delivery.correlationId(),
+            )?.let { return it }
         return withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "creating calendar event") {
             publisher.createCalendarEvent(
                 KalenderavtaleCreateRequest(
                     virksomhetsnummer = create.orgnummer.value,
-                    grupperingsid = create.sakstilknytning.sakId,
+                    grupperingsid = grupperingsid,
                     tag = create.tag,
                     eksternId = delivery.reference,
                     tekst = create.text,
                     lenke = create.link,
                     startAt = create.startAt,
                     endAt = create.endAt,
-                    lokasjon = create.location,
+                    lokasjon = create.lokasjon,
                     erDigitalt = create.digital,
-                    tilstand = create.state,
-                    recipient = recipient,
+                    tilstand = create.tilstand,
+                    recipient = leader.recipient,
                     correlationId = delivery.correlationId(),
                 ),
             )
@@ -75,10 +87,10 @@ class KalenderavtaleChannelHandler(
         update: KalenderavtaleUpdate,
     ): DeliveryOutcome {
         if (update.tag.isBlank()) return DeliveryOutcome.Failed("KALENDERAVTALE tag must not be blank")
-        if ((update.newText?.length ?: 0) > MAX_CALENDAR_TEXT_LENGTH) {
-            return DeliveryOutcome.Failed("KALENDERAVTALE newText must be at most $MAX_CALENDAR_TEXT_LENGTH characters")
+        if ((update.text?.length ?: 0) > MAX_CALENDAR_TEXT_LENGTH) {
+            return DeliveryOutcome.Failed("KALENDERAVTALE text must be at most $MAX_CALENDAR_TEXT_LENGTH characters")
         }
-        if (update.newState == null && update.newText.isNullOrBlank() && !update.recipient.requestsEmail()) {
+        if (update.tilstand == null && update.text.isNullOrBlank() && !update.recipient.requestsEmail()) {
             return DeliveryOutcome.Failed("KALENDERAVTALE update has no change")
         }
         val externalVarsling =
@@ -95,8 +107,8 @@ class KalenderavtaleChannelHandler(
                 KalenderavtaleUpdateRequest(
                     tag = update.tag,
                     eksternId = delivery.reference,
-                    nyTilstand = update.newState,
-                    nyTekst = update.newText,
+                    nyTilstand = update.tilstand,
+                    nyTekst = update.text,
                     externalVarsling = externalVarsling,
                     idempotencyKey = delivery.correlationId(),
                 ),
@@ -138,18 +150,20 @@ class KalenderavtaleChannelHandler(
             is LeaderResolution.Missing -> ResolvedRecipient.Failure(resolution.outcome)
             is LeaderResolution.Found ->
                 ResolvedRecipient.Leader(
-                    ArbeidsgiverNotificationRecipient.NarmesteLeder(
-                        narmesteLederFnr = resolution.relation.narmesteLederFnr,
-                        ansattFnr = leader.sykmeldt,
-                        externalVarsling =
-                            requested?.let {
-                                NarmesteLederExternalVarsling(
-                                    epostTittel = it.emailTitle,
-                                    epostHtmlBody = requireNotNull(emailHtmlBody),
-                                    epostadresser = resolution.relation.epostadresser,
-                                )
-                            },
-                    ),
+                    relasjonId = resolution.relation.relasjonId,
+                    recipient =
+                        ArbeidsgiverNotificationRecipient.NarmesteLeder(
+                            narmesteLederFnr = resolution.relation.narmesteLederFnr,
+                            ansattFnr = leader.sykmeldt,
+                            externalVarsling =
+                                requested?.let {
+                                    NarmesteLederExternalVarsling(
+                                        epostTittel = it.emailTitle,
+                                        epostHtmlBody = requireNotNull(emailHtmlBody),
+                                        epostadresser = resolution.relation.epostadresser,
+                                    )
+                                },
+                        ),
                 )
         }
     }
@@ -158,6 +172,7 @@ class KalenderavtaleChannelHandler(
 
     private sealed interface ResolvedRecipient {
         data class Leader(
+            val relasjonId: UUID,
             val recipient: ArbeidsgiverNotificationRecipient.NarmesteLeder,
         ) : ResolvedRecipient
 
