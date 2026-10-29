@@ -144,7 +144,8 @@ ingen Fager-id-er.
 - **Uten sak:** overloadene av `arbeidsgivervarselCreate` uten `sak`, også med `CaseAssociation`, er
   deprecated og slutter å virke når Fager håndhever kravet. Gå over til overloadene med `sak`.
 - **Et sjeldent tilfelle:** en kalenderavtale er opprettet, men svaret gikk tapt, og lederen byttes før
-  neste forsøk. Da havner avtalen i den nye lederens sak, mens den gamle står igjen i den gamle saken.
+  neste forsøk. Da står avtalen i den gamle lederens sak, og leveransen feiler terminalt fordi
+  `reference` allerede finnes i en annen sak.
 
 Bakgrunnen for valget står i [ADR 0019](adr/0019-sak-og-kalenderavtale-er-generiske-operasjoner-i-budstikka.md).
 
