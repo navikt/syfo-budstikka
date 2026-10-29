@@ -1,6 +1,5 @@
 package no.nav.budstikka.domain.decision
 
-import no.nav.budstikka.contract.ArbeidsgiversakCreate
 import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
@@ -37,7 +36,6 @@ internal fun DispatchContent.gatedPerson(): PersonIdentifier? =
         is ArbeidsgivervarselInactivate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
-        is ArbeidsgiversakCreate,
         is ArbeidsgiversakStatus,
         is KalenderavtaleCreate,
         is KalenderavtaleUpdate,
@@ -57,7 +55,6 @@ internal fun DispatchContent.gatedSendingWindow(): SendingWindow? =
         is BrevCreate,
         is MicrofrontendEnable,
         is MicrofrontendDisable,
-        is ArbeidsgiversakCreate,
         is ArbeidsgiversakStatus,
         is KalenderavtaleCreate,
         is KalenderavtaleUpdate,
@@ -98,9 +95,6 @@ internal fun DispatchContent.toDeliveryDraft(reference: String): DeliveryDraft =
 
         is MicrofrontendDisable ->
             draft(reference, Operation.INACTIVATE, Channel.MICROFRONTEND, Recipient.Person(personIdentifier))
-
-        is ArbeidsgiversakCreate ->
-            draft(reference, Operation.CREATE, Channel.ARBEIDSGIVERSAK, Recipient.Virksomhet(orgnummer))
 
         is ArbeidsgiversakStatus ->
             draft(reference, Operation.UPDATE, Channel.ARBEIDSGIVERSAK, Recipient.Virksomhet(orgnummer))

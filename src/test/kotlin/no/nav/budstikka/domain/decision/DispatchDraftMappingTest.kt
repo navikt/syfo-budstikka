@@ -2,7 +2,6 @@ package no.nav.budstikka.domain.decision
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import no.nav.budstikka.contract.ArbeidsgiversakCreate
 import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrevCreate
@@ -98,24 +97,12 @@ class DispatchDraftMappingTest :
                     Recipient.Virksomhet(TEST_ORGNUMMER),
                 ),
                 Case(
-                    "Arbeidsgiversak",
-                    ArbeidsgiversakCreate(
-                        orgnummer = TEST_ORGNUMMER,
-                        recipient = NarmesteLeder(TEST_SYKMELDT),
-                        tag = "Dialogmøte",
-                        sakstilknytning = Sakstilknytning("mote-1"),
-                        title = "Dialogmøte",
-                    ),
-                    Channel.ARBEIDSGIVERSAK,
-                    Operation.CREATE,
-                    Recipient.Virksomhet(TEST_ORGNUMMER),
-                ),
-                Case(
                     "Arbeidsgiversak status",
                     ArbeidsgiversakStatus(
                         orgnummer = TEST_ORGNUMMER,
+                        recipient = NarmesteLeder(TEST_SYKMELDT),
                         tag = "Dialogmøte",
-                        sakstilknytning = Sakstilknytning("mote-1"),
+                        sakstilknytning = Sakstilknytning("mote-1", title = "Dialogmøte"),
                         status = Saksstatus.FERDIG,
                     ),
                     Channel.ARBEIDSGIVERSAK,
@@ -128,7 +115,7 @@ class DispatchDraftMappingTest :
                         orgnummer = TEST_ORGNUMMER,
                         recipient = NarmesteLeder(TEST_SYKMELDT),
                         tag = "Dialogmøte",
-                        sakstilknytning = Sakstilknytning("mote-1"),
+                        sakstilknytning = Sakstilknytning("mote-1", title = "Dialogmøte"),
                         text = "Dialogmøte",
                         link = "https://nav.no",
                         startAt = Instant.parse("2026-11-02T09:00:00Z"),
@@ -143,7 +130,7 @@ class DispatchDraftMappingTest :
                         orgnummer = TEST_ORGNUMMER,
                         recipient = NarmesteLeder(TEST_SYKMELDT),
                         tag = "Dialogmøte",
-                        newState = Kalenderavtaletilstand.AVLYST,
+                        tilstand = Kalenderavtaletilstand.AVLYST,
                     ),
                     Channel.KALENDERAVTALE,
                     Operation.UPDATE,

@@ -486,85 +486,100 @@ class BudstikkaProducerApiTest :
         }
 
         context("arbeidsgiversak") {
-            test("create keys on orgnummer and carries the case identity as sakstilknytning") {
+            val sak =
+                Arbeidsgiversak(
+                    sakId = "sak-1",
+                    title = "Dialogmøte med Test",
+                    link = "https://nav.no/ag",
+                    hardDeleteAt = VISIBLE_UNTIL,
+                )
+
+            test("an Arbeidsgivervarsel in a case carries the case description for ensure") {
                 val encoded =
-                    Budstikka.arbeidsgiversakCreate(
+                    Budstikka.arbeidsgivervarselCreate(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        sak = sak,
                         tag = "Dialogmøte",
-                        caseId = "sak-1",
-                        title = "Dialogmøte med Test",
+                        text = SYNTHETIC_TEXT,
                         link = "https://nav.no/ag",
-                        hardDeleteAt = VISIBLE_UNTIL,
+                        sendingWindow = SendingWindow.ONGOING,
                     )
 
                 encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
                 encoded.value shouldBe
-                    """{"reference":"ref-1","content":{"type":"ArbeidsgiversakCreate",""" +
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
-                    """"externalVarsling":null},"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},""" +
-                    """"title":"Dialogmøte med Test","link":"https://nav.no/ag","initialStatus":"MOTTATT",""" +
-                    """"hardDeleteAt":"2026-01-01T00:00:00Z"}}"""
+                    """"externalVarsling":null},"tag":"Dialogmøte","text":"SYNTETISK-VARSELTEKST",""" +
+                    """"link":"https://nav.no/ag","meldingstype":"BESKJED","sakstilknytning":{"sakId":"sak-1",""" +
+                    """"title":"Dialogmøte med Test","link":"https://nav.no/ag","hardDeleteAt":"2026-01-01T00:00:00Z"},""" +
+                    """"visibleUntil":null,"sendingWindow":"ONGOING"}}"""
             }
 
-            test("create for an Altinn resource maps the status to the wire value") {
-                Budstikka
-                    .arbeidsgiversakCreate(
-                        eventId = EVENT_ID,
-                        reference = REFERENCE,
-                        orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = Arbeidsgiversak.AltinnResource("nav_syfo_dialogmote"),
-                        tag = "Dialogmøte",
-                        caseId = "sak-1",
-                        title = "Dialogmøte",
-                        initialStatus = Arbeidsgiversak.Status.IN_PROGRESS,
-                    ).value shouldBe
-                    """{"reference":"ref-1","content":{"type":"ArbeidsgiversakCreate",""" +
-                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
-                    """"externalVarsling":null},"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},""" +
-                    """"title":"Dialogmøte","link":null,"initialStatus":"UNDER_BEHANDLING","hardDeleteAt":null}}"""
-            }
-
-            test("title is limited to 140 characters") {
-                fun create(title: String) =
-                    Budstikka.arbeidsgiversakCreate(
-                        eventId = EVENT_ID,
-                        reference = REFERENCE,
-                        orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
-                        tag = "Dialogmøte",
-                        caseId = "sak-1",
-                        title = title,
-                    )
-                create("x".repeat(140)).value shouldContain "\"title\":"
-                shouldThrow<IllegalArgumentException> { create("x".repeat(141)) }.message shouldBe
-                    "title must be at most 140 characters"
-            }
-
-            test("status update keys on orgnummer and maps DONE to FERDIG") {
+            test("status update keys on orgnummer and carries recipient and case") {
                 val encoded =
                     Budstikka.arbeidsgiversakStatus(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgiversak.AltinnResource("nav_syfo_dialogmote"),
                         tag = "Dialogmøte",
-                        caseId = "sak-1",
-                        status = Arbeidsgiversak.Status.DONE,
+                        sak = sak.copy(link = null, hardDeleteAt = null),
+                        status = Arbeidsgiversak.Status.FERDIG,
                         statusText = "Avlyst",
                     )
 
                 encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"ArbeidsgiversakStatus",""" +
-                    """"orgnummer":"999999999","tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},""" +
-                    """"status":"FERDIG","statusText":"Avlyst","hardDeleteAt":null}}"""
+                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                    """"externalVarsling":null},"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1",""" +
+                    """"title":"Dialogmøte med Test"},"status":"FERDIG","statusText":"Avlyst"}}"""
+            }
+
+            listOf(
+                Arbeidsgiversak.Status.MOTTATT to "MOTTATT",
+                Arbeidsgiversak.Status.UNDER_BEHANDLING to "UNDER_BEHANDLING",
+                Arbeidsgiversak.Status.FERDIG to "FERDIG",
+            ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Arbeidsgiversak.Status.entries.toSet() }
+                .forEach { (status, wireValue) ->
+                    test("status $status maps to $wireValue") {
+                        Budstikka
+                            .arbeidsgiversakStatus(
+                                eventId = EVENT_ID,
+                                reference = REFERENCE,
+                                orgnummer = SYNTHETIC_ORGNUMMER,
+                                recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                                tag = "Dialogmøte",
+                                sak = sak,
+                                status = status,
+                            ).value shouldContain """"status":"$wireValue""""
+                    }
+                }
+
+            test("case title is limited to 140 characters") {
+                fun status(title: String) =
+                    Budstikka.arbeidsgiversakStatus(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        tag = "Dialogmøte",
+                        sak = sak.copy(title = title),
+                        status = Arbeidsgiversak.Status.MOTTATT,
+                    )
+                status("x".repeat(140)).value shouldContain "\"title\":"
+                shouldThrow<IllegalArgumentException> { status("x".repeat(141)) }.message shouldBe
+                    "sak.title must be at most 140 characters"
             }
         }
 
         context("kalenderavtale") {
-            test("create keys on orgnummer and carries leader, time, place and HTML email") {
+            val sak = Arbeidsgiversak(sakId = "sak-1", title = "Dialogmøte med Test")
+
+            test("create keys on orgnummer and carries case, leader, time, place and HTML email") {
                 val encoded =
                     Budstikka.kalenderavtaleCreate(
                         eventId = EVENT_ID,
@@ -572,14 +587,14 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
-                        caseId = "sak-1",
+                        sak = sak,
                         text = "Dialogmøte med Test",
                         link = "https://nav.no/ag",
                         startAt = Instant.parse("2026-11-02T09:00:00Z"),
                         endAt = Instant.parse("2026-11-02T10:00:00Z"),
-                        location = Kalenderavtale.Location("Gate 1", "0001", "Oslo"),
+                        lokasjon = Kalenderavtale.Lokasjon("Gate 1", "0001", "Oslo"),
                         digital = true,
-                        email = Kalenderavtale.LeaderEmail.html("Tittel", "<p>E-post</p>"),
+                        email = Kalenderavtale.EmailNotification.html("Tittel", "<p>E-post</p>"),
                     )
 
                 encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
@@ -587,10 +602,10 @@ class BudstikkaProducerApiTest :
                     """{"reference":"ref-1","content":{"type":"KalenderavtaleCreate",""" +
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","emailBodyFormat":"HTML"}},""" +
-                    """"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1"},"text":"Dialogmøte med Test",""" +
-                    """"link":"https://nav.no/ag","startAt":"2026-11-02T09:00:00Z","endAt":"2026-11-02T10:00:00Z",""" +
-                    """"location":{"adresse":"Gate 1","postnummer":"0001","poststed":"Oslo"},"digital":true,""" +
-                    """"state":"VENTER_SVAR_FRA_ARBEIDSGIVER"}}"""
+                    """"tag":"Dialogmøte","sakstilknytning":{"sakId":"sak-1","title":"Dialogmøte med Test"},""" +
+                    """"text":"Dialogmøte med Test","link":"https://nav.no/ag","startAt":"2026-11-02T09:00:00Z",""" +
+                    """"endAt":"2026-11-02T10:00:00Z","lokasjon":{"adresse":"Gate 1","postnummer":"0001",""" +
+                    """"poststed":"Oslo"},"digital":true,"tilstand":"VENTER_SVAR_FRA_ARBEIDSGIVER"}}"""
             }
 
             test("update carries only the requested changes and a plain-text email") {
@@ -601,25 +616,25 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
-                        newState = Kalenderavtale.State.CANCELLED,
-                        email = Kalenderavtale.LeaderEmail.plainText("Tittel", "E-post"),
+                        tilstand = Kalenderavtale.Tilstand.AVLYST,
+                        email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"KalenderavtaleUpdate",""" +
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"tag":"Dialogmøte",""" +
-                    """"newState":"AVLYST","newText":null}}"""
+                    """"tilstand":"AVLYST","text":null}}"""
             }
 
-            mapOf(
-                Kalenderavtale.State.AWAITING_RESPONSE to "VENTER_SVAR_FRA_ARBEIDSGIVER",
-                Kalenderavtale.State.EMPLOYER_WANTS_TO_CANCEL to "ARBEIDSGIVER_VIL_AVLYSE",
-                Kalenderavtale.State.EMPLOYER_WANTS_TO_RESCHEDULE to "ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED",
-                Kalenderavtale.State.EMPLOYER_ACCEPTED to "ARBEIDSGIVER_HAR_GODTATT",
-                Kalenderavtale.State.CANCELLED to "AVLYST",
-                Kalenderavtale.State.HELD to "AVHOLDT",
-            ).also { it.keys shouldBe Kalenderavtale.State.entries.toSet() }
-                .forEach { (state, wireValue) ->
-                    test("$state maps to $wireValue") {
+            listOf(
+                Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER to "VENTER_SVAR_FRA_ARBEIDSGIVER",
+                Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_AVLYSE to "ARBEIDSGIVER_VIL_AVLYSE",
+                Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED to "ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED",
+                Kalenderavtale.Tilstand.ARBEIDSGIVER_HAR_GODTATT to "ARBEIDSGIVER_HAR_GODTATT",
+                Kalenderavtale.Tilstand.AVLYST to "AVLYST",
+                Kalenderavtale.Tilstand.AVHOLDT to "AVHOLDT",
+            ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Kalenderavtale.Tilstand.entries.toSet() }
+                .forEach { (tilstand, wireValue) ->
+                    test("tilstand $tilstand maps to $wireValue") {
                         Budstikka
                             .kalenderavtaleUpdate(
                                 eventId = EVENT_ID,
@@ -627,8 +642,8 @@ class BudstikkaProducerApiTest :
                                 orgnummer = SYNTHETIC_ORGNUMMER,
                                 sykmeldt = SYNTHETIC_SYKMELDT,
                                 tag = "Dialogmøte",
-                                newState = state,
-                            ).value shouldContain """"newState":"$wireValue""""
+                                tilstand = tilstand,
+                            ).value shouldContain """"tilstand":"$wireValue""""
                     }
                 }
 
@@ -640,7 +655,7 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
-                        caseId = "sak-1",
+                        sak = sak,
                         text = text,
                         link = "https://nav.no/ag",
                         startAt = Instant.parse("2026-11-02T09:00:00Z"),
@@ -655,9 +670,9 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
-                        newText = "x".repeat(301),
+                        text = "x".repeat(301),
                     )
-                }.message shouldBe "newText must be at most 300 characters"
+                }.message shouldBe "text must be at most 300 characters"
             }
         }
 
@@ -741,7 +756,6 @@ class BudstikkaProducerApiTest :
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",
-                    "arbeidsgiversakCreate",
                     "arbeidsgiversakStatus",
                     "kalenderavtaleCreate",
                     "kalenderavtaleUpdate",

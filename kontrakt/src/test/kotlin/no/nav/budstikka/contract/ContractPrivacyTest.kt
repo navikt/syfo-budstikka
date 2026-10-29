@@ -56,6 +56,20 @@ class ContractPrivacyTest :
             )
         val brevFallback = BrevFallback(journalpostId = SYNTHETIC_JOURNALPOST_ID)
         val sakstilknytning = Sakstilknytning(sakId = SYNTHETIC_SAK_ID)
+        val describedSak =
+            Sakstilknytning(
+                sakId = SYNTHETIC_SAK_ID,
+                title = SYNTHETIC_TEXT,
+                link = SYNTHETIC_LINK,
+                hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
+            )
+        val arbeidsgiversak =
+            Arbeidsgiversak(
+                sakId = SYNTHETIC_SAK_ID,
+                title = SYNTHETIC_TEXT,
+                link = SYNTHETIC_LINK,
+                hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
+            )
         val narmesteLederExternalVarsling =
             NarmesteLederExternalVarsling(
                 emailTitle = SYNTHETIC_EMAIL_TITLE,
@@ -137,19 +151,11 @@ class ContractPrivacyTest :
                         personIdentifier = SYNTHETIC_SYKMELDT,
                         microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
                     ),
-                    ArbeidsgiversakCreate(
+                    ArbeidsgiversakStatus(
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
                         tag = "SENSITIVE-PRODUCER-TAG",
-                        sakstilknytning = sakstilknytning,
-                        title = SYNTHETIC_TEXT,
-                        link = SYNTHETIC_LINK,
-                        hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
-                    ),
-                    ArbeidsgiversakStatus(
-                        orgnummer = SYNTHETIC_ORGNUMMER,
-                        tag = "SENSITIVE-PRODUCER-TAG",
-                        sakstilknytning = sakstilknytning,
+                        sakstilknytning = describedSak,
                         status = Saksstatus.FERDIG,
                         statusText = SYNTHETIC_TEXT,
                     ),
@@ -161,11 +167,11 @@ class ContractPrivacyTest :
                                 externalVarsling = narmesteLederExternalVarsling,
                             ),
                         tag = "SENSITIVE-PRODUCER-TAG",
-                        sakstilknytning = sakstilknytning,
+                        sakstilknytning = describedSak,
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         startAt = Instant.parse("2026-01-01T09:00:00Z"),
-                        location = kalenderavtalelokasjon,
+                        lokasjon = kalenderavtalelokasjon,
                     ),
                     KalenderavtaleUpdate(
                         orgnummer = SYNTHETIC_ORGNUMMER,
@@ -175,8 +181,8 @@ class ContractPrivacyTest :
                                 externalVarsling = narmesteLederExternalVarsling,
                             ),
                         tag = "SENSITIVE-PRODUCER-TAG",
-                        newState = Kalenderavtaletilstand.AVLYST,
-                        newText = SYNTHETIC_TEXT,
+                        tilstand = Kalenderavtaletilstand.AVLYST,
+                        text = SYNTHETIC_TEXT,
                     ),
                 )
 
@@ -216,12 +222,14 @@ class ContractPrivacyTest :
                 "Kalenderavtalelokasjon" to kalenderavtalelokasjon,
                 "Arbeidsgiversak.NarmesteLeder" to Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
                 "Arbeidsgiversak.AltinnResource" to Arbeidsgiversak.AltinnResource("sensitive-producer-resource"),
-                "Kalenderavtale.Location" to
-                    Kalenderavtale.Location(SYNTHETIC_TEXT, "SENSITIVE-POSTNUMMER", SYNTHETIC_TEXT),
-                "Kalenderavtale.LeaderEmail.plainText" to
-                    Kalenderavtale.LeaderEmail.plainText(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
-                "Kalenderavtale.LeaderEmail.html" to
-                    Kalenderavtale.LeaderEmail.html(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                "Sakstilknytning med beskrivelse" to describedSak,
+                "Arbeidsgiversak" to arbeidsgiversak,
+                "Kalenderavtale.Lokasjon" to
+                    Kalenderavtale.Lokasjon(SYNTHETIC_TEXT, "SENSITIVE-POSTNUMMER", SYNTHETIC_TEXT),
+                "Kalenderavtale.EmailNotification.plainText" to
+                    Kalenderavtale.EmailNotification.plainText(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                "Kalenderavtale.EmailNotification.html" to
+                    Kalenderavtale.EmailNotification.html(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
             ).forEach { (name, value) ->
                 test(name) {
                     value.toString().shouldNotLeak()
@@ -318,15 +326,15 @@ class ContractPrivacyTest :
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
                         ),
-                    "arbeidsgiversakCreate" to
-                        Budstikka.arbeidsgiversakCreate(
+                    "arbeidsgivervarselCreate with sak" to
+                        Budstikka.arbeidsgivervarselCreate(
                             eventId = EVENT_ID,
                             reference = SYNTHETIC_REFERENCE,
                             orgnummer = SYNTHETIC_ORGNUMMER,
-                            recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                            recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                            sak = arbeidsgiversak,
                             tag = "SENSITIVE-PRODUCER-TAG",
-                            caseId = SYNTHETIC_SAK_ID,
-                            title = SYNTHETIC_TEXT,
+                            text = SYNTHETIC_TEXT,
                             link = SYNTHETIC_LINK,
                         ),
                     "arbeidsgiversakStatus" to
@@ -334,9 +342,10 @@ class ContractPrivacyTest :
                             eventId = EVENT_ID,
                             reference = SYNTHETIC_REFERENCE,
                             orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
                             tag = "SENSITIVE-PRODUCER-TAG",
-                            caseId = SYNTHETIC_SAK_ID,
-                            status = Arbeidsgiversak.Status.DONE,
+                            sak = arbeidsgiversak,
+                            status = Arbeidsgiversak.Status.FERDIG,
                             statusText = SYNTHETIC_TEXT,
                         ),
                     "kalenderavtaleCreate" to
@@ -346,11 +355,11 @@ class ContractPrivacyTest :
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             tag = "SENSITIVE-PRODUCER-TAG",
-                            caseId = SYNTHETIC_SAK_ID,
+                            sak = arbeidsgiversak,
                             text = SYNTHETIC_TEXT,
                             link = SYNTHETIC_LINK,
                             startAt = Instant.parse("2026-01-01T09:00:00Z"),
-                            email = Kalenderavtale.LeaderEmail.plainText(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                            email = Kalenderavtale.EmailNotification.plainText(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
                         ),
                     "kalenderavtaleUpdate" to
                         Budstikka.kalenderavtaleUpdate(
@@ -359,8 +368,8 @@ class ContractPrivacyTest :
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             tag = "SENSITIVE-PRODUCER-TAG",
-                            newState = Kalenderavtale.State.CANCELLED,
-                            newText = SYNTHETIC_TEXT,
+                            tilstand = Kalenderavtale.Tilstand.AVLYST,
+                            text = SYNTHETIC_TEXT,
                         ),
                 )
 
@@ -797,17 +806,20 @@ class ContractPrivacyTest :
                 }
             }
 
-            test("blank caseId and title on a case") {
-                listOf("caseId" to Pair(" ", SYNTHETIC_TEXT), "title" to Pair(SYNTHETIC_SAK_ID, " ")).forEach { (parameter, values) ->
+            test("blank sakId and title on a case") {
+                listOf(
+                    "sak.sakId" to arbeidsgiversak.copy(sakId = " "),
+                    "sak.title" to arbeidsgiversak.copy(title = " "),
+                ).forEach { (parameter, sak) ->
                     shouldThrow<IllegalArgumentException> {
-                        Budstikka.arbeidsgiversakCreate(
+                        Budstikka.arbeidsgiversakStatus(
                             eventId = EVENT_ID,
                             reference = SYNTHETIC_REFERENCE,
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = Arbeidsgiversak.NarmesteLeder(SYNTHETIC_SYKMELDT),
                             tag = "Dialogmøte",
-                            caseId = values.first,
-                            title = values.second,
+                            sak = sak,
+                            status = Arbeidsgiversak.Status.MOTTATT,
                         )
                     }.message!!.also { it shouldContain parameter }.shouldNotLeak()
                 }
@@ -821,7 +833,7 @@ class ContractPrivacyTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
-                        caseId = SYNTHETIC_SAK_ID,
+                        sak = arbeidsgiversak,
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         startAt = Instant.parse("2026-01-01T09:00:00Z"),
@@ -838,11 +850,11 @@ class ContractPrivacyTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
-                        caseId = SYNTHETIC_SAK_ID,
+                        sak = arbeidsgiversak,
                         text = SYNTHETIC_TEXT,
                         link = SYNTHETIC_LINK,
                         startAt = Instant.parse("2026-01-01T09:00:00Z"),
-                        email = Kalenderavtale.LeaderEmail.html(SYNTHETIC_EMAIL_TITLE, " "),
+                        email = Kalenderavtale.EmailNotification.html(SYNTHETIC_EMAIL_TITLE, " "),
                     )
                 }.message!!.also { it shouldContain "email.body" }.shouldNotLeak()
             }
@@ -856,7 +868,7 @@ class ContractPrivacyTest :
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         tag = "Dialogmøte",
                     )
-                }.message!!.also { it shouldContain "newState" }.shouldNotLeak()
+                }.message!!.also { it shouldContain "tilstand" }.shouldNotLeak()
             }
         }
     })

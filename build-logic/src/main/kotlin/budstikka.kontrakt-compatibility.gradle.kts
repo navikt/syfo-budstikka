@@ -27,7 +27,6 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.AltinnResource**",
         "no.nav.budstikka.contract.ArbeidsgiverMeldingstype",
         "no.nav.budstikka.contract.ArbeidsgiverRecipient**",
-        "no.nav.budstikka.contract.ArbeidsgiversakCreate**",
         "no.nav.budstikka.contract.ArbeidsgiversakStatus**",
         "no.nav.budstikka.contract.ArbeidsgivervarselCreate**",
         "no.nav.budstikka.contract.ArbeidsgivervarselInactivate**",

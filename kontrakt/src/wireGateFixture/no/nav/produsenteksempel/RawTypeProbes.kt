@@ -3,7 +3,6 @@ package no.nav.produsenteksempel
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
-import no.nav.budstikka.contract.ArbeidsgiversakCreate
 import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
@@ -35,7 +34,6 @@ import no.nav.budstikka.contract.Sakstilknytning
 typealias RawAltinnResource = AltinnResource // opt-in-probe
 typealias RawArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype // opt-in-probe
 typealias RawArbeidsgiverRecipient = ArbeidsgiverRecipient // opt-in-probe
-typealias RawArbeidsgiversakCreate = ArbeidsgiversakCreate // opt-in-probe
 typealias RawArbeidsgiversakStatus = ArbeidsgiversakStatus // opt-in-probe
 typealias RawArbeidsgivervarselCreate = ArbeidsgivervarselCreate // opt-in-probe
 typealias RawArbeidsgivervarselInactivate = ArbeidsgivervarselInactivate // opt-in-probe

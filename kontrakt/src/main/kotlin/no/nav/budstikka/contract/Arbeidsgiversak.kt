@@ -1,30 +1,50 @@
 package no.nav.budstikka.contract
 
+import kotlin.time.Instant
+
 /**
- * Producer-facing inputs for a case in Arbeidsgivernotifikasjoner. The producer owns the case: it
- * chooses a stable `caseId` (used downstream as grupperingsid), creates the case once and decides
- * every status change. Budstikka resolves the recipient at send time and keeps no case state.
+ * A case (sak) in Min side – arbeidsgiver. Every notification and calendar event there belongs to a
+ * case, so the producer describes the case on each operation and Budstikka makes sure it exists
+ * before the content is created. The producer owns the case: it chooses a stable [sakId] and decides
+ * every status change. Budstikka keeps no case state.
+ *
+ * For a Nærmeste leder recipient, the case downstream belongs to the current leader relation: a new
+ * leader gets a case of their own for the same [sakId], and the previous leader loses access through
+ * Arbeidsgivernotifikasjoner's own access control.
+ *
+ * @property sakId your stable case identity. Never use a personident.
+ * @property title the case title shown to the recipient, at most 140 characters. It is set when
+ *   the case is created and cannot be changed afterwards.
+ * @property link optional target for the case; omit to use the case page in Min side arbeidsgiver.
+ * @property hardDeleteAt when Arbeidsgivernotifikasjoner permanently deletes the case and all
+ *   content in it. Omit to use the four-month retention period when the case is created.
+ *   [Budstikka.arbeidsgiversakStatus] replaces an earlier time with this one.
  */
-object Arbeidsgiversak {
-    /** Case status shown to the recipient. */
+data class Arbeidsgiversak(
+    val sakId: String,
+    val title: String,
+    val link: String? = null,
+    val hardDeleteAt: Instant? = null,
+) {
+    /** Omits the case identity, title and link. */
+    override fun toString(): String = "Arbeidsgiversak(hasLink=${link != null}, hasHardDeleteAt=${hardDeleteAt != null})"
+
+    /** Case status in Arbeidsgivernotifikasjoner. */
     enum class Status {
-        /** The case has been received and is waiting for processing. */
-        RECEIVED,
+        /** The case is received and waiting for processing. */
+        MOTTATT,
 
         /** The case is being processed. */
-        IN_PROGRESS,
+        UNDER_BEHANDLING,
 
         /** The case is complete and is shown with lower priority. */
-        DONE,
+        FERDIG,
     }
 
     /** Exactly one recipient path for a case. */
     sealed interface Recipient
 
-    /**
-     * The active Nærmeste leder for [sykmeldt] at send time. Content linked to the case must reach
-     * the same leader, so a leader change after the case is created makes new content for it fail.
-     */
+    /** The active Nærmeste leder for [sykmeldt] at send time. */
     data class NarmesteLeder(
         val sykmeldt: PersonIdentifier,
     ) : Recipient {
@@ -40,67 +60,67 @@ object Arbeidsgiversak {
 }
 
 /**
- * Producer-facing inputs for a calendar event in a case. The event's dispatch `reference` is its
- * downstream identity: create it once and update it with the same `reference`. Start and end time
- * cannot be changed downstream; a new time is a new event, and the old one is set to
- * [State.CANCELLED].
+ * Producer-facing inputs for a calendar event (kalenderavtale) in a case. The event's dispatch
+ * `reference` is its downstream identity: create it once and update it with the same `reference`.
+ * Start and end time cannot be changed downstream; a new time is a new event, and the old one is set
+ * to [Tilstand.AVLYST].
  */
 object Kalenderavtale {
     /** Calendar event state shown to the leader. */
-    enum class State {
+    enum class Tilstand {
         /** Waiting for the employer's response. This is the default. */
-        AWAITING_RESPONSE,
+        VENTER_SVAR_FRA_ARBEIDSGIVER,
 
         /** The employer wants to cancel. */
-        EMPLOYER_WANTS_TO_CANCEL,
+        ARBEIDSGIVER_VIL_AVLYSE,
 
         /** The employer wants a different time or place. */
-        EMPLOYER_WANTS_TO_RESCHEDULE,
+        ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED,
 
         /** The employer has accepted. */
-        EMPLOYER_ACCEPTED,
+        ARBEIDSGIVER_HAR_GODTATT,
 
         /** The event is cancelled. */
-        CANCELLED,
+        AVLYST,
 
         /** The event has taken place. */
-        HELD,
+        AVHOLDT,
     }
 
     /** Physical meeting place shown to the leader. */
-    data class Location(
-        val address: String,
-        val postalCode: String,
-        val city: String,
+    data class Lokasjon(
+        val adresse: String,
+        val postnummer: String,
+        val poststed: String,
     ) {
-        override fun toString(): String = "Location()"
+        override fun toString(): String = "Lokasjon()"
     }
 
     /**
-     * Email to the leader's registered addresses. Budstikka resolves the addresses at send time.
-     * Use [plainText] for ordinary text, which is escaped before delivery, or [html] for static,
+     * Email to the Nærmeste leder's registered addresses. Budstikka resolves the addresses at send
+     * time. Use [plainText] for ordinary text, which is escaped before delivery, or [html] for static,
      * reviewed markup that is forwarded unchanged; never interpolate untrusted values into it.
      */
     @ConsistentCopyVisibility
-    data class LeaderEmail private constructor(
+    data class EmailNotification private constructor(
         val title: String,
         val body: String,
         val isHtml: Boolean,
     ) {
-        override fun toString(): String = "LeaderEmail(isHtml=$isHtml)"
+        override fun toString(): String = "EmailNotification(isHtml=$isHtml)"
 
         companion object {
             /** Plain-text email; the body is escaped before delivery. */
             fun plainText(
                 title: String,
                 text: String,
-            ): LeaderEmail = LeaderEmail(title = title, body = text, isHtml = false)
+            ): EmailNotification = EmailNotification(title = title, body = text, isHtml = false)
 
             /** HTML email forwarded unchanged; an explicit trust boundary owned by the producer. */
             fun html(
                 title: String,
                 htmlBody: String,
-            ): LeaderEmail = LeaderEmail(title = title, body = htmlBody, isHtml = true)
+            ): EmailNotification = EmailNotification(title = title, body = htmlBody, isHtml = true)
         }
     }
 }

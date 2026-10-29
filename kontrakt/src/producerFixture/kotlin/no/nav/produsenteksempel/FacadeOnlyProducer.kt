@@ -115,18 +115,26 @@ object FacadeOnlyProducer {
             microfrontendId = "syk-dialog",
         )
 
-    fun arbeidsgiversakCreate(eventId: EventId): EncodedDispatch =
-        Budstikka.arbeidsgiversakCreate(
+    private val sak =
+        Arbeidsgiversak(
+            sakId = "sak-1",
+            title = "Dialogmøte",
+            link = "https://nav.no/ag",
+            hardDeleteAt = visibleUntil,
+        )
+
+    fun arbeidsgivervarselInSak(eventId: EventId): EncodedDispatch =
+        Budstikka.arbeidsgivervarselCreate(
             eventId = eventId,
             reference = "fixture-5",
             orgnummer = orgnummer,
-            recipient = Arbeidsgiversak.NarmesteLeder(sykmeldt),
+            recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
+            sak = sak,
             tag = "Dialogmøte",
-            caseId = "sak-1",
-            title = "Dialogmøte",
-            initialStatus = Arbeidsgiversak.Status.RECEIVED,
+            text = "Referat",
             link = "https://nav.no/ag",
-            hardDeleteAt = visibleUntil,
+            messageType = Arbeidsgivervarsel.MessageType.BESKJED,
+            sendingWindow = SendingWindow.ONGOING,
         )
 
     fun arbeidsgiversakStatus(eventId: EventId): EncodedDispatch =
@@ -134,11 +142,11 @@ object FacadeOnlyProducer {
             eventId = eventId,
             reference = "fixture-5",
             orgnummer = orgnummer,
+            recipient = Arbeidsgiversak.NarmesteLeder(sykmeldt),
             tag = "Dialogmøte",
-            caseId = "sak-1",
-            status = Arbeidsgiversak.Status.DONE,
+            sak = sak,
+            status = Arbeidsgiversak.Status.FERDIG,
             statusText = "Avlyst",
-            hardDeleteAt = visibleUntil,
         )
 
     fun kalenderavtaleCreate(eventId: EventId): EncodedDispatch =
@@ -148,14 +156,14 @@ object FacadeOnlyProducer {
             orgnummer = orgnummer,
             sykmeldt = sykmeldt,
             tag = "Dialogmøte",
-            caseId = "sak-1",
+            sak = sak,
             text = "Dialogmøte",
             link = "https://nav.no/ag",
             startAt = visibleUntil,
-            location = Kalenderavtale.Location("Gate 1", "0001", "Oslo"),
+            lokasjon = Kalenderavtale.Lokasjon("Gate 1", "0001", "Oslo"),
             digital = true,
-            state = Kalenderavtale.State.AWAITING_RESPONSE,
-            email = Kalenderavtale.LeaderEmail.html("Tittel", "<p>E-post</p>"),
+            tilstand = Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
+            email = Kalenderavtale.EmailNotification.html("Tittel", "<p>E-post</p>"),
         )
 
     fun kalenderavtaleUpdate(eventId: EventId): EncodedDispatch =
@@ -165,9 +173,9 @@ object FacadeOnlyProducer {
             orgnummer = orgnummer,
             sykmeldt = sykmeldt,
             tag = "Dialogmøte",
-            newState = Kalenderavtale.State.CANCELLED,
-            newText = "Avlyst",
-            email = Kalenderavtale.LeaderEmail.plainText("Tittel", "E-post"),
+            tilstand = Kalenderavtale.Tilstand.AVLYST,
+            text = "Avlyst",
+            email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),
         )
 
     /** Everything a Produsent needs to build a Kafka record, still without touching the envelope. */

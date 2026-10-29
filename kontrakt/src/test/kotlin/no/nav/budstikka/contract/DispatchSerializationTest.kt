@@ -118,22 +118,18 @@ class DispatchSerializationTest :
                             reference = "ref-123",
                             orgnummer = SYNTHETIC_ORGNUMMER,
                         ),
-                    "ArbeidsgiversakCreate" to
-                        ArbeidsgiversakCreate(
-                            orgnummer = SYNTHETIC_ORGNUMMER,
-                            recipient = AltinnResource(resource = "nav_syfo_dialogmote"),
-                            tag = "Dialogmøte",
-                            sakstilknytning = Sakstilknytning(sakId = "sak-1"),
-                            title = "Dialogmøte",
-                            link = "https://nav.no/ag",
-                            initialStatus = Saksstatus.UNDER_BEHANDLING,
-                            hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
-                        ),
                     "ArbeidsgiversakStatus" to
                         ArbeidsgiversakStatus(
                             orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = AltinnResource(resource = "nav_syfo_dialogmote"),
                             tag = "Dialogmøte",
-                            sakstilknytning = Sakstilknytning(sakId = "sak-1"),
+                            sakstilknytning =
+                                Sakstilknytning(
+                                    sakId = "sak-1",
+                                    title = "Dialogmøte",
+                                    link = "https://nav.no/ag",
+                                    hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
+                                ),
                             status = Saksstatus.FERDIG,
                             statusText = "Avlyst",
                         ),
@@ -146,22 +142,22 @@ class DispatchSerializationTest :
                                     externalVarsling = NarmesteLederExternalVarsling("Tittel", "E-post"),
                                 ),
                             tag = "Dialogmøte",
-                            sakstilknytning = Sakstilknytning(sakId = "sak-1"),
+                            sakstilknytning = Sakstilknytning(sakId = "sak-1", title = "Dialogmøte"),
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                             startAt = Instant.parse("2026-11-02T09:00:00Z"),
                             endAt = Instant.parse("2026-11-02T10:00:00Z"),
-                            location = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
+                            lokasjon = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
                             digital = true,
-                            state = Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT,
+                            tilstand = Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT,
                         ),
                     "KalenderavtaleUpdate" to
                         KalenderavtaleUpdate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
                             tag = "Dialogmøte",
-                            newState = Kalenderavtaletilstand.AVLYST,
-                            newText = "Avlyst",
+                            tilstand = Kalenderavtaletilstand.AVLYST,
+                            text = "Avlyst",
                         ),
                 )
 

@@ -6,9 +6,9 @@ import kotlin.time.Instant
 
 /*
  * Case and calendar event variants for Arbeidsgivernotifikasjoner. The producer owns the case
- * identity ([Sakstilknytning.sakId], used downstream as grupperingsid) and every state transition;
- * budstikka executes them and keeps no case state of its own. All variants partition on the
- * organisation, like [ArbeidsgivervarselCreate], so a case and its content keep their ingest order.
+ * identity ([Sakstilknytning.sakId]) and every state transition; budstikka makes sure the case exists
+ * before content is created and keeps no case state of its own. All variants partition on the
+ * organisation, like [ArbeidsgivervarselCreate].
  */
 
 /** Case status in Arbeidsgivernotifikasjoner. */
@@ -40,52 +40,32 @@ data class Kalenderavtalelokasjon(
     override fun toString(): String = "Kalenderavtalelokasjon()"
 }
 
-/** Creates a case for an organisation; the recipient is resolved at send time. */
-@InternalBudstikkaWire
-@Serializable
-@SerialName("ArbeidsgiversakCreate")
-data class ArbeidsgiversakCreate(
-    val orgnummer: Orgnummer,
-    @SerialName("mottaker")
-    val recipient: ArbeidsgiverRecipient,
-    val tag: String,
-    val sakstilknytning: Sakstilknytning,
-    val title: String,
-    val link: String? = null,
-    val initialStatus: Saksstatus = Saksstatus.MOTTATT,
-    val hardDeleteAt: Instant? = null,
-) : DispatchContent {
-    override val partitionKey: String get() = orgnummer.value
-
-    /** Omits free text and identifiers. */
-    override fun toString(): String =
-        "ArbeidsgiversakCreate(initialStatus=$initialStatus, hasLink=${link != null}, " +
-            "hasHardDeleteAt=${hardDeleteAt != null})"
-}
-
-/** Sets a new status on a case identified by [sakstilknytning]. */
+/**
+ * Sets a new status on the case described by [sakstilknytning], after making sure it exists for
+ * [recipient]. A later [Sakstilknytning.hardDeleteAt] replaces the case's earlier deletion time.
+ */
 @InternalBudstikkaWire
 @Serializable
 @SerialName("ArbeidsgiversakStatus")
 data class ArbeidsgiversakStatus(
     val orgnummer: Orgnummer,
+    @SerialName("mottaker")
+    val recipient: ArbeidsgiverRecipient,
     val tag: String,
     val sakstilknytning: Sakstilknytning,
     val status: Saksstatus,
     val statusText: String? = null,
-    val hardDeleteAt: Instant? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 
     /** Omits free text and identifiers. */
-    override fun toString(): String =
-        "ArbeidsgiversakStatus(status=$status, hasStatusText=${statusText != null}, " +
-            "hasHardDeleteAt=${hardDeleteAt != null})"
+    override fun toString(): String = "ArbeidsgiversakStatus(status=$status, hasStatusText=${statusText != null})"
 }
 
 /**
- * Creates a calendar event in the case identified by [sakstilknytning]. The dispatch reference is
- * the event's downstream eksternId, so [KalenderavtaleUpdate] addresses it by the same reference.
+ * Creates a calendar event in the case described by [sakstilknytning], after making sure the case
+ * exists. The dispatch reference is the event's downstream eksternId, so [KalenderavtaleUpdate]
+ * addresses it by the same reference.
  */
 @InternalBudstikkaWire
 @Serializable
@@ -100,15 +80,15 @@ data class KalenderavtaleCreate(
     val link: String,
     val startAt: Instant,
     val endAt: Instant? = null,
-    val location: Kalenderavtalelokasjon? = null,
+    val lokasjon: Kalenderavtalelokasjon? = null,
     val digital: Boolean = false,
-    val state: Kalenderavtaletilstand = Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
+    val tilstand: Kalenderavtaletilstand = Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 
     /** Omits free text, times and identifiers. */
     override fun toString(): String =
-        "KalenderavtaleCreate(state=$state, hasEndAt=${endAt != null}, hasLocation=${location != null}, " +
+        "KalenderavtaleCreate(tilstand=$tilstand, hasEndAt=${endAt != null}, hasLokasjon=${lokasjon != null}, " +
             "digital=$digital)"
 }
 
@@ -124,11 +104,11 @@ data class KalenderavtaleUpdate(
     @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
     val tag: String,
-    val newState: Kalenderavtaletilstand? = null,
-    val newText: String? = null,
+    val tilstand: Kalenderavtaletilstand? = null,
+    val text: String? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 
     /** Omits free text and identifiers. */
-    override fun toString(): String = "KalenderavtaleUpdate(newState=$newState, hasNewText=${newText != null})"
+    override fun toString(): String = "KalenderavtaleUpdate(tilstand=$tilstand, hasText=${text != null})"
 }

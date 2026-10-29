@@ -6,7 +6,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.contract.Arbeidsgiversak
-import no.nav.budstikka.contract.ArbeidsgiversakCreate
 import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
@@ -38,6 +37,7 @@ import kotlin.time.Instant
 
 private val SYKMELDT = PersonIdentifier("1".repeat(11))
 private val ORGNUMMER = Orgnummer("999999999")
+private val SAK = Arbeidsgiversak(sakId = "mote-1", title = "Dialogmøte")
 
 /**
  * The producing and the consuming side of `budstikka.v1` meet here: a record built exactly the way a
@@ -110,24 +110,26 @@ class ProducerApiIngestTest :
                             sykmeldt = SYKMELDT,
                             microfrontendId = "syk-dialog",
                         ),
-                    "arbeidsgiversakCreate" to
-                        Budstikka.arbeidsgiversakCreate(
+                    "arbeidsgivervarselCreate with sak" to
+                        Budstikka.arbeidsgivervarselCreate(
                             eventId = eventId,
                             reference = "ref-1",
                             orgnummer = ORGNUMMER,
-                            recipient = Arbeidsgiversak.NarmesteLeder(SYKMELDT),
+                            recipient = Arbeidsgivervarsel.NarmesteLeder(SYKMELDT),
+                            sak = SAK,
                             tag = "Dialogmøte",
-                            caseId = "mote-1",
-                            title = "Dialogmøte",
+                            text = "Referat",
+                            link = "https://nav.no/ag",
                         ),
                     "arbeidsgiversakStatus" to
                         Budstikka.arbeidsgiversakStatus(
                             eventId = eventId,
                             reference = "ref-1",
                             orgnummer = ORGNUMMER,
+                            recipient = Arbeidsgiversak.NarmesteLeder(SYKMELDT),
                             tag = "Dialogmøte",
-                            caseId = "mote-1",
-                            status = Arbeidsgiversak.Status.DONE,
+                            sak = SAK,
+                            status = Arbeidsgiversak.Status.FERDIG,
                         ),
                     "kalenderavtaleCreate" to
                         Budstikka.kalenderavtaleCreate(
@@ -136,7 +138,7 @@ class ProducerApiIngestTest :
                             orgnummer = ORGNUMMER,
                             sykmeldt = SYKMELDT,
                             tag = "Dialogmøte",
-                            caseId = "mote-1",
+                            sak = SAK,
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                             startAt = Instant.parse("2026-11-02T09:00:00Z"),
@@ -148,7 +150,7 @@ class ProducerApiIngestTest :
                             orgnummer = ORGNUMMER,
                             sykmeldt = SYKMELDT,
                             tag = "Dialogmøte",
-                            newState = Kalenderavtale.State.CANCELLED,
+                            tilstand = Kalenderavtale.Tilstand.AVLYST,
                         ),
                 )
             val expectedTypes =
@@ -161,7 +163,7 @@ class ProducerApiIngestTest :
                     "brevCreate" to BrevCreate::class,
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,
-                    "arbeidsgiversakCreate" to ArbeidsgiversakCreate::class,
+                    "arbeidsgivervarselCreate with sak" to ArbeidsgivervarselCreate::class,
                     "arbeidsgiversakStatus" to ArbeidsgiversakStatus::class,
                     "kalenderavtaleCreate" to KalenderavtaleCreate::class,
                     "kalenderavtaleUpdate" to KalenderavtaleUpdate::class,

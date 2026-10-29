@@ -1,6 +1,10 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package no.nav.budstikka.contract
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 /** Presentation kind for a Brukervarsel on Min side. */
 enum class Varseltype {
@@ -164,11 +168,21 @@ enum class SendingWindow {
 @InternalBudstikkaWire
 enum class ArbeidsgiverMeldingstype { BESKJED, OPPGAVE }
 
-/** Producer-owned case identifier used for downstream grouping. */
+/**
+ * Producer-owned case identifier used for downstream grouping. With a [title], Budstikka also makes
+ * sure the case exists before the content is created; without one, the content is only linked to a
+ * case created elsewhere.
+ */
 @InternalBudstikkaWire
 @Serializable
 data class Sakstilknytning(
     val sakId: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val title: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val link: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val hardDeleteAt: Instant? = null,
 ) {
     /** Omits [sakId] because a case belongs to a person. */
     override fun toString(): String = "Sakstilknytning()"
