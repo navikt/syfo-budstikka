@@ -14,7 +14,9 @@ Produsenten eier identiteten og livsløpet: den velger `sakId` og kalenderavtale
 - `SakFinnesIkke` og `NotifikasjonFinnesIkke` betyr «ikke ennå» og prøves på nytt;
 - `Duplikat*` betyr at nøkkelen finnes med annet innhold, og da slår Budstikka opp det eksisterende objektet. En sak i samme virksomhet eller en avtale i samme sak er vår egen; alt annet er en nøkkelkollisjon og feiler.
 
-Fagers spørringer brukes bare slik, ved konflikt, og ellers til diagnose. Fagers produsentmodell kan henge etter, så et oppslag rett etter en skriving kan være utdatert.
+Fagers spørringer brukes bare slik, ved konflikt, og ellers til diagnose. Fager oppdaterer modellen som spørringene leser, i samme kall som skrivingen. Unntaket er når Fagers eget Kafka-kall timer ut; da kan et oppslag rett etter være utdatert.
+
+**Én opprettelse om gangen per sak.** Fager låser ikke når en sak opprettes. To samtidige `nySak` for samme nye sak kan derfor begge publiseres, og arbeidsgiver kan se saken to ganger. Budstikka oppretter derfor samme sak én om gangen, med en advisory-lås i Postgres per merkelapp og grupperingsid, på tvers av replicas. Låsen hjelper ikke når Fager selv har fått tidsavbrudd mot Kafka og et nytt forsøk kommer før modellen er oppdatert. Budstikka venter en lease-periode før nytt forsøk, som gir Fager tid til det.
 
 Vi valgte dette framfor at produsenten kaller Fager direkte, som #251 la til grunn. Med to uavhengige lederoppslag, ett hos produsenten for saken og ett i Budstikka for innholdet, kan svarene bli ulike ved lederbytte. Budstikka er dessuten allerede registrert hos Fager for «Dialogmøte», og har e-postoppslag, retry og observability. isdialogmote er ikke registrert.
 
@@ -22,7 +24,7 @@ Vi valgte også bort en egen operasjon for å opprette sak. Da må saken nå fra
 
 Prisen:
 - **Kontrakten får Fager-begreper.** Saksstatus, kalendertilstand og operasjonen `UPDATE` er kanalgeneriske, ikke dialogmøtespesifikke.
-- **Ett ekstra kall.** Hver leveranse med sak gjør et `nySak`-kall før innholdet.
+- **Ett ekstra kall.** Hver leveranse med sak gjør et `nySak`-kall før innholdet. Finnes saken med samme innhold, er kallet bare et oppslag hos Fager og gir ingen ny hendelse.
 - **Tittel og slettefrist settes når saken opprettes.** Slettefristen kan forlenges med en statusendring.
 - **Ulike nøkler.** For nærmeste leder er Fagers grupperingsid ikke lik produsentens `sakId`.
 - **Oppdateringer følger avtalen.** En kalenderoppdatering treffer avtalen der den ble opprettet. Etter et lederbytte havner nye avtaler i den nye lederens sak.

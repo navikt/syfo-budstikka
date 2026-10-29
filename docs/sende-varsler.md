@@ -128,7 +128,9 @@ ingen Fager-id-er.
 - **Status og sletting:** `arbeidsgiversakStatus` setter `MOTTATT`, `UNDER_BEHANDLING` eller `FERDIG`.
   `hardDeleteAt` på `Arbeidsgiversak` sletter saken og alt innhold i den. Uten frist sletter Fager saken
   fire måneder etter at den ble opprettet. En statusendring med `hardDeleteAt` erstatter fristen, også med
-  et tidligere tidspunkt.
+  et tidligere tidspunkt. Sletting er endelig: Fager oppretter ikke en slettet sak på nytt, heller ikke
+  når fristen er nådd. Innhold til en slettet sak feiler terminalt. Bruk en ny `sakId` hvis saken skal
+  opprettes igjen.
 - **Duplikater:** svarer Fager at saken eller avtalen allerede finnes med annet innhold, slår Budstikka opp
   det eksisterende objektet. En sak i samme virksomhet, eller en avtale i samme sak, regnes som allerede
   opprettet. Det gjør retry trygt, også etter at avtalen er oppdatert. Ellers feiler leveransen terminalt.

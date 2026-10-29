@@ -22,6 +22,7 @@ import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.SerializedCaseCreation
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.inbox.InboxMetrics
@@ -30,6 +31,7 @@ import no.nav.budstikka.application.observability.OperationalQueueSnapshotReposi
 import no.nav.budstikka.application.observability.OperationalQueueSnapshotWorker
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.KeyedLock
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.retention.RetentionMetrics
 import no.nav.budstikka.application.retention.RetentionRepository
@@ -52,6 +54,7 @@ fun DependencyRegistry.workerModule() {
         )
     }
     provide<Map<Channel, ChannelHandler>> {
+        val casePublisher = SerializedCaseCreation(resolve<ArbeidsgiversakPublisher>(), resolve<KeyedLock>())
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
@@ -61,19 +64,19 @@ fun DependencyRegistry.workerModule() {
             Channel.ARBEIDSGIVERVARSEL to
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
-                    casePublisher = resolve<ArbeidsgiversakPublisher>(),
+                    casePublisher = casePublisher,
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
                     metrics = resolve<DeliveryMetrics>(),
                 ),
             Channel.ARBEIDSGIVERSAK to
                 ArbeidsgiversakChannelHandler(
-                    publisher = resolve<ArbeidsgiversakPublisher>(),
+                    publisher = casePublisher,
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
                     metrics = resolve<DeliveryMetrics>(),
                 ),
             Channel.KALENDERAVTALE to
                 KalenderavtaleChannelHandler(
-                    publisher = resolve<ArbeidsgiversakPublisher>(),
+                    publisher = casePublisher,
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
                     metrics = resolve<DeliveryMetrics>(),
                 ),
