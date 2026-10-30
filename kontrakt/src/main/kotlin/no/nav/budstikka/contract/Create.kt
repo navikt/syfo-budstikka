@@ -144,11 +144,14 @@ data class NarmesteLeder(
 data class AltinnResource(
     val resource: String,
     val externalVarsling: AltinnExternalVarsling? = null,
-    /** The Sykmeldt the content concerns; required with a [Saktype], which groups by the Sykmeldt. */
+    /** The Sykmeldt the content concerns, for the case title; required with a [Saktype]. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val sykmeldt: PersonIdentifier? = null,
+    /** The producer's stable key for this organisation's case about the Sykmeldt; required with a [Saktype]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sakId: String? = null,
 ) : ArbeidsgiverRecipient {
-    /** Omits external notification text and the Sykmeldt. */
+    /** Omits external notification text, the Sykmeldt and the case key. */
     override fun toString(): String = "AltinnResource(hasExternalVarsling=${externalVarsling != null})"
 }
 

@@ -8,13 +8,11 @@ import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
 import java.util.UUID
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * Budstikka-owned cases in Arbeidsgivernotifikasjoner. The producer only chooses a [Saktype]; this
+ * Budstikka-owned cases in Arbeidsgivernotifikasjoner. The producer chooses a [Saktype]; this
  * puts content in that type's case for the recipient and creates the case when needed. Nothing is
  * stored: the case key is derived on every delivery, and every delivery extends the case so it is
  * deleted four months after the latest content. A key whose case has been deleted can never be used
@@ -39,7 +37,7 @@ class Arbeidsgiversaker(
         correlationId: String,
         activityAt: Instant? = null,
     ): SakResolution {
-        val base = saktype.name + ":" + mottaker.keyPart(virksomhetsnummer)
+        val base = saktype.name + ":" + mottaker.keyPart()
         val merkelapp = saktype.merkelapp
         val keepUntil = maxOf(clock.now(), activityAt ?: clock.now()).plus(RETENTION_MONTHS, DateTimeUnit.MONTH, OSLO)
 
@@ -107,6 +105,20 @@ class Arbeidsgiversaker(
         return SakResolution.Failed(DeliveryOutcome.Failed("${channel.name} case key has $MAX_GENERATIONS deleted generations"))
     }
 
+    /** Extends [sak] to four months from now; `null` when done or when the case is already gone. */
+    suspend fun extend(
+        channel: Channel,
+        sak: SakResolution.Ready,
+        correlationId: String,
+    ): DeliveryOutcome.Failed? {
+        val keepUntil = clock.now().plus(RETENTION_MONTHS, DateTimeUnit.MONTH, OSLO)
+        val response =
+            withChannelHandlerFailureContext(channel, "extending case") {
+                publisher.extendCase(ArbeidsgiversakExtendRequest(sak.grupperingsid, sak.merkelapp, keepUntil, correlationId))
+            }
+        return (response as? ArbeidsgiverNotificationResponse.Rejected)?.let { DeliveryOutcome.Failed(it.reason) }
+    }
+
     /** Sets the status a producer asked for on [sak], after its content; `null` when it is set. */
     suspend fun setStatus(
         channel: Channel,
@@ -129,24 +141,11 @@ class Arbeidsgiversaker(
         generation: Int,
     ) = if (generation == 1) base else "$base:$generation"
 
-    private fun Saksmottaker.keyPart(virksomhetsnummer: String): String =
+    private fun Saksmottaker.keyPart(): String =
         when (this) {
             is Saksmottaker.NarmesteLeder -> relasjonId.toString()
-            is Saksmottaker.AltinnRessurs -> "$ressurs:${pseudonym(virksomhetsnummer, sykmeldt)}"
+            is Saksmottaker.AltinnRessurs -> "$ressurs:$sakId"
         }
-
-    /** Stable and opaque: the same organisation and Sykmeldt always give the same value, which reveals neither. */
-    private fun pseudonym(
-        virksomhetsnummer: String,
-        sykmeldt: PersonIdentifier,
-    ): String {
-        val mac = Mac.getInstance(HMAC_ALGORITHM)
-        mac.init(SecretKeySpec(config.pseudonymNokkel.toByteArray(), HMAC_ALGORITHM))
-        return mac
-            .doFinal("$virksomhetsnummer:${sykmeldt.value}".toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(PSEUDONYM_LENGTH)
-    }
 
     private fun Saksmottaker.link(): String? =
         when (this) {
@@ -161,18 +160,10 @@ class Arbeidsgiversaker(
         }
 }
 
-/**
- * @property dineSykmeldteUrl base of the leader's page for a Sykmeldt in Dine Sykmeldte; the leader
- *   relation's id is appended.
- * @property pseudonymNokkel secret key for the case key of an Altinn resource case. Changing it starts
- *   new cases for every organisation and Sykmeldt.
- */
+/** @property dineSykmeldteUrl base of the leader's page for a Sykmeldt in Dine Sykmeldte; the relation id is appended. */
 data class ArbeidsgiversakConfig(
     val dineSykmeldteUrl: String,
-    val pseudonymNokkel: String,
-) {
-    override fun toString(): String = "ArbeidsgiversakConfig(dineSykmeldteUrl=$dineSykmeldteUrl)"
-}
+)
 
 /** Who a case is for; decides its key, link and downstream recipient. */
 sealed interface Saksmottaker {
@@ -187,10 +178,11 @@ sealed interface Saksmottaker {
         override fun toString(): String = "NarmesteLeder()"
     }
 
-    /** The case everyone with [ressurs] at the organisation sees about [sykmeldt]. */
+    /** The case everyone with [ressurs] at the organisation sees about [sykmeldt], keyed by the producer's [sakId]. */
     data class AltinnRessurs(
         val ressurs: String,
         override val sykmeldt: PersonIdentifier,
+        val sakId: String,
     ) : Saksmottaker {
         override fun toString(): String = "AltinnRessurs()"
     }
@@ -229,6 +221,4 @@ internal fun Saktype.tittel(navn: Personnavn?): String {
 private const val MAX_CASE_TITLE_LENGTH = 140
 private const val RETENTION_MONTHS = 4
 private const val MAX_GENERATIONS = 20
-private const val PSEUDONYM_LENGTH = 32
-private const val HMAC_ALGORITHM = "HmacSHA256"
 private val OSLO = TimeZone.of("Europe/Oslo")

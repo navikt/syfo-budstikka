@@ -54,10 +54,13 @@ class ArbeidsgivervarselChannelHandler(
                         return invalidExternalNotification("smsText")
                     } else if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
                         return invalidExternalEmailBody()
-                    } else if (saktype != null && recipient.sykmeldt == null) {
-                        return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt must be set with saktype")
+                    } else if (saktype != null && (recipient.sykmeldt == null || recipient.sakId.isNullOrBlank())) {
+                        return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt and recipient.sakId must be set with saktype")
                     } else {
-                        saksmottaker = recipient.sykmeldt?.let { Saksmottaker.AltinnRessurs(recipient.resource, it) }
+                        saksmottaker =
+                            recipient.sykmeldt?.let { sykmeldt ->
+                                recipient.sakId?.let { Saksmottaker.AltinnRessurs(recipient.resource, sykmeldt, it) }
+                            }
                         recipient.toNotificationRecipient()
                     }
                 is NarmesteLederRecipient -> {

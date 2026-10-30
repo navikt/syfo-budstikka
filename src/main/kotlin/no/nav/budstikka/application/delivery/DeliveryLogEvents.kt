@@ -14,6 +14,15 @@ internal object DeliveryLogEvents {
             errorCode = "DELIVERY_HANDLER_MISSING",
         )
 
+    val calendarCaseFollowUpSkipped =
+        Event<Unit>(
+            name = "delivery.calendar_case_follow_up.skipped",
+            level = ApplicationLogLevel.WARN,
+            message = "Calendar event updated with email, but its case was not extended or given a status; not retried",
+            operation = "delivery.dispatch",
+            errorCode = "CALENDAR_CASE_FOLLOW_UP_SKIPPED",
+        )
+
     val claimSkipped =
         Event<Unit>(
             name = "delivery.claim.skipped",

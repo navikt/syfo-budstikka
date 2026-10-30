@@ -4,8 +4,8 @@ package no.nav.budstikka.contract
  * Cases (saker) in Min side – arbeidsgiver. Every notification and calendar event there belongs to a
  * case. Budstikka owns the cases: the producer only chooses a [Type], and Budstikka puts the content
  * in that type's case for the recipient, creating it when needed. For a Nærmeste leder the case
- * belongs to the leader relation, so a new leader gets a case of their own. For an Altinn resource it
- * belongs to the resource, the organisation and the Sykmeldt.
+ * belongs to the leader relation, so a new leader gets a case of their own. For an Altinn resource the
+ * producer gives a stable `sakId` per organisation and Sykmeldt, since there is no relation to key on.
  */
 object Arbeidsgiversak {
     /** The case the content belongs to; it decides the case title and merkelapp. */

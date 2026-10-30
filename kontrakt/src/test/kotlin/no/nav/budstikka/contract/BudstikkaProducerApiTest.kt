@@ -519,7 +519,7 @@ class BudstikkaProducerApiTest :
                     """"saktype":"DIALOGMOTE","saksstatus":"FERDIG"}}"""
             }
 
-            test("a notification to an Altinn resource carries the Sykmeldt its case is about") {
+            test("a notification to an Altinn resource carries the Sykmeldt and the producer's case key") {
                 Budstikka
                     .arbeidsgivervarselCreate(
                         eventId = EVENT_ID,
@@ -527,6 +527,7 @@ class BudstikkaProducerApiTest :
                         orgnummer = SYNTHETIC_ORGNUMMER,
                         recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
                         sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = "dialog-1",
                         htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification("Tittel", "<p>E-post</p>"),
                         smsText = "SMS",
                         saktype = Arbeidsgiversak.Type.DIALOGMOTE,
@@ -536,9 +537,42 @@ class BudstikkaProducerApiTest :
                     """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
                     """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","smsText":"SMS",""" +
-                    """"emailBodyFormat":"HTML"},"sykmeldt":"00000000000"},"text":"SYNTETISK-VARSELTEKST",""" +
+                    """"emailBodyFormat":"HTML"},"sykmeldt":"00000000000","sakId":"dialog-1"},"text":"SYNTETISK-VARSELTEKST",""" +
                     """"link":"https://nav.no/ag","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
                     """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","saktype":"DIALOGMOTE"}}"""
+            }
+
+            test("an Altinn notification without HTML keeps the recipient's plain-text notification") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = "dialog-1",
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ).value shouldContain
+                    """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote","externalVarsling":null,""" +
+                    """"sykmeldt":"00000000000","sakId":"dialog-1"}"""
+            }
+
+            test("an Altinn case key must not be blank") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = " ",
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    )
+                }.message shouldBe "sakId must not be blank"
             }
 
             listOf(

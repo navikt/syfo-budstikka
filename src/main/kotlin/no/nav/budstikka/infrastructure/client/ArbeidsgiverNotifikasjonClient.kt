@@ -31,6 +31,7 @@ import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
+import no.nav.budstikka.application.delivery.KalenderavtaleUpdateResponse
 import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.Kalenderavtaletilstand
@@ -69,6 +70,7 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.Sendevindu
 import okio.Buffer
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
 import kotlin.time.toJavaInstant
 
@@ -120,10 +122,44 @@ class ArbeidsgiverNotifikasjonClient(
             data.nyKalenderavtale.toCalendarCreateResponse(request)
         }
 
-    override suspend fun updateCalendarEvent(request: KalenderavtaleUpdateRequest): ArbeidsgiverNotificationResponse =
-        execute(request.idempotencyKey, request.toOppdaterKalenderavtaleMutation()) { data ->
-            data.oppdaterKalenderavtaleByEksternId.toCalendarUpdateResponse()
+    override suspend fun updateCalendarEvent(request: KalenderavtaleUpdateRequest): KalenderavtaleUpdateResponse {
+        var updatedId: String? = null
+        val response =
+            execute(request.idempotencyKey, request.toOppdaterKalenderavtaleMutation()) { data ->
+                data.oppdaterKalenderavtaleByEksternId
+                    .also { updatedId = it.onOppdaterKalenderavtaleVellykket?.id }
+                    .toCalendarUpdateResponse()
+            }
+        if (response != ArbeidsgiverNotificationResponse.Published) return KalenderavtaleUpdateResponse.NotUpdated(response)
+        return KalenderavtaleUpdateResponse.Updated(updatedId?.let { calendarEventCase(request.idempotencyKey, it) })
+    }
+
+    /**
+     * The case a calendar event lives in, or `null` when it cannot be told. The update has already
+     * happened, so a failed lookup must not make the delivery fail or repeat.
+     */
+    private suspend fun calendarEventCase(
+        correlationId: String,
+        id: String,
+    ): String? {
+        var grupperingsid: String? = null
+        try {
+            execute(correlationId, HentNotifikasjonQuery(id = id)) { data ->
+                grupperingsid =
+                    data.hentNotifikasjon.onHentetNotifikasjon
+                        ?.notifikasjon
+                        ?.onKalenderavtale
+                        ?.metadata
+                        ?.grupperingsid
+                ArbeidsgiverNotificationResponse.Published
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            return null
         }
+        return grupperingsid
+    }
 
     private suspend fun <D : Operation.Data> execute(
         correlationId: String,

@@ -107,5 +107,3 @@ spec:
       value: api://prod-gcp.team-esyfo.esyfo-narmesteleder/.default
     - name: BASE_URL_DINE_SYKMELDTE
       value: https://www.nav.no/arbeidsgiver/sykmeldte
-  envFrom:
-    - secret: syfo-budstikka-arbeidsgiversak
