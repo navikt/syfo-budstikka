@@ -27,12 +27,11 @@ settes sammen i en produsent.
 | `dineSykmeldteVarselInactivate` | Lukk en tidligere aktivitet i Dine Sykmeldte. |
 | `dittSykefravaerCreate` | Opprett INFO-melding i Ditt Sykefravær. |
 | `dittSykefravaerInactivate` | Lukk en tidligere Ditt Sykefravær-melding. |
-| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs, i en sak. |
+| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs, i sak etter `saktype`. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
-| `arbeidsgiversakStatus` | Sett ny status på en sak (saken opprettes ved behov). |
-| `kalenderavtaleCreate` | Opprett en kalenderavtale for Nærmeste leder i en sak (saken opprettes ved behov). |
+| `kalenderavtaleCreate` | Opprett en kalenderavtale for Nærmeste leder, i sak etter `saktype`. |
 | `kalenderavtaleUpdate` | Endre tilstand eller tekst på en kalenderavtale. |
 
 `dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
@@ -108,46 +107,24 @@ planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
 
 ## Sak og kalenderavtale
 
-Alt innhold i Min side – arbeidsgiver hører til en sak. Fager har varslet at dette blir et krav. Du
-beskriver saken med `Arbeidsgiversak` på hver operasjon: `arbeidsgivervarselCreate` med `sak`,
-`kalenderavtaleCreate` og `arbeidsgiversakStatus`. Budstikka sørger for at saken finnes før innholdet
-opprettes. Det finnes ingen egen operasjon for å opprette sak. Budstikka lagrer ingen sakstilstand og
-ingen Fager-id-er.
+Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger bare
+`saktype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`, `kalenderavtaleCreate` og
+`kalenderavtaleUpdate`. Budstikka legger innholdet i riktig sak og oppretter den ved behov. Typen
+bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». Detaljene står i KDoc.
 
-- **Sak:** `sakId` er sakens identitet, for eksempel møtets uuid. Bruk samme `Arbeidsgiversak` for alt
-  innhold i saken. Tittelen (maks 140 tegn) og slettefristen settes når saken opprettes. Bruk aldri
-  fødselsnummer.
-- **Mottaker og lederbytte:** saken får samme mottaker som innholdet. For Nærmeste leder slår Budstikka
-  opp aktiv leder ved utsending, og saken hører til lederrelasjonen. En ny leder får automatisk sin egen
-  sak for samme `sakId`, og forrige leder mister tilgangen. Fagers grupperingsid er da `sakId` pluss
-  lederrelasjonens id, ikke `sakId` alene.
-- **Kalenderavtale:** `reference` i `kalenderavtaleCreate` er avtalens identitet. Bruk samme `reference` i
-  `kalenderavtaleUpdate`; oppdateringen treffer avtalen der den ble opprettet. Start og slutt kan ikke
-  endres. Ved nytt tidspunkt setter du den gamle avtalen til `AVLYST` og oppretter en ny med ny
-  `reference`.
-- **Status og sletting:** `arbeidsgiversakStatus` setter `MOTTATT`, `UNDER_BEHANDLING` eller `FERDIG`.
-  `hardDeleteAt` på `Arbeidsgiversak` sletter saken og alt innhold i den. Uten frist sletter Fager saken
-  fire måneder etter at den ble opprettet. En statusendring med `hardDeleteAt` erstatter fristen, også med
-  et tidligere tidspunkt.
-- **Duplikater:** svarer Fager at saken eller avtalen allerede finnes med annet innhold, slår Budstikka opp
-  det eksisterende objektet. En sak i samme virksomhet, eller en avtale i samme sak, regnes som allerede
-  opprettet. Det gjør retry trygt, også etter at avtalen er oppdatert. Ellers feiler leveransen terminalt.
-  Nøklene må være unike for merkelappen på tvers av saker og virksomheter.
-- **Rekkefølge:** alle operasjonene partisjoneres på `orgnummer`. Budstikka garanterer foreløpig ikke
-  rekkefølgen mellom to oppdateringer av samme sak eller avtale. Meldinger i samme Kafka-batch sorteres
-  tilfeldig, og en oppdatering som prøves på nytt kan passere en nyere (#315). Fager lar siste skriving
-  vinne, så to tette oppdateringer av samme avtale kan gi feil sluttilstand.
-- **E-post:** e-post på kalenderavtaler sendes til lederens registrerte adresser i Fagers åpningstid for
-  NAV Kontaktsenter. Den sendes ikke hvis avtalen avlyses først. Fager dedupliserer ikke oppdateringer
-  av kalenderavtaler. Et retry etter en vellykket oppdatering med e-post kan derfor gi dobbel e-post.
-  Legg e-post på oppdateringer bare der det er nødvendig.
-- **Uten sak:** overloadene av `arbeidsgivervarselCreate` uten `sak`, også med `CaseAssociation`, er
-  deprecated og slutter å virke når Fager håndhever kravet. Gå over til overloadene med `sak`.
-- **Et sjeldent tilfelle:** en kalenderavtale er opprettet, men svaret gikk tapt, og lederen byttes før
-  neste forsøk. Da står avtalen i den gamle lederens sak, og leveransen feiler terminalt fordi
-  `reference` allerede finnes i en annen sak.
+- **Nærmeste leder:** én sak per saktype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
+  får sin egen sak.
+- **Altinn-ressurs:** én sak per saktype, ressurs, virksomhet og sykmeldt. Oppgi `sykmeldt`.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste innhold, eller etter møtet for
+  kalenderavtaler.
+- **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
+  Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
+- **Begrensninger:** rekkefølgen mellom oppdateringer av samme avtale er ikke garantert (#315). Fager
+  dedupliserer ikke oppdateringer av kalenderavtaler, så et nytt forsøk kan gi dobbel e-post.
+- **Uten saktype:** overloadene med `tag` og `CaseAssociation` er deprecated og slutter å virke når
+  Fager krever sak.
 
-Bakgrunnen for valget står i [ADR 0019](adr/0019-sak-og-kalenderavtale-er-generiske-operasjoner-i-budstikka.md).
+Bakgrunnen står i [ADR 0019](adr/0019-budstikka-eier-arbeidsgiversakene-og-produsenten-velger-saktype.md).
 
 ## Feil og personvern
 

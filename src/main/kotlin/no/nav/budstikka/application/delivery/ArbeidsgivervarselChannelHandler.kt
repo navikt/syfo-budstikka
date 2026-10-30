@@ -28,9 +28,9 @@ class ArbeidsgivervarselChannelHandler(
         if (create.link.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         }
-        if (create.tag.isBlank()) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
-        }
+        val tag =
+            create.tag?.takeUnless { it.isBlank() }
+                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource ->
@@ -88,7 +88,7 @@ class ArbeidsgivervarselChannelHandler(
                             virksomhetsnummer = create.orgnummer.value,
                             eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
                             grupperingsid = create.sakstilknytning?.sakId,
-                            tag = create.tag,
+                            tag = tag,
                             tekst = create.text,
                             lenke = create.link,
                             recipient = notificationRecipient,

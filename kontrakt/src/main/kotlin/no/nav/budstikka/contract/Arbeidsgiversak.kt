@@ -1,66 +1,25 @@
 package no.nav.budstikka.contract
 
-import kotlin.time.Instant
-
 /**
- * A case (sak) in Min side – arbeidsgiver. Every notification and calendar event there belongs to a
- * case, so the producer describes the case on each operation and Budstikka makes sure it exists
- * before the content is created. The producer owns the case: it chooses a stable [sakId] and decides
- * every status change. Budstikka keeps no case state.
- *
- * For a Nærmeste leder recipient, the case downstream belongs to the current leader relation: a new
- * leader gets a case of their own for the same [sakId], and the previous leader loses access through
- * Arbeidsgivernotifikasjoner's own access control.
- *
- * @property sakId your stable case identity. Never use a personident.
- * @property title the case title shown to the recipient, at most 140 characters. It is set when
- *   the case is created and cannot be changed afterwards.
- * @property link optional target for the case; omit to use the case page in Min side arbeidsgiver.
- * @property hardDeleteAt when Arbeidsgivernotifikasjoner permanently deletes the case and all
- *   content in it. Omit to use the four-month retention period when the case is created.
- *   [Budstikka.arbeidsgiversakStatus] replaces an earlier time with this one.
+ * Cases (saker) in Min side – arbeidsgiver. Every notification and calendar event there belongs to a
+ * case. Budstikka owns the cases: the producer only chooses a [Type], and Budstikka puts the content
+ * in that type's case for the recipient, creating it when needed. For a Nærmeste leder the case
+ * belongs to the leader relation, so a new leader gets a case of their own. For an Altinn resource it
+ * belongs to the organisation and the Sykmeldt.
  */
-data class Arbeidsgiversak(
-    val sakId: String,
-    val title: String,
-    val link: String? = null,
-    val hardDeleteAt: Instant? = null,
-) {
-    /** Omits the case identity, title and link. */
-    override fun toString(): String = "Arbeidsgiversak(hasLink=${link != null}, hasHardDeleteAt=${hardDeleteAt != null})"
+object Arbeidsgiversak {
+    /** The case the content belongs to; it decides the case title and merkelapp. */
+    enum class Type {
+        /** Dialogmøter and møtebehov. */
+        DIALOGMOTE,
 
-    /** Case status in Arbeidsgivernotifikasjoner. */
-    enum class Status {
-        /** The case is received and waiting for processing. */
-        MOTTATT,
-
-        /** The case is being processed. */
-        UNDER_BEHANDLING,
-
-        /** The case is complete and is shown with lower priority. */
-        FERDIG,
-    }
-
-    /** Exactly one recipient path for a case. */
-    sealed interface Recipient
-
-    /** The active Nærmeste leder for [sykmeldt] at send time. */
-    data class NarmesteLeder(
-        val sykmeldt: PersonIdentifier,
-    ) : Recipient {
-        override fun toString(): String = "NarmesteLeder()"
-    }
-
-    /** Everyone with the selected Altinn resource at the organisation. */
-    data class AltinnResource(
-        val resource: String,
-    ) : Recipient {
-        override fun toString(): String = "AltinnResource()"
+        /** Oppfølgingsplaner. */
+        OPPFOLGINGSPLAN,
     }
 }
 
 /**
- * Producer-facing inputs for a calendar event (kalenderavtale) in a case. The event's dispatch
+ * Producer-facing inputs for a calendar event (kalenderavtale). The event's dispatch
  * `reference` is its downstream identity: create it once and update it with the same `reference`.
  * Start and end time cannot be changed downstream; a new time is a new event, and the old one is set
  * to [Tilstand.AVLYST].

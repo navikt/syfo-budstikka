@@ -5,16 +5,15 @@ import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 /*
- * Case and calendar event variants for Arbeidsgivernotifikasjoner. The producer owns the case
- * identity ([Sakstilknytning.sakId]) and every state transition; budstikka makes sure the case exists
- * before content is created and keeps no case state of its own. All variants partition on the
- * organisation, like [ArbeidsgivervarselCreate].
+ * Calendar event variants for Arbeidsgivernotifikasjoner. Budstikka owns the case the content belongs
+ * to; the producer only chooses its [Saktype]. All variants partition on the organisation, like
+ * [ArbeidsgivervarselCreate].
  */
 
-/** Case status in Arbeidsgivernotifikasjoner. */
+/** Budstikka-owned case for content in Arbeidsgivernotifikasjoner. */
 @InternalBudstikkaWire
 @Serializable
-enum class Saksstatus { MOTTATT, UNDER_BEHANDLING, FERDIG }
+enum class Saktype { DIALOGMOTE, OPPFOLGINGSPLAN }
 
 /** Calendar event state in Arbeidsgivernotifikasjoner. */
 @InternalBudstikkaWire
@@ -41,31 +40,9 @@ data class Kalenderavtalelokasjon(
 }
 
 /**
- * Sets a new status on the case described by [sakstilknytning], after making sure it exists for
- * [recipient]. A later [Sakstilknytning.hardDeleteAt] replaces the case's earlier deletion time.
- */
-@InternalBudstikkaWire
-@Serializable
-@SerialName("ArbeidsgiversakStatus")
-data class ArbeidsgiversakStatus(
-    val orgnummer: Orgnummer,
-    @SerialName("mottaker")
-    val recipient: ArbeidsgiverRecipient,
-    val tag: String,
-    val sakstilknytning: Sakstilknytning,
-    val status: Saksstatus,
-    val statusText: String? = null,
-) : DispatchContent {
-    override val partitionKey: String get() = orgnummer.value
-
-    /** Omits free text and identifiers. */
-    override fun toString(): String = "ArbeidsgiversakStatus(status=$status, hasStatusText=${statusText != null})"
-}
-
-/**
- * Creates a calendar event in the case described by [sakstilknytning], after making sure the case
- * exists. The dispatch reference is the event's downstream eksternId, so [KalenderavtaleUpdate]
- * addresses it by the same reference.
+ * Creates a calendar event in the [saktype] case of the recipient's leader relation. The dispatch
+ * reference is the event's downstream eksternId, so [KalenderavtaleUpdate] addresses it by the same
+ * reference.
  */
 @InternalBudstikkaWire
 @Serializable
@@ -74,8 +51,7 @@ data class KalenderavtaleCreate(
     val orgnummer: Orgnummer,
     @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
-    val tag: String,
-    val sakstilknytning: Sakstilknytning,
+    val saktype: Saktype,
     val text: String,
     val link: String,
     val startAt: Instant,
@@ -93,8 +69,9 @@ data class KalenderavtaleCreate(
 }
 
 /**
- * Updates the calendar event whose eksternId is the dispatch reference. [recipient] is needed only
- * to resolve the leader's email address when an external notification is requested.
+ * Updates the calendar event whose eksternId is the dispatch reference; [saktype] gives its
+ * merkelapp. [recipient] is needed only to resolve the leader's email address when an external
+ * notification is requested.
  */
 @InternalBudstikkaWire
 @Serializable
@@ -103,7 +80,7 @@ data class KalenderavtaleUpdate(
     val orgnummer: Orgnummer,
     @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
-    val tag: String,
+    val saktype: Saktype,
     val tilstand: Kalenderavtaletilstand? = null,
     val text: String? = null,
 ) : DispatchContent {

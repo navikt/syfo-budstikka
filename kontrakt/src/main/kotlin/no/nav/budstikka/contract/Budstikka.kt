@@ -268,7 +268,7 @@ object Budstikka {
      */
     @Deprecated(
         "Arbeidsgivernotifikasjoner will require every notification to belong to a case. " +
-            "Use the overload that takes sak: Arbeidsgiversak.",
+            "Use the overload that takes saktype.",
     )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -298,19 +298,16 @@ object Budstikka {
         )
 
     /**
-     * Sends an Arbeidsgivervarsel in a case (sak). Budstikka makes sure the case exists for the same
-     * recipient before the notification is created. Otherwise as the overload without [sak]: a
-     * missing active Nærmeste leder is terminal, and when external notification was requested, a
-     * missing leader email address is also terminal.
+     * Sends an Arbeidsgivervarsel to the active Nærmeste leder for a Sykmeldt, in the [saktype] case
+     * of that leader relation. A missing active leader is terminal; when external notification was
+     * requested, a missing leader email address is also terminal.
      *
      * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
      * @param reference your own id for this notification, used for correlation and bookkeeping.
      * @param orgnummer the organisation that owns the notification and the partition anchor.
-     * @param recipient either the active Nærmeste leder for a Sykmeldt or everyone with an Altinn
-     *   resource; the case gets the same recipient. Use the overloads with
+     * @param recipient the active Nærmeste leder for a Sykmeldt. Use the overload with
      *   [Arbeidsgivervarsel.HtmlEmailNotification] for an explicit HTML email body.
-     * @param sak the case the notification belongs to.
-     * @param tag the registered merkelapp; the same for all content in the case.
+     * @param saktype the case the notification belongs to.
      * @param text the notification text shown to the recipient.
      * @param link required target for the notification.
      * @param messageType whether the notification is a beskjed or oppgave; defaults to BESKJED.
@@ -323,9 +320,8 @@ object Budstikka {
         eventId: EventId,
         reference: String,
         orgnummer: Orgnummer,
-        recipient: Arbeidsgivervarsel.Recipient,
-        sak: Arbeidsgiversak,
-        tag: String,
+        recipient: Arbeidsgivervarsel.NarmesteLeder,
+        saktype: Arbeidsgiversak.Type,
         text: String,
         link: String,
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
@@ -337,11 +333,10 @@ object Budstikka {
             reference = reference,
             orgnummer = orgnummer,
             recipient = recipient.toWireRecipient(),
-            tag = tag,
+            saktype = saktype.toWire(),
             text = text,
             link = link,
             messageType = messageType,
-            sakstilknytning = sak.toWireSakstilknytning(),
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         )
@@ -354,7 +349,7 @@ object Budstikka {
      */
     @Deprecated(
         "Arbeidsgivernotifikasjoner will require every notification to belong to a case. " +
-            "Use the overload that takes sak: Arbeidsgiversak.",
+            "Use the overload that takes saktype.",
     )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -385,9 +380,9 @@ object Budstikka {
         )
 
     /**
-     * Creates an Arbeidsgivervarsel in a case for Nærmeste leder with an explicitly trusted HTML
-     * email. Budstikka makes sure the case exists for the same leader first. Create [recipient]
-     * without its optional `externalNotification`; the two alternatives cannot be combined.
+     * Creates an Arbeidsgivervarsel for Nærmeste leder in the [saktype] case of the leader relation,
+     * with an explicitly trusted HTML email. Create [recipient] without its optional
+     * `externalNotification`; the two alternatives cannot be combined.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -395,8 +390,7 @@ object Budstikka {
         orgnummer: Orgnummer,
         recipient: Arbeidsgivervarsel.NarmesteLeder,
         htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
-        sak: Arbeidsgiversak,
-        tag: String,
+        saktype: Arbeidsgiversak.Type,
         text: String,
         link: String,
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
@@ -408,11 +402,10 @@ object Budstikka {
             reference = reference,
             orgnummer = orgnummer,
             recipient = recipient.toHtmlWireRecipient(htmlEmail),
-            tag = tag,
+            saktype = saktype.toWire(),
             text = text,
             link = link,
             messageType = messageType,
-            sakstilknytning = sak.toWireSakstilknytning(),
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         )
@@ -425,7 +418,7 @@ object Budstikka {
      */
     @Deprecated(
         "Arbeidsgivernotifikasjoner will require every notification to belong to a case. " +
-            "Use the overload that takes sak: Arbeidsgiversak.",
+            "Use the overload that takes saktype.",
     )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -457,19 +450,19 @@ object Budstikka {
         )
 
     /**
-     * Creates an Arbeidsgivervarsel in a case for an Altinn resource with an explicitly trusted HTML
-     * email and the required [smsText]. Budstikka makes sure the case exists for the same resource
-     * first. Create [recipient] without its optional `externalNotification`.
+     * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email and
+     * the required [smsText]. It goes in the [saktype] case for the organisation and [sykmeldt], which
+     * everyone with the resource sees. Create [recipient] without its optional `externalNotification`.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
         reference: String,
         orgnummer: Orgnummer,
         recipient: Arbeidsgivervarsel.AltinnResource,
+        sykmeldt: PersonIdentifier,
         htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
         smsText: String,
-        sak: Arbeidsgiversak,
-        tag: String,
+        saktype: Arbeidsgiversak.Type,
         text: String,
         link: String,
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
@@ -480,12 +473,14 @@ object Budstikka {
             eventId = eventId,
             reference = reference,
             orgnummer = orgnummer,
-            recipient = recipient.toHtmlWireRecipient(htmlEmail, smsText),
-            tag = tag,
+            recipient =
+                recipient.toHtmlWireRecipient(htmlEmail, smsText).copy(
+                    sykmeldt = sykmeldt.also { it.requirePersonIdentifier("sykmeldt") },
+                ),
+            saktype = saktype.toWire(),
             text = text,
             link = link,
             messageType = messageType,
-            sakstilknytning = sak.toWireSakstilknytning(),
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         )
@@ -584,56 +579,17 @@ object Budstikka {
     }
 
     /**
-     * Sets a new status on a case, after making sure the case exists for [recipient]. Retrying the
-     * same dispatch with the same [eventId] does not add a second status entry.
-     *
-     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
-     * @param reference your own id for this dispatch, used for correlation and bookkeeping.
-     * @param orgnummer the organisation of the case; the partition anchor.
-     * @param recipient the same recipient as the content in the case.
-     * @param tag the registered merkelapp of the case.
-     * @param sak the case. A [Arbeidsgiversak.hardDeleteAt] replaces the case's earlier deletion
-     *   time, also an earlier one.
-     * @param status the new status.
-     * @param statusText optional text that replaces the default status text.
-     */
-    fun arbeidsgiversakStatus(
-        eventId: EventId,
-        reference: String,
-        orgnummer: Orgnummer,
-        recipient: Arbeidsgiversak.Recipient,
-        tag: String,
-        sak: Arbeidsgiversak,
-        status: Arbeidsgiversak.Status,
-        statusText: String? = null,
-    ): EncodedDispatch {
-        requireReference(reference)
-        orgnummer.requireOrgnummer()
-        requireNotBlank(tag, "tag")
-        requireNullOrNotBlank(statusText, "statusText")
-        return ArbeidsgiversakStatus(
-            orgnummer = orgnummer,
-            recipient = recipient.toWireRecipient(),
-            tag = tag,
-            sakstilknytning = sak.toWireSakstilknytning(),
-            status = status.toWireStatus(),
-            statusText = statusText,
-        ).encode(eventId, reference)
-    }
-
-    /**
-     * Creates a calendar event (kalenderavtale) for the active Nærmeste leder in a case, after
-     * making sure the case exists. [reference] is the event's identity downstream: use it again in
+     * Creates a calendar event (kalenderavtale) for the active Nærmeste leder, in the [saktype] case
+     * of that leader relation. [reference] is the event's identity downstream: use it again in
      * [kalenderavtaleUpdate]. Start and end cannot be changed later; for a new time, cancel this event
      * and create a new one with a new [reference].
      *
      * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
-     * @param reference your stable id for this calendar event, unique for the tag across cases. If an
+     * @param reference your stable id for this calendar event, unique within the [saktype]. If an
      *   event already exists for it, it counts as created only when it is in the same case.
      * @param orgnummer the organisation of the case; the partition anchor.
      * @param sykmeldt the Sykmeldt whose active Nærmeste leder receives the event.
-     * @param tag the registered merkelapp; the same as for other content in the case.
-     * @param sak the case the event belongs to.
+     * @param saktype the case the event belongs to.
      * @param text the event text shown to the leader, at most 300 characters.
      * @param link required target for the event.
      * @param startAt when the event starts.
@@ -649,8 +605,7 @@ object Budstikka {
         reference: String,
         orgnummer: Orgnummer,
         sykmeldt: PersonIdentifier,
-        tag: String,
-        sak: Arbeidsgiversak,
+        saktype: Arbeidsgiversak.Type,
         text: String,
         link: String,
         startAt: Instant,
@@ -663,7 +618,6 @@ object Budstikka {
         requireReference(reference)
         orgnummer.requireOrgnummer()
         sykmeldt.requirePersonIdentifier("sykmeldt")
-        requireNotBlank(tag, "tag")
         requireNotBlank(text, "text")
         requireMaxLength(text, MAX_CALENDAR_TEXT_LENGTH, "text")
         requireNotBlank(link, "link")
@@ -671,8 +625,7 @@ object Budstikka {
         return KalenderavtaleCreate(
             orgnummer = orgnummer,
             recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
-            tag = tag,
-            sakstilknytning = sak.toWireSakstilknytning(),
+            saktype = saktype.toWire(),
             text = text,
             link = link,
             startAt = startAt,
@@ -694,7 +647,7 @@ object Budstikka {
      * @param reference the [kalenderavtaleCreate] reference of the event to update.
      * @param orgnummer the same organisation as in the create; the partition anchor.
      * @param sykmeldt the same Sykmeldt as in the create; used to resolve the leader's email.
-     * @param tag the same merkelapp as in the create.
+     * @param saktype the same case type as in the create.
      * @param tilstand optional new state.
      * @param text optional new text, at most 300 characters.
      * @param email optional email to the leader about the change.
@@ -704,7 +657,7 @@ object Budstikka {
         reference: String,
         orgnummer: Orgnummer,
         sykmeldt: PersonIdentifier,
-        tag: String,
+        saktype: Arbeidsgiversak.Type,
         tilstand: Kalenderavtale.Tilstand? = null,
         text: String? = null,
         email: Kalenderavtale.EmailNotification? = null,
@@ -712,7 +665,6 @@ object Budstikka {
         requireReference(reference)
         orgnummer.requireOrgnummer()
         sykmeldt.requirePersonIdentifier("sykmeldt")
-        requireNotBlank(tag, "tag")
         requireNullOrNotBlank(text, "text")
         text?.let { requireMaxLength(it, MAX_CALENDAR_TEXT_LENGTH, "text") }
         require(tilstand != null || text != null || email != null) {
@@ -721,7 +673,7 @@ object Budstikka {
         return KalenderavtaleUpdate(
             orgnummer = orgnummer,
             recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
-            tag = tag,
+            saktype = saktype.toWire(),
             tilstand = tilstand?.toWireTilstand(),
             text = text,
         ).encode(eventId, reference)
@@ -790,7 +742,6 @@ private fun requireMaxLength(
 ) = require(value.length <= maxLength) { "$parameter must be at most $maxLength characters" }
 
 /** Arbeidsgivernotifikasjoner rejects longer case titles and calendar texts. */
-private const val MAX_CASE_TITLE_LENGTH = 140
 private const val MAX_CALENDAR_TEXT_LENGTH = 300
 
 private fun requireNullOrNotBlank(
@@ -813,17 +764,18 @@ private fun encodeArbeidsgivervarsel(
     reference: String,
     orgnummer: Orgnummer,
     recipient: ArbeidsgiverRecipient,
-    tag: String,
     text: String,
     link: String,
     messageType: Arbeidsgivervarsel.MessageType,
-    sakstilknytning: Sakstilknytning?,
     visibleUntil: Instant?,
     sendingWindow: SendingWindow,
+    tag: String? = null,
+    sakstilknytning: Sakstilknytning? = null,
+    saktype: Saktype? = null,
 ): EncodedDispatch {
     requireReference(reference)
     orgnummer.requireOrgnummer()
-    requireNotBlank(tag, "tag")
+    tag?.let { requireNotBlank(it, "tag") }
     requireNotBlank(text, "text")
     requireNotBlank(link, "link")
     return ArbeidsgivervarselCreate(
@@ -836,6 +788,7 @@ private fun encodeArbeidsgivervarsel(
         sakstilknytning = sakstilknytning,
         visibleUntil = visibleUntil,
         sendingWindow = sendingWindow,
+        saktype = saktype,
     ).encode(eventId, reference)
 }
 
@@ -934,29 +887,10 @@ private fun requireVisibleUntilWithinLimit(visibleUntil: Instant) {
     }
 }
 
-private fun Arbeidsgiversak.Recipient.toWireRecipient(): ArbeidsgiverRecipient =
+private fun Arbeidsgiversak.Type.toWire(): Saktype =
     when (this) {
-        is Arbeidsgiversak.NarmesteLeder -> {
-            sykmeldt.requirePersonIdentifier("recipient.sykmeldt")
-            NarmesteLeder(sykmeldt = sykmeldt)
-        }
-        is Arbeidsgiversak.AltinnResource ->
-            AltinnResource(resource = resource.also { requireNotBlank(it, "recipient.resource") })
-    }
-
-private fun Arbeidsgiversak.toWireSakstilknytning(): Sakstilknytning {
-    requireNotBlank(sakId, "sak.sakId")
-    requireNotBlank(title, "sak.title")
-    requireMaxLength(title, MAX_CASE_TITLE_LENGTH, "sak.title")
-    requireNullOrNotBlank(link, "sak.link")
-    return Sakstilknytning(sakId = sakId, title = title, link = link, hardDeleteAt = hardDeleteAt)
-}
-
-private fun Arbeidsgiversak.Status.toWireStatus(): Saksstatus =
-    when (this) {
-        Arbeidsgiversak.Status.MOTTATT -> Saksstatus.MOTTATT
-        Arbeidsgiversak.Status.UNDER_BEHANDLING -> Saksstatus.UNDER_BEHANDLING
-        Arbeidsgiversak.Status.FERDIG -> Saksstatus.FERDIG
+        Arbeidsgiversak.Type.DIALOGMOTE -> Saktype.DIALOGMOTE
+        Arbeidsgiversak.Type.OPPFOLGINGSPLAN -> Saktype.OPPFOLGINGSPLAN
     }
 
 private fun Kalenderavtale.Tilstand.toWireTilstand(): Kalenderavtaletilstand =
