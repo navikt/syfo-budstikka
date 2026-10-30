@@ -142,6 +142,7 @@ object FacadeOnlyProducer {
             digital = true,
             tilstand = Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
             email = Kalenderavtale.EmailNotification.html("Tittel", "<p>E-post</p>"),
+            saksstatus = Arbeidsgiversak.Status.UNDER_BEHANDLING,
         )
 
     fun kalenderavtaleUpdate(eventId: EventId): EncodedDispatch =
@@ -154,7 +155,6 @@ object FacadeOnlyProducer {
             tilstand = Kalenderavtale.Tilstand.AVLYST,
             text = "Avlyst",
             email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),
-            saksstatus = Arbeidsgiversak.Status.FERDIG,
         )
 
     /** Everything a Produsent needs to build a Kafka record, still without touching the envelope. */

@@ -329,6 +329,26 @@ class ContractPrivacyTest :
                             text = SYNTHETIC_TEXT,
                             link = SYNTHETIC_LINK,
                         ),
+                    "arbeidsgivervarselCreate to Altinn with saktype and plain-text notification" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                Arbeidsgivervarsel.AltinnResource(
+                                    "sensitive-producer-resource",
+                                    Arbeidsgivervarsel.AltinnExternalNotification(
+                                        SYNTHETIC_EMAIL_TITLE,
+                                        SYNTHETIC_EMAIL_TEXT,
+                                        SYNTHETIC_SMS_TEXT,
+                                    ),
+                                ),
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            sakId = SYNTHETIC_SAK_ID,
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
                     "kalenderavtaleCreate" to
                         Budstikka.kalenderavtaleCreate(
                             eventId = EVENT_ID,

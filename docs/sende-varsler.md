@@ -106,23 +106,25 @@ planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
 
 ## Sak og kalenderavtale
 
-Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger bare
+Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger
 `saktype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`, `kalenderavtaleCreate` og
 `kalenderavtaleUpdate`. Budstikka legger innholdet i riktig sak og oppretter den ved behov. Typen
 bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». Detaljene står i KDoc.
 
 - **Nærmeste leder:** én sak per saktype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
   får sin egen sak.
-- **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir en stabil `sakId` per virksomhet og
-  sykmeldt, aldri fødselsnummer, og `sykmeldt` for tittelen. Én sak per saktype, ressurs og `sakId`.
-- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. Saken deles, så siste status
-  vinner. Uten `saksstatus` er status «Mottatt».
-- **Levetid:** saken slettes med alt innhold fire måneder etter siste innhold, eller etter møtet for
-  kalenderavtaler.
+- **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
+  `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
+  et fødselsnummer. Én sak per saktype, ressurs, virksomhet og `sakId`.
+- **Status:** valgfri `saksstatus` på varsel og ny kalenderavtale setter sakens status etter innholdet.
+  En ny sak får «Mottatt», og uten `saksstatus` beholder saken statusen den har.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel eller nye kalenderavtale,
+  og tidligst fire måneder etter møtet.
 - **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
   Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
-- **Begrensninger:** rekkefølgen mellom oppdateringer av samme avtale er ikke garantert (#315). Fager
-  dedupliserer ikke oppdateringer av kalenderavtaler, så et nytt forsøk kan gi dobbel e-post.
+- **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk
+  kan overskrive en nyere oppdatering eller status. Fager dedupliserer ikke oppdateringer av
+  kalenderavtaler, så et nytt forsøk kan gi dobbel e-post.
 - **Uten saktype:** overloadene med `tag` og `CaseAssociation` er deprecated og slutter å virke når
   Fager krever sak.
 

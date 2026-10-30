@@ -9,7 +9,7 @@ import kotlin.time.Instant
 
 /*
  * Calendar event variants for Arbeidsgivernotifikasjoner. Budstikka owns the case the content belongs
- * to; the producer only chooses its [Saktype]. All variants partition on the organisation, like
+ * to; the producer chooses its [Saktype]. All variants partition on the organisation, like
  * [ArbeidsgivervarselCreate].
  */
 
@@ -93,8 +93,6 @@ data class KalenderavtaleUpdate(
     val saktype: Saktype,
     val tilstand: Kalenderavtaletilstand? = null,
     val text: String? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 
