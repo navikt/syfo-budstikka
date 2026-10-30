@@ -116,10 +116,11 @@ bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». D
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
   `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
   et fødselsnummer. Én sak per saktype, ressurs, virksomhet og `sakId`.
-- **Status:** valgfri `saksstatus` på varsel og ny kalenderavtale setter sakens status etter innholdet.
-  En ny sak får «Mottatt», og uten `saksstatus` beholder saken statusen den har.
-- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel eller nye kalenderavtale,
-  og tidligst fire måneder etter møtet.
+- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. På `kalenderavtaleUpdate`
+  gjelder den nåværende leders sak og settes før oppdateringen. En ny sak får «Mottatt», og uten
+  `saksstatus` beholder saken statusen den har.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel, avtale eller status, og
+  tidligst fire måneder etter møtet.
 - **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
   Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
 - **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk

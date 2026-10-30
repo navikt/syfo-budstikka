@@ -704,6 +704,8 @@ object Budstikka {
      * @param tilstand optional new state.
      * @param text optional new text, at most 300 characters.
      * @param email optional email to the leader about the change.
+     * @param saksstatus optional status to set on the current leader's [saktype] case, before the
+     *   update; like [email], it needs an active leader.
      */
     fun kalenderavtaleUpdate(
         eventId: EventId,
@@ -714,6 +716,7 @@ object Budstikka {
         tilstand: Kalenderavtale.Tilstand? = null,
         text: String? = null,
         email: Kalenderavtale.EmailNotification? = null,
+        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch {
         requireReference(reference)
         orgnummer.requireOrgnummer()
@@ -729,6 +732,7 @@ object Budstikka {
             saktype = saktype.toWire(),
             tilstand = tilstand?.toWireTilstand(),
             text = text,
+            saksstatus = saksstatus?.toWire(),
         ).encode(eventId, reference)
     }
 }

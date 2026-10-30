@@ -155,6 +155,7 @@ object FacadeOnlyProducer {
             tilstand = Kalenderavtale.Tilstand.AVLYST,
             text = "Avlyst",
             email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),
+            saksstatus = Arbeidsgiversak.Status.FERDIG,
         )
 
     /** Everything a Produsent needs to build a Kafka record, still without touching the envelope. */

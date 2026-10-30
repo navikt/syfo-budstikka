@@ -684,6 +684,29 @@ class BudstikkaProducerApiTest :
                     """"tilstand":"AVLYST","text":null}}"""
             }
 
+            test("an update may carry a case status, but not on its own") {
+                Budstikka
+                    .kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        tilstand = Kalenderavtale.Tilstand.AVLYST,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    ).value shouldContain """text":null,"saksstatus":"FERDIG"}}"""
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    )
+                }.message shouldBe "tilstand, text or email must be set"
+            }
+
             listOf(
                 Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER to "VENTER_SVAR_FRA_ARBEIDSGIVER",
                 Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_AVLYSE to "ARBEIDSGIVER_VIL_AVLYSE",

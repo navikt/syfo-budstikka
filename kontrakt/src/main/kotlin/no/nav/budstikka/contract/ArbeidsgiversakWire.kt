@@ -93,6 +93,8 @@ data class KalenderavtaleUpdate(
     val saktype: Saktype,
     val tilstand: Kalenderavtaletilstand? = null,
     val text: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 
