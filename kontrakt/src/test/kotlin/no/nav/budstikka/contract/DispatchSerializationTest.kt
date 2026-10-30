@@ -130,6 +130,7 @@ class DispatchSerializationTest :
                             text = "Referat",
                             link = "https://nav.no/ag",
                             saktype = Saktype.DIALOGMOTE,
+                            saksstatus = Saksstatus.FERDIG,
                         ),
                     "KalenderavtaleCreate" to
                         KalenderavtaleCreate(

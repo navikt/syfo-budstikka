@@ -50,9 +50,8 @@ ikke-tom referanse som appen kan finne igjen. For `brukervarselInactivate` og
 Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `microfrontendId`, ikke
 på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
 `visibleUntil` skjuler Budstikka mikrofrontenden igjen på det tidspunktet, når planlagt skjuling (#282) er
-rullet ut. Tidspunktet må ligge fram
-i tid og høyst 335 dager fram. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan
-ikke lukkes.
+rullet ut. Tidspunktet kan ligge høyst 335 dager fram; et tidspunkt som har passert, skjuler den med en
+gang. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan ikke lukkes.
 
 ## EventId, retry og partisjonering
 
@@ -115,6 +114,8 @@ bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». D
 - **Nærmeste leder:** én sak per saktype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
   får sin egen sak.
 - **Altinn-ressurs:** én sak per saktype, ressurs, virksomhet og sykmeldt. Oppgi `sykmeldt`.
+- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. Saken deles, så siste status
+  vinner. Uten `saksstatus` er status «Mottatt».
 - **Levetid:** saken slettes med alt innhold fire måneder etter siste innhold, eller etter møtet for
   kalenderavtaler.
 - **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.

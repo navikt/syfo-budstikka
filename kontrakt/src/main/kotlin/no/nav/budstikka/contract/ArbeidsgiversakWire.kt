@@ -1,5 +1,8 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package no.nav.budstikka.contract
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
@@ -14,6 +17,11 @@ import kotlin.time.Instant
 @InternalBudstikkaWire
 @Serializable
 enum class Saktype { DIALOGMOTE, OPPFOLGINGSPLAN }
+
+/** Case status a producer asks Budstikka to set, after the content. */
+@InternalBudstikkaWire
+@Serializable
+enum class Saksstatus { MOTTATT, UNDER_BEHANDLING, FERDIG }
 
 /** Calendar event state in Arbeidsgivernotifikasjoner. */
 @InternalBudstikkaWire
@@ -59,6 +67,8 @@ data class KalenderavtaleCreate(
     val lokasjon: Kalenderavtalelokasjon? = null,
     val digital: Boolean = false,
     val tilstand: Kalenderavtaletilstand = Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 
@@ -83,6 +93,8 @@ data class KalenderavtaleUpdate(
     val saktype: Saktype,
     val tilstand: Kalenderavtaletilstand? = null,
     val text: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 

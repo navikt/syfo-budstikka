@@ -446,18 +446,28 @@ class BudstikkaProducerApiTest :
                     ).value shouldContain "\"visibleUntil\":"
             }
 
-            test("enable rejects a visibility limit in the past or more than 335 days ahead") {
-                listOf(Clock.System.now() - 1.days, Clock.System.now() + 336.days).forEach { visibleUntil ->
-                    shouldThrow<IllegalArgumentException> {
-                        Budstikka.microfrontendEnable(
-                            eventId = EVENT_ID,
-                            reference = REFERENCE,
-                            sykmeldt = SYNTHETIC_SYKMELDT,
-                            microfrontendId = "syk-dialog",
-                            visibleUntil = visibleUntil,
-                        )
-                    }.message shouldContain "visibleUntil"
-                }
+            test("enable rejects a visibility limit more than 335 days ahead") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = Clock.System.now() + 336.days,
+                    )
+                }.message shouldContain "visibleUntil"
+            }
+
+            test("enable accepts a visibility limit that has passed, so a retry encodes the same dispatch") {
+                val passed = Clock.System.now() - 1.days
+                Budstikka
+                    .microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = passed,
+                    ).value shouldContain "\"visibleUntil\":\"$passed\""
             }
 
             test("enable without a visibility limit stays visible until disabled") {
@@ -497,6 +507,7 @@ class BudstikkaProducerApiTest :
                         text = SYNTHETIC_TEXT,
                         link = "https://nav.no/ag",
                         sendingWindow = SendingWindow.ONGOING,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
                     )
 
                 encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
@@ -505,7 +516,7 @@ class BudstikkaProducerApiTest :
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":null},"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
                     """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"ONGOING",""" +
-                    """"saktype":"DIALOGMOTE"}}"""
+                    """"saktype":"DIALOGMOTE","saksstatus":"FERDIG"}}"""
             }
 
             test("a notification to an Altinn resource carries the Sykmeldt its case is about") {
@@ -546,6 +557,27 @@ class BudstikkaProducerApiTest :
                                 text = SYNTHETIC_TEXT,
                                 link = "https://nav.no/ag",
                             ).value shouldContain """"saktype":"$wireValue""""
+                    }
+                }
+        }
+
+        context("saksstatus") {
+            listOf(
+                Arbeidsgiversak.Status.MOTTATT to "MOTTATT",
+                Arbeidsgiversak.Status.UNDER_BEHANDLING to "UNDER_BEHANDLING",
+                Arbeidsgiversak.Status.FERDIG to "FERDIG",
+            ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Arbeidsgiversak.Status.entries.toSet() }
+                .forEach { (status, wireValue) ->
+                    test("saksstatus $status maps to $wireValue on a calendar update") {
+                        Budstikka
+                            .kalenderavtaleUpdate(
+                                eventId = EVENT_ID,
+                                reference = REFERENCE,
+                                orgnummer = SYNTHETIC_ORGNUMMER,
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                                saksstatus = status,
+                            ).value shouldContain """"saksstatus":"$wireValue""""
                     }
                 }
         }

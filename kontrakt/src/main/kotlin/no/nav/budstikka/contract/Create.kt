@@ -100,6 +100,9 @@ data class ArbeidsgivervarselCreate(
     /** The Budstikka-owned case the notification belongs to; replaces [sakstilknytning]. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val saktype: Saktype? = null,
+    /** Status to set on the [saktype] case after the notification. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     init {
         sendingWindow = sendingWindow ?: SendingWindow.BUDSTIKKA_OPENING_HOURS
