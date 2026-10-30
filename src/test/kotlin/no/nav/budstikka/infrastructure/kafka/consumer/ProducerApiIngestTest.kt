@@ -6,7 +6,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.contract.Arbeidsgiversak
-import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrevCreate
@@ -37,7 +36,6 @@ import kotlin.time.Instant
 
 private val SYKMELDT = PersonIdentifier("1".repeat(11))
 private val ORGNUMMER = Orgnummer("999999999")
-private val SAK = Arbeidsgiversak(sakId = "mote-1", title = "Dialogmøte")
 
 /**
  * The producing and the consuming side of `budstikka.v1` meet here: a record built exactly the way a
@@ -110,26 +108,15 @@ class ProducerApiIngestTest :
                             sykmeldt = SYKMELDT,
                             microfrontendId = "syk-dialog",
                         ),
-                    "arbeidsgivervarselCreate with sak" to
+                    "arbeidsgivervarselCreate with saktype" to
                         Budstikka.arbeidsgivervarselCreate(
                             eventId = eventId,
                             reference = "ref-1",
                             orgnummer = ORGNUMMER,
                             recipient = Arbeidsgivervarsel.NarmesteLeder(SYKMELDT),
-                            sak = SAK,
-                            tag = "Dialogmøte",
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
                             text = "Referat",
                             link = "https://nav.no/ag",
-                        ),
-                    "arbeidsgiversakStatus" to
-                        Budstikka.arbeidsgiversakStatus(
-                            eventId = eventId,
-                            reference = "ref-1",
-                            orgnummer = ORGNUMMER,
-                            recipient = Arbeidsgiversak.NarmesteLeder(SYKMELDT),
-                            tag = "Dialogmøte",
-                            sak = SAK,
-                            status = Arbeidsgiversak.Status.FERDIG,
                         ),
                     "kalenderavtaleCreate" to
                         Budstikka.kalenderavtaleCreate(
@@ -137,8 +124,7 @@ class ProducerApiIngestTest :
                             reference = "ref-1",
                             orgnummer = ORGNUMMER,
                             sykmeldt = SYKMELDT,
-                            tag = "Dialogmøte",
-                            sak = SAK,
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                             startAt = Instant.parse("2026-11-02T09:00:00Z"),
@@ -149,7 +135,7 @@ class ProducerApiIngestTest :
                             reference = "ref-1",
                             orgnummer = ORGNUMMER,
                             sykmeldt = SYKMELDT,
-                            tag = "Dialogmøte",
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
                             tilstand = Kalenderavtale.Tilstand.AVLYST,
                         ),
                 )
@@ -163,8 +149,7 @@ class ProducerApiIngestTest :
                     "brevCreate" to BrevCreate::class,
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,
-                    "arbeidsgivervarselCreate with sak" to ArbeidsgivervarselCreate::class,
-                    "arbeidsgiversakStatus" to ArbeidsgiversakStatus::class,
+                    "arbeidsgivervarselCreate with saktype" to ArbeidsgivervarselCreate::class,
                     "kalenderavtaleCreate" to KalenderavtaleCreate::class,
                     "kalenderavtaleUpdate" to KalenderavtaleUpdate::class,
                 )

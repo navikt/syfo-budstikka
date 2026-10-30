@@ -115,38 +115,17 @@ object FacadeOnlyProducer {
             microfrontendId = "syk-dialog",
         )
 
-    private val sak =
-        Arbeidsgiversak(
-            sakId = "sak-1",
-            title = "Dialogmøte",
-            link = "https://nav.no/ag",
-            hardDeleteAt = visibleUntil,
-        )
-
     fun arbeidsgivervarselInSak(eventId: EventId): EncodedDispatch =
         Budstikka.arbeidsgivervarselCreate(
             eventId = eventId,
             reference = "fixture-5",
             orgnummer = orgnummer,
             recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
-            sak = sak,
-            tag = "Dialogmøte",
+            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
             text = "Referat",
             link = "https://nav.no/ag",
             messageType = Arbeidsgivervarsel.MessageType.BESKJED,
             sendingWindow = SendingWindow.ONGOING,
-        )
-
-    fun arbeidsgiversakStatus(eventId: EventId): EncodedDispatch =
-        Budstikka.arbeidsgiversakStatus(
-            eventId = eventId,
-            reference = "fixture-5",
-            orgnummer = orgnummer,
-            recipient = Arbeidsgiversak.NarmesteLeder(sykmeldt),
-            tag = "Dialogmøte",
-            sak = sak,
-            status = Arbeidsgiversak.Status.FERDIG,
-            statusText = "Avlyst",
         )
 
     fun kalenderavtaleCreate(eventId: EventId): EncodedDispatch =
@@ -155,8 +134,7 @@ object FacadeOnlyProducer {
             reference = "fixture-6",
             orgnummer = orgnummer,
             sykmeldt = sykmeldt,
-            tag = "Dialogmøte",
-            sak = sak,
+            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
             text = "Dialogmøte",
             link = "https://nav.no/ag",
             startAt = visibleUntil,
@@ -172,7 +150,7 @@ object FacadeOnlyProducer {
             reference = "fixture-6",
             orgnummer = orgnummer,
             sykmeldt = sykmeldt,
-            tag = "Dialogmøte",
+            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
             tilstand = Kalenderavtale.Tilstand.AVLYST,
             text = "Avlyst",
             email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),

@@ -118,20 +118,18 @@ class DispatchSerializationTest :
                             reference = "ref-123",
                             orgnummer = SYNTHETIC_ORGNUMMER,
                         ),
-                    "ArbeidsgiversakStatus" to
-                        ArbeidsgiversakStatus(
+                    "ArbeidsgivervarselCreate med saktype" to
+                        ArbeidsgivervarselCreate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
-                            recipient = AltinnResource(resource = "nav_syfo_dialogmote"),
-                            tag = "Dialogmøte",
-                            sakstilknytning =
-                                Sakstilknytning(
-                                    sakId = "sak-1",
-                                    title = "Dialogmøte",
-                                    link = "https://nav.no/ag",
-                                    hardDeleteAt = Instant.parse("2026-01-01T00:00:00Z"),
+                            recipient =
+                                AltinnResource(
+                                    resource = "nav_syfo_dialogmote",
+                                    externalVarsling = AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
                                 ),
-                            status = Saksstatus.FERDIG,
-                            statusText = "Avlyst",
+                            text = "Referat",
+                            link = "https://nav.no/ag",
+                            saktype = Saktype.DIALOGMOTE,
                         ),
                     "KalenderavtaleCreate" to
                         KalenderavtaleCreate(
@@ -141,8 +139,7 @@ class DispatchSerializationTest :
                                     sykmeldt = SYNTHETIC_SYKMELDT,
                                     externalVarsling = NarmesteLederExternalVarsling("Tittel", "E-post"),
                                 ),
-                            tag = "Dialogmøte",
-                            sakstilknytning = Sakstilknytning(sakId = "sak-1", title = "Dialogmøte"),
+                            saktype = Saktype.DIALOGMOTE,
                             text = "Dialogmøte",
                             link = "https://nav.no/ag",
                             startAt = Instant.parse("2026-11-02T09:00:00Z"),
@@ -155,7 +152,7 @@ class DispatchSerializationTest :
                         KalenderavtaleUpdate(
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
-                            tag = "Dialogmøte",
+                            saktype = Saktype.OPPFOLGINGSPLAN,
                             tilstand = Kalenderavtaletilstand.AVLYST,
                             text = "Avlyst",
                         ),
