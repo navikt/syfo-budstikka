@@ -282,20 +282,25 @@ object Budstikka {
         caseAssociation: Arbeidsgivervarsel.CaseAssociation? = null,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
-    ): EncodedDispatch =
-        encodeArbeidsgivervarsel(
-            eventId = eventId,
-            reference = reference,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        requireNotBlank(tag, "tag")
+        requireNotBlank(text, "text")
+        requireNotBlank(link, "link")
+        caseAssociation?.let { requireNotBlank(it.caseId, "caseAssociation.caseId") }
+        return ArbeidsgivervarselCreate(
             orgnummer = orgnummer,
             recipient = recipient.toWireRecipient(),
             tag = tag,
             text = text,
             link = link,
-            messageType = messageType,
-            sakstilknytning = caseAssociation.toWireSakstilknytning(),
+            meldingstype = messageType.toWireMessageType(),
+            sakstilknytning = caseAssociation?.let { Sakstilknytning(it.caseId) },
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
-        )
+        ).encode(eventId, reference)
+    }
 
     /**
      * Sends an Arbeidsgivervarsel to the active Nærmeste leder for a Sykmeldt, in the [saktype] case
@@ -330,7 +335,7 @@ object Budstikka {
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
         saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
-        encodeArbeidsgivervarsel(
+        encodeArbeidsgivervarselInCase(
             eventId = eventId,
             reference = reference,
             orgnummer = orgnummer,
@@ -377,7 +382,7 @@ object Budstikka {
             text = text,
             link = link,
             messageType = messageType,
-            sakstilknytning = caseAssociation.toWireSakstilknytning(),
+            caseAssociation = caseAssociation,
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         )
@@ -401,7 +406,7 @@ object Budstikka {
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
         saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
-        encodeArbeidsgivervarsel(
+        encodeArbeidsgivervarselInCase(
             eventId = eventId,
             reference = reference,
             orgnummer = orgnummer,
@@ -449,7 +454,7 @@ object Budstikka {
             text = text,
             link = link,
             messageType = messageType,
-            sakstilknytning = caseAssociation.toWireSakstilknytning(),
+            caseAssociation = caseAssociation,
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         )
@@ -479,7 +484,7 @@ object Budstikka {
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
         saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
-        encodeArbeidsgivervarsel(
+        encodeArbeidsgivervarselInCase(
             eventId = eventId,
             reference = reference,
             orgnummer = orgnummer,
@@ -515,7 +520,7 @@ object Budstikka {
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
         saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
-        encodeArbeidsgivervarsel(
+        encodeArbeidsgivervarselInCase(
             eventId = eventId,
             reference = reference,
             orgnummer = orgnummer,
@@ -809,26 +814,26 @@ private fun Orgnummer.requireOrgnummer() =
         "orgnummer must be $ORGNUMMER_LENGTH digits"
     }
 
+/** The encoder of the deprecated overloads, unchanged from 0.6.0. */
 private fun encodeArbeidsgivervarsel(
     eventId: EventId,
     reference: String,
     orgnummer: Orgnummer,
     recipient: ArbeidsgiverRecipient,
+    tag: String,
     text: String,
     link: String,
     messageType: Arbeidsgivervarsel.MessageType,
+    caseAssociation: Arbeidsgivervarsel.CaseAssociation?,
     visibleUntil: Instant?,
     sendingWindow: SendingWindow,
-    tag: String? = null,
-    sakstilknytning: Sakstilknytning? = null,
-    saktype: Saktype? = null,
-    saksstatus: Saksstatus? = null,
 ): EncodedDispatch {
     requireReference(reference)
     orgnummer.requireOrgnummer()
-    tag?.let { requireNotBlank(it, "tag") }
+    requireNotBlank(tag, "tag")
     requireNotBlank(text, "text")
     requireNotBlank(link, "link")
+    caseAssociation?.let { requireNotBlank(it.caseId, "caseAssociation.caseId") }
     return ArbeidsgivervarselCreate(
         orgnummer = orgnummer,
         recipient = recipient,
@@ -836,20 +841,41 @@ private fun encodeArbeidsgivervarsel(
         text = text,
         link = link,
         meldingstype = messageType.toWireMessageType(),
-        sakstilknytning = sakstilknytning,
+        sakstilknytning = caseAssociation?.let { Sakstilknytning(it.caseId) },
+        visibleUntil = visibleUntil,
+        sendingWindow = sendingWindow,
+    ).encode(eventId, reference)
+}
+
+private fun encodeArbeidsgivervarselInCase(
+    eventId: EventId,
+    reference: String,
+    orgnummer: Orgnummer,
+    recipient: ArbeidsgiverRecipient,
+    saktype: Saktype,
+    saksstatus: Saksstatus?,
+    text: String,
+    link: String,
+    messageType: Arbeidsgivervarsel.MessageType,
+    visibleUntil: Instant?,
+    sendingWindow: SendingWindow,
+): EncodedDispatch {
+    requireReference(reference)
+    orgnummer.requireOrgnummer()
+    requireNotBlank(text, "text")
+    requireNotBlank(link, "link")
+    return ArbeidsgivervarselCreate(
+        orgnummer = orgnummer,
+        recipient = recipient,
+        text = text,
+        link = link,
+        meldingstype = messageType.toWireMessageType(),
         visibleUntil = visibleUntil,
         sendingWindow = sendingWindow,
         saktype = saktype,
         saksstatus = saksstatus,
     ).encode(eventId, reference)
 }
-
-/** Link-only association to a case created elsewhere, kept for the deprecated overloads. */
-private fun Arbeidsgivervarsel.CaseAssociation?.toWireSakstilknytning(): Sakstilknytning? =
-    this?.let {
-        requireNotBlank(it.caseId, "caseAssociation.caseId")
-        Sakstilknytning(it.caseId)
-    }
 
 private fun Arbeidsgivervarsel.Recipient.toWireRecipient(): ArbeidsgiverRecipient =
     when (this) {
