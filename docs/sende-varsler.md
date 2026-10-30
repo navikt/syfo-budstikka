@@ -113,7 +113,8 @@ bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». D
 
 - **Nærmeste leder:** én sak per saktype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
   får sin egen sak.
-- **Altinn-ressurs:** én sak per saktype, ressurs, virksomhet og sykmeldt. Oppgi `sykmeldt`.
+- **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir en stabil `sakId` per virksomhet og
+  sykmeldt, aldri fødselsnummer, og `sykmeldt` for tittelen. Én sak per saktype, ressurs og `sakId`.
 - **Status:** valgfri `saksstatus` setter sakens status etter innholdet. Saken deles, så siste status
   vinner. Uten `saksstatus` er status «Mottatt».
 - **Levetid:** saken slettes med alt innhold fire måneder etter siste innhold, eller etter møtet for
