@@ -455,9 +455,14 @@ object Budstikka {
         )
 
     /**
-     * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email and
-     * the required [smsText]. It goes in the [saktype] case for the organisation and [sykmeldt], which
-     * everyone with the resource sees. Create [recipient] without its optional `externalNotification`.
+     * Sends an Arbeidsgivervarsel to everyone with an Altinn resource, in the [saktype] case that
+     * [sakId] names for the organisation and [sykmeldt]. External notification is optional and follows
+     * the recipient's `externalNotification`, as plain text; use the overload with
+     * [Arbeidsgivervarsel.HtmlEmailNotification] for an HTML email.
+     *
+     * @param sykmeldt the Sykmeldt the notification concerns; their name goes in the case title.
+     * @param sakId your stable key for this organisation's case about [sykmeldt], for example a dialog
+     *   id. Use the same key for all content in the case, and never a personident.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -465,6 +470,41 @@ object Budstikka {
         orgnummer: Orgnummer,
         recipient: Arbeidsgivervarsel.AltinnResource,
         sykmeldt: PersonIdentifier,
+        sakId: String,
+        saktype: Arbeidsgiversak.Type,
+        text: String,
+        link: String,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarsel(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = (recipient.toWireRecipient() as AltinnResource).withCase(sykmeldt, sakId),
+            saktype = saktype.toWire(),
+            saksstatus = saksstatus?.toWire(),
+            text = text,
+            link = link,
+            messageType = messageType,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
+
+    /**
+     * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email and
+     * the required [smsText], in the [saktype] case that [sakId] names for the organisation and
+     * [sykmeldt]. Create [recipient] without its optional `externalNotification`.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.AltinnResource,
+        sykmeldt: PersonIdentifier,
+        sakId: String,
         htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
         smsText: String,
         saktype: Arbeidsgiversak.Type,
@@ -479,10 +519,7 @@ object Budstikka {
             eventId = eventId,
             reference = reference,
             orgnummer = orgnummer,
-            recipient =
-                recipient.toHtmlWireRecipient(htmlEmail, smsText).copy(
-                    sykmeldt = sykmeldt.also { it.requirePersonIdentifier("sykmeldt") },
-                ),
+            recipient = recipient.toHtmlWireRecipient(htmlEmail, smsText).withCase(sykmeldt, sakId),
             saktype = saktype.toWire(),
             saksstatus = saksstatus?.toWire(),
             text = text,
@@ -880,6 +917,15 @@ private fun Arbeidsgivervarsel.AltinnResource.toHtmlWireRecipient(
                 emailBodyFormat = EmailBodyFormat.HTML,
             ),
     )
+}
+
+private fun AltinnResource.withCase(
+    sykmeldt: PersonIdentifier,
+    sakId: String,
+): AltinnResource {
+    sykmeldt.requirePersonIdentifier("sykmeldt")
+    requireNotBlank(sakId, "sakId")
+    return copy(sykmeldt = sykmeldt, sakId = sakId)
 }
 
 private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeldingstype =

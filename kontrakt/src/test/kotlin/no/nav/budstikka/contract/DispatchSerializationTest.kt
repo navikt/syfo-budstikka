@@ -126,6 +126,7 @@ class DispatchSerializationTest :
                                     resource = "nav_syfo_dialogmote",
                                     externalVarsling = AltinnExternalVarsling("Tittel", "E-post", "SMS"),
                                     sykmeldt = SYNTHETIC_SYKMELDT,
+                                    sakId = "dialog-1",
                                 ),
                             text = "Referat",
                             link = "https://nav.no/ag",

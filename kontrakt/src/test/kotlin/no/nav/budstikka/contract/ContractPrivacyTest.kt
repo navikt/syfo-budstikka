@@ -201,6 +201,7 @@ class ContractPrivacyTest :
                         resource = "sensitive-producer-resource",
                         externalVarsling = altinnExternalVarsling,
                         sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = SYNTHETIC_SAK_ID,
                     ),
                 "Kalenderavtale.Lokasjon" to
                     Kalenderavtale.Lokasjon(SYNTHETIC_TEXT, "SENSITIVE-POSTNUMMER", SYNTHETIC_TEXT),
@@ -321,6 +322,7 @@ class ContractPrivacyTest :
                             orgnummer = SYNTHETIC_ORGNUMMER,
                             recipient = Arbeidsgivervarsel.AltinnResource("sensitive-producer-resource"),
                             sykmeldt = SYNTHETIC_SYKMELDT,
+                            sakId = SYNTHETIC_SAK_ID,
                             htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
                             smsText = SYNTHETIC_SMS_TEXT,
                             saktype = Arbeidsgiversak.Type.DIALOGMOTE,
