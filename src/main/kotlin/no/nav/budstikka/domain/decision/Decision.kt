@@ -6,10 +6,21 @@ import no.nav.budstikka.contract.PersonIdentifier
 import kotlin.time.Instant
 
 /** Neutral delivery channel persisted as `delivery.channel`; adapters own downstream formats. */
-enum class Channel { BRUKERVARSEL, LEDERVARSEL, DITT_SYKEFRAVAER, ARBEIDSGIVERVARSEL, BREV, MICROFRONTEND }
+enum class Channel {
+    BRUKERVARSEL,
+    LEDERVARSEL,
+    DITT_SYKEFRAVAER,
+    ARBEIDSGIVERVARSEL,
+    KALENDERAVTALE,
+    BREV,
+    MICROFRONTEND,
+}
 
-/** `INACTIVATE` also represents a microfrontend visibility disable operation. */
-enum class Operation { CREATE, INACTIVATE }
+/**
+ * `INACTIVATE` also represents a microfrontend visibility disable operation. `UPDATE` changes a
+ * downstream object, such as a calendar event, without closing it.
+ */
+enum class Operation { CREATE, INACTIVATE, UPDATE }
 
 enum class DropReason { DEAD }
 

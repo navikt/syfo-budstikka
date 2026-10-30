@@ -1,5 +1,6 @@
 package no.nav.produsenteksempel
 
+import no.nav.budstikka.contract.Arbeidsgiversak
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.BrevFallback
 import no.nav.budstikka.contract.Budstikka
@@ -8,6 +9,7 @@ import no.nav.budstikka.contract.EncodedDispatch
 import no.nav.budstikka.contract.EventId
 import no.nav.budstikka.contract.ExternalChannel
 import no.nav.budstikka.contract.ExternalNotification
+import no.nav.budstikka.contract.Kalenderavtale
 import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
@@ -111,6 +113,49 @@ object FacadeOnlyProducer {
             reference = "fixture-4",
             sykmeldt = sykmeldt,
             microfrontendId = "syk-dialog",
+        )
+
+    fun arbeidsgivervarselInSak(eventId: EventId): EncodedDispatch =
+        Budstikka.arbeidsgivervarselCreate(
+            eventId = eventId,
+            reference = "fixture-5",
+            orgnummer = orgnummer,
+            recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
+            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+            text = "Referat",
+            link = "https://nav.no/ag",
+            messageType = Arbeidsgivervarsel.MessageType.BESKJED,
+            sendingWindow = SendingWindow.ONGOING,
+        )
+
+    fun kalenderavtaleCreate(eventId: EventId): EncodedDispatch =
+        Budstikka.kalenderavtaleCreate(
+            eventId = eventId,
+            reference = "fixture-6",
+            orgnummer = orgnummer,
+            sykmeldt = sykmeldt,
+            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+            text = "Dialogmøte",
+            link = "https://nav.no/ag",
+            startAt = visibleUntil,
+            lokasjon = Kalenderavtale.Lokasjon("Gate 1", "0001", "Oslo"),
+            digital = true,
+            tilstand = Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
+            email = Kalenderavtale.EmailNotification.html("Tittel", "<p>E-post</p>"),
+            saksstatus = Arbeidsgiversak.Status.UNDER_BEHANDLING,
+        )
+
+    fun kalenderavtaleUpdate(eventId: EventId): EncodedDispatch =
+        Budstikka.kalenderavtaleUpdate(
+            eventId = eventId,
+            reference = "fixture-6",
+            orgnummer = orgnummer,
+            sykmeldt = sykmeldt,
+            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+            tilstand = Kalenderavtale.Tilstand.AVLYST,
+            text = "Avlyst",
+            email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),
+            saksstatus = Arbeidsgiversak.Status.FERDIG,
         )
 
     /** Everything a Produsent needs to build a Kafka record, still without touching the envelope. */

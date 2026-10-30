@@ -13,6 +13,10 @@ import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.DittSykefravaerCreate
 import no.nav.budstikka.contract.DittSykefravaerInactivate
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
+import no.nav.budstikka.contract.Kalenderavtalelokasjon
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.Ledervarsel
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate
@@ -20,6 +24,8 @@ import no.nav.budstikka.contract.Microfrontend
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.Saksstatus
+import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.contract.Sakstilknytning
 
 // One declaration per line makes the negative compiler check fail if any individual raw type loses
@@ -38,6 +44,10 @@ typealias RawDispatch = Dispatch // opt-in-probe
 typealias RawDispatchContent = DispatchContent // opt-in-probe
 typealias RawDittSykefravaerCreate = DittSykefravaerCreate // opt-in-probe
 typealias RawDittSykefravaerInactivate = DittSykefravaerInactivate // opt-in-probe
+typealias RawKalenderavtaleCreate = KalenderavtaleCreate // opt-in-probe
+typealias RawKalenderavtalelokasjon = Kalenderavtalelokasjon // opt-in-probe
+typealias RawKalenderavtaletilstand = Kalenderavtaletilstand // opt-in-probe
+typealias RawKalenderavtaleUpdate = KalenderavtaleUpdate // opt-in-probe
 typealias RawLedervarsel = Ledervarsel // opt-in-probe
 typealias RawLedervarselCreate = LedervarselCreate // opt-in-probe
 typealias RawLedervarselInactivate = LedervarselInactivate // opt-in-probe
@@ -45,4 +55,6 @@ typealias RawMicrofrontend = Microfrontend // opt-in-probe
 typealias RawMicrofrontendDisable = MicrofrontendDisable // opt-in-probe
 typealias RawMicrofrontendEnable = MicrofrontendEnable // opt-in-probe
 typealias RawNarmesteLeder = NarmesteLeder // opt-in-probe
+typealias RawSaksstatus = Saksstatus // opt-in-probe
+typealias RawSaktype = Saktype // opt-in-probe
 typealias RawSakstilknytning = Sakstilknytning // opt-in-probe

@@ -27,10 +27,12 @@ settes sammen i en produsent.
 | `dineSykmeldteVarselInactivate` | Lukk en tidligere aktivitet i Dine Sykmeldte. |
 | `dittSykefravaerCreate` | Opprett INFO-melding i Ditt Sykefravær. |
 | `dittSykefravaerInactivate` | Lukk en tidligere Ditt Sykefravær-melding. |
-| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs. |
+| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs, i sak etter `saktype`. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
+| `kalenderavtaleCreate` | Opprett en kalenderavtale for Nærmeste leder, i sak etter `saktype`. |
+| `kalenderavtaleUpdate` | Endre tilstand eller tekst på en kalenderavtale. |
 
 `dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
 aldri må inneholde personopplysninger. Budstikka sender alltid downstream-varianten `INFO`
@@ -46,8 +48,10 @@ ikke-tom referanse som appen kan finne igjen. For `brukervarselInactivate` og
 `dineSykmeldteVarselInactivate` bruker du samme `reference` og samme mottaker som ved opprettelse.
 
 Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `microfrontendId`, ikke
-på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Brev kan
-ikke lukkes.
+på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
+`visibleUntil` skjuler Budstikka mikrofrontenden igjen på det tidspunktet, når planlagt skjuling (#282) er
+rullet ut. Tidspunktet kan ligge høyst 335 dager fram; et tidspunkt som har passert, skjuler den med en
+gang. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan ikke lukkes.
 
 ## EventId, retry og partisjonering
 
@@ -99,6 +103,33 @@ feiler leveringen også terminalt hvis lederen mangler e-postadresse. Til tross 
 ikke `visibleUntil` bare synlighet. Feltet planlegger ugjenkallelig hard sletting av varselet og
 tilhørende data fra Fagers database og Kafka. Det stopper ikke eksterne varsler som allerede er
 planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
+
+## Sak og kalenderavtale
+
+Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger
+`saktype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`, `kalenderavtaleCreate` og
+`kalenderavtaleUpdate`. Budstikka legger innholdet i riktig sak og oppretter den ved behov. Typen
+bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». Detaljene står i KDoc.
+
+- **Nærmeste leder:** én sak per saktype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
+  får sin egen sak.
+- **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
+  `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
+  et fødselsnummer. Én sak per saktype, ressurs, virksomhet og `sakId`.
+- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. På `kalenderavtaleUpdate`
+  gjelder den nåværende leders sak og settes før oppdateringen. En ny sak får «Mottatt», og uten
+  `saksstatus` beholder saken statusen den har.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel, avtale eller status, og
+  tidligst fire måneder etter møtet.
+- **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
+  Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
+- **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk
+  kan overskrive en nyere oppdatering eller status. Fager dedupliserer ikke oppdateringer av
+  kalenderavtaler, så et nytt forsøk kan gi dobbel e-post.
+- **Uten saktype:** overloadene med `tag` og `CaseAssociation` er deprecated og slutter å virke når
+  Fager krever sak.
+
+Bakgrunnen står i [ADR 0019](adr/0019-budstikka-eier-arbeidsgiversakene-og-produsenten-velger-saktype.md).
 
 ## Feil og personvern
 

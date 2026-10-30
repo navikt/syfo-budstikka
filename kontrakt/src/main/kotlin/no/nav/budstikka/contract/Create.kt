@@ -88,13 +88,21 @@ data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,
     @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
-    val tag: String,
+    /** The producer's merkelapp; set only without a [saktype], which decides the merkelapp itself. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tag: String? = null,
     val text: String,
     val link: String,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
     var sendingWindow: SendingWindow? = null,
+    /** The Budstikka-owned case the notification belongs to; replaces [sakstilknytning]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saktype: Saktype? = null,
+    /** Status to set on the [saktype] case after the notification. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     init {
         sendingWindow = sendingWindow ?: SendingWindow.BUDSTIKKA_OPENING_HOURS
@@ -105,7 +113,8 @@ data class ArbeidsgivervarselCreate(
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
     override fun toString(): String =
         "ArbeidsgivervarselCreate(meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
-            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null})"
+            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null}, " +
+            "saktype=$saktype)"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
@@ -135,8 +144,14 @@ data class NarmesteLeder(
 data class AltinnResource(
     val resource: String,
     val externalVarsling: AltinnExternalVarsling? = null,
+    /** The Sykmeldt the content concerns, for the case title; required with a [Saktype]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sykmeldt: PersonIdentifier? = null,
+    /** The producer's stable key for this organisation's case about the Sykmeldt; required with a [Saktype]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sakId: String? = null,
 ) : ArbeidsgiverRecipient {
-    /** Omits external notification text. */
+    /** Omits external notification text, the Sykmeldt and the case key. */
     override fun toString(): String = "AltinnResource(hasExternalVarsling=${externalVarsling != null})"
 }
 

@@ -8,14 +8,19 @@ import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.BrukervarselInactivate
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.DittSykefravaerCreate
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.Oppgavetype
+import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import kotlin.time.Instant
 
 class DispatchDraftMappingTest :
     FunSpec({
@@ -87,6 +92,32 @@ class DispatchDraftMappingTest :
                     ),
                     Channel.ARBEIDSGIVERVARSEL,
                     Operation.CREATE,
+                    Recipient.Virksomhet(TEST_ORGNUMMER),
+                ),
+                Case(
+                    "Kalenderavtale",
+                    KalenderavtaleCreate(
+                        orgnummer = TEST_ORGNUMMER,
+                        recipient = NarmesteLeder(TEST_SYKMELDT),
+                        saktype = Saktype.DIALOGMOTE,
+                        text = "Dialogmøte",
+                        link = "https://nav.no",
+                        startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                    ),
+                    Channel.KALENDERAVTALE,
+                    Operation.CREATE,
+                    Recipient.Virksomhet(TEST_ORGNUMMER),
+                ),
+                Case(
+                    "Kalenderavtale update",
+                    KalenderavtaleUpdate(
+                        orgnummer = TEST_ORGNUMMER,
+                        recipient = NarmesteLeder(TEST_SYKMELDT),
+                        saktype = Saktype.DIALOGMOTE,
+                        tilstand = Kalenderavtaletilstand.AVLYST,
+                    ),
+                    Channel.KALENDERAVTALE,
+                    Operation.UPDATE,
                     Recipient.Virksomhet(TEST_ORGNUMMER),
                 ),
             )

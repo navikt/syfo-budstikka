@@ -1,11 +1,14 @@
 package no.nav.budstikka.contract
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 private const val REFERENCE = "ref-1"
@@ -415,20 +418,56 @@ class BudstikkaProducerApiTest :
 
         context("microfrontend") {
             test("enable carries the optional visibility limit") {
+                val visibleUntil = Clock.System.now() + 30.days
                 val encoded =
                     Budstikka.microfrontendEnable(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         microfrontendId = "syk-dialog",
-                        visibleUntil = VISIBLE_UNTIL,
+                        visibleUntil = visibleUntil,
                     )
 
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendEnable",""" +
                     """"personIdentifier":"00000000000","microfrontendId":"syk-dialog",""" +
-                    """"visibleUntil":"2026-01-01T00:00:00Z"}}"""
+                    """"visibleUntil":"$visibleUntil"}}"""
+            }
+
+            test("enable accepts a visibility limit up to 335 days ahead") {
+                Budstikka
+                    .microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = Clock.System.now() + 334.days,
+                    ).value shouldContain "\"visibleUntil\":"
+            }
+
+            test("enable rejects a visibility limit more than 335 days ahead") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = Clock.System.now() + 336.days,
+                    )
+                }.message shouldContain "visibleUntil"
+            }
+
+            test("enable accepts a visibility limit that has passed, so a retry encodes the same dispatch") {
+                val passed = Clock.System.now() - 1.days
+                Budstikka
+                    .microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = passed,
+                    ).value shouldContain "\"visibleUntil\":\"$passed\""
             }
 
             test("enable without a visibility limit stays visible until disabled") {
@@ -453,6 +492,268 @@ class BudstikkaProducerApiTest :
                     ).value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendDisable",""" +
                     """"personIdentifier":"00000000000","microfrontendId":"syk-dialog"}}"""
+            }
+        }
+
+        context("arbeidsgiversak") {
+            test("a notification to Nærmeste leder carries the saktype instead of a tag") {
+                val encoded =
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                        sendingWindow = SendingWindow.ONGOING,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    )
+
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":null},"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
+                    """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"ONGOING",""" +
+                    """"saktype":"DIALOGMOTE","saksstatus":"FERDIG"}}"""
+            }
+
+            test("a notification to an Altinn resource carries the Sykmeldt and the producer's case key") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = "dialog-1",
+                        htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification("Tittel", "<p>E-post</p>"),
+                        smsText = "SMS",
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","smsText":"SMS",""" +
+                    """"emailBodyFormat":"HTML"},"sykmeldt":"00000000000","sakId":"dialog-1"},"text":"SYNTETISK-VARSELTEKST",""" +
+                    """"link":"https://nav.no/ag","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","saktype":"DIALOGMOTE"}}"""
+            }
+
+            test("an Altinn notification without HTML keeps the recipient's plain-text notification") {
+                Budstikka
+                    .arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient =
+                            Arbeidsgivervarsel.AltinnResource(
+                                "nav_syfo_dialogmote",
+                                Arbeidsgivervarsel.AltinnExternalNotification("Tittel", "E-post", "SMS"),
+                            ),
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = "dialog-1",
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = "https://nav.no/ag",
+                    ).value shouldContain
+                    """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post","smsText":"SMS"},""" +
+                    """"sykmeldt":"00000000000","sakId":"dialog-1"}"""
+            }
+
+            fun altinnWithSakId(sakId: String) =
+                Budstikka.arbeidsgivervarselCreate(
+                    eventId = EVENT_ID,
+                    reference = REFERENCE,
+                    orgnummer = SYNTHETIC_ORGNUMMER,
+                    recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                    sykmeldt = SYNTHETIC_SYKMELDT,
+                    sakId = sakId,
+                    saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                    text = SYNTHETIC_TEXT,
+                    link = "https://nav.no/ag",
+                )
+
+            test("an Altinn case key may be a number or a UUID") {
+                altinnWithSakId("4711").value shouldContain """"sakId":"4711""""
+                altinnWithSakId("0f8fad5b-d9cb-469f-a165-a1b2c3d4e5f6").value shouldContain "\"sakId\":\"0f8fad5b"
+            }
+
+            listOf(" ", "", "dialog:2", "dialog 1", "x".repeat(65)).forEach { sakId ->
+                test("an Altinn case key of [$sakId] is rejected without echoing it") {
+                    shouldThrow<IllegalArgumentException> { altinnWithSakId(sakId) }.message shouldBe
+                        "sakId must be 1-64 letters, digits, '-' or '_'"
+                }
+            }
+
+            mapOf("11 digits" to "1".repeat(11), "the Sykmeldt" to "dialog-${SYNTHETIC_SYKMELDT.value}").forEach { (what, sakId) ->
+                test("an Altinn case key containing $what is rejected without echoing it") {
+                    shouldThrow<IllegalArgumentException> { altinnWithSakId(sakId) }.message shouldBe
+                        "sakId must not be a personident"
+                }
+            }
+
+            listOf(
+                Arbeidsgiversak.Type.DIALOGMOTE to "DIALOGMOTE",
+                Arbeidsgiversak.Type.OPPFOLGINGSPLAN to "OPPFOLGINGSPLAN",
+            ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Arbeidsgiversak.Type.entries.toSet() }
+                .forEach { (saktype, wireValue) ->
+                    test("saktype $saktype maps to $wireValue") {
+                        Budstikka
+                            .arbeidsgivervarselCreate(
+                                eventId = EVENT_ID,
+                                reference = REFERENCE,
+                                orgnummer = SYNTHETIC_ORGNUMMER,
+                                recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                                saktype = saktype,
+                                text = SYNTHETIC_TEXT,
+                                link = "https://nav.no/ag",
+                            ).value shouldContain """"saktype":"$wireValue""""
+                    }
+                }
+        }
+
+        context("saksstatus") {
+            listOf(
+                Arbeidsgiversak.Status.MOTTATT to "MOTTATT",
+                Arbeidsgiversak.Status.UNDER_BEHANDLING to "UNDER_BEHANDLING",
+                Arbeidsgiversak.Status.FERDIG to "FERDIG",
+            ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Arbeidsgiversak.Status.entries.toSet() }
+                .forEach { (status, wireValue) ->
+                    test("saksstatus $status maps to $wireValue") {
+                        Budstikka
+                            .arbeidsgivervarselCreate(
+                                eventId = EVENT_ID,
+                                reference = REFERENCE,
+                                orgnummer = SYNTHETIC_ORGNUMMER,
+                                recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                                saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                                text = SYNTHETIC_TEXT,
+                                link = "https://nav.no/ag",
+                                saksstatus = status,
+                            ).value shouldContain """"saksstatus":"$wireValue""""
+                    }
+                }
+        }
+
+        context("kalenderavtale") {
+            test("create keys on orgnummer and carries saktype, leader, time, place and HTML email") {
+                val encoded =
+                    Budstikka.kalenderavtaleCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = "Dialogmøte med Test",
+                        link = "https://nav.no/ag",
+                        startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                        endAt = Instant.parse("2026-11-02T10:00:00Z"),
+                        lokasjon = Kalenderavtale.Lokasjon("Gate 1", "0001", "Oslo"),
+                        digital = true,
+                        email = Kalenderavtale.EmailNotification.html("Tittel", "<p>E-post</p>"),
+                    )
+
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"KalenderavtaleCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","emailBodyFormat":"HTML"}},""" +
+                    """"saktype":"DIALOGMOTE","text":"Dialogmøte med Test","link":"https://nav.no/ag","startAt":"2026-11-02T09:00:00Z",""" +
+                    """"endAt":"2026-11-02T10:00:00Z","lokasjon":{"adresse":"Gate 1","postnummer":"0001",""" +
+                    """"poststed":"Oslo"},"digital":true,"tilstand":"VENTER_SVAR_FRA_ARBEIDSGIVER"}}"""
+            }
+
+            test("update carries only the requested changes and a plain-text email") {
+                Budstikka
+                    .kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        tilstand = Kalenderavtale.Tilstand.AVLYST,
+                        email = Kalenderavtale.EmailNotification.plainText("Tittel", "E-post"),
+                    ).value shouldBe
+                    """{"reference":"ref-1","content":{"type":"KalenderavtaleUpdate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"saktype":"DIALOGMOTE",""" +
+                    """"tilstand":"AVLYST","text":null}}"""
+            }
+
+            test("an update may carry a case status, but not on its own") {
+                Budstikka
+                    .kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        tilstand = Kalenderavtale.Tilstand.AVLYST,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    ).value shouldContain """text":null,"saksstatus":"FERDIG"}}"""
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    )
+                }.message shouldBe "tilstand, text or email must be set"
+            }
+
+            listOf(
+                Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER to "VENTER_SVAR_FRA_ARBEIDSGIVER",
+                Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_AVLYSE to "ARBEIDSGIVER_VIL_AVLYSE",
+                Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED to "ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED",
+                Kalenderavtale.Tilstand.ARBEIDSGIVER_HAR_GODTATT to "ARBEIDSGIVER_HAR_GODTATT",
+                Kalenderavtale.Tilstand.AVLYST to "AVLYST",
+                Kalenderavtale.Tilstand.AVHOLDT to "AVHOLDT",
+            ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Kalenderavtale.Tilstand.entries.toSet() }
+                .forEach { (tilstand, wireValue) ->
+                    test("tilstand $tilstand maps to $wireValue") {
+                        Budstikka
+                            .kalenderavtaleUpdate(
+                                eventId = EVENT_ID,
+                                reference = REFERENCE,
+                                orgnummer = SYNTHETIC_ORGNUMMER,
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                                tilstand = tilstand,
+                            ).value shouldContain """"tilstand":"$wireValue""""
+                    }
+                }
+
+            test("text is limited to 300 characters on create and update") {
+                fun create(text: String) =
+                    Budstikka.kalenderavtaleCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = text,
+                        link = "https://nav.no/ag",
+                        startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                    )
+                create("x".repeat(300)).value shouldContain "\"text\":"
+                shouldThrow<IllegalArgumentException> { create("x".repeat(301)) }.message shouldBe
+                    "text must be at most 300 characters"
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = "x".repeat(301),
+                    )
+                }.message shouldBe "text must be at most 300 characters"
             }
         }
 
@@ -536,6 +837,8 @@ class BudstikkaProducerApiTest :
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",
+                    "kalenderavtaleCreate",
+                    "kalenderavtaleUpdate",
                 )
         }
     })

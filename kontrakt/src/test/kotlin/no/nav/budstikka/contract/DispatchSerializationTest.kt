@@ -118,6 +118,46 @@ class DispatchSerializationTest :
                             reference = "ref-123",
                             orgnummer = SYNTHETIC_ORGNUMMER,
                         ),
+                    "ArbeidsgivervarselCreate med saktype" to
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                AltinnResource(
+                                    resource = "nav_syfo_dialogmote",
+                                    externalVarsling = AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    sakId = "dialog-1",
+                                ),
+                            text = "Referat",
+                            link = "https://nav.no/ag",
+                            saktype = Saktype.DIALOGMOTE,
+                            saksstatus = Saksstatus.FERDIG,
+                        ),
+                    "KalenderavtaleCreate" to
+                        KalenderavtaleCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                NarmesteLeder(
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    externalVarsling = NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                ),
+                            saktype = Saktype.DIALOGMOTE,
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                            endAt = Instant.parse("2026-11-02T10:00:00Z"),
+                            lokasjon = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
+                            digital = true,
+                            tilstand = Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT,
+                        ),
+                    "KalenderavtaleUpdate" to
+                        KalenderavtaleUpdate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
+                            saktype = Saktype.OPPFOLGINGSPLAN,
+                            tilstand = Kalenderavtaletilstand.AVLYST,
+                            text = "Avlyst",
+                        ),
                 )
 
             variants.forEach { (name, content) ->

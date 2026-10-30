@@ -11,6 +11,8 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.util.UUID
 import kotlin.reflect.KClass
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 private val EVENT_ID = EventId(UUID.fromString("00000000-0000-4000-8000-0000000000a2"))
@@ -40,6 +42,7 @@ class ContractPrivacyTest :
                 SYNTHETIC_LINK,
                 "SENSITIVE-PRODUCER-TAG",
                 "sensitive-producer-resource",
+                "SENSITIVE-POSTNUMMER",
             )
 
         fun String.shouldNotLeak() = secrets.forEach { secret -> this shouldNotContain secret }
@@ -65,6 +68,8 @@ class ContractPrivacyTest :
             )
         val htmlEmailNotification =
             Arbeidsgivervarsel.HtmlEmailNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT)
+        val kalenderavtalelokasjon =
+            Kalenderavtalelokasjon(adresse = SYNTHETIC_TEXT, postnummer = "SENSITIVE-POSTNUMMER", poststed = SYNTHETIC_TEXT)
 
         context("identifiers mask themselves") {
             test("PersonIdentifier") {
@@ -131,6 +136,30 @@ class ContractPrivacyTest :
                         personIdentifier = SYNTHETIC_SYKMELDT,
                         microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
                     ),
+                    KalenderavtaleCreate(
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient =
+                            NarmesteLeder(
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                externalVarsling = narmesteLederExternalVarsling,
+                            ),
+                        saktype = Saktype.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                        startAt = Instant.parse("2026-01-01T09:00:00Z"),
+                        lokasjon = kalenderavtalelokasjon,
+                    ),
+                    KalenderavtaleUpdate(
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient =
+                            NarmesteLeder(
+                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                externalVarsling = narmesteLederExternalVarsling,
+                            ),
+                        saktype = Saktype.DIALOGMOTE,
+                        tilstand = Kalenderavtaletilstand.AVLYST,
+                        text = SYNTHETIC_TEXT,
+                    ),
                 )
 
             variants.forEach { content ->
@@ -166,6 +195,20 @@ class ContractPrivacyTest :
                         resource = "sensitive-producer-resource",
                         externalVarsling = altinnExternalVarsling,
                     ),
+                "Kalenderavtalelokasjon" to kalenderavtalelokasjon,
+                "AltinnResource med sykmeldt" to
+                    AltinnResource(
+                        resource = "sensitive-producer-resource",
+                        externalVarsling = altinnExternalVarsling,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = SYNTHETIC_SAK_ID,
+                    ),
+                "Kalenderavtale.Lokasjon" to
+                    Kalenderavtale.Lokasjon(SYNTHETIC_TEXT, "SENSITIVE-POSTNUMMER", SYNTHETIC_TEXT),
+                "Kalenderavtale.EmailNotification.plainText" to
+                    Kalenderavtale.EmailNotification.plainText(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                "Kalenderavtale.EmailNotification.html" to
+                    Kalenderavtale.EmailNotification.html(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
             ).forEach { (name, value) ->
                 test(name) {
                     value.toString().shouldNotLeak()
@@ -261,6 +304,72 @@ class ContractPrivacyTest :
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
+                        ),
+                    "arbeidsgivervarselCreate with saktype" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
+                    "arbeidsgivervarselCreate to Altinn with saktype" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = Arbeidsgivervarsel.AltinnResource("sensitive-producer-resource"),
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            sakId = SYNTHETIC_SAK_ID,
+                            htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                            smsText = SYNTHETIC_SMS_TEXT,
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
+                    "arbeidsgivervarselCreate to Altinn with saktype and plain-text notification" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                Arbeidsgivervarsel.AltinnResource(
+                                    "sensitive-producer-resource",
+                                    Arbeidsgivervarsel.AltinnExternalNotification(
+                                        SYNTHETIC_EMAIL_TITLE,
+                                        SYNTHETIC_EMAIL_TEXT,
+                                        SYNTHETIC_SMS_TEXT,
+                                    ),
+                                ),
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            sakId = SYNTHETIC_SAK_ID,
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
+                    "kalenderavtaleCreate" to
+                        Budstikka.kalenderavtaleCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                            startAt = Instant.parse("2026-01-01T09:00:00Z"),
+                            email = Kalenderavtale.EmailNotification.plainText(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                        ),
+                    "kalenderavtaleUpdate" to
+                        Budstikka.kalenderavtaleUpdate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            tilstand = Kalenderavtale.Tilstand.AVLYST,
+                            text = SYNTHETIC_TEXT,
                         ),
                 )
 
@@ -675,6 +784,69 @@ class ContractPrivacyTest :
                         microfrontendId = "",
                     )
                 }.message!!.also { it shouldContain "microfrontendId" }.shouldNotLeak()
+            }
+
+            test("microfrontend visibleUntil outside the allowed window") {
+                listOf(
+                    Clock.System.now() + 336.days,
+                ).forEach { visibleUntil ->
+                    shouldThrow<IllegalArgumentException> {
+                        Budstikka.microfrontendEnable(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
+                            visibleUntil = visibleUntil,
+                        )
+                    }.message!!
+                        .also { it shouldContain "visibleUntil" }
+                        .also { it shouldNotContain visibleUntil.toString() }
+                        .shouldNotLeak()
+                }
+            }
+
+            test("calendar event that ends before it starts") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                        startAt = Instant.parse("2026-01-01T09:00:00Z"),
+                        endAt = Instant.parse("2026-01-01T08:00:00Z"),
+                    )
+                }.message!!.also { it shouldContain "endAt" }.shouldNotLeak()
+            }
+
+            test("blank email on a calendar event") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleCreate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                        link = SYNTHETIC_LINK,
+                        startAt = Instant.parse("2026-01-01T09:00:00Z"),
+                        email = Kalenderavtale.EmailNotification.html(SYNTHETIC_EMAIL_TITLE, " "),
+                    )
+                }.message!!.also { it shouldContain "email.body" }.shouldNotLeak()
+            }
+
+            test("calendar update without any change") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = SYNTHETIC_REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                    )
+                }.message!!.also { it shouldContain "tilstand" }.shouldNotLeak()
             }
         }
     })
