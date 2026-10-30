@@ -64,7 +64,7 @@ Budstikka slår opp aktiv leder og e-postadresser ved utsending, og eier saken. 
 
 Ved nytt tidspunkt får lederen én e-post, på den nye avtalen, ikke to som i dag.
 
-**Lederbytte:** nytt innhold havner automatisk i den nye lederens sak. En oppdatering av en eksisterende avtale treffer avtalen og dens status i den gamle saken, mens e-post går til den nye lederen. Trenger produktet at den nye lederen ser avtalen, avlyser isdialogmote den gamle uten e-post og oppretter en ny.
+**Lederbytte:** nytt innhold havner automatisk i den nye lederens sak. En oppdatering av en eksisterende avtale treffer avtalen i den gamle saken, mens e-post og status går til den nye lederen. Trenger produktet at den nye lederen ser avtalen, avlyser isdialogmote den gamle uten e-post og oppretter en ny.
 
 ## Uten nærmeste leder
 
@@ -72,7 +72,7 @@ Ved nytt tidspunkt får lederen én e-post, på den nye avtalen, ikke to som i d
 
 ## Endringer fra esyfovarsel
 
-- Saken gjelder lederrelasjonen, ikke ett møte. isdialogmote setter den til «Under behandling» ved innkalling og «Ferdig» ved avlysning og referat.
+- Saken gjelder lederrelasjonen, ikke ett møte, så statusen gjelder alle lederens dialogmøter og møtebehov for den ansatte.
 - esyfovarsel lukker alle åpne Dine Sykmeldte-varsler for leder, ansatt og virksomhet ved svar. isdialogmote lukker bare møtets egne.
 - Budstikka prøver sak- og kalenderkall på nytt innenfor attempt-budsjettet; esyfovarsel gjør ikke det.
 - esyfovarsel sender ikke noe til Dine Sykmeldte ved referat. `DIALOGMOTE_REFERAT` finnes hvis produktet ønsker det.
