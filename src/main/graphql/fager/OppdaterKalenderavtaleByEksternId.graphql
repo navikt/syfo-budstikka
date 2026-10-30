@@ -16,7 +16,6 @@ mutation OppdaterKalenderavtaleByEksternId(
   ) {
     ... on OppdaterKalenderavtaleVellykket {
       __typename
-      id
     }
     ... on NotifikasjonFinnesIkke {
       __typename

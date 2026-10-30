@@ -101,59 +101,61 @@ class KalenderavtaleChannelHandlerTest :
                 )
         }
 
-        test("an update extends the event's own case and sets the requested status there") {
-            val publisher = FakeArbeidsgiversakPublisher().apply { calendarEventCase = "DIALOGMOTE:tidligere-relasjon" }
-
-            handler(publisher).handle(
-                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
-            ) shouldBe DeliveryOutcome.Sent
-
-            publisher.calendarUpdates.single().nyTilstand shouldBe Kalenderavtaletilstand.AVLYST
-            publisher.caseExtensions.single().apply {
-                grupperingsid shouldBe "DIALOGMOTE:tidligere-relasjon"
-                keepUntil shouldBe Instant.parse("2027-02-01T10:00:00Z")
-            }
-            publisher.caseStatuses.single().apply {
-                grupperingsid shouldBe "DIALOGMOTE:tidligere-relasjon"
-                status shouldBe Saksstatus.FERDIG
-            }
-        }
-
-        test("an update whose case cannot be told is still sent") {
+        test("an update changes only the event, not its case") {
             val publisher = FakeArbeidsgiversakPublisher()
 
-            handler(publisher).handle(
-                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
-            ) shouldBe DeliveryOutcome.Sent
-            publisher.caseExtensions shouldBe emptyList()
+            handler(publisher).handle(delivery(update(tilstand = Kalenderavtaletilstand.AVLYST))) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single() shouldBe
+                KalenderavtaleUpdateRequest(
+                    tag = "Dialogmøte",
+                    eksternId = "avtale-1",
+                    nyTilstand = Kalenderavtaletilstand.AVLYST,
+                    nyTekst = null,
+                    externalVarsling = null,
+                    idempotencyKey = EVENT_ID,
+                )
         }
 
-        test("after an update with email, a failed follow-up is not retried, so no second email is sent") {
-            val publisher =
-                FakeArbeidsgiversakPublisher(
-                    ArbeidsgiverNotificationResponse.Published,
-                    ArbeidsgiverNotificationResponse.Published,
-                    ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke"),
-                ).apply { calendarEventCase = "DIALOGMOTE:$TEST_LEDERRELASJON_ID" }
+        test("an update sets its status on the current leader's case before the update") {
+            val publisher = FakeArbeidsgiversakPublisher()
 
             handler(publisher, leaderRegistered()).handle(
                 delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, email = PLAIN_EMAIL, saksstatus = Saksstatus.FERDIG)),
             ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.map { it::class } shouldBe
+                listOf(ArbeidsgiversakExtendRequest::class, ArbeidsgiversakStatusRequest::class, KalenderavtaleUpdateRequest::class)
+            publisher.caseStatuses.single() shouldBe
+                ArbeidsgiversakStatusRequest("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte", Saksstatus.FERDIG, EVENT_ID)
+            publisher.calendarUpdates
+                .single()
+                .externalVarsling
+                ?.epostadresser shouldBe listOf("leder@example.test")
         }
 
-        test("without email, a failed follow-up is retried, since repeating the update is safe") {
+        test("a failed status is retried before the update, so the update and its email are sent once") {
             val publisher =
                 FakeArbeidsgiversakPublisher(
                     ArbeidsgiverNotificationResponse.Published,
-                    ArbeidsgiverNotificationResponse.Published,
                     ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke"),
-                ).apply { calendarEventCase = "DIALOGMOTE:$TEST_LEDERRELASJON_ID" }
+                )
 
             shouldThrow<ChannelHandlerFailure> {
-                handler(publisher).handle(
-                    delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
+                handler(publisher, leaderRegistered()).handle(
+                    delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, email = PLAIN_EMAIL, saksstatus = Saksstatus.FERDIG)),
                 )
             }
+            publisher.calendarUpdates shouldBe emptyList()
+        }
+
+        test("a status on an update needs an active leader") {
+            val publisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher).handle(
+                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
+            ) shouldBe DeliveryOutcome.Failed("KALENDERAVTALE NarmesteLeder delivery unavailable: missing_active_leader")
+            publisher.requests shouldBe emptyList()
         }
 
         test("forwards explicit HTML email unchanged") {

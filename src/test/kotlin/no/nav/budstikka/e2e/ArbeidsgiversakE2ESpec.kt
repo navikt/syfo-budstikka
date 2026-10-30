@@ -19,6 +19,7 @@ import no.nav.budstikka.contract.EventId
 import no.nav.budstikka.contract.Kalenderavtale
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
@@ -91,6 +92,7 @@ class ArbeidsgiversakE2ESpec :
                                 sykmeldt = TEST_SYKMELDT,
                                 saktype = Arbeidsgiversak.Type.DIALOGMOTE,
                                 tilstand = Kalenderavtale.Tilstand.AVLYST,
+                                saksstatus = Arbeidsgiversak.Status.FERDIG,
                             ),
                         )
                     dispatches.forEach { app.produce(it) }
@@ -99,8 +101,12 @@ class ArbeidsgiversakE2ESpec :
                         app.deliveryStatesFor(dispatches.map { it.eventId.value }) shouldContainExactly
                             List(dispatches.size) { DeliveryState.SENT.name }
 
-                        casePublisher.caseExtensions shouldHaveSize 2
+                        casePublisher.caseExtensions shouldHaveSize 3
                         casePublisher.caseExtensions.forEach { it.grupperingsid shouldBe leaderCase }
+                        casePublisher.caseStatuses.single().apply {
+                            grupperingsid shouldBe leaderCase
+                            status shouldBe Saksstatus.FERDIG
+                        }
                         casePublisher.calendarCreates.single().apply {
                             grupperingsid shouldBe leaderCase
                             tag shouldBe "Dialogmøte"

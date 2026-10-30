@@ -21,21 +21,7 @@ interface ArbeidsgiversakPublisher {
 
     suspend fun createCalendarEvent(request: KalenderavtaleCreateRequest): ArbeidsgiverNotificationResponse
 
-    suspend fun updateCalendarEvent(request: KalenderavtaleUpdateRequest): KalenderavtaleUpdateResponse
-}
-
-/** The outcome of a calendar update. */
-sealed interface KalenderavtaleUpdateResponse {
-    /** Updated; [grupperingsid] is the case the event lives in, or `null` when it could not be told. */
-    data class Updated(
-        val grupperingsid: String?,
-    ) : KalenderavtaleUpdateResponse {
-        override fun toString(): String = "Updated(knowsCase=${grupperingsid != null})"
-    }
-
-    data class NotUpdated(
-        val response: ArbeidsgiverNotificationResponse,
-    ) : KalenderavtaleUpdateResponse
+    suspend fun updateCalendarEvent(request: KalenderavtaleUpdateRequest): ArbeidsgiverNotificationResponse
 }
 
 data class ArbeidsgiversakCreateRequest(

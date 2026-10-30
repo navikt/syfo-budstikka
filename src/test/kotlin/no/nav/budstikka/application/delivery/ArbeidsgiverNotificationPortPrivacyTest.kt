@@ -89,7 +89,6 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 SakResolution.Ready("grouping-id", "Dialogmøte"),
                 Saksmottaker.NarmesteLeder(TEST_LEDERRELASJON_ID, leader, employee),
                 Saksmottaker.AltinnRessurs("sensitive-resource", employee, "sensitive-case-key"),
-                KalenderavtaleUpdateResponse.Updated("grouping-id"),
                 Personnavn(caseTitle, null, caseTitle),
             )
         val sensitiveValues =
