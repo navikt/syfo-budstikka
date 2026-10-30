@@ -268,7 +268,7 @@ object Budstikka {
      */
     @Deprecated(
         "Arbeidsgivernotifikasjoner will require every notification to belong to a case. " +
-            "Use the overload that takes saktype.",
+            "Use the overload that takes saktype; for an Altinn resource it also takes sykmeldt and sakId.",
     )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -428,7 +428,7 @@ object Budstikka {
      */
     @Deprecated(
         "Arbeidsgivernotifikasjoner will require every notification to belong to a case. " +
-            "Use the overload that takes saktype.",
+            "Use the overload that takes sykmeldt, sakId and saktype.",
     )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -467,7 +467,8 @@ object Budstikka {
      *
      * @param sykmeldt the Sykmeldt the notification concerns; their name goes in the case title.
      * @param sakId your stable key for this organisation's case about [sykmeldt], for example a dialog
-     *   id. Use the same key for all content in the case, and never a personident.
+     *   id: 1-64 letters, digits, '-' or '_'. Use the same key for all content in the case. It is
+     *   visible to the employer, so never a personident; 11 digits alone or [sykmeldt] are rejected.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -703,7 +704,6 @@ object Budstikka {
      * @param tilstand optional new state.
      * @param text optional new text, at most 300 characters.
      * @param email optional email to the leader about the change.
-     * @param saksstatus optional status to set on the current leader relation's case after the update.
      */
     fun kalenderavtaleUpdate(
         eventId: EventId,
@@ -714,15 +714,14 @@ object Budstikka {
         tilstand: Kalenderavtale.Tilstand? = null,
         text: String? = null,
         email: Kalenderavtale.EmailNotification? = null,
-        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch {
         requireReference(reference)
         orgnummer.requireOrgnummer()
         sykmeldt.requirePersonIdentifier("sykmeldt")
         requireNullOrNotBlank(text, "text")
         text?.let { requireMaxLength(it, MAX_CALENDAR_TEXT_LENGTH, "text") }
-        require(tilstand != null || text != null || email != null || saksstatus != null) {
-            "tilstand, text, email or saksstatus must be set"
+        require(tilstand != null || text != null || email != null) {
+            "tilstand, text or email must be set"
         }
         return KalenderavtaleUpdate(
             orgnummer = orgnummer,
@@ -730,7 +729,6 @@ object Budstikka {
             saktype = saktype.toWire(),
             tilstand = tilstand?.toWireTilstand(),
             text = text,
-            saksstatus = saksstatus?.toWire(),
         ).encode(eventId, reference)
     }
 }
@@ -950,9 +948,16 @@ private fun AltinnResource.withCase(
     sakId: String,
 ): AltinnResource {
     sykmeldt.requirePersonIdentifier("sykmeldt")
-    requireNotBlank(sakId, "sakId")
+    require(sakId.matches(SAK_ID)) { "sakId must be 1-64 letters, digits, '-' or '_'" }
+    require(sykmeldt.value !in sakId && !ELEVEN_DIGITS.matches(sakId)) { "sakId must not be a personident" }
     return copy(sykmeldt = sykmeldt, sakId = sakId)
 }
+
+/** No separators, since the id becomes part of Budstikka's case key. */
+private val SAK_ID = Regex("[A-Za-z0-9_-]{1,64}")
+
+/** May be a personident, which must never reach the case key the employer can see. */
+private val ELEVEN_DIGITS = Regex("[0-9]{11}")
 
 private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeldingstype =
     when (this) {
