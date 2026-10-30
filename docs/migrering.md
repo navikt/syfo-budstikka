@@ -31,6 +31,8 @@ senere cutover.
 
 Kanalinventar og kanalspesifikke detaljer eies av
 [esyfovarsel-kanalkartet](esyfovarsel-kanalkart.md), ikke av denne planen.
+Hvordan dialogmøtevarslene sendes gjennom Budstikka, står i
+[dialogmøteguiden](dialogmote.md).
 
 ## Foreslått cutover
 
