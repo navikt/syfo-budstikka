@@ -10,6 +10,7 @@ Guiden viser hvilke Budstikka-kall isdialogmote bruker for dialogmøtehendelsene
 - `EventId` lagres transaksjonelt med møteendringen og gjenbrukes ved retry.
 - Bruk `SendingWindow.ONGOING` der funksjonen har parameteret, så en lukking ikke kan nå fram før en opprettelse som venter på sendevinduet. Unntaket er referatbeskjeden til leder.
 - isdialogmote sender bare SM-hendelser når den sykmeldte kan varsles digitalt, og distribuerer brev selv. Bruk derfor ikke `brevFallback`.
+- Planlagt skjuling av microfrontenden med `visibleUntil` krever at #282 er rullet ut.
 
 ## Referanser
 
@@ -51,27 +52,27 @@ syfomotebehov må flytte før eller samtidig med isdialogmote. Samtidig må esyf
 
 ## Nærmeste leder
 
-Budstikka slår opp aktiv leder og e-postadresser ved utsending, og eier saken. isdialogmote bruker `saktype = Arbeidsgiversak.Type.DIALOGMOTE` og sender ingen sak. Budstikka legger alt i lederrelasjonens dialogmøtesak, med tittel «Dialogmøte med {navn}» og lenke til Dine Sykmeldte. syfomotebehov bruker samme saktype, så møtebehov havner i samme sak. E-posttekstene er HTML; bruk `Kalenderavtale.EmailNotification.html` og `Arbeidsgivervarsel.HtmlEmailNotification` med statisk markup.
+Budstikka slår opp aktiv leder og e-postadresser ved utsending, og eier saken. Arbeidsgivervarsler og kalenderavtaler til leder bruker `saktype = Arbeidsgiversak.Type.DIALOGMOTE`; isdialogmote sender ingen sak. Budstikka legger alt i lederrelasjonens dialogmøtesak, med tittel «Dialogmøte med {navn}» og lenke til Dine Sykmeldte. syfomotebehov bruker samme saktype, så møtebehov havner i samme sak. E-posttekstene er HTML; bruk `Kalenderavtale.EmailNotification.html` og `Arbeidsgivervarsel.HtmlEmailNotification` med statisk markup.
 
 | Hendelse | Kall, i denne rekkefølgen |
 | --- | --- |
-| INNKALT | `dineSykmeldteVarselCreate(DIALOGMOTE_INNKALLING, "Innkalling til dialogmøte")`, deretter `kalenderavtaleCreate(reference = arbeidsgiverbrevUuid, text = "Dialogmøte med {fornavn}", startAt = møtetidspunkt, email = innkallingstekstene)` |
-| NYTT_TID_STED, ENDRET | `dineSykmeldteVarselCreate(DIALOGMOTE_ENDRING, "Endring av dialogmøte")`, `kalenderavtaleUpdate(forrige referanse, tilstand = AVLYST)` uten e-post, deretter `kalenderavtaleCreate` med ny referanse, nytt tidspunkt og endringstekstene |
-| AVLYST | `dineSykmeldteVarselCreate(DIALOGMOTE_AVLYSNING, "Avlysning av dialogmøte")`, deretter `kalenderavtaleUpdate(tilstand = AVLYST, email = avlysningstekstene)` |
-| REFERAT | `kalenderavtaleUpdate(tilstand = AVHOLDT)` uten e-post, deretter `arbeidsgivervarselCreate(recipient = NarmesteLeder(sykmeldt), htmlEmail = referattekstene, saktype = DIALOGMOTE, text = "Du har mottatt et referat fra dialogmøte")` |
+| INNKALT | `dineSykmeldteVarselCreate(DIALOGMOTE_INNKALLING, "Innkalling til dialogmøte")`, deretter `kalenderavtaleCreate(reference = arbeidsgiverbrevUuid, text = "Dialogmøte med {fornavn}", startAt = møtetidspunkt, email = innkallingstekstene, saksstatus = UNDER_BEHANDLING)` |
+| NYTT_TID_STED, ENDRET | `dineSykmeldteVarselCreate(DIALOGMOTE_ENDRING, "Endring av dialogmøte")`, `kalenderavtaleUpdate(forrige referanse, tilstand = AVLYST)` uten e-post, deretter `kalenderavtaleCreate` med ny referanse, nytt tidspunkt, endringstekstene og `saksstatus = UNDER_BEHANDLING` |
+| AVLYST | `dineSykmeldteVarselCreate(DIALOGMOTE_AVLYSNING, "Avlysning av dialogmøte")`, deretter `kalenderavtaleUpdate(tilstand = AVLYST, email = avlysningstekstene, saksstatus = FERDIG)` |
+| REFERAT | `kalenderavtaleUpdate(tilstand = AVHOLDT)` uten e-post, deretter `arbeidsgivervarselCreate(recipient = NarmesteLeder(sykmeldt), htmlEmail = referattekstene, saktype = DIALOGMOTE, text = "Du har mottatt et referat fra dialogmøte", saksstatus = FERDIG)` |
 | SVAR | `kalenderavtaleUpdate` med `ARBEIDSGIVER_HAR_GODTATT` (KOMMER), `ARBEIDSGIVER_VIL_AVLYSE` (KOMMER_IKKE) eller `ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED` (NYTT_TID_STED), og `dineSykmeldteVarselInactivate` for møtets åpne Dine Sykmeldte-referanser |
 
-Alle kall til leder bruker `saktype = DIALOGMOTE`. Start og slutt på en kalenderavtale kan ikke endres, så ved nytt tidspunkt avlyses den gamle og en ny opprettes. Med e-post bare på den nye får lederen én e-post, ikke to som i dag.
+Ved nytt tidspunkt får lederen én e-post, på den nye avtalen, ikke to som i dag.
 
-**Lederbytte:** nytt innhold havner automatisk i den nye lederens sak. En oppdatering av en eksisterende avtale treffer den der den ble opprettet, og den nye lederen ser den ikke. Trenger produktet det, avlyser isdialogmote den gamle uten e-post og oppretter en ny.
+**Lederbytte:** nytt innhold havner automatisk i den nye lederens sak. En oppdatering av en eksisterende avtale treffer avtalen i den gamle saken, mens e-post og status går til den nye lederen. Trenger produktet at den nye lederen ser avtalen, avlyser isdialogmote den gamle uten e-post og oppretter en ny.
 
 ## Uten nærmeste leder
 
-`AG_VARSEL_ALTINN_RESSURS` fra isdialogmote og syfo-dokumentporten bruker `arbeidsgivervarselCreate` med `Arbeidsgivervarsel.AltinnResource`, `sykmeldt` og `saktype = DIALOGMOTE`. Begge appene havner i samme sak for virksomheten og den sykmeldte.
+`AG_VARSEL_ALTINN_RESSURS` sendes i dag av syfo-dokumentporten når isdialogmote mangler nærmeste leder. Dokumentporten skal bruke `arbeidsgivervarselCreate` med `Arbeidsgivervarsel.AltinnResource`, `sykmeldt` og `saktype = DIALOGMOTE`. Hvordan Altinn-saken nøkles, avklares i teamet.
 
 ## Endringer fra esyfovarsel
 
-- Saken gjelder lederrelasjonen, ikke ett møte, og får ikke status FERDIG ved avlysning eller referat. Den slettes fire måneder etter siste innhold.
+- Saken gjelder lederrelasjonen, ikke ett møte. isdialogmote setter den til «Under behandling» ved innkalling og «Ferdig» ved avlysning og referat.
 - esyfovarsel lukker alle åpne Dine Sykmeldte-varsler for leder, ansatt og virksomhet ved svar. isdialogmote lukker bare møtets egne.
 - Budstikka prøver sak- og kalenderkall på nytt innenfor attempt-budsjettet; esyfovarsel gjør ikke det.
 - esyfovarsel sender ikke noe til Dine Sykmeldte ved referat. `DIALOGMOTE_REFERAT` finnes hvis produktet ønsker det.
