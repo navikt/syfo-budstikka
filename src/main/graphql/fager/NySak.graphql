@@ -5,8 +5,7 @@ mutation NySak(
   $mottakere: [MottakerInput!]!
   $tittel: String!
   $lenke: String
-  $initiellStatus: SaksStatus!
-  $hardDelete: FutureTemporalInput
+  $hardDelete: FutureTemporalInput!
 ) {
   nySak(
     grupperingsid: $grupperingsid
@@ -15,7 +14,7 @@ mutation NySak(
     mottakere: $mottakere
     tittel: $tittel
     lenke: $lenke
-    initiellStatus: $initiellStatus
+    initiellStatus: MOTTATT
     hardDelete: $hardDelete
   ) {
     ... on NySakVellykket {

@@ -67,6 +67,11 @@ sealed interface ArbeidsgiverNotificationResponse {
     data class NotYetAvailable(
         val reason: String,
     ) : ArbeidsgiverNotificationResponse
+
+    /** The case key belonged to a case that has been deleted downstream; it can never be used again. */
+    data class CaseDeleted(
+        val reason: String,
+    ) : ArbeidsgiverNotificationResponse
 }
 
 interface ArbeidsgiverNotificationPublisher {

@@ -13,14 +13,13 @@ import io.ktor.http.content.TextContent
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.delivery.ArbeidsgiversakCreateRequest
-import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
+import no.nav.budstikka.application.delivery.ArbeidsgiversakExtendRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
 import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.Kalenderavtalelokasjon
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
 import kotlin.time.Instant
@@ -32,7 +31,7 @@ private const val NOT_FOUND = "Arbeidsgiver notification API has not found the t
 class ArbeidsgiversakClientTest :
     FunSpec({
         context("nySak") {
-            test("sends case identity, leader recipient, Oslo hard delete and correlation id") {
+            test("sends case identity, leader recipient, link, Oslo hard delete and correlation id") {
                 var body = ""
                 var correlationId = ""
                 val client =
@@ -42,8 +41,7 @@ class ArbeidsgiversakClientTest :
                         respond("""{"data":{"nySak":{"__typename":"NySakVellykket","id":"1"}}}""", HttpStatusCode.OK)
                     }
 
-                client.createCase(caseRequest(hardDeleteAt = Instant.parse("2026-12-01T11:00:00Z"))) shouldBe
-                    ArbeidsgiverNotificationResponse.Published
+                client.createCase(caseRequest()) shouldBe ArbeidsgiverNotificationResponse.Published
 
                 body shouldContain "nySak"
                 body shouldContain """"grupperingsid":"mote-1""""
@@ -51,26 +49,16 @@ class ArbeidsgiversakClientTest :
                 body shouldContain """"virksomhetsnummer":"123456789""""
                 body shouldContain """"naermesteLederFnr":"$LEADER_FNR","ansattFnr":"00000000000""""
                 body shouldContain """"tittel":"Dialogmøte med Test""""
-                body shouldContain """"initiellStatus":"MOTTATT""""
+                body shouldContain "initiellStatus: MOTTATT"
                 body shouldContain """"hardDelete":{"den":"2026-12-01T12:00:00"}"""
-                body shouldNotContain "\"lenke\""
+                body shouldContain """"lenke":"https://nav.no/syk/dinesykmeldte/relasjon-1""""
                 correlationId shouldBe "event-1"
-            }
-
-            test("falls back to four months when no hard delete is given") {
-                var body = ""
-                client { request ->
-                    body = (request.body as TextContent).text
-                    respond("""{"data":{"nySak":{"__typename":"NySakVellykket","id":"1"}}}""", HttpStatusCode.OK)
-                }.createCase(caseRequest())
-
-                body shouldContain """"hardDelete":{"om":"P4M"}"""
             }
 
             test("maps every business result") {
                 mapOf(
                     "DuplikatGrupperingsidEtterDelete" to
-                        ArbeidsgiverNotificationResponse.Rejected(REJECTED + "DuplikatGrupperingsidEtterDelete"),
+                        ArbeidsgiverNotificationResponse.CaseDeleted(REJECTED + "DuplikatGrupperingsidEtterDelete"),
                     "UgyldigMerkelapp" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMerkelapp"),
                     "UgyldigMottaker" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMottaker"),
                     "UkjentProdusent" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentProdusent"),
@@ -117,46 +105,38 @@ class ArbeidsgiversakClientTest :
             }
         }
 
-        context("nyStatusSakByGrupperingsid") {
-            test("sends status, status text, overwrite hard delete and the dispatch as idempotency key") {
+        context("skedulerHardDeleteSakByGrupperingsid") {
+            test("only moves the deletion later, at the Oslo local time") {
                 var body = ""
+                var correlationId = ""
                 client { request ->
                     body = (request.body as TextContent).text
+                    correlationId = request.headers["X-Request-ID"].orEmpty()
                     respond(
-                        """{"data":{"nyStatusSakByGrupperingsid":{"__typename":"NyStatusSakVellykket"}}}""",
+                        """{"data":{"skedulerHardDeleteSakByGrupperingsid":{"__typename":"SkedulerHardDeleteSakVellykket"}}}""",
                         HttpStatusCode.OK,
                     )
-                }.updateCaseStatus(
-                    ArbeidsgiversakStatusRequest(
-                        grupperingsid = "mote-1",
-                        tag = "Dialogmøte",
-                        status = Saksstatus.FERDIG,
-                        statustekst = "Avlyst",
-                        hardDeleteAt = Instant.parse("2026-12-01T11:00:00Z"),
-                        idempotencyKey = "event-2",
-                    ),
-                ) shouldBe ArbeidsgiverNotificationResponse.Published
+                }.extendCase(extendRequest()) shouldBe ArbeidsgiverNotificationResponse.Published
 
-                body shouldContain """"idempotencyKey":"event-2""""
+                body shouldContain "skedulerHardDeleteSakByGrupperingsid"
                 body shouldContain """"grupperingsid":"mote-1""""
-                body shouldContain """"nyStatus":"FERDIG""""
-                body shouldContain """"overstyrStatustekstMed":"Avlyst""""
-                body shouldContain """"hardDelete":{"nyTid":{"den":"2026-12-01T12:00:00"},"strategi":"OVERSKRIV"}"""
-                body shouldNotContain "\"tidspunkt\""
+                body shouldContain """"merkelapp":"Dialogmøte""""
+                body shouldContain """"hardDelete":{"nyTid":{"den":"2026-12-01T12:00:00"},"strategi":"FORLENG"}"""
+                correlationId shouldBe "event-2"
             }
 
-            test("maps a missing case to a retryable result") {
+            test("maps a missing case to a not-yet-available result") {
                 mapOf(
                     "SakFinnesIkke" to ArbeidsgiverNotificationResponse.NotYetAvailable(NOT_FOUND + "SakFinnesIkke"),
-                    "Konflikt" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "Konflikt"),
                     "UgyldigMerkelapp" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMerkelapp"),
                     "UkjentProdusent" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentProdusent"),
                 ).forEach { (typeName, expected) ->
                     client {
-                        respond("""{"data":{"nyStatusSakByGrupperingsid":{"__typename":"$typeName"}}}""", HttpStatusCode.OK)
-                    }.updateCaseStatus(
-                        ArbeidsgiversakStatusRequest("mote-1", "Dialogmøte", Saksstatus.FERDIG, null, null, "event-2"),
-                    ) shouldBe expected
+                        respond(
+                            """{"data":{"skedulerHardDeleteSakByGrupperingsid":{"__typename":"$typeName"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }.extendCase(extendRequest()) shouldBe expected
                 }
             }
         }
@@ -333,17 +313,24 @@ private val LEADER =
         ansattFnr = PersonIdentifier("00000000000"),
     )
 
-private fun caseRequest(hardDeleteAt: Instant? = null) =
+private fun caseRequest() =
     ArbeidsgiversakCreateRequest(
         virksomhetsnummer = "123456789",
         grupperingsid = "mote-1",
         tag = "Dialogmøte",
         tittel = "Dialogmøte med Test",
-        lenke = null,
-        initiellStatus = Saksstatus.MOTTATT,
-        hardDeleteAt = hardDeleteAt,
+        lenke = "https://nav.no/syk/dinesykmeldte/relasjon-1",
+        keepUntil = Instant.parse("2026-12-01T11:00:00Z"),
         recipient = LEADER,
         correlationId = "event-1",
+    )
+
+private fun extendRequest() =
+    ArbeidsgiversakExtendRequest(
+        grupperingsid = "mote-1",
+        tag = "Dialogmøte",
+        keepUntil = Instant.parse("2026-12-01T11:00:00Z"),
+        correlationId = "event-2",
     )
 
 private fun calendarRequest(email: Boolean = true) =

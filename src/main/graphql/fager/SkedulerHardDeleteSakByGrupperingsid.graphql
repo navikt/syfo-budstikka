@@ -1,0 +1,24 @@
+mutation SkedulerHardDeleteSakByGrupperingsid(
+  $merkelapp: String!
+  $grupperingsid: String!
+  $hardDelete: HardDeleteUpdateInput!
+) {
+  skedulerHardDeleteSakByGrupperingsid(
+    merkelapp: $merkelapp
+    grupperingsid: $grupperingsid
+    hardDelete: $hardDelete
+  ) {
+    ... on SkedulerHardDeleteSakVellykket {
+      __typename
+    }
+    ... on SakFinnesIkke {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+  }
+}

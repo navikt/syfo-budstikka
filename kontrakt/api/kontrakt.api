@@ -1,53 +1,13 @@
 public final class no/nav/budstikka/contract/Arbeidsgiversak {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Ljava/lang/String;
-	public final fun component3 ()Ljava/lang/String;
-	public final fun component4 ()Lkotlin/time/Instant;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;)Lno/nav/budstikka/contract/Arbeidsgiversak;
-	public static synthetic fun copy$default (Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;ILjava/lang/Object;)Lno/nav/budstikka/contract/Arbeidsgiversak;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getHardDeleteAt ()Lkotlin/time/Instant;
-	public final fun getLink ()Ljava/lang/String;
-	public final fun getSakId ()Ljava/lang/String;
-	public final fun getTitle ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
+	public static final field INSTANCE Lno/nav/budstikka/contract/Arbeidsgiversak;
 }
 
-public final class no/nav/budstikka/contract/Arbeidsgiversak$AltinnResource : no/nav/budstikka/contract/Arbeidsgiversak$Recipient {
-	public fun <init> (Ljava/lang/String;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lno/nav/budstikka/contract/Arbeidsgiversak$AltinnResource;
-	public static synthetic fun copy$default (Lno/nav/budstikka/contract/Arbeidsgiversak$AltinnResource;Ljava/lang/String;ILjava/lang/Object;)Lno/nav/budstikka/contract/Arbeidsgiversak$AltinnResource;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getResource ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class no/nav/budstikka/contract/Arbeidsgiversak$NarmesteLeder : no/nav/budstikka/contract/Arbeidsgiversak$Recipient {
-	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-NNpFMMg ()Ljava/lang/String;
-	public final fun copy-F66O1xg (Ljava/lang/String;)Lno/nav/budstikka/contract/Arbeidsgiversak$NarmesteLeder;
-	public static synthetic fun copy-F66O1xg$default (Lno/nav/budstikka/contract/Arbeidsgiversak$NarmesteLeder;Ljava/lang/String;ILjava/lang/Object;)Lno/nav/budstikka/contract/Arbeidsgiversak$NarmesteLeder;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getSykmeldt-NNpFMMg ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public abstract interface class no/nav/budstikka/contract/Arbeidsgiversak$Recipient {
-}
-
-public final class no/nav/budstikka/contract/Arbeidsgiversak$Status : java/lang/Enum {
-	public static final field FERDIG Lno/nav/budstikka/contract/Arbeidsgiversak$Status;
-	public static final field MOTTATT Lno/nav/budstikka/contract/Arbeidsgiversak$Status;
-	public static final field UNDER_BEHANDLING Lno/nav/budstikka/contract/Arbeidsgiversak$Status;
+public final class no/nav/budstikka/contract/Arbeidsgiversak$Type : java/lang/Enum {
+	public static final field DIALOGMOTE Lno/nav/budstikka/contract/Arbeidsgiversak$Type;
+	public static final field OPPFOLGINGSPLAN Lno/nav/budstikka/contract/Arbeidsgiversak$Type;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/Arbeidsgiversak$Status;
-	public static fun values ()[Lno/nav/budstikka/contract/Arbeidsgiversak$Status;
+	public static fun valueOf (Ljava/lang/String;)Lno/nav/budstikka/contract/Arbeidsgiversak$Type;
+	public static fun values ()[Lno/nav/budstikka/contract/Arbeidsgiversak$Type;
 }
 
 public final class no/nav/budstikka/contract/Arbeidsgivervarsel {
@@ -178,20 +138,18 @@ public final class no/nav/budstikka/contract/BrevFallback$Companion {
 public final class no/nav/budstikka/contract/Budstikka {
 	public static final field INSTANCE Lno/nav/budstikka/contract/Budstikka;
 	public static final field TOPIC Ljava/lang/String;
-	public final fun arbeidsgiversakStatus-H20ddSM (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Recipient;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak;Lno/nav/budstikka/contract/Arbeidsgiversak$Status;Ljava/lang/String;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public static synthetic fun arbeidsgiversakStatus-H20ddSM$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Recipient;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak;Lno/nav/budstikka/contract/Arbeidsgiversak$Status;Ljava/lang/String;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun arbeidsgivervarselCreate-54hdUjc (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lno/nav/budstikka/contract/Arbeidsgivervarsel$CaseAssociation;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public final fun arbeidsgivervarselCreate-54hdUjc (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public static synthetic fun arbeidsgivervarselCreate-54hdUjc$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lno/nav/budstikka/contract/Arbeidsgivervarsel$CaseAssociation;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public static synthetic fun arbeidsgivervarselCreate-54hdUjc$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun arbeidsgivervarselCreate-BApPWRM (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun arbeidsgivervarselCreate-BApPWRM$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun arbeidsgivervarselCreate-JkX-pM4 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun arbeidsgivervarselCreate-JkX-pM4 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$Recipient;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lno/nav/budstikka/contract/Arbeidsgivervarsel$CaseAssociation;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public final fun arbeidsgivervarselCreate-JkX-pM4 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$Recipient;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun arbeidsgivervarselCreate-JkX-pM4$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$NarmesteLeder;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public static synthetic fun arbeidsgivervarselCreate-JkX-pM4$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$Recipient;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lno/nav/budstikka/contract/Arbeidsgivervarsel$CaseAssociation;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public static synthetic fun arbeidsgivervarselCreate-JkX-pM4$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$Recipient;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun arbeidsgivervarselCreate-PTb4nWM (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$AltinnResource;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun arbeidsgivervarselCreate-PTb4nWM$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$AltinnResource;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun arbeidsgivervarselCreate-d3Krqwc (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$AltinnResource;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lno/nav/budstikka/contract/Arbeidsgivervarsel$CaseAssociation;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public final fun arbeidsgivervarselCreate-d3Krqwc (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$AltinnResource;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public static synthetic fun arbeidsgivervarselCreate-d3Krqwc$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$AltinnResource;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lno/nav/budstikka/contract/Arbeidsgivervarsel$CaseAssociation;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public static synthetic fun arbeidsgivervarselCreate-d3Krqwc$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$AltinnResource;Lno/nav/budstikka/contract/Arbeidsgivervarsel$HtmlEmailNotification;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgivervarsel$MessageType;Lkotlin/time/Instant;Lno/nav/budstikka/contract/SendingWindow;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun brevCreate-4vcwzOA (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;Z)Lno/nav/budstikka/contract/EncodedDispatch;
 	public static synthetic fun brevCreate-4vcwzOA$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/DistributionType;ZILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun brukervarselCreate-C96fjD0 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Varseltype;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lno/nav/budstikka/contract/ExternalNotification;Lno/nav/budstikka/contract/BrevFallback;Lno/nav/budstikka/contract/SendingWindow;)Lno/nav/budstikka/contract/EncodedDispatch;
@@ -205,10 +163,10 @@ public final class no/nav/budstikka/contract/Budstikka {
 	public final fun dittSykefravaerCreate--NEfRqQ (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public static synthetic fun dittSykefravaerCreate--NEfRqQ$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun dittSykefravaerInactivate-RXgLQ54 (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public final fun kalenderavtaleCreate-PR6ZvSc (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lno/nav/budstikka/contract/Kalenderavtale$Lokasjon;ZLno/nav/budstikka/contract/Kalenderavtale$Tilstand;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public static synthetic fun kalenderavtaleCreate-PR6ZvSc$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lno/nav/budstikka/contract/Kalenderavtale$Lokasjon;ZLno/nav/budstikka/contract/Kalenderavtale$Tilstand;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public final fun kalenderavtaleUpdate-GLTCjSU (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Kalenderavtale$Tilstand;Ljava/lang/String;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;)Lno/nav/budstikka/contract/EncodedDispatch;
-	public static synthetic fun kalenderavtaleUpdate-GLTCjSU$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Kalenderavtale$Tilstand;Ljava/lang/String;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun kalenderavtaleCreate-1hUlQVs (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lno/nav/budstikka/contract/Kalenderavtale$Lokasjon;ZLno/nav/budstikka/contract/Kalenderavtale$Tilstand;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun kalenderavtaleCreate-1hUlQVs$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;Lkotlin/time/Instant;Lno/nav/budstikka/contract/Kalenderavtale$Lokasjon;ZLno/nav/budstikka/contract/Kalenderavtale$Tilstand;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public final fun kalenderavtaleUpdate-GLTCjSU (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Lno/nav/budstikka/contract/Kalenderavtale$Tilstand;Ljava/lang/String;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;)Lno/nav/budstikka/contract/EncodedDispatch;
+	public static synthetic fun kalenderavtaleUpdate-GLTCjSU$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lno/nav/budstikka/contract/Arbeidsgiversak$Type;Lno/nav/budstikka/contract/Kalenderavtale$Tilstand;Ljava/lang/String;Lno/nav/budstikka/contract/Kalenderavtale$EmailNotification;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun microfrontendDisable-e17jnzM (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public final fun microfrontendEnable-2km0Dko (Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;)Lno/nav/budstikka/contract/EncodedDispatch;
 	public static synthetic fun microfrontendEnable-2km0Dko$default (Lno/nav/budstikka/contract/Budstikka;Ljava/util/UUID;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/time/Instant;ILjava/lang/Object;)Lno/nav/budstikka/contract/EncodedDispatch;

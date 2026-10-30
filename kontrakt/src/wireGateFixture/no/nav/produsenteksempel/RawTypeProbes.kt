@@ -3,7 +3,6 @@ package no.nav.produsenteksempel
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
-import no.nav.budstikka.contract.ArbeidsgiversakStatus
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.BrevCreate
@@ -25,7 +24,7 @@ import no.nav.budstikka.contract.Microfrontend
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
-import no.nav.budstikka.contract.Saksstatus
+import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.contract.Sakstilknytning
 
 // One declaration per line makes the negative compiler check fail if any individual raw type loses
@@ -34,7 +33,6 @@ import no.nav.budstikka.contract.Sakstilknytning
 typealias RawAltinnResource = AltinnResource // opt-in-probe
 typealias RawArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype // opt-in-probe
 typealias RawArbeidsgiverRecipient = ArbeidsgiverRecipient // opt-in-probe
-typealias RawArbeidsgiversakStatus = ArbeidsgiversakStatus // opt-in-probe
 typealias RawArbeidsgivervarselCreate = ArbeidsgivervarselCreate // opt-in-probe
 typealias RawArbeidsgivervarselInactivate = ArbeidsgivervarselInactivate // opt-in-probe
 typealias RawBrevCreate = BrevCreate // opt-in-probe
@@ -56,5 +54,5 @@ typealias RawMicrofrontend = Microfrontend // opt-in-probe
 typealias RawMicrofrontendDisable = MicrofrontendDisable // opt-in-probe
 typealias RawMicrofrontendEnable = MicrofrontendEnable // opt-in-probe
 typealias RawNarmesteLeder = NarmesteLeder // opt-in-probe
-typealias RawSaksstatus = Saksstatus // opt-in-probe
+typealias RawSaktype = Saktype // opt-in-probe
 typealias RawSakstilknytning = Sakstilknytning // opt-in-probe

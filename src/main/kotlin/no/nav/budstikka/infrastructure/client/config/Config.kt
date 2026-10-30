@@ -1,6 +1,7 @@
 package no.nav.budstikka.infrastructure.client.config
 
 import io.ktor.server.config.ApplicationConfig
+import no.nav.budstikka.application.delivery.ArbeidsgiversakConfig
 import no.nav.budstikka.infrastructure.config.configFor
 import no.nav.budstikka.infrastructure.config.validate
 
@@ -96,3 +97,22 @@ fun ApplicationConfig.toNarmesteLederConfig() =
             }
         }
     }
+
+fun ApplicationConfig.toArbeidsgiversakConfig() =
+    with(configFor("arbeidsgiversak")) {
+        ArbeidsgiversakConfig(
+            dineSykmeldteUrl = this("dineSykmeldteUrl"),
+            pseudonymNokkel = this("pseudonymNokkel"),
+        ).validate { config ->
+            buildList {
+                if (config.dineSykmeldteUrl.isBlank()) add("arbeidsgiversak.dineSykmeldteUrl must be set (BASE_URL_DINE_SYKMELDTE)")
+                if (config.pseudonymNokkel.length < MIN_PSEUDONYM_KEY_LENGTH) {
+                    add(
+                        "arbeidsgiversak.pseudonymNokkel must be at least $MIN_PSEUDONYM_KEY_LENGTH characters (ARBEIDSGIVERSAK_PSEUDONYMNOKKEL)",
+                    )
+                }
+            }
+        }
+    }
+
+private const val MIN_PSEUDONYM_KEY_LENGTH = 32

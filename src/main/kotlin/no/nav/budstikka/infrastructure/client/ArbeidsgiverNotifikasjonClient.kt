@@ -26,14 +26,13 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.delivery.ArbeidsgiversakCreateRequest
+import no.nav.budstikka.application.delivery.ArbeidsgiversakExtendRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
-import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
 import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.Kalenderavtaletilstand
-import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
 import no.nav.budstikka.infrastructure.client.fager.generated.HentNotifikasjonQuery
@@ -42,8 +41,8 @@ import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NyKalenderavtaleMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NyOppgaveMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NySakMutation
-import no.nav.budstikka.infrastructure.client.fager.generated.NyStatusSakByGrupperingsidMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.OppdaterKalenderavtaleByEksternIdMutation
+import no.nav.budstikka.infrastructure.client.fager.generated.SkedulerHardDeleteSakByGrupperingsidMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.type.AltinnRessursMottakerInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselAltinnressursInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselEpostInput
@@ -61,7 +60,6 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.NotifikasjonI
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NyOppgaveInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NyTidStrategi
-import no.nav.budstikka.infrastructure.client.fager.generated.type.SaksStatus
 import no.nav.budstikka.infrastructure.client.fager.generated.type.SendetidspunktInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.Sendevindu
 import okio.Buffer
@@ -103,9 +101,9 @@ class ArbeidsgiverNotifikasjonClient(
     override suspend fun createCase(request: ArbeidsgiversakCreateRequest): ArbeidsgiverNotificationResponse =
         execute(request.correlationId, request.toNySakMutation()) { data -> data.nySak.toCaseResponse(request) }
 
-    override suspend fun updateCaseStatus(request: ArbeidsgiversakStatusRequest): ArbeidsgiverNotificationResponse =
-        execute(request.idempotencyKey, request.toNyStatusSakMutation()) { data ->
-            data.nyStatusSakByGrupperingsid.toCaseStatusResponse()
+    override suspend fun extendCase(request: ArbeidsgiversakExtendRequest): ArbeidsgiverNotificationResponse =
+        execute(request.correlationId, request.toSkedulerHardDeleteMutation()) { data ->
+            data.skedulerHardDeleteSakByGrupperingsid.toCaseExtendResponse()
         }
 
     override suspend fun createCalendarEvent(request: KalenderavtaleCreateRequest): ArbeidsgiverNotificationResponse =
@@ -311,22 +309,15 @@ class ArbeidsgiverNotifikasjonClient(
             mottakere = listOf(recipient.toGraphqlRecipient()),
             tittel = tittel,
             lenke = lenke.toOptional(),
-            initiellStatus = initiellStatus.toGraphql(),
-            hardDelete = Optional.present(hardDeleteAt.toHardDeleteInput()),
+            hardDelete = keepUntil.toHardDeleteInput(),
         )
 
-    private fun ArbeidsgiversakStatusRequest.toNyStatusSakMutation() =
-        NyStatusSakByGrupperingsidMutation(
-            idempotencyKey = Optional.present(idempotencyKey),
-            grupperingsid = grupperingsid,
+    /** Only ever moves the deletion later, so concurrent deliveries cannot shorten the case's life. */
+    private fun ArbeidsgiversakExtendRequest.toSkedulerHardDeleteMutation() =
+        SkedulerHardDeleteSakByGrupperingsidMutation(
             merkelapp = tag,
-            nyStatus = status.toGraphql(),
-            overstyrStatustekstMed = statustekst.toOptional(),
-            hardDelete =
-                hardDeleteAt
-                    ?.let {
-                        HardDeleteUpdateInput(nyTid = it.toHardDeleteInput(), strategi = NyTidStrategi.OVERSKRIV)
-                    }.toOptional(),
+            grupperingsid = grupperingsid,
+            hardDelete = HardDeleteUpdateInput(nyTid = keepUntil.toHardDeleteInput(), strategi = NyTidStrategi.FORLENG),
         )
 
     private fun KalenderavtaleCreateRequest.toNyKalenderavtaleMutation() =
@@ -387,12 +378,13 @@ class ArbeidsgiverNotifikasjonClient(
         when {
             onNySakVellykket != null -> ArbeidsgiverNotificationResponse.Published
             // Fager answers an identical replay with success, so a duplicate means the key exists with
-            // other content: the same case described differently by another operation (for example
-            // a later hardDeleteAt or a status change since), or a sakId reused by mistake. Only the
-            // first counts as existing, so the existing case is checked.
+            // other content, for example a title with a changed name. The existing case is checked.
             onDuplikatGrupperingsid != null ->
                 verifyExistingCase(request, onDuplikatGrupperingsid.idTilEksisterende)
-            onDuplikatGrupperingsidEtterDelete != null -> rejected("DuplikatGrupperingsidEtterDelete")
+            onDuplikatGrupperingsidEtterDelete != null ->
+                ArbeidsgiverNotificationResponse.CaseDeleted(
+                    "Arbeidsgiver notification API rejected request: DuplikatGrupperingsidEtterDelete",
+                )
             onUgyldigMerkelapp != null -> rejected("UgyldigMerkelapp")
             onUgyldigMottaker != null -> rejected("UgyldigMottaker")
             onUkjentProdusent != null -> rejected("UkjentProdusent")
@@ -400,14 +392,13 @@ class ArbeidsgiverNotifikasjonClient(
             else -> error("Arbeidsgiver notification API returned an unexpected NySak result")
         }
 
-    private fun NyStatusSakByGrupperingsidMutation.NyStatusSakByGrupperingsid.toCaseStatusResponse() =
+    private fun SkedulerHardDeleteSakByGrupperingsidMutation.SkedulerHardDeleteSakByGrupperingsid.toCaseExtendResponse() =
         when {
-            onNyStatusSakVellykket != null -> ArbeidsgiverNotificationResponse.Published
+            onSkedulerHardDeleteSakVellykket != null -> ArbeidsgiverNotificationResponse.Published
             onSakFinnesIkke != null -> notYetAvailable("SakFinnesIkke")
-            onKonflikt != null -> rejected("Konflikt")
             onUgyldigMerkelapp != null -> rejected("UgyldigMerkelapp")
             onUkjentProdusent != null -> rejected("UkjentProdusent")
-            else -> error("Arbeidsgiver notification API returned an unexpected NyStatusSak result")
+            else -> error("Arbeidsgiver notification API returned an unexpected SkedulerHardDeleteSak result")
         }
 
     private suspend fun NyKalenderavtaleMutation.NyKalenderavtale.toCalendarCreateResponse(request: KalenderavtaleCreateRequest) =
@@ -482,13 +473,6 @@ class ArbeidsgiverNotifikasjonClient(
 
     private fun Instant.toOsloOffsetDateTime(): String =
         toJavaInstant().atZone(OSLO_ZONE_ID).toOffsetDateTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-
-    private fun Saksstatus.toGraphql(): SaksStatus =
-        when (this) {
-            Saksstatus.MOTTATT -> SaksStatus.MOTTATT
-            Saksstatus.UNDER_BEHANDLING -> SaksStatus.UNDER_BEHANDLING
-            Saksstatus.FERDIG -> SaksStatus.FERDIG
-        }
 
     private fun Kalenderavtaletilstand.toGraphql(): KalenderavtaleTilstand =
         when (this) {
