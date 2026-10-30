@@ -92,6 +92,4 @@ spec:
       value: api://dev-gcp.team-esyfo.esyfo-narmesteleder/.default
     - name: BASE_URL_DINE_SYKMELDTE
       value: https://www.ekstern.dev.nav.no/arbeidsgiver/sykmeldte
-  envFrom:
-    - secret: syfo-budstikka-arbeidsgiversak
   # DEFERRED (remaining Auth & ACL): tokenx inbound.

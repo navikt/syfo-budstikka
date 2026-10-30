@@ -17,6 +17,7 @@ import no.nav.budstikka.application.delivery.ArbeidsgiversakExtendRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
+import no.nav.budstikka.application.delivery.KalenderavtaleUpdateResponse
 import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.Kalenderavtalelokasjon
 import no.nav.budstikka.contract.Kalenderavtaletilstand
@@ -290,14 +291,25 @@ class ArbeidsgiversakClientTest :
         }
 
         context("oppdaterKalenderavtaleByEksternId") {
-            test("sends only the requested changes and the dispatch as idempotency key") {
+            test("sends only the requested changes and tells which case the event lives in") {
                 var body = ""
+                var lookup = ""
                 client { request ->
-                    body = (request.body as TextContent).text
-                    respond(
-                        """{"data":{"oppdaterKalenderavtaleByEksternId":{"__typename":"OppdaterKalenderavtaleVellykket"}}}""",
-                        HttpStatusCode.OK,
-                    )
+                    val text = (request.body as TextContent).text
+                    if (text.contains("hentNotifikasjon")) {
+                        lookup = text
+                        respond(
+                            """{"data":{"hentNotifikasjon":{"__typename":"HentetNotifikasjon","notifikasjon":""" +
+                                """{"__typename":"Kalenderavtale","metadata":{"grupperingsid":"DIALOGMOTE:relasjon-1"}}}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    } else {
+                        body = text
+                        respond(
+                            """{"data":{"oppdaterKalenderavtaleByEksternId":{"__typename":"OppdaterKalenderavtaleVellykket","id":"avtale-id"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }
                 }.updateCalendarEvent(
                     KalenderavtaleUpdateRequest(
                         tag = "Dialogmøte",
@@ -307,13 +319,29 @@ class ArbeidsgiversakClientTest :
                         externalVarsling = null,
                         idempotencyKey = "event-3",
                     ),
-                ) shouldBe ArbeidsgiverNotificationResponse.Published
+                ) shouldBe KalenderavtaleUpdateResponse.Updated("DIALOGMOTE:relasjon-1")
 
+                lookup shouldContain """"id":"avtale-id""""
                 body shouldContain """"eksternId":"avtale-1""""
                 body shouldContain """"nyTilstand":"AVLYST""""
                 body shouldContain """"idempotencyKey":"event-3""""
                 body shouldContain """"eksterneVarsler":[]"""
                 body shouldNotContain "\"nyTekst\""
+            }
+
+            test("an update stays successful when the case lookup fails afterwards") {
+                client { request ->
+                    if ((request.body as TextContent).text.contains("hentNotifikasjon")) {
+                        respond("", HttpStatusCode.InternalServerError)
+                    } else {
+                        respond(
+                            """{"data":{"oppdaterKalenderavtaleByEksternId":{"__typename":"OppdaterKalenderavtaleVellykket","id":"avtale-id"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }
+                }.updateCalendarEvent(
+                    KalenderavtaleUpdateRequest("Dialogmøte", "avtale-1", Kalenderavtaletilstand.AVLYST, null, null, "event-3"),
+                ) shouldBe KalenderavtaleUpdateResponse.Updated(null)
             }
 
             test("maps a calendar event that does not exist yet to a retryable result") {
@@ -332,7 +360,7 @@ class ArbeidsgiversakClientTest :
                         )
                     }.updateCalendarEvent(
                         KalenderavtaleUpdateRequest("Dialogmøte", "avtale-1", Kalenderavtaletilstand.AVLYST, null, null, "event-3"),
-                    ) shouldBe expected
+                    ) shouldBe KalenderavtaleUpdateResponse.NotUpdated(expected)
                 }
             }
         }

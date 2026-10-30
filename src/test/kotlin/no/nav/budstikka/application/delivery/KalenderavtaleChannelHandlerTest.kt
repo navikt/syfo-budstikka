@@ -101,17 +101,58 @@ class KalenderavtaleChannelHandlerTest :
                 )
         }
 
-        test("an update with a status sets it on the current leader relation's case") {
-            val publisher = FakeArbeidsgiversakPublisher()
+        test("an update extends the event's own case and sets the requested status there") {
+            val publisher = FakeArbeidsgiversakPublisher().apply { calendarEventCase = "DIALOGMOTE:tidligere-relasjon" }
 
-            handler(publisher, leaderRegistered()).handle(
+            handler(publisher).handle(
                 delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
             ) shouldBe DeliveryOutcome.Sent
 
             publisher.calendarUpdates.single().nyTilstand shouldBe Kalenderavtaletilstand.AVLYST
+            publisher.caseExtensions.single().apply {
+                grupperingsid shouldBe "DIALOGMOTE:tidligere-relasjon"
+                keepUntil shouldBe Instant.parse("2027-02-01T10:00:00Z")
+            }
             publisher.caseStatuses.single().apply {
-                grupperingsid shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID"
+                grupperingsid shouldBe "DIALOGMOTE:tidligere-relasjon"
                 status shouldBe Saksstatus.FERDIG
+            }
+        }
+
+        test("an update whose case cannot be told is still sent") {
+            val publisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher).handle(
+                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
+            ) shouldBe DeliveryOutcome.Sent
+            publisher.caseExtensions shouldBe emptyList()
+        }
+
+        test("after an update with email, a failed follow-up is not retried, so no second email is sent") {
+            val publisher =
+                FakeArbeidsgiversakPublisher(
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke"),
+                ).apply { calendarEventCase = "DIALOGMOTE:$TEST_LEDERRELASJON_ID" }
+
+            handler(publisher, leaderRegistered()).handle(
+                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, email = PLAIN_EMAIL, saksstatus = Saksstatus.FERDIG)),
+            ) shouldBe DeliveryOutcome.Sent
+        }
+
+        test("without email, a failed follow-up is retried, since repeating the update is safe") {
+            val publisher =
+                FakeArbeidsgiversakPublisher(
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke"),
+                ).apply { calendarEventCase = "DIALOGMOTE:$TEST_LEDERRELASJON_ID" }
+
+            shouldThrow<ChannelHandlerFailure> {
+                handler(publisher).handle(
+                    delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
+                )
             }
         }
 
@@ -238,7 +279,7 @@ private fun handler(
     Arbeidsgiversaker(
         publisher,
         FakePersonnavnLookup(),
-        ArbeidsgiversakConfig("https://dinesykmeldte.test", "syntetisk-pseudonymnokkel-for-enhetstester"),
+        ArbeidsgiversakConfig("https://dinesykmeldte.test"),
         clock =
             object : Clock {
                 override fun now(): Instant = Instant.parse("2026-10-01T09:00:00Z")

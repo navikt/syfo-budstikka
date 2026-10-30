@@ -88,7 +88,8 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 KalenderavtaleUpdateRequest("sensitive-tag", "external-id", null, notificationText, leaderExternalVarsling, "external-id"),
                 SakResolution.Ready("grouping-id", "Dialogmøte"),
                 Saksmottaker.NarmesteLeder(TEST_LEDERRELASJON_ID, leader, employee),
-                Saksmottaker.AltinnRessurs("sensitive-resource", employee),
+                Saksmottaker.AltinnRessurs("sensitive-resource", employee, "sensitive-case-key"),
+                KalenderavtaleUpdateResponse.Updated("grouping-id"),
                 Personnavn(caseTitle, null, caseTitle),
             )
         val sensitiveValues =
@@ -110,6 +111,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 caseTitle,
                 address,
                 TEST_LEDERRELASJON_ID.toString(),
+                "sensitive-case-key",
             )
 
         values.forEach { value ->

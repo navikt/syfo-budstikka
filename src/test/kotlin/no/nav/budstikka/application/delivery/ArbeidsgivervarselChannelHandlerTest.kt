@@ -78,11 +78,11 @@ class ArbeidsgivervarselChannelHandlerTest :
 
             handler(publisher, casePublisher = casePublisher).handle(
                 delivery(create(AltinnResource("nav_syfo_dialogmote"), tag = null, saktype = Saktype.DIALOGMOTE)),
-            ) shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt must be set with saktype")
+            ) shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt and recipient.sakId must be set with saktype")
             handler(publisher, casePublisher = casePublisher).handle(
                 delivery(
                     create(
-                        AltinnResource("nav_syfo_dialogmote", sykmeldt = TEST_SYKMELDT),
+                        AltinnResource("nav_syfo_dialogmote", sykmeldt = TEST_SYKMELDT, sakId = "dialog-1"),
                         tag = null,
                         saktype = Saktype.OPPFOLGINGSPLAN,
                     ),
@@ -90,7 +90,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             ) shouldBe DeliveryOutcome.Sent
 
             publisher.requests.single().apply {
-                grupperingsid?.substringBeforeLast(':') shouldBe "OPPFOLGINGSPLAN:nav_syfo_dialogmote"
+                grupperingsid shouldBe "OPPFOLGINGSPLAN:nav_syfo_dialogmote:dialog-1"
                 tag shouldBe "Oppfølging"
             }
         }
@@ -418,7 +418,7 @@ private fun handler(
     Arbeidsgiversaker(
         casePublisher,
         FakePersonnavnLookup(),
-        ArbeidsgiversakConfig("https://dinesykmeldte.test", "syntetisk-pseudonymnokkel-for-enhetstester"),
+        ArbeidsgiversakConfig("https://dinesykmeldte.test"),
     ),
     lookup,
     metrics,

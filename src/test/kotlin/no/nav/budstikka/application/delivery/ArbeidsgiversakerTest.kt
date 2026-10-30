@@ -3,11 +3,8 @@ package no.nav.budstikka.application.delivery
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldHaveLength
 import io.kotest.matchers.string.shouldNotContain
-import io.kotest.matchers.string.shouldStartWith
-import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Saktype
@@ -17,7 +14,6 @@ import no.nav.budstikka.fakes.FakePersonnavnLookup
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
-import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -89,21 +85,16 @@ class ArbeidsgiversakerTest :
             publisher.caseCreates.single().tittel shouldBe "Oppfølgingsplan"
         }
 
-        test("an Altinn case is keyed on a stable pseudonym that reveals neither organisation nor Sykmeldt") {
+        test("an Altinn case is keyed on the resource and the producer's case key, without a link") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
-            val altinn = Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT)
+            val names =
+                FakePersonnavnLookup().apply { register(TEST_SYKMELDT, Personnavn("SYNTETISK", null, "SYKMELDT")) }
 
-            val first = saker(publisher).ensure(altinn) as SakResolution.Ready
-            val again = saker(FakeArbeidsgiversakPublisher()).ensure(altinn) as SakResolution.Ready
-            val other = saker(FakeArbeidsgiversakPublisher()).ensure(altinn.copy(sykmeldt = TEST_SYKMELDT_2)) as SakResolution.Ready
+            saker(publisher, names).ensure(Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT, "dialog-1")) shouldBe
+                SakResolution.Ready("DIALOGMOTE:nav_syfo_dialogmote:dialog-1", "Dialogmøte")
 
-            first.grupperingsid shouldStartWith "DIALOGMOTE:nav_syfo_dialogmote:"
-            first.grupperingsid.substringAfterLast(':') shouldHaveLength 32
-            first.grupperingsid shouldBe again.grupperingsid
-            first.grupperingsid shouldNotBe other.grupperingsid
-            first.grupperingsid shouldNotContain TEST_SYKMELDT.value
-            first.grupperingsid shouldNotContain TEST_ORGNUMMER.value
             publisher.caseCreates.single().apply {
+                tittel shouldBe "Dialogmøte med Syntetisk Sykmeldt"
                 lenke shouldBe null
                 recipient shouldBe ArbeidsgiverNotificationRecipient.AltinnRessurs("nav_syfo_dialogmote")
             }
@@ -161,16 +152,20 @@ class ArbeidsgiversakerTest :
             Personnavn("SYNTETISK", null, "SYKMELDT").toString() shouldNotContain "SYNTETISK"
         }
 
-        test("the configuration never shows the pseudonym key") {
-            CONFIG.toString() shouldNotContain CONFIG.pseudonymNokkel
-            CONFIG.toString().shouldBeInstanceOf<String>()
+        test("extends a known case from now and ignores a case that is already gone") {
+            val publisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Published, NOT_FOUND)
+            val sak = SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+
+            saker(publisher).extend(Channel.KALENDERAVTALE, sak, CORRELATION_ID) shouldBe null
+            saker(publisher).extend(Channel.KALENDERAVTALE, sak, CORRELATION_ID) shouldBe null
+
+            publisher.caseExtensions.first().keepUntil shouldBe FOUR_MONTHS_LATER
         }
     })
 
 private val CONFIG =
     ArbeidsgiversakConfig(
         dineSykmeldteUrl = "https://dinesykmeldte.test/sykmeldte/",
-        pseudonymNokkel = "syntetisk-pseudonymnokkel-for-enhetstester",
     )
 
 private fun saker(
