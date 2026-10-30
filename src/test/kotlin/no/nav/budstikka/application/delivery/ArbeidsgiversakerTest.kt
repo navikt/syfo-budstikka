@@ -9,6 +9,7 @@ import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
@@ -48,8 +49,8 @@ class ArbeidsgiversakerTest :
             names.lookups shouldBe 0
         }
 
-        test("a missing case is created with the Sykmeldt's name and a link to Dine Sykmeldte") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND)
+        test("a missing case is created with the Sykmeldt's name and a link to Dine Sykmeldte, then extended") {
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
             val names =
                 FakePersonnavnLookup().apply { register(TEST_SYKMELDT, Personnavn("SYNTETISK", null, "SYKMELDT")) }
 
@@ -66,6 +67,9 @@ class ArbeidsgiversakerTest :
                     recipient = ArbeidsgiverNotificationRecipient.NarmesteLeder(LEADER, TEST_SYKMELDT),
                     correlationId = CORRELATION_ID,
                 )
+            // A concurrent creation is answered as a replay that ignores its deletion time.
+            publisher.requests.last() shouldBe
+                ArbeidsgiversakExtendRequest("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte", FOUR_MONTHS_LATER, CORRELATION_ID)
         }
 
         test("the case lives four months past a later activity, such as a calendar event") {
@@ -77,16 +81,16 @@ class ArbeidsgiversakerTest :
         }
 
         test("the saktype decides the merkelapp, key and title") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND)
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
 
             saker(publisher).ensure(NL, saktype = Saktype.OPPFOLGINGSPLAN) shouldBe
                 SakResolution.Ready("OPPFOLGINGSPLAN:$TEST_LEDERRELASJON_ID", "Oppfølging")
 
-            publisher.caseCreates.single().tittel shouldBe "Oppfølging av sykmeldt"
+            publisher.caseCreates.single().tittel shouldBe "Oppfølgingsplan"
         }
 
         test("an Altinn case is keyed on a stable pseudonym that reveals neither organisation nor Sykmeldt") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND)
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
             val altinn = Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT)
 
             val first = saker(publisher).ensure(altinn) as SakResolution.Ready
@@ -106,7 +110,7 @@ class ArbeidsgiversakerTest :
         }
 
         test("a deleted case moves on to the next generation of its key") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, DELETED, NOT_FOUND)
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND, DELETED, NOT_FOUND)
             val names = FakePersonnavnLookup()
 
             saker(publisher, names).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
@@ -116,11 +120,13 @@ class ArbeidsgiversakerTest :
             names.lookups shouldBe 1
         }
 
-        test("an existing later generation is found by extending it") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, DELETED)
+        test("an existing next generation is found by extending it, without a name lookup or creation") {
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND)
+            val names = FakePersonnavnLookup()
 
-            saker(publisher).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
-            publisher.caseExtensions.map { it.grupperingsid }.last() shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID:2"
+            saker(publisher, names).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
+            publisher.caseCreates shouldBe emptyList()
+            names.lookups shouldBe 0
         }
 
         test("a rejection is terminal") {
@@ -130,14 +136,27 @@ class ArbeidsgiversakerTest :
         }
 
         test("a created case that is not visible yet is retried") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND, NOT_FOUND)
 
             shouldThrow<ChannelHandlerFailure> { saker(publisher).ensure(NL) }
+        }
+
+        test("sets the requested status on the case with the dispatch as idempotency key") {
+            val publisher = FakeArbeidsgiversakPublisher()
+            val sak = SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+
+            saker(publisher).setStatus(Channel.KALENDERAVTALE, sak, Saksstatus.FERDIG, CORRELATION_ID) shouldBe null
+
+            publisher.caseStatuses.single() shouldBe
+                ArbeidsgiversakStatusRequest("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte", Saksstatus.FERDIG, CORRELATION_ID)
+            saker(FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("Konflikt")))
+                .setStatus(Channel.KALENDERAVTALE, sak, Saksstatus.FERDIG, CORRELATION_ID) shouldBe DeliveryOutcome.Failed("Konflikt")
         }
 
         test("titles are capitalised per name part and capped at 140 characters") {
             Saktype.DIALOGMOTE.tittel(Personnavn("ANNE-MARIE", "von", "NORDMANN")) shouldBe "Dialogmøte med Anne-Marie Von Nordmann"
             Saktype.DIALOGMOTE.tittel(null) shouldBe "Dialogmøte"
+            Saktype.OPPFOLGINGSPLAN.tittel(Personnavn("SYNTETISK", null, "SYKMELDT")) shouldBe "Oppfølgingsplan for Syntetisk Sykmeldt"
             Saktype.DIALOGMOTE.tittel(Personnavn("A".repeat(200), null, "B")) shouldHaveLength 140
             Personnavn("SYNTETISK", null, "SYKMELDT").toString() shouldNotContain "SYNTETISK"
         }

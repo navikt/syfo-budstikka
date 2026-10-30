@@ -37,6 +37,9 @@ class ArbeidsgivervarselChannelHandler(
         if (saktype != null && create.tag != null) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be set with saktype")
         }
+        if (saktype == null && create.saksstatus != null) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL saksstatus needs a saktype")
+        }
         var saksmottaker: Saksmottaker? = null
         val notificationRecipient =
             when (val recipient = create.recipient) {
@@ -91,38 +94,39 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
-        val (grupperingsid, tag) =
-            if (saktype == null) {
-                create.sakstilknytning?.sakId to requireNotNull(create.tag)
-            } else {
+        val sak =
+            saktype?.let {
                 when (
-                    val sak =
+                    val resolution =
                         saker.ensure(
                             channel = Channel.ARBEIDSGIVERVARSEL,
-                            saktype = saktype,
+                            saktype = it,
                             virksomhetsnummer = create.orgnummer.value,
                             mottaker = requireNotNull(saksmottaker),
                             correlationId = delivery.correlationId(),
                             activityAt = create.visibleUntil,
                         )
                 ) {
-                    is SakResolution.Failed -> return sak.outcome
-                    is SakResolution.Ready -> sak.grupperingsid to sak.merkelapp
+                    is SakResolution.Failed -> return resolution.outcome
+                    is SakResolution.Ready -> resolution
                 }
             }
         val request =
             ArbeidsgiverNotificationRequest(
                 virksomhetsnummer = create.orgnummer.value,
                 eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
-                grupperingsid = grupperingsid,
-                tag = tag,
+                grupperingsid = sak?.grupperingsid ?: create.sakstilknytning?.sakId,
+                tag = sak?.merkelapp ?: requireNotNull(create.tag),
                 tekst = create.text,
                 lenke = create.link,
                 recipient = notificationRecipient,
                 meldingstype = create.meldingstype,
                 visibleUntil = create.visibleUntil,
             )
-        return publish(request).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
+        val outcome = publish(request).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
+        val status = create.saksstatus
+        if (outcome != DeliveryOutcome.Sent || sak == null || status == null) return outcome
+        return saker.setStatus(Channel.ARBEIDSGIVERVARSEL, sak, status, delivery.correlationId()) ?: outcome
     }
 
     private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =

@@ -69,25 +69,29 @@ class KalenderavtaleChannelHandler(
                 is SakResolution.Failed -> return resolution.outcome
                 is SakResolution.Ready -> resolution
             }
-        return withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "creating calendar event") {
-            publisher.createCalendarEvent(
-                KalenderavtaleCreateRequest(
-                    virksomhetsnummer = create.orgnummer.value,
-                    grupperingsid = sak.grupperingsid,
-                    tag = sak.merkelapp,
-                    eksternId = delivery.reference,
-                    tekst = create.text,
-                    lenke = create.link,
-                    startAt = create.startAt,
-                    endAt = create.endAt,
-                    lokasjon = create.lokasjon,
-                    erDigitalt = create.digital,
-                    tilstand = create.tilstand,
-                    recipient = leader.recipient,
-                    correlationId = delivery.correlationId(),
-                ),
-            )
-        }.toDeliveryOutcome(Channel.KALENDERAVTALE)
+        val outcome =
+            withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "creating calendar event") {
+                publisher.createCalendarEvent(
+                    KalenderavtaleCreateRequest(
+                        virksomhetsnummer = create.orgnummer.value,
+                        grupperingsid = sak.grupperingsid,
+                        tag = sak.merkelapp,
+                        eksternId = delivery.reference,
+                        tekst = create.text,
+                        lenke = create.link,
+                        startAt = create.startAt,
+                        endAt = create.endAt,
+                        lokasjon = create.lokasjon,
+                        erDigitalt = create.digital,
+                        tilstand = create.tilstand,
+                        recipient = leader.recipient,
+                        correlationId = delivery.correlationId(),
+                    ),
+                )
+            }.toDeliveryOutcome(Channel.KALENDERAVTALE)
+        val status = create.saksstatus
+        if (outcome != DeliveryOutcome.Sent || status == null) return outcome
+        return saker.setStatus(Channel.KALENDERAVTALE, sak, status, delivery.correlationId()) ?: outcome
     }
 
     private suspend fun update(
@@ -97,30 +101,54 @@ class KalenderavtaleChannelHandler(
         if ((update.text?.length ?: 0) > MAX_CALENDAR_TEXT_LENGTH) {
             return DeliveryOutcome.Failed("KALENDERAVTALE text must be at most $MAX_CALENDAR_TEXT_LENGTH characters")
         }
-        if (update.tilstand == null && update.text.isNullOrBlank() && !update.recipient.requestsEmail()) {
+        val status = update.saksstatus
+        if (update.tilstand == null && update.text.isNullOrBlank() && !update.recipient.requestsEmail() && status == null) {
             return DeliveryOutcome.Failed("KALENDERAVTALE update has no change")
         }
-        val externalVarsling =
-            if (update.recipient.requestsEmail()) {
+        val leader =
+            if (update.recipient.requestsEmail() || status != null) {
                 when (val resolved = resolveLeader(update.recipient, update.orgnummer)) {
                     is ResolvedRecipient.Failure -> return resolved.outcome
-                    is ResolvedRecipient.Leader -> resolved.recipient.externalVarsling
+                    is ResolvedRecipient.Leader -> resolved
                 }
             } else {
                 null
             }
-        return withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "updating calendar event") {
-            publisher.updateCalendarEvent(
-                KalenderavtaleUpdateRequest(
-                    tag = update.saktype.merkelapp,
-                    eksternId = delivery.reference,
-                    nyTilstand = update.tilstand,
-                    nyTekst = update.text,
-                    externalVarsling = externalVarsling,
-                    idempotencyKey = delivery.correlationId(),
-                ),
-            )
-        }.toDeliveryOutcome(Channel.KALENDERAVTALE)
+        val outcome =
+            withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "updating calendar event") {
+                publisher.updateCalendarEvent(
+                    KalenderavtaleUpdateRequest(
+                        tag = update.saktype.merkelapp,
+                        eksternId = delivery.reference,
+                        nyTilstand = update.tilstand,
+                        nyTekst = update.text,
+                        externalVarsling = leader?.recipient?.externalVarsling,
+                        idempotencyKey = delivery.correlationId(),
+                    ),
+                )
+            }.toDeliveryOutcome(Channel.KALENDERAVTALE)
+        if (outcome != DeliveryOutcome.Sent || status == null) return outcome
+        // The status goes on the current leader relation's case, where new content for the meeting goes.
+        val sak =
+            when (
+                val resolution =
+                    saker.ensure(
+                        channel = Channel.KALENDERAVTALE,
+                        saktype = update.saktype,
+                        virksomhetsnummer = update.orgnummer.value,
+                        mottaker =
+                            Saksmottaker.NarmesteLeder(
+                                relasjonId = requireNotNull(leader).relasjonId,
+                                narmesteLederFnr = leader.recipient.narmesteLederFnr,
+                                sykmeldt = leader.recipient.ansattFnr,
+                            ),
+                        correlationId = delivery.correlationId(),
+                    )
+            ) {
+                is SakResolution.Failed -> return resolution.outcome
+                is SakResolution.Ready -> resolution
+            }
+        return saker.setStatus(Channel.KALENDERAVTALE, sak, status, delivery.correlationId()) ?: outcome
     }
 
     private suspend fun resolveLeader(
@@ -181,7 +209,9 @@ class KalenderavtaleChannelHandler(
         data class Leader(
             val relasjonId: UUID,
             val recipient: ArbeidsgiverNotificationRecipient.NarmesteLeder,
-        ) : ResolvedRecipient
+        ) : ResolvedRecipient {
+            override fun toString(): String = "Leader(recipient=$recipient)"
+        }
 
         data class Failure(
             val outcome: DeliveryOutcome.Failed,

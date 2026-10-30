@@ -14,12 +14,14 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.delivery.ArbeidsgiversakCreateRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakExtendRequest
+import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
 import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.Kalenderavtalelokasjon
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
 import kotlin.time.Instant
@@ -137,6 +139,35 @@ class ArbeidsgiversakClientTest :
                             HttpStatusCode.OK,
                         )
                     }.extendCase(extendRequest()) shouldBe expected
+                }
+            }
+        }
+
+        context("nyStatusSakByGrupperingsid") {
+            test("sends the status with the dispatch as idempotency key") {
+                var body = ""
+                client { request ->
+                    body = (request.body as TextContent).text
+                    respond(
+                        """{"data":{"nyStatusSakByGrupperingsid":{"__typename":"NyStatusSakVellykket"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.setCaseStatus(ArbeidsgiversakStatusRequest("mote-1", "Dialogmøte", Saksstatus.FERDIG, "event-3")) shouldBe
+                    ArbeidsgiverNotificationResponse.Published
+
+                body shouldContain """"idempotencyKey":"event-3""""
+                body shouldContain """"nyStatus":"FERDIG""""
+                body shouldNotContain "hardDelete"
+            }
+
+            test("maps a missing case to a not-yet-available result") {
+                mapOf(
+                    "SakFinnesIkke" to ArbeidsgiverNotificationResponse.NotYetAvailable(NOT_FOUND + "SakFinnesIkke"),
+                    "Konflikt" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "Konflikt"),
+                ).forEach { (typeName, expected) ->
+                    client {
+                        respond("""{"data":{"nyStatusSakByGrupperingsid":{"__typename":"$typeName"}}}""", HttpStatusCode.OK)
+                    }.setCaseStatus(ArbeidsgiversakStatusRequest("mote-1", "Dialogmøte", Saksstatus.FERDIG, "event-3")) shouldBe expected
                 }
             }
         }

@@ -27,9 +27,19 @@ class PdlNavnTest :
             PdlClient.parseName("""{"data":{"hentPerson":null}}""") shouldBe null
         }
 
-        test("GraphQL errors fail the lookup instead of giving no name") {
+        test("failures carry neither the response nor its error messages") {
             shouldThrow<IllegalStateException> {
-                PdlClient.parseName("""{"errors":[{"message":"Ikke tilgang"}]}""")
+                PdlClient.parseName("""{"errors":[{"message":"Fant ikke SYNTETISK SYKMELDT"}]}""")
+            }.apply {
+                message shouldNotContain "SYNTETISK"
+                cause shouldBe null
             }
+            shouldThrow<IllegalStateException> {
+                PdlClient.parseName("""{"data":{"hentPerson":{"navn":[{"fornavn":"SYNTETISK"""")
+            }.apply {
+                message shouldNotContain "SYNTETISK"
+                cause shouldBe null
+            }
+            Name("SYNTETISK", null, "SYKMELDT").toString() shouldNotContain "SYNTETISK"
         }
     })

@@ -4,6 +4,7 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.delivery.ArbeidsgiversakCreateRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakExtendRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -28,6 +29,9 @@ class FakeArbeidsgiversakPublisher(
     val caseExtensions: List<ArbeidsgiversakExtendRequest>
         get() = recorded.filterIsInstance<ArbeidsgiversakExtendRequest>()
 
+    val caseStatuses: List<ArbeidsgiversakStatusRequest>
+        get() = recorded.filterIsInstance<ArbeidsgiversakStatusRequest>()
+
     val calendarCreates: List<KalenderavtaleCreateRequest>
         get() = recorded.filterIsInstance<KalenderavtaleCreateRequest>()
 
@@ -37,6 +41,8 @@ class FakeArbeidsgiversakPublisher(
     override suspend fun createCase(request: ArbeidsgiversakCreateRequest) = record(request)
 
     override suspend fun extendCase(request: ArbeidsgiversakExtendRequest) = record(request)
+
+    override suspend fun setCaseStatus(request: ArbeidsgiversakStatusRequest) = record(request)
 
     override suspend fun createCalendarEvent(request: KalenderavtaleCreateRequest) = record(request)
 

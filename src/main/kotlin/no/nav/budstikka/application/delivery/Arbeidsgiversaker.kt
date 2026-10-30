@@ -4,6 +4,7 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
 import java.util.UUID
@@ -39,32 +40,46 @@ class Arbeidsgiversaker(
         activityAt: Instant? = null,
     ): SakResolution {
         val base = saktype.name + ":" + mottaker.keyPart(virksomhetsnummer)
+        val merkelapp = saktype.merkelapp
         val keepUntil = maxOf(clock.now(), activityAt ?: clock.now()).plus(RETENTION_MONTHS, DateTimeUnit.MONTH, OSLO)
+
+        suspend fun extend(grupperingsid: String) =
+            withChannelHandlerFailureContext(channel, "extending case") {
+                publisher.extendCase(ArbeidsgiversakExtendRequest(grupperingsid, merkelapp, keepUntil, correlationId))
+            }
         var tittel: String? = null
-        for (generation in 1..MAX_GENERATIONS) {
-            val grupperingsid = if (generation == 1) base else "$base:$generation"
-            val extended =
-                withChannelHandlerFailureContext(channel, "extending case") {
-                    publisher.extendCase(ArbeidsgiversakExtendRequest(grupperingsid, saktype.merkelapp, keepUntil, correlationId))
+        var generation = 1
+        var knownMissing = false
+        while (generation <= MAX_GENERATIONS) {
+            val grupperingsid = key(base, generation)
+            if (!knownMissing) {
+                when (val extended = extend(grupperingsid)) {
+                    ArbeidsgiverNotificationResponse.Published -> return SakResolution.Ready(grupperingsid, merkelapp)
+                    is ArbeidsgiverNotificationResponse.Rejected -> return SakResolution.Failed(DeliveryOutcome.Failed(extended.reason))
+                    else -> Unit
                 }
-            when (extended) {
-                ArbeidsgiverNotificationResponse.Published -> return SakResolution.Ready(grupperingsid, saktype.merkelapp)
-                is ArbeidsgiverNotificationResponse.Rejected -> return SakResolution.Failed(DeliveryOutcome.Failed(extended.reason))
-                is ArbeidsgiverNotificationResponse.NotYetAvailable, is ArbeidsgiverNotificationResponse.CaseDeleted -> Unit
+            }
+            // A later generation exists only when this one is deleted; finding it skips the lookup and nySak.
+            if (generation < MAX_GENERATIONS) {
+                val next = key(base, generation + 1)
+                when (val extended = extend(next)) {
+                    ArbeidsgiverNotificationResponse.Published -> return SakResolution.Ready(next, merkelapp)
+                    is ArbeidsgiverNotificationResponse.Rejected -> return SakResolution.Failed(DeliveryOutcome.Failed(extended.reason))
+                    else -> Unit
+                }
             }
             val title =
                 tittel
-                    ?: saktype.tittel(
-                        withChannelHandlerFailureContext(channel, "looking up name") { personnavn.findName(mottaker.sykmeldt) },
-                    )
-            tittel = title
+                    ?: saktype
+                        .tittel(withChannelHandlerFailureContext(channel, "looking up name") { personnavn.findName(mottaker.sykmeldt) })
+                        .also { tittel = it }
             val created =
                 withChannelHandlerFailureContext(channel, "creating case") {
                     publisher.createCase(
                         ArbeidsgiversakCreateRequest(
                             virksomhetsnummer = virksomhetsnummer,
                             grupperingsid = grupperingsid,
-                            tag = saktype.merkelapp,
+                            tag = merkelapp,
                             tittel = title,
                             lenke = mottaker.link(),
                             keepUntil = keepUntil,
@@ -74,8 +89,16 @@ class Arbeidsgiversaker(
                     )
                 }
             when (created) {
-                ArbeidsgiverNotificationResponse.Published -> return SakResolution.Ready(grupperingsid, saktype.merkelapp)
-                is ArbeidsgiverNotificationResponse.CaseDeleted -> continue
+                // Fager answers a concurrent creation of the same case as a replay and ignores its
+                // deletion time, so the case is extended once more.
+                ArbeidsgiverNotificationResponse.Published -> {
+                    extend(grupperingsid)
+                    return SakResolution.Ready(grupperingsid, merkelapp)
+                }
+                is ArbeidsgiverNotificationResponse.CaseDeleted -> {
+                    generation++
+                    knownMissing = true
+                }
                 is ArbeidsgiverNotificationResponse.Rejected -> return SakResolution.Failed(DeliveryOutcome.Failed(created.reason))
                 is ArbeidsgiverNotificationResponse.NotYetAvailable ->
                     throw ChannelHandlerFailure(channel, "creating case", IllegalStateException(created.reason))
@@ -83,6 +106,28 @@ class Arbeidsgiversaker(
         }
         return SakResolution.Failed(DeliveryOutcome.Failed("${channel.name} case key has $MAX_GENERATIONS deleted generations"))
     }
+
+    /** Sets the status a producer asked for on [sak], after its content; `null` when it is set. */
+    suspend fun setStatus(
+        channel: Channel,
+        sak: SakResolution.Ready,
+        status: Saksstatus,
+        correlationId: String,
+    ): DeliveryOutcome.Failed? {
+        val response =
+            withChannelHandlerFailureContext(channel, "setting case status") {
+                publisher.setCaseStatus(ArbeidsgiversakStatusRequest(sak.grupperingsid, sak.merkelapp, status, correlationId))
+            }
+        return when (val outcome = response.toDeliveryOutcome(channel)) {
+            DeliveryOutcome.Sent -> null
+            is DeliveryOutcome.Failed -> outcome
+        }
+    }
+
+    private fun key(
+        base: String,
+        generation: Int,
+    ) = if (generation == 1) base else "$base:$generation"
 
     private fun Saksmottaker.keyPart(virksomhetsnummer: String): String =
         when (this) {
@@ -155,7 +200,9 @@ sealed interface SakResolution {
     data class Ready(
         val grupperingsid: String,
         val merkelapp: String,
-    ) : SakResolution
+    ) : SakResolution {
+        override fun toString(): String = "Ready(merkelapp=$merkelapp)"
+    }
 
     data class Failed(
         val outcome: DeliveryOutcome.Failed,
@@ -175,7 +222,7 @@ internal fun Saktype.tittel(navn: Personnavn?): String {
     val fulltNavn = navn?.fulltNavn
     return when (this) {
         Saktype.DIALOGMOTE -> fulltNavn?.let { "Dialogmøte med $it" } ?: "Dialogmøte"
-        Saktype.OPPFOLGINGSPLAN -> fulltNavn?.let { "Oppfølging av $it" } ?: "Oppfølging av sykmeldt"
+        Saktype.OPPFOLGINGSPLAN -> fulltNavn?.let { "Oppfølgingsplan for $it" } ?: "Oppfølgingsplan"
     }.take(MAX_CASE_TITLE_LENGTH)
 }
 

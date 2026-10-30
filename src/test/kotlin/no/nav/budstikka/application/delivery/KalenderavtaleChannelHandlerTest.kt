@@ -15,6 +15,7 @@ import no.nav.budstikka.contract.Kalenderavtalelokasjon
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
@@ -82,6 +83,36 @@ class KalenderavtaleChannelHandlerTest :
                     keepUntil = Instant.parse("2027-03-02T09:00:00Z"),
                     correlationId = EVENT_ID,
                 )
+        }
+
+        test("sets the requested case status after creating the event") {
+            val publisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher, leaderRegistered()).handle(
+                delivery(create().copy(saksstatus = Saksstatus.UNDER_BEHANDLING)),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.last() shouldBe
+                ArbeidsgiversakStatusRequest(
+                    "DIALOGMOTE:$TEST_LEDERRELASJON_ID",
+                    "Dialogmøte",
+                    Saksstatus.UNDER_BEHANDLING,
+                    EVENT_ID,
+                )
+        }
+
+        test("an update with a status sets it on the current leader relation's case") {
+            val publisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher, leaderRegistered()).handle(
+                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG)),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.calendarUpdates.single().nyTilstand shouldBe Kalenderavtaletilstand.AVLYST
+            publisher.caseStatuses.single().apply {
+                grupperingsid shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID"
+                status shouldBe Saksstatus.FERDIG
+            }
         }
 
         test("forwards explicit HTML email unchanged") {
@@ -238,11 +269,13 @@ private fun create(
 private fun update(
     tilstand: Kalenderavtaletilstand? = null,
     email: NarmesteLederExternalVarslingWire? = null,
+    saksstatus: Saksstatus? = null,
 ) = KalenderavtaleUpdate(
     orgnummer = TEST_ORGNUMMER,
     recipient = NarmesteLeder(TEST_SYKMELDT, email),
     saktype = Saktype.DIALOGMOTE,
     tilstand = tilstand,
+    saksstatus = saksstatus,
 )
 
 private fun delivery(payload: DispatchContent) =
