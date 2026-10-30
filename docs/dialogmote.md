@@ -64,11 +64,11 @@ Budstikka slår opp aktiv leder og e-postadresser ved utsending, og eier saken. 
 
 Ved nytt tidspunkt får lederen én e-post, på den nye avtalen, ikke to som i dag.
 
-**Lederbytte:** nytt innhold havner automatisk i den nye lederens sak. En oppdatering av en eksisterende avtale treffer avtalen i den gamle saken, mens e-post og status går til den nye lederen. Trenger produktet at den nye lederen ser avtalen, avlyser isdialogmote den gamle uten e-post og oppretter en ny.
+**Lederbytte:** nytt innhold havner automatisk i den nye lederens sak. En oppdatering av en eksisterende avtale treffer avtalen og dens status i den gamle saken, mens e-post går til den nye lederen. Trenger produktet at den nye lederen ser avtalen, avlyser isdialogmote den gamle uten e-post og oppretter en ny.
 
 ## Uten nærmeste leder
 
-`AG_VARSEL_ALTINN_RESSURS` sendes i dag av syfo-dokumentporten når isdialogmote mangler nærmeste leder. Dokumentporten skal bruke `arbeidsgivervarselCreate` med `Arbeidsgivervarsel.AltinnResource`, `sykmeldt` og `saktype = DIALOGMOTE`. Hvordan Altinn-saken nøkles, avklares i teamet.
+`AG_VARSEL_ALTINN_RESSURS` sendes i dag av syfo-dokumentporten når isdialogmote mangler nærmeste leder. Dokumentporten skal bruke `arbeidsgivervarselCreate` med `Arbeidsgivervarsel.AltinnResource`, `sykmeldt`, `saktype = DIALOGMOTE` og dialog-id-en sin som `sakId`, så alle varsler om samme ansatte og virksomhet havner i samme sak.
 
 ## Endringer fra esyfovarsel
 
