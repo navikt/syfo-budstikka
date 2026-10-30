@@ -13,7 +13,6 @@ import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 private val EVENT_ID = EventId(UUID.fromString("00000000-0000-4000-8000-0000000000a2"))
@@ -767,7 +766,6 @@ class ContractPrivacyTest :
 
             test("microfrontend visibleUntil outside the allowed window") {
                 listOf(
-                    Clock.System.now() - 1.minutes,
                     Clock.System.now() + 336.days,
                 ).forEach { visibleUntil ->
                     shouldThrow<IllegalArgumentException> {

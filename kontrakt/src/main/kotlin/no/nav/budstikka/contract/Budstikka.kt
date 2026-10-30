@@ -315,6 +315,7 @@ object Budstikka {
      *   deletes the notification. Omit to use the existing four-month retention period.
      * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
      *   hours.
+     * @param saksstatus optional status to set on the case after the notification.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -327,6 +328,7 @@ object Budstikka {
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
         encodeArbeidsgivervarsel(
             eventId = eventId,
@@ -334,6 +336,7 @@ object Budstikka {
             orgnummer = orgnummer,
             recipient = recipient.toWireRecipient(),
             saktype = saktype.toWire(),
+            saksstatus = saksstatus?.toWire(),
             text = text,
             link = link,
             messageType = messageType,
@@ -396,6 +399,7 @@ object Budstikka {
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
         encodeArbeidsgivervarsel(
             eventId = eventId,
@@ -403,6 +407,7 @@ object Budstikka {
             orgnummer = orgnummer,
             recipient = recipient.toHtmlWireRecipient(htmlEmail),
             saktype = saktype.toWire(),
+            saksstatus = saksstatus?.toWire(),
             text = text,
             link = link,
             messageType = messageType,
@@ -468,6 +473,7 @@ object Budstikka {
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch =
         encodeArbeidsgivervarsel(
             eventId = eventId,
@@ -478,6 +484,7 @@ object Budstikka {
                     sykmeldt = sykmeldt.also { it.requirePersonIdentifier("sykmeldt") },
                 ),
             saktype = saktype.toWire(),
+            saksstatus = saksstatus?.toWire(),
             text = text,
             link = link,
             messageType = messageType,
@@ -531,7 +538,7 @@ object Budstikka {
      * @param sykmeldt the person for whom Min side makes the microfrontend visible.
      * @param microfrontendId the id Min side knows the microfrontend by.
      * @param visibleUntil when Budstikka hides it again by sending a disable; omit to keep it until
-     *   disabled. Must be in the future and at most 335 days ahead. The last command for the same
+     *   disabled. At most 335 days ahead; a time that has passed hides it right away. The last command for the same
      *   `(sykmeldt, microfrontendId)` wins: a later enable or disable cancels a pending scheduled
      *   hide, and a new enable with a later [visibleUntil] extends the visibility.
      */
@@ -599,6 +606,7 @@ object Budstikka {
      * @param tilstand the initial state.
      * @param email optional email to the leader. It is sent during Arbeidsgivernotifikasjoner's
      *   contact-centre hours and is not sent if the event is cancelled first.
+     * @param saksstatus optional status to set on the case after the event.
      */
     fun kalenderavtaleCreate(
         eventId: EventId,
@@ -614,6 +622,7 @@ object Budstikka {
         digital: Boolean = false,
         tilstand: Kalenderavtale.Tilstand = Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
         email: Kalenderavtale.EmailNotification? = null,
+        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch {
         requireReference(reference)
         orgnummer.requireOrgnummer()
@@ -633,6 +642,7 @@ object Budstikka {
             lokasjon = lokasjon?.toWireLokasjon(),
             digital = digital,
             tilstand = tilstand.toWireTilstand(),
+            saksstatus = saksstatus?.toWire(),
         ).encode(eventId, reference)
     }
 
@@ -651,6 +661,7 @@ object Budstikka {
      * @param tilstand optional new state.
      * @param text optional new text, at most 300 characters.
      * @param email optional email to the leader about the change.
+     * @param saksstatus optional status to set on the current leader relation's case after the update.
      */
     fun kalenderavtaleUpdate(
         eventId: EventId,
@@ -661,14 +672,15 @@ object Budstikka {
         tilstand: Kalenderavtale.Tilstand? = null,
         text: String? = null,
         email: Kalenderavtale.EmailNotification? = null,
+        saksstatus: Arbeidsgiversak.Status? = null,
     ): EncodedDispatch {
         requireReference(reference)
         orgnummer.requireOrgnummer()
         sykmeldt.requirePersonIdentifier("sykmeldt")
         requireNullOrNotBlank(text, "text")
         text?.let { requireMaxLength(it, MAX_CALENDAR_TEXT_LENGTH, "text") }
-        require(tilstand != null || text != null || email != null) {
-            "tilstand, text or email must be set"
+        require(tilstand != null || text != null || email != null || saksstatus != null) {
+            "tilstand, text, email or saksstatus must be set"
         }
         return KalenderavtaleUpdate(
             orgnummer = orgnummer,
@@ -676,6 +688,7 @@ object Budstikka {
             saktype = saktype.toWire(),
             tilstand = tilstand?.toWireTilstand(),
             text = text,
+            saksstatus = saksstatus?.toWire(),
         ).encode(eventId, reference)
     }
 }
@@ -772,6 +785,7 @@ private fun encodeArbeidsgivervarsel(
     tag: String? = null,
     sakstilknytning: Sakstilknytning? = null,
     saktype: Saktype? = null,
+    saksstatus: Saksstatus? = null,
 ): EncodedDispatch {
     requireReference(reference)
     orgnummer.requireOrgnummer()
@@ -789,6 +803,7 @@ private fun encodeArbeidsgivervarsel(
         visibleUntil = visibleUntil,
         sendingWindow = sendingWindow,
         saktype = saktype,
+        saksstatus = saksstatus,
     ).encode(eventId, reference)
 }
 
@@ -881,11 +896,17 @@ private val MAX_MICROFRONTEND_VISIBILITY = 335.days
 
 private fun requireVisibleUntilWithinLimit(visibleUntil: Instant) {
     val now = Clock.System.now()
-    require(visibleUntil > now) { "visibleUntil must be in the future" }
     require(visibleUntil <= now + MAX_MICROFRONTEND_VISIBILITY) {
         "visibleUntil must be at most ${MAX_MICROFRONTEND_VISIBILITY.inWholeDays} days ahead"
     }
 }
+
+private fun Arbeidsgiversak.Status.toWire(): Saksstatus =
+    when (this) {
+        Arbeidsgiversak.Status.MOTTATT -> Saksstatus.MOTTATT
+        Arbeidsgiversak.Status.UNDER_BEHANDLING -> Saksstatus.UNDER_BEHANDLING
+        Arbeidsgiversak.Status.FERDIG -> Saksstatus.FERDIG
+    }
 
 private fun Arbeidsgiversak.Type.toWire(): Saktype =
     when (this) {

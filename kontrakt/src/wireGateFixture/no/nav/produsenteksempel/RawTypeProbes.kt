@@ -24,6 +24,7 @@ import no.nav.budstikka.contract.Microfrontend
 import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.contract.Sakstilknytning
 
@@ -54,5 +55,6 @@ typealias RawMicrofrontend = Microfrontend // opt-in-probe
 typealias RawMicrofrontendDisable = MicrofrontendDisable // opt-in-probe
 typealias RawMicrofrontendEnable = MicrofrontendEnable // opt-in-probe
 typealias RawNarmesteLeder = NarmesteLeder // opt-in-probe
+typealias RawSaksstatus = Saksstatus // opt-in-probe
 typealias RawSaktype = Saktype // opt-in-probe
 typealias RawSakstilknytning = Sakstilknytning // opt-in-probe
