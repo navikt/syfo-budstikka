@@ -10,6 +10,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import no.nav.budstikka.application.delivery.Personnavn
+import no.nav.budstikka.application.delivery.PersonnavnLookup
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
@@ -17,24 +19,28 @@ import no.nav.budstikka.infrastructure.client.config.PdlConfig
 import sharedJson
 
 /**
- * Looks up `doedsfall` through PDL and exposes only the result needed by [DeathLookup]. Authentication
- * uses a machine-to-machine token for [PdlConfig.scope].
+ * Looks up `doedsfall` and `navn` through PDL and exposes only what [DeathLookup] and
+ * [PersonnavnLookup] need. Authentication uses a machine-to-machine token for [PdlConfig.scope].
  */
 class PdlClient(
     private val httpClient: HttpClient,
     private val config: PdlConfig,
     private val tokenProvider: TokenProvider,
-) : DeathLookup {
-    override suspend fun isDead(ident: PersonIdentifier): Boolean {
+) : DeathLookup,
+    PersonnavnLookup {
+    override suspend fun isDead(ident: PersonIdentifier): Boolean = parseIsDead(query(personQuery(ident.value)))
+
+    override suspend fun findName(ident: PersonIdentifier): Personnavn? = parseName(query(nameQuery(ident.value)))
+
+    private suspend fun query(request: GraphqlRequest): String {
         val accessToken = tokenProvider.token(config.scope)
-        val response =
-            httpClient.post(config.url) {
+        return httpClient
+            .post(config.url) {
                 contentType(ContentType.Application.Json)
                 bearerAuth(accessToken)
                 header(BEHANDLINGSNUMMER_HEADER, config.behandlingsnummer)
-                setBody(sharedJson.encodeToString(personQuery(ident.value)))
-            }
-        return parseIsDead(response.bodyAsText())
+                setBody(sharedJson.encodeToString(request))
+            }.bodyAsText()
     }
 
     companion object {
@@ -43,8 +49,27 @@ class PdlClient(
         private const val HENT_PERSON_QUERY =
             "query(\$ident: ID!) { hentPerson(ident: \$ident) { doedsfall { doedsdato } } }"
 
+        private const val HENT_NAVN_QUERY =
+            "query(\$ident: ID!) { hentPerson(ident: \$ident) { navn { fornavn mellomnavn etternavn } } }"
+
         internal fun personQuery(ident: String): GraphqlRequest =
             GraphqlRequest(query = HENT_PERSON_QUERY, variables = GraphqlVariables(ident = ident))
+
+        internal fun nameQuery(ident: String): GraphqlRequest =
+            GraphqlRequest(query = HENT_NAVN_QUERY, variables = GraphqlVariables(ident = ident))
+
+        /** The current name, or `null` when PDL has none; throws on GraphQL `errors` like [parseIsDead]. */
+        internal fun parseName(responseBody: String): Personnavn? {
+            val response = sharedJson.decodeFromString<GraphqlResponse>(responseBody)
+            if (!response.errors.isNullOrEmpty()) {
+                error("PDL responded with errors: ${response.errors.joinToString { it.message }}")
+            }
+            return response.data
+                ?.fetchPerson
+                ?.names
+                ?.firstOrNull()
+                ?.let { Personnavn(fornavn = it.fornavn, mellomnavn = it.mellomnavn, etternavn = it.etternavn) }
+        }
 
         /**
          * Pure interpretation of the PDL response (testable without HTTP): dead = at least one
@@ -98,6 +123,15 @@ internal data class PdlData(
 internal data class FetchPerson(
     @SerialName("doedsfall")
     val deaths: List<Death>? = null,
+    @SerialName("navn")
+    val names: List<Name>? = null,
+)
+
+@Serializable
+internal data class Name(
+    val fornavn: String,
+    val mellomnavn: String? = null,
+    val etternavn: String,
 )
 
 @Serializable

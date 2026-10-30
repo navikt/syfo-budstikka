@@ -15,16 +15,17 @@ import no.nav.budstikka.contract.Kalenderavtalelokasjon
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Saksstatus
-import no.nav.budstikka.contract.Sakstilknytning
+import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
+import no.nav.budstikka.fakes.FakePersonnavnLookup
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
+import kotlin.time.Clock
 import kotlin.time.Instant
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling as NarmesteLederExternalVarslingWire
 
@@ -43,7 +44,7 @@ class KalenderavtaleChannelHandlerTest :
             publisher.calendarCreates.single() shouldBe
                 KalenderavtaleCreateRequest(
                     virksomhetsnummer = TEST_ORGNUMMER.value,
-                    grupperingsid = "mote-1:$TEST_LEDERRELASJON_ID",
+                    grupperingsid = "DIALOGMOTE:$TEST_LEDERRELASJON_ID",
                     tag = "Dialogmøte",
                     eksternId = "avtale-1",
                     tekst = "Dialogmøte med Test",
@@ -68,22 +69,17 @@ class KalenderavtaleChannelHandlerTest :
                 )
         }
 
-        test("ensures the case for the same leader, without the event's email, before the event") {
+        test("extends the leader relation's case to four months past the event before creating it") {
             val publisher = FakeArbeidsgiversakPublisher()
 
             handler(publisher, leaderRegistered()).handle(delivery(create(email = PLAIN_EMAIL))) shouldBe
                 DeliveryOutcome.Sent
 
             publisher.requests.first() shouldBe
-                ArbeidsgiversakCreateRequest(
-                    virksomhetsnummer = TEST_ORGNUMMER.value,
-                    grupperingsid = "mote-1:$TEST_LEDERRELASJON_ID",
+                ArbeidsgiversakExtendRequest(
+                    grupperingsid = "DIALOGMOTE:$TEST_LEDERRELASJON_ID",
                     tag = "Dialogmøte",
-                    tittel = "Dialogmøte",
-                    lenke = null,
-                    initiellStatus = Saksstatus.MOTTATT,
-                    hardDeleteAt = null,
-                    recipient = ArbeidsgiverNotificationRecipient.NarmesteLeder(LEADER, TEST_SYKMELDT),
+                    keepUntil = Instant.parse("2027-03-02T09:00:00Z"),
                     correlationId = EVENT_ID,
                 )
         }
@@ -140,19 +136,11 @@ class KalenderavtaleChannelHandlerTest :
         }
 
         test("stops before the event when the case cannot be ensured") {
-            val publisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("Konflikt"))
+            val publisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMerkelapp"))
 
             handler(publisher, leaderRegistered()).handle(delivery(create())) shouldBe
-                DeliveryOutcome.Failed("Konflikt")
+                DeliveryOutcome.Failed("UgyldigMerkelapp")
             publisher.calendarCreates shouldBe emptyList()
-        }
-
-        test("fails a create without a case title before any lookup") {
-            val publisher = FakeArbeidsgiversakPublisher()
-
-            handler(publisher).handle(delivery(create().copy(sakstilknytning = Sakstilknytning("mote-1")))) shouldBe
-                DeliveryOutcome.Failed("KALENDERAVTALE sakstilknytning.title must be set")
-            publisher.requests shouldBe emptyList()
         }
 
         test("updates the state without a leader lookup when no email is requested") {
@@ -214,7 +202,20 @@ private fun handler(
     publisher: FakeArbeidsgiversakPublisher,
     lookup: NarmesteLederLookup = FakeNarmesteLederLookup(),
     metrics: RecordingDeliveryMetrics = RecordingDeliveryMetrics(),
-) = KalenderavtaleChannelHandler(publisher, lookup, metrics)
+) = KalenderavtaleChannelHandler(
+    publisher,
+    Arbeidsgiversaker(
+        publisher,
+        FakePersonnavnLookup(),
+        ArbeidsgiversakConfig("https://dinesykmeldte.test", "syntetisk-pseudonymnokkel-for-enhetstester"),
+        clock =
+            object : Clock {
+                override fun now(): Instant = Instant.parse("2026-10-01T09:00:00Z")
+            },
+    ),
+    lookup,
+    metrics,
+)
 
 private fun leaderRegistered() =
     FakeNarmesteLederLookup().apply {
@@ -227,8 +228,7 @@ private fun create(
 ) = KalenderavtaleCreate(
     orgnummer = TEST_ORGNUMMER,
     recipient = recipient ?: NarmesteLeder(TEST_SYKMELDT, email),
-    tag = "Dialogmøte",
-    sakstilknytning = Sakstilknytning("mote-1", title = "Dialogmøte"),
+    saktype = Saktype.DIALOGMOTE,
     text = "Dialogmøte med Test",
     link = "https://nav.no/ag",
     startAt = Instant.parse("2026-11-02T09:00:00Z"),
@@ -241,7 +241,7 @@ private fun update(
 ) = KalenderavtaleUpdate(
     orgnummer = TEST_ORGNUMMER,
     recipient = NarmesteLeder(TEST_SYKMELDT, email),
-    tag = "Dialogmøte",
+    saktype = Saktype.DIALOGMOTE,
     tilstand = tilstand,
 )
 

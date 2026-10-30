@@ -2,17 +2,18 @@ package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.contract.Kalenderavtalelokasjon
 import no.nav.budstikka.contract.Kalenderavtaletilstand
-import no.nav.budstikka.contract.Saksstatus
 import kotlin.time.Instant
 
 /**
- * Producer-owned case and calendar objects in Arbeidsgivernotifikasjoner, addressed by the producer's
- * own keys ([grupperingsid] and eksternId) so budstikka stores no downstream ids.
+ * Cases and calendar events in Arbeidsgivernotifikasjoner, addressed by their keys ([grupperingsid]
+ * and eksternId) so budstikka stores no downstream ids.
  */
 interface ArbeidsgiversakPublisher {
+    /** Creates the case, or succeeds when it already exists; [ArbeidsgiverNotificationResponse.CaseDeleted] when the key is spent. */
     suspend fun createCase(request: ArbeidsgiversakCreateRequest): ArbeidsgiverNotificationResponse
 
-    suspend fun updateCaseStatus(request: ArbeidsgiversakStatusRequest): ArbeidsgiverNotificationResponse
+    /** Moves the case's deletion to at least [ArbeidsgiversakExtendRequest.keepUntil]; not yet available when no case has the key. */
+    suspend fun extendCase(request: ArbeidsgiversakExtendRequest): ArbeidsgiverNotificationResponse
 
     suspend fun createCalendarEvent(request: KalenderavtaleCreateRequest): ArbeidsgiverNotificationResponse
 
@@ -25,23 +26,20 @@ data class ArbeidsgiversakCreateRequest(
     val tag: String,
     val tittel: String,
     val lenke: String?,
-    val initiellStatus: Saksstatus,
-    val hardDeleteAt: Instant?,
+    val keepUntil: Instant,
     val recipient: ArbeidsgiverNotificationRecipient,
     val correlationId: String,
 ) {
-    override fun toString(): String = "ArbeidsgiversakCreateRequest(initiellStatus=$initiellStatus, recipient=$recipient)"
+    override fun toString(): String = "ArbeidsgiversakCreateRequest(recipient=$recipient, hasLenke=${lenke != null})"
 }
 
-data class ArbeidsgiversakStatusRequest(
+data class ArbeidsgiversakExtendRequest(
     val grupperingsid: String,
     val tag: String,
-    val status: Saksstatus,
-    val statustekst: String?,
-    val hardDeleteAt: Instant?,
-    val idempotencyKey: String,
+    val keepUntil: Instant,
+    val correlationId: String,
 ) {
-    override fun toString(): String = "ArbeidsgiversakStatusRequest(status=$status)"
+    override fun toString(): String = "ArbeidsgiversakExtendRequest()"
 }
 
 data class KalenderavtaleCreateRequest(

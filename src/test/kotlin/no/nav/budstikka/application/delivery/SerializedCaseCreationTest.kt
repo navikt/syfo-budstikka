@@ -6,10 +6,10 @@ import io.kotest.matchers.shouldNotBe
 import no.nav.budstikka.application.port.KeyedLock
 import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import kotlin.time.Instant
 
 class SerializedCaseCreationTest :
     FunSpec({
@@ -35,8 +35,8 @@ class SerializedCaseCreationTest :
             val delegate = FakeArbeidsgiversakPublisher()
             val publisher = SerializedCaseCreation(delegate, lock)
 
-            publisher.updateCaseStatus(
-                ArbeidsgiversakStatusRequest("mote-1", "Dialogmøte", Saksstatus.FERDIG, null, null, "event-1"),
+            publisher.extendCase(
+                ArbeidsgiversakExtendRequest("DIALOGMOTE:relasjon", "Dialogmøte", Instant.parse("2027-03-02T09:00:00Z"), "event-1"),
             )
             publisher.updateCalendarEvent(
                 KalenderavtaleUpdateRequest("Dialogmøte", "avtale-1", Kalenderavtaletilstand.AVLYST, null, null, "event-2"),
@@ -54,8 +54,7 @@ private fun caseCreate(grupperingsid: String) =
         tag = "Dialogmøte",
         tittel = "Dialogmøte",
         lenke = null,
-        initiellStatus = Saksstatus.MOTTATT,
-        hardDeleteAt = null,
+        keepUntil = Instant.parse("2027-03-02T09:00:00Z"),
         recipient = ArbeidsgiverNotificationRecipient.NarmesteLeder(PersonIdentifier("00000000000"), TEST_SYKMELDT),
         correlationId = "event-1",
     )

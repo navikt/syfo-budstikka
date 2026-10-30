@@ -7,6 +7,7 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.PersonnavnLookup
 import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
@@ -21,13 +22,15 @@ fun DependencyRegistry.clientModule() {
     }
     provide<ArbeidsgiverNotificationPublisher> { resolve<ArbeidsgiverNotifikasjonClient>() }
     provide<ArbeidsgiversakPublisher> { resolve<ArbeidsgiverNotifikasjonClient>() }
-    provide<DeathLookup> {
+    provide<PdlClient> {
         PdlClient(
             httpClient = resolve<HttpClient>(),
             config = resolve(),
             tokenProvider = resolve<TokenProvider>(),
         )
     }
+    provide<DeathLookup> { resolve<PdlClient>() }
+    provide<PersonnavnLookup> { resolve<PdlClient>() }
     provide<DocumentDistributor> {
         DocumentDistributionClient(
             httpClient = resolve<HttpClient>(),

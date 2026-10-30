@@ -6,7 +6,6 @@ import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.domain.decision.Channel
-import java.util.UUID
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
@@ -14,13 +13,13 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * the active leader at send time, so a deferred delivery follows leader changes without persisting
  * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
  * has already waited for budstikka's delivery window. A requested external notification without a
- * leader email fails the entire delivery terminally; it does not degrade to in-app only. A described
- * case is made to exist for the same recipient before the notification; for a Nærmeste leder the case
- * belongs to the leader relation. Closing remains a permanent failure.
+ * leader email fails the entire delivery terminally; it does not degrade to in-app only. With a
+ * saktype, the notification goes in the Budstikka-owned case of that type for the recipient; without
+ * one, it keeps the producer's tag and optional case link. Closing remains a permanent failure.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
-    private val casePublisher: ArbeidsgiversakPublisher,
+    private val saker: Arbeidsgiversaker,
     private val narmesteLederLookup: NarmesteLederLookup,
     private val metrics: DeliveryMetrics,
 ) : ChannelHandler {
@@ -31,14 +30,14 @@ class ArbeidsgivervarselChannelHandler(
         if (create.link.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         }
-        if (create.tag.isBlank()) {
+        val saktype = create.saktype
+        if (saktype == null && create.tag.isNullOrBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
         }
-        val sak = create.sakstilknytning
-        if (sak?.title != null) {
-            sak.invalidCaseDescription(Channel.ARBEIDSGIVERVARSEL)?.let { return it }
+        if (saktype != null && create.tag != null) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be set with saktype")
         }
-        var lederrelasjon: UUID? = null
+        var saksmottaker: Saksmottaker? = null
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource ->
@@ -52,7 +51,10 @@ class ArbeidsgivervarselChannelHandler(
                         return invalidExternalNotification("smsText")
                     } else if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
                         return invalidExternalEmailBody()
+                    } else if (saktype != null && recipient.sykmeldt == null) {
+                        return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt must be set with saktype")
                     } else {
+                        saksmottaker = recipient.sykmeldt?.let { Saksmottaker.AltinnRessurs(recipient.resource, it) }
                         recipient.toNotificationRecipient()
                     }
                 is NarmesteLederRecipient -> {
@@ -73,7 +75,7 @@ class ArbeidsgivervarselChannelHandler(
                     if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
                         return narmesteLederFailure(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
                     }
-                    lederrelasjon = relation.relasjonId
+                    saksmottaker = Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, recipient.sykmeldt)
                     ArbeidsgiverNotificationRecipient.NarmesteLeder(
                         narmesteLederFnr = relation.narmesteLederFnr,
                         ansattFnr = recipient.sykmeldt,
@@ -89,25 +91,31 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
-        val grupperingsid = sak?.grupperingsid(lederrelasjon)
-        if (sak?.title != null && grupperingsid != null) {
-            casePublisher
-                .ensureCase(
-                    channel = Channel.ARBEIDSGIVERVARSEL,
-                    sak = sak,
-                    grupperingsid = grupperingsid,
-                    virksomhetsnummer = create.orgnummer.value,
-                    tag = create.tag,
-                    recipient = notificationRecipient,
-                    correlationId = delivery.correlationId(),
-                )?.let { return it }
-        }
+        val (grupperingsid, tag) =
+            if (saktype == null) {
+                create.sakstilknytning?.sakId to requireNotNull(create.tag)
+            } else {
+                when (
+                    val sak =
+                        saker.ensure(
+                            channel = Channel.ARBEIDSGIVERVARSEL,
+                            saktype = saktype,
+                            virksomhetsnummer = create.orgnummer.value,
+                            mottaker = requireNotNull(saksmottaker),
+                            correlationId = delivery.correlationId(),
+                            activityAt = create.visibleUntil,
+                        )
+                ) {
+                    is SakResolution.Failed -> return sak.outcome
+                    is SakResolution.Ready -> sak.grupperingsid to sak.merkelapp
+                }
+            }
         val request =
             ArbeidsgiverNotificationRequest(
                 virksomhetsnummer = create.orgnummer.value,
                 eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
                 grupperingsid = grupperingsid,
-                tag = create.tag,
+                tag = tag,
                 tekst = create.text,
                 lenke = create.link,
                 recipient = notificationRecipient,
