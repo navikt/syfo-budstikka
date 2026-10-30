@@ -56,6 +56,13 @@ class ArbeidsgivervarselChannelHandler(
                         return invalidExternalEmailBody()
                     } else if (saktype != null && (recipient.sykmeldt == null || recipient.sakId.isNullOrBlank())) {
                         return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt and recipient.sakId must be set with saktype")
+                    } else if (
+                        saktype != null &&
+                        recipient.sykmeldt?.let { Saksmottaker.AltinnRessurs.isValidSakId(recipient.sakId.orEmpty(), it) } != true
+                    ) {
+                        return DeliveryOutcome.Failed(
+                            "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident",
+                        )
                     } else {
                         saksmottaker =
                             recipient.sykmeldt?.let { sykmeldt ->

@@ -7,7 +7,6 @@ import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
 import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
-import no.nav.budstikka.application.delivery.KalenderavtaleUpdateResponse
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -47,14 +46,7 @@ class FakeArbeidsgiversakPublisher(
 
     override suspend fun createCalendarEvent(request: KalenderavtaleCreateRequest) = record(request)
 
-    /** The case an updated calendar event lives in, as Fager would tell it. */
-    var calendarEventCase: String? = null
-
-    override suspend fun updateCalendarEvent(request: KalenderavtaleUpdateRequest): KalenderavtaleUpdateResponse =
-        when (val response = record(request)) {
-            ArbeidsgiverNotificationResponse.Published -> KalenderavtaleUpdateResponse.Updated(calendarEventCase)
-            else -> KalenderavtaleUpdateResponse.NotUpdated(response)
-        }
+    override suspend fun updateCalendarEvent(request: KalenderavtaleUpdateRequest) = record(request)
 
     private fun record(request: Any): ArbeidsgiverNotificationResponse {
         recorded += request

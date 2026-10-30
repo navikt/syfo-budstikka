@@ -548,31 +548,52 @@ class BudstikkaProducerApiTest :
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                        recipient =
+                            Arbeidsgivervarsel.AltinnResource(
+                                "nav_syfo_dialogmote",
+                                Arbeidsgivervarsel.AltinnExternalNotification("Tittel", "E-post", "SMS"),
+                            ),
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         sakId = "dialog-1",
                         saktype = Arbeidsgiversak.Type.DIALOGMOTE,
                         text = SYNTHETIC_TEXT,
                         link = "https://nav.no/ag",
                     ).value shouldContain
-                    """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote","externalVarsling":null,""" +
+                    """"mottaker":{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                    """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post","smsText":"SMS"},""" +
                     """"sykmeldt":"00000000000","sakId":"dialog-1"}"""
             }
 
-            test("an Altinn case key must not be blank") {
-                shouldThrow<IllegalArgumentException> {
-                    Budstikka.arbeidsgivervarselCreate(
-                        eventId = EVENT_ID,
-                        reference = REFERENCE,
-                        orgnummer = SYNTHETIC_ORGNUMMER,
-                        recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
-                        sykmeldt = SYNTHETIC_SYKMELDT,
-                        sakId = " ",
-                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
-                        text = SYNTHETIC_TEXT,
-                        link = "https://nav.no/ag",
-                    )
-                }.message shouldBe "sakId must not be blank"
+            fun altinnWithSakId(sakId: String) =
+                Budstikka.arbeidsgivervarselCreate(
+                    eventId = EVENT_ID,
+                    reference = REFERENCE,
+                    orgnummer = SYNTHETIC_ORGNUMMER,
+                    recipient = Arbeidsgivervarsel.AltinnResource("nav_syfo_dialogmote"),
+                    sykmeldt = SYNTHETIC_SYKMELDT,
+                    sakId = sakId,
+                    saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                    text = SYNTHETIC_TEXT,
+                    link = "https://nav.no/ag",
+                )
+
+            test("an Altinn case key may be a number or a UUID") {
+                altinnWithSakId("4711").value shouldContain """"sakId":"4711""""
+                altinnWithSakId("0f8fad5b-d9cb-469f-a165-a1b2c3d4e5f6").value shouldContain "\"sakId\":\"0f8fad5b"
+            }
+
+            listOf(" ", "", "dialog:2", "dialog 1", "x".repeat(65)).forEach { sakId ->
+                test("an Altinn case key of [$sakId] is rejected without echoing it") {
+                    shouldThrow<IllegalArgumentException> { altinnWithSakId(sakId) }.message shouldBe
+                        "sakId must be 1-64 letters, digits, '-' or '_'"
+                }
+            }
+
+            mapOf("11 digits" to "1".repeat(11), "the Sykmeldt" to "dialog-${SYNTHETIC_SYKMELDT.value}").forEach { (what, sakId) ->
+                test("an Altinn case key containing $what is rejected without echoing it") {
+                    shouldThrow<IllegalArgumentException> { altinnWithSakId(sakId) }.message shouldBe
+                        "sakId must not be a personident"
+                }
             }
 
             listOf(
@@ -602,14 +623,16 @@ class BudstikkaProducerApiTest :
                 Arbeidsgiversak.Status.FERDIG to "FERDIG",
             ).also { pairs -> pairs.map { it.first }.toSet() shouldBe Arbeidsgiversak.Status.entries.toSet() }
                 .forEach { (status, wireValue) ->
-                    test("saksstatus $status maps to $wireValue on a calendar update") {
+                    test("saksstatus $status maps to $wireValue") {
                         Budstikka
-                            .kalenderavtaleUpdate(
+                            .arbeidsgivervarselCreate(
                                 eventId = EVENT_ID,
                                 reference = REFERENCE,
                                 orgnummer = SYNTHETIC_ORGNUMMER,
-                                sykmeldt = SYNTHETIC_SYKMELDT,
+                                recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
                                 saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                                text = SYNTHETIC_TEXT,
+                                link = "https://nav.no/ag",
                                 saksstatus = status,
                             ).value shouldContain """"saksstatus":"$wireValue""""
                     }
@@ -659,6 +682,29 @@ class BudstikkaProducerApiTest :
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"E-post"}},"saktype":"DIALOGMOTE",""" +
                     """"tilstand":"AVLYST","text":null}}"""
+            }
+
+            test("an update may carry a case status, but not on its own") {
+                Budstikka
+                    .kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        tilstand = Kalenderavtale.Tilstand.AVLYST,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    ).value shouldContain """text":null,"saksstatus":"FERDIG"}}"""
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.kalenderavtaleUpdate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        saktype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        saksstatus = Arbeidsgiversak.Status.FERDIG,
+                    )
+                }.message shouldBe "tilstand, text or email must be set"
             }
 
             listOf(

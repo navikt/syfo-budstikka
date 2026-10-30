@@ -90,8 +90,28 @@ class ArbeidsgivervarselChannelHandlerTest :
             ) shouldBe DeliveryOutcome.Sent
 
             publisher.requests.single().apply {
-                grupperingsid shouldBe "OPPFOLGINGSPLAN:nav_syfo_dialogmote:dialog-1"
+                grupperingsid shouldBe "OPPFOLGINGSPLAN:nav_syfo_dialogmote:${TEST_ORGNUMMER.value}:dialog-1"
                 tag shouldBe "Oppfølging"
+            }
+        }
+
+        listOf("dialog:2", "x".repeat(65), "1".repeat(11), "dialog-${TEST_SYKMELDT.value}").forEachIndexed { index, sakId ->
+            test("an Altinn case key that could break the key or reveal a personident is rejected (#$index)") {
+                val casePublisher = FakeArbeidsgiversakPublisher()
+
+                handler(RecordingPublisher(), casePublisher = casePublisher).handle(
+                    delivery(
+                        create(
+                            AltinnResource("nav_syfo_dialogmote", sykmeldt = TEST_SYKMELDT, sakId = sakId),
+                            tag = null,
+                            saktype = Saktype.DIALOGMOTE,
+                        ),
+                    ),
+                ) shouldBe
+                    DeliveryOutcome.Failed(
+                        "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident",
+                    )
+                casePublisher.requests shouldBe emptyList()
             }
         }
 

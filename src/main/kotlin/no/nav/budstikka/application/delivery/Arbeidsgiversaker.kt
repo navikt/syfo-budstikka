@@ -37,7 +37,7 @@ class Arbeidsgiversaker(
         correlationId: String,
         activityAt: Instant? = null,
     ): SakResolution {
-        val base = saktype.name + ":" + mottaker.keyPart()
+        val base = saktype.name + ":" + mottaker.keyPart(virksomhetsnummer)
         val merkelapp = saktype.merkelapp
         val keepUntil = maxOf(clock.now(), activityAt ?: clock.now()).plus(RETENTION_MONTHS, DateTimeUnit.MONTH, OSLO)
 
@@ -105,21 +105,7 @@ class Arbeidsgiversaker(
         return SakResolution.Failed(DeliveryOutcome.Failed("${channel.name} case key has $MAX_GENERATIONS deleted generations"))
     }
 
-    /** Extends [sak] to four months from now; `null` when done or when the case is already gone. */
-    suspend fun extend(
-        channel: Channel,
-        sak: SakResolution.Ready,
-        correlationId: String,
-    ): DeliveryOutcome.Failed? {
-        val keepUntil = clock.now().plus(RETENTION_MONTHS, DateTimeUnit.MONTH, OSLO)
-        val response =
-            withChannelHandlerFailureContext(channel, "extending case") {
-                publisher.extendCase(ArbeidsgiversakExtendRequest(sak.grupperingsid, sak.merkelapp, keepUntil, correlationId))
-            }
-        return (response as? ArbeidsgiverNotificationResponse.Rejected)?.let { DeliveryOutcome.Failed(it.reason) }
-    }
-
-    /** Sets the status a producer asked for on [sak], after its content; `null` when it is set. */
+    /** Sets the status a producer asked for on [sak]; `null` when it is set. */
     suspend fun setStatus(
         channel: Channel,
         sak: SakResolution.Ready,
@@ -141,10 +127,10 @@ class Arbeidsgiversaker(
         generation: Int,
     ) = if (generation == 1) base else "$base:$generation"
 
-    private fun Saksmottaker.keyPart(): String =
+    private fun Saksmottaker.keyPart(virksomhetsnummer: String): String =
         when (this) {
             is Saksmottaker.NarmesteLeder -> relasjonId.toString()
-            is Saksmottaker.AltinnRessurs -> "$ressurs:$sakId"
+            is Saksmottaker.AltinnRessurs -> "$ressurs:$virksomhetsnummer:$sakId"
         }
 
     private fun Saksmottaker.link(): String? =
@@ -185,6 +171,17 @@ sealed interface Saksmottaker {
         val sakId: String,
     ) : Saksmottaker {
         override fun toString(): String = "AltinnRessurs()"
+
+        companion object {
+            private val SAK_ID = Regex("[A-Za-z0-9_-]{1,64}")
+            private val ELEVEN_DIGITS = Regex("[0-9]{11}")
+
+            /** No key separators, and never a personident, since the employer can see the case key. */
+            fun isValidSakId(
+                sakId: String,
+                sykmeldt: PersonIdentifier,
+            ): Boolean = sakId.matches(SAK_ID) && sykmeldt.value !in sakId && !sakId.matches(ELEVEN_DIGITS)
+        }
     }
 }
 

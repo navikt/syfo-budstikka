@@ -85,13 +85,13 @@ class ArbeidsgiversakerTest :
             publisher.caseCreates.single().tittel shouldBe "Oppfølgingsplan"
         }
 
-        test("an Altinn case is keyed on the resource and the producer's case key, without a link") {
+        test("an Altinn case is keyed on the resource, the organisation and the producer's case key, without a link") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
             val names =
                 FakePersonnavnLookup().apply { register(TEST_SYKMELDT, Personnavn("SYNTETISK", null, "SYKMELDT")) }
 
             saker(publisher, names).ensure(Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT, "dialog-1")) shouldBe
-                SakResolution.Ready("DIALOGMOTE:nav_syfo_dialogmote:dialog-1", "Dialogmøte")
+                SakResolution.Ready("DIALOGMOTE:nav_syfo_dialogmote:${TEST_ORGNUMMER.value}:dialog-1", "Dialogmøte")
 
             publisher.caseCreates.single().apply {
                 tittel shouldBe "Dialogmøte med Syntetisk Sykmeldt"
@@ -152,14 +152,12 @@ class ArbeidsgiversakerTest :
             Personnavn("SYNTETISK", null, "SYKMELDT").toString() shouldNotContain "SYNTETISK"
         }
 
-        test("extends a known case from now and ignores a case that is already gone") {
-            val publisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Published, NOT_FOUND)
-            val sak = SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
-
-            saker(publisher).extend(Channel.KALENDERAVTALE, sak, CORRELATION_ID) shouldBe null
-            saker(publisher).extend(Channel.KALENDERAVTALE, sak, CORRELATION_ID) shouldBe null
-
-            publisher.caseExtensions.first().keepUntil shouldBe FOUR_MONTHS_LATER
+        test("an Altinn case key has no separators and is never a personident") {
+            Saksmottaker.AltinnRessurs.isValidSakId("4711", TEST_SYKMELDT) shouldBe true
+            Saksmottaker.AltinnRessurs.isValidSakId("0f8fad5b-d9cb-469f-a165-a1b2c3d4e5f6", TEST_SYKMELDT) shouldBe true
+            listOf("", "dialog:2", "dialog 2", "x".repeat(65), "1".repeat(11), "dialog-${TEST_SYKMELDT.value}").forEach {
+                Saksmottaker.AltinnRessurs.isValidSakId(it, TEST_SYKMELDT) shouldBe false
+            }
         }
     })
 
