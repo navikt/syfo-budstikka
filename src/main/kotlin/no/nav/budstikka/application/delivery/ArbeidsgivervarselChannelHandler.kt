@@ -13,11 +13,13 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * the active leader at send time, so a deferred delivery follows leader changes without persisting
  * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
  * has already waited for budstikka's delivery window. A requested external notification without a
- * leader email fails the entire delivery terminally; it does not degrade to in-app only. Closing
- * remains a permanent failure.
+ * leader email fails the entire delivery terminally; it does not degrade to in-app only. With a
+ * saktype, the notification goes in the Budstikka-owned case of that type for the recipient; without
+ * one, it keeps the producer's tag and optional case link. Closing remains a permanent failure.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
+    private val saker: Arbeidsgiversaker,
     private val narmesteLederLookup: NarmesteLederLookup,
     private val metrics: DeliveryMetrics,
 ) : ChannelHandler {
@@ -28,9 +30,17 @@ class ArbeidsgivervarselChannelHandler(
         if (create.link.isBlank()) {
             return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         }
-        val tag =
-            create.tag?.takeUnless { it.isBlank() }
-                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
+        val saktype = create.saktype
+        if (saktype == null && create.tag.isNullOrBlank()) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
+        }
+        if (saktype != null && create.tag != null) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be set with saktype")
+        }
+        if (saktype == null && create.saksstatus != null) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL saksstatus needs a saktype")
+        }
+        var saksmottaker: Saksmottaker? = null
         val notificationRecipient =
             when (val recipient = create.recipient) {
                 is AltinnResource ->
@@ -44,7 +54,20 @@ class ArbeidsgivervarselChannelHandler(
                         return invalidExternalNotification("smsText")
                     } else if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
                         return invalidExternalEmailBody()
+                    } else if (saktype != null && (recipient.sykmeldt == null || recipient.sakId.isNullOrBlank())) {
+                        return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt and recipient.sakId must be set with saktype")
+                    } else if (
+                        saktype != null &&
+                        recipient.sykmeldt?.let { Saksmottaker.AltinnRessurs.isValidSakId(recipient.sakId.orEmpty(), it) } != true
+                    ) {
+                        return DeliveryOutcome.Failed(
+                            "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident",
+                        )
                     } else {
+                        saksmottaker =
+                            recipient.sykmeldt?.let { sykmeldt ->
+                                recipient.sakId?.let { Saksmottaker.AltinnRessurs(recipient.resource, sykmeldt, it) }
+                            }
                         recipient.toNotificationRecipient()
                     }
                 is NarmesteLederRecipient -> {
@@ -65,6 +88,7 @@ class ArbeidsgivervarselChannelHandler(
                     if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
                         return narmesteLederFailure(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
                     }
+                    saksmottaker = Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, recipient.sykmeldt)
                     ArbeidsgiverNotificationRecipient.NarmesteLeder(
                         narmesteLederFnr = relation.narmesteLederFnr,
                         ansattFnr = recipient.sykmeldt,
@@ -80,28 +104,45 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
-        return when (
-            val response =
-                withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
-                    publisher.publish(
-                        ArbeidsgiverNotificationRequest(
+        val sak =
+            saktype?.let {
+                when (
+                    val resolution =
+                        saker.ensure(
+                            channel = Channel.ARBEIDSGIVERVARSEL,
+                            saktype = it,
                             virksomhetsnummer = create.orgnummer.value,
-                            eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
-                            grupperingsid = create.sakstilknytning?.sakId,
-                            tag = tag,
-                            tekst = create.text,
-                            lenke = create.link,
-                            recipient = notificationRecipient,
-                            meldingstype = create.meldingstype,
-                            visibleUntil = create.visibleUntil,
-                        ),
-                    )
+                            mottaker = requireNotNull(saksmottaker),
+                            correlationId = delivery.correlationId(),
+                            activityAt = create.visibleUntil,
+                        )
+                ) {
+                    is SakResolution.Failed -> return resolution.outcome
+                    is SakResolution.Ready -> resolution
                 }
-        ) {
-            ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
-            is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
-        }
+            }
+        val request =
+            ArbeidsgiverNotificationRequest(
+                virksomhetsnummer = create.orgnummer.value,
+                eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
+                grupperingsid = sak?.grupperingsid ?: create.sakstilknytning?.sakId,
+                tag = sak?.merkelapp ?: requireNotNull(create.tag),
+                tekst = create.text,
+                lenke = create.link,
+                recipient = notificationRecipient,
+                meldingstype = create.meldingstype,
+                visibleUntil = create.visibleUntil,
+            )
+        val outcome = publish(request).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
+        val status = create.saksstatus
+        if (outcome != DeliveryOutcome.Sent || sak == null || status == null) return outcome
+        return saker.setStatus(Channel.ARBEIDSGIVERVARSEL, sak, status, delivery.correlationId()) ?: outcome
     }
+
+    private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
+        withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
+            publisher.publish(request)
+        }
 
     private fun AltinnResource.toNotificationRecipient() =
         ArbeidsgiverNotificationRecipient.AltinnRessurs(
@@ -142,7 +183,7 @@ class ArbeidsgivervarselChannelHandler(
         }
 }
 
-private fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
+internal fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
     resolveEmailHtmlBody(emailText, emailBodyFormat)
 
 private fun no.nav.budstikka.contract.AltinnExternalVarsling.resolvedEmailHtmlBody(): String? =

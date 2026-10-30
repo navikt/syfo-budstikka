@@ -1,0 +1,19 @@
+query HentSak($id: ID!) {
+  hentSak(id: $id) {
+    ... on HentetSak {
+      sak {
+        virksomhetsnummer
+        grupperingsid
+      }
+    }
+    ... on SakFinnesIkke {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+  }
+}

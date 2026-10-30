@@ -90,4 +90,6 @@ spec:
       value: http://esyfo-narmesteleder.team-esyfo
     - name: NARMESTELEDER_SCOPE
       value: api://dev-gcp.team-esyfo.esyfo-narmesteleder/.default
+    - name: BASE_URL_DINE_SYKMELDTE
+      value: https://www.ekstern.dev.nav.no/arbeidsgiver/sykmeldte
   # DEFERRED (remaining Auth & ACL): tokenx inbound.

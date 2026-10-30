@@ -4,6 +4,9 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgiversakConfig
+import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
+import no.nav.budstikka.application.delivery.Arbeidsgiversaker
 import no.nav.budstikka.application.delivery.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
@@ -13,12 +16,15 @@ import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.DittSykefravaerChannelHandler
 import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
+import no.nav.budstikka.application.delivery.KalenderavtaleChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.PersonnavnLookup
+import no.nav.budstikka.application.delivery.SerializedCaseCreation
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.inbox.InboxMetrics
@@ -27,6 +33,7 @@ import no.nav.budstikka.application.observability.OperationalQueueSnapshotReposi
 import no.nav.budstikka.application.observability.OperationalQueueSnapshotWorker
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.KeyedLock
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.retention.RetentionMetrics
 import no.nav.budstikka.application.retention.RetentionRepository
@@ -49,6 +56,8 @@ fun DependencyRegistry.workerModule() {
         )
     }
     provide<Map<Channel, ChannelHandler>> {
+        val casePublisher = SerializedCaseCreation(resolve<ArbeidsgiversakPublisher>(), resolve<KeyedLock>())
+        val saker = Arbeidsgiversaker(casePublisher, resolve<PersonnavnLookup>(), resolve<ArbeidsgiversakConfig>())
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
@@ -58,6 +67,14 @@ fun DependencyRegistry.workerModule() {
             Channel.ARBEIDSGIVERVARSEL to
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
+                    saker = saker,
+                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
+                    metrics = resolve<DeliveryMetrics>(),
+                ),
+            Channel.KALENDERAVTALE to
+                KalenderavtaleChannelHandler(
+                    publisher = casePublisher,
+                    saker = saker,
                     narmesteLederLookup = resolve<NarmesteLederLookup>(),
                     metrics = resolve<DeliveryMetrics>(),
                 ),

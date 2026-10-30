@@ -15,8 +15,14 @@ import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
+import no.nav.budstikka.contract.Sakstilknytning
+import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
+import no.nav.budstikka.fakes.FakePersonnavnLookup
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
+import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
@@ -41,6 +47,133 @@ class ArbeidsgivervarselChannelHandlerTest :
                     meldingstype = no.nav.budstikka.contract.ArbeidsgiverMeldingstype.BESKJED,
                     visibleUntil = null,
                 )
+        }
+
+        test("a saktype puts the notification in the leader relation's case with its merkelapp") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+            val lookup =
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID))
+
+            handler(publisher, lookup, casePublisher = casePublisher).handle(
+                delivery(
+                    create(
+                        NarmesteLeder(TEST_SYKMELDT, NarmesteLederExternalVarsling("Tittel", "Tekst")),
+                        tag = null,
+                        saktype = Saktype.DIALOGMOTE,
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
+
+            casePublisher.caseExtensions.single().grupperingsid shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID"
+            publisher.requests.single().apply {
+                grupperingsid shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID"
+                tag shouldBe "Dialogmøte"
+            }
+        }
+
+        test("a saktype for an Altinn resource needs the Sykmeldt the case is about") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher, casePublisher = casePublisher).handle(
+                delivery(create(AltinnResource("nav_syfo_dialogmote"), tag = null, saktype = Saktype.DIALOGMOTE)),
+            ) shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt and recipient.sakId must be set with saktype")
+            handler(publisher, casePublisher = casePublisher).handle(
+                delivery(
+                    create(
+                        AltinnResource("nav_syfo_dialogmote", sykmeldt = TEST_SYKMELDT, sakId = "dialog-1"),
+                        tag = null,
+                        saktype = Saktype.OPPFOLGINGSPLAN,
+                    ),
+                ),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().apply {
+                grupperingsid shouldBe "OPPFOLGINGSPLAN:nav_syfo_dialogmote:${TEST_ORGNUMMER.value}:dialog-1"
+                tag shouldBe "Oppfølging"
+            }
+        }
+
+        listOf("dialog:2", "x".repeat(65), "1".repeat(11), "dialog-${TEST_SYKMELDT.value}").forEachIndexed { index, sakId ->
+            test("an Altinn case key that could break the key or reveal a personident is rejected (#$index)") {
+                val casePublisher = FakeArbeidsgiversakPublisher()
+
+                handler(RecordingPublisher(), casePublisher = casePublisher).handle(
+                    delivery(
+                        create(
+                            AltinnResource("nav_syfo_dialogmote", sykmeldt = TEST_SYKMELDT, sakId = sakId),
+                            tag = null,
+                            saktype = Saktype.DIALOGMOTE,
+                        ),
+                    ),
+                ) shouldBe
+                    DeliveryOutcome.Failed(
+                        "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident",
+                    )
+                casePublisher.requests shouldBe emptyList()
+            }
+        }
+
+        test("does not publish when the case cannot be ensured") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMerkelapp"))
+            val lookup = FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID))
+
+            handler(publisher, lookup, casePublisher = casePublisher).handle(
+                delivery(create(NarmesteLeder(TEST_SYKMELDT), tag = null, saktype = Saktype.DIALOGMOTE)),
+            ) shouldBe DeliveryOutcome.Failed("UgyldigMerkelapp")
+            publisher.requests shouldBe emptyList()
+        }
+
+        test("sets the requested case status after the notification") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+            val lookup = FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID))
+
+            handler(publisher, lookup, casePublisher = casePublisher).handle(
+                delivery(create(NarmesteLeder(TEST_SYKMELDT), tag = null, saktype = Saktype.DIALOGMOTE, saksstatus = Saksstatus.FERDIG)),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.size shouldBe 1
+            casePublisher.caseStatuses.single().apply {
+                grupperingsid shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID"
+                status shouldBe Saksstatus.FERDIG
+            }
+        }
+
+        test("a saksstatus needs a saktype") {
+            handler(RecordingPublisher()).handle(delivery(create(saksstatus = Saksstatus.FERDIG))) shouldBe
+                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL saksstatus needs a saktype")
+        }
+
+        test("a tag cannot be combined with a saktype") {
+            val publisher = RecordingPublisher()
+
+            handler(publisher).handle(delivery(create(saktype = Saktype.DIALOGMOTE))) shouldBe
+                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be set with saktype")
+            publisher.requests shouldBe emptyList()
+        }
+
+        test("publishes a link-only case association from the deprecated overloads unchanged") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher, casePublisher = casePublisher).handle(
+                delivery(create(sakstilknytning = Sakstilknytning("sak-1"))),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.single().grupperingsid shouldBe "sak-1"
+            casePublisher.requests shouldBe emptyList()
+        }
+
+        test("fails an invalid recipient without a case and does not retry the publish") {
+            val publisher =
+                RecordingPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMottaker"))
+
+            handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Failed("UgyldigMottaker")
+
+            publisher.requests.size shouldBe 1
         }
 
         test("forwards visibleUntil to the notification request") {
@@ -82,7 +215,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val publisher = RecordingPublisher()
             handler(
                 publisher,
-                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
             ).handle(delivery(create(NarmesteLeder(TEST_SYKMELDT)))) shouldBe DeliveryOutcome.Sent
 
             publisher.requests.single().recipient shouldBe
@@ -94,7 +227,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             handler(
                 publisher,
                 FakeNarmesteLederLookup(
-                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test")),
+                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test"), TEST_LEDERRELASJON_ID),
                 ),
             ).handle(
                 delivery(
@@ -127,7 +260,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val publisher = RecordingPublisher()
             handler(
                 publisher,
-                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"))),
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID)),
             ).handle(
                 delivery(
                     create(
@@ -252,7 +385,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val outcome =
                 handler(
                     RecordingPublisher(),
-                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
                     metrics,
                 ).handle(
                     delivery(
@@ -299,19 +432,35 @@ private fun handler(
     publisher: RecordingPublisher,
     lookup: NarmesteLederLookup = FakeNarmesteLederLookup(null),
     metrics: RecordingDeliveryMetrics = RecordingDeliveryMetrics(),
-) = ArbeidsgivervarselChannelHandler(publisher, lookup, metrics)
+    casePublisher: FakeArbeidsgiversakPublisher = FakeArbeidsgiversakPublisher(),
+) = ArbeidsgivervarselChannelHandler(
+    publisher,
+    Arbeidsgiversaker(
+        casePublisher,
+        FakePersonnavnLookup(),
+        ArbeidsgiversakConfig("https://dinesykmeldte.test"),
+    ),
+    lookup,
+    metrics,
+)
 
 private fun create(
     recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),
-    tag: String = "producer-tag",
+    tag: String? = "producer-tag",
     visibleUntil: Instant? = null,
+    sakstilknytning: Sakstilknytning? = null,
+    saktype: Saktype? = null,
+    saksstatus: Saksstatus? = null,
 ) = ArbeidsgivervarselCreate(
     TEST_ORGNUMMER,
     recipient,
     tag,
     "Tekst",
     "https://nav.no/lenke",
+    sakstilknytning = sakstilknytning,
     visibleUntil = visibleUntil,
+    saktype = saktype,
+    saksstatus = saksstatus,
 )
 
 private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =
@@ -340,11 +489,14 @@ private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
     ): NarmesteLederRelasjon? = error("narmesteleder-register unavailable")
 }
 
-private class RecordingPublisher : ArbeidsgiverNotificationPublisher {
+private class RecordingPublisher(
+    vararg responses: ArbeidsgiverNotificationResponse,
+) : ArbeidsgiverNotificationPublisher {
+    private val responses = ArrayDeque(responses.toList())
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
 
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
         requests += request
-        return ArbeidsgiverNotificationResponse.Published
+        return responses.removeFirstOrNull() ?: ArbeidsgiverNotificationResponse.Published
     }
 }
