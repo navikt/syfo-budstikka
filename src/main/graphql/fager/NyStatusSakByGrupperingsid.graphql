@@ -1,0 +1,29 @@
+mutation NyStatusSakByGrupperingsid(
+  $idempotencyKey: String
+  $grupperingsid: String!
+  $merkelapp: String!
+  $nyStatus: SaksStatus!
+) {
+  nyStatusSakByGrupperingsid(
+    idempotencyKey: $idempotencyKey
+    grupperingsid: $grupperingsid
+    merkelapp: $merkelapp
+    nyStatus: $nyStatus
+  ) {
+    ... on NyStatusSakVellykket {
+      __typename
+    }
+    ... on SakFinnesIkke {
+      __typename
+    }
+    ... on Konflikt {
+      __typename
+    }
+    ... on UgyldigMerkelapp {
+      __typename
+    }
+    ... on UkjentProdusent {
+      __typename
+    }
+  }
+}

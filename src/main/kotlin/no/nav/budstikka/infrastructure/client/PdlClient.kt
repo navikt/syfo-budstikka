@@ -10,6 +10,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import no.nav.budstikka.application.delivery.Personnavn
 import no.nav.budstikka.application.delivery.PersonnavnLookup
 import no.nav.budstikka.contract.PersonIdentifier
@@ -58,11 +59,19 @@ class PdlClient(
         internal fun nameQuery(ident: String): GraphqlRequest =
             GraphqlRequest(query = HENT_NAVN_QUERY, variables = GraphqlVariables(ident = ident))
 
-        /** The current name, or `null` when PDL has none; throws on GraphQL `errors` like [parseIsDead]. */
+        /**
+         * The current name, or `null` when PDL has none. Failures carry neither the response nor its
+         * error messages, since both can contain the name.
+         */
         internal fun parseName(responseBody: String): Personnavn? {
-            val response = sharedJson.decodeFromString<GraphqlResponse>(responseBody)
+            val response =
+                try {
+                    sharedJson.decodeFromString<GraphqlResponse>(responseBody)
+                } catch (_: SerializationException) {
+                    error("PDL name response could not be read")
+                }
             if (!response.errors.isNullOrEmpty()) {
-                error("PDL responded with errors: ${response.errors.joinToString { it.message }}")
+                error("PDL responded with ${response.errors.size} error(s) to the name lookup")
             }
             return response.data
                 ?.fetchPerson
@@ -132,7 +141,9 @@ internal data class Name(
     val fornavn: String,
     val mellomnavn: String? = null,
     val etternavn: String,
-)
+) {
+    override fun toString(): String = "Name()"
+}
 
 @Serializable
 internal data class Death(

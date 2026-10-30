@@ -18,7 +18,7 @@ enum class Channel {
 
 /**
  * `INACTIVATE` also represents a microfrontend visibility disable operation. `UPDATE` changes a
- * producer-owned downstream object, such as a case status or a calendar event, without closing it.
+ * downstream object, such as a calendar event, without closing it.
  */
 enum class Operation { CREATE, INACTIVATE, UPDATE }
 

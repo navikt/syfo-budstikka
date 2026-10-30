@@ -15,6 +15,7 @@ import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstilknytning
 import no.nav.budstikka.contract.Saktype
 import no.nav.budstikka.domain.decision.Channel
@@ -103,6 +104,27 @@ class ArbeidsgivervarselChannelHandlerTest :
                 delivery(create(NarmesteLeder(TEST_SYKMELDT), tag = null, saktype = Saktype.DIALOGMOTE)),
             ) shouldBe DeliveryOutcome.Failed("UgyldigMerkelapp")
             publisher.requests shouldBe emptyList()
+        }
+
+        test("sets the requested case status after the notification") {
+            val publisher = RecordingPublisher()
+            val casePublisher = FakeArbeidsgiversakPublisher()
+            val lookup = FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID))
+
+            handler(publisher, lookup, casePublisher = casePublisher).handle(
+                delivery(create(NarmesteLeder(TEST_SYKMELDT), tag = null, saktype = Saktype.DIALOGMOTE, saksstatus = Saksstatus.FERDIG)),
+            ) shouldBe DeliveryOutcome.Sent
+
+            publisher.requests.size shouldBe 1
+            casePublisher.caseStatuses.single().apply {
+                grupperingsid shouldBe "DIALOGMOTE:$TEST_LEDERRELASJON_ID"
+                status shouldBe Saksstatus.FERDIG
+            }
+        }
+
+        test("a saksstatus needs a saktype") {
+            handler(RecordingPublisher()).handle(delivery(create(saksstatus = Saksstatus.FERDIG))) shouldBe
+                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL saksstatus needs a saktype")
         }
 
         test("a tag cannot be combined with a saktype") {
@@ -408,6 +430,7 @@ private fun create(
     visibleUntil: Instant? = null,
     sakstilknytning: Sakstilknytning? = null,
     saktype: Saktype? = null,
+    saksstatus: Saksstatus? = null,
 ) = ArbeidsgivervarselCreate(
     TEST_ORGNUMMER,
     recipient,
@@ -417,6 +440,7 @@ private fun create(
     sakstilknytning = sakstilknytning,
     visibleUntil = visibleUntil,
     saktype = saktype,
+    saksstatus = saksstatus,
 )
 
 private fun delivery(payload: no.nav.budstikka.contract.DispatchContent) =

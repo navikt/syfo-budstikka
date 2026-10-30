@@ -5,7 +5,7 @@ package no.nav.budstikka.contract
  * case. Budstikka owns the cases: the producer only chooses a [Type], and Budstikka puts the content
  * in that type's case for the recipient, creating it when needed. For a Nærmeste leder the case
  * belongs to the leader relation, so a new leader gets a case of their own. For an Altinn resource it
- * belongs to the organisation and the Sykmeldt.
+ * belongs to the resource, the organisation and the Sykmeldt.
  */
 object Arbeidsgiversak {
     /** The case the content belongs to; it decides the case title and merkelapp. */
@@ -16,14 +16,24 @@ object Arbeidsgiversak {
         /** Oppfølgingsplaner. */
         OPPFOLGINGSPLAN,
     }
+
+    /**
+     * The case status shown to the employer, set only when a producer asks for it. A case is shared,
+     * so the latest status wins; it can go back, for example when a new meeting is called.
+     */
+    enum class Status {
+        /** Received; the status of a new case. */
+        MOTTATT,
+
+        /** Something is going on. */
+        UNDER_BEHANDLING,
+
+        /** Nothing is pending for now. */
+        FERDIG,
+    }
 }
 
-/**
- * Producer-facing inputs for a calendar event (kalenderavtale). The event's dispatch
- * `reference` is its downstream identity: create it once and update it with the same `reference`.
- * Start and end time cannot be changed downstream; a new time is a new event, and the old one is set
- * to [Tilstand.AVLYST].
- */
+/** Producer-facing inputs for a calendar event (kalenderavtale); see `Budstikka.kalenderavtaleCreate`. */
 object Kalenderavtale {
     /** Calendar event state shown to the leader. */
     enum class Tilstand {
