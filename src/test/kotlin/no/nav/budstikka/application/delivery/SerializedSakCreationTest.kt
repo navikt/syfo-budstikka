@@ -4,8 +4,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import no.nav.budstikka.application.port.KeyedLock
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
-import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
@@ -38,8 +38,8 @@ class SerializedSakCreationTest :
             publisher.extendSak(
                 ArbeidsgiversakExtendRequest("DIALOGMOTE:relasjon", "Dialogmøte", Instant.parse("2027-03-02T09:00:00Z"), "event-1"),
             )
-            publisher.setSaksstatus(
-                ArbeidsgiversakStatusRequest("DIALOGMOTE:relasjon", "Dialogmøte", Saksstatus.FERDIG, "event-2"),
+            publisher.updateKalenderavtale(
+                KalenderavtaleUpdateRequest("Dialogmøte", "avtale-1", Kalenderavtaletilstand.AVLYST, null, null, "event-2"),
             )
 
             lock.keys shouldBe emptyList()
