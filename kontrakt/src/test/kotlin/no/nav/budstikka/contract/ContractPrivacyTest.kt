@@ -11,6 +11,8 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.util.UUID
 import kotlin.reflect.KClass
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 private val EVENT_ID = EventId(UUID.fromString("00000000-0000-4000-8000-0000000000a2"))
@@ -675,6 +677,25 @@ class ContractPrivacyTest :
                         microfrontendId = "",
                     )
                 }.message!!.also { it shouldContain "microfrontendId" }.shouldNotLeak()
+            }
+
+            test("microfrontend visibleUntil outside the allowed window") {
+                listOf(
+                    Clock.System.now() + 336.days,
+                ).forEach { visibleUntil ->
+                    shouldThrow<IllegalArgumentException> {
+                        Budstikka.microfrontendEnable(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
+                            visibleUntil = visibleUntil,
+                        )
+                    }.message!!
+                        .also { it shouldContain "visibleUntil" }
+                        .also { it shouldNotContain visibleUntil.toString() }
+                        .shouldNotLeak()
+                }
             }
         }
     })

@@ -46,8 +46,10 @@ ikke-tom referanse som appen kan finne igjen. For `brukervarselInactivate` og
 `dineSykmeldteVarselInactivate` bruker du samme `reference` og samme mottaker som ved opprettelse.
 
 Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `microfrontendId`, ikke
-på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Brev kan
-ikke lukkes.
+på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
+`visibleUntil` skjuler Budstikka mikrofrontenden igjen på det tidspunktet, når planlagt skjuling (#282) er
+rullet ut. Tidspunktet kan ligge høyst 335 dager fram; et tidspunkt som har passert, skjuler den med en
+gang. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan ikke lukkes.
 
 ## EventId, retry og partisjonering
 
