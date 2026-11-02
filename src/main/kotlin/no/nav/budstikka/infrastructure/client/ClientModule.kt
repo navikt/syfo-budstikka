@@ -6,6 +6,7 @@ import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.PersonNameLookup
 import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
@@ -18,13 +19,15 @@ fun DependencyRegistry.clientModule() {
             tokenProvider = resolve<TokenProvider>(),
         )
     }
-    provide<DeathLookup> {
+    provide<PdlClient> {
         PdlClient(
             httpClient = resolve<HttpClient>(),
             config = resolve(),
             tokenProvider = resolve<TokenProvider>(),
         )
     }
+    provide<DeathLookup> { resolve<PdlClient>() }
+    provide<PersonNameLookup> { resolve<PdlClient>() }
     provide<DocumentDistributor> {
         DocumentDistributionClient(
             httpClient = resolve<HttpClient>(),
