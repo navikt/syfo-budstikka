@@ -172,7 +172,7 @@ apollo {
 
 val fagerRepository = "https://raw.githubusercontent.com/navikt/arbeidsgiver-notifikasjon-produsent-api"
 val fagerSchemaPath = "app/src/main/resources/produsent.graphql"
-val pinnedFagerRevision = "5c9251d6aaa850e08c559560bc6fed941842d5ea"
+val pinnedFagerRevision = "03425d3ea1b441b92452ec74ebbe9dac74737bc4"
 
 fun registerFagerSchemaCheck(
     taskName: String,
