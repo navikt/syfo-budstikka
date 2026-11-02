@@ -2,6 +2,7 @@ package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.EmailBodyFormat
@@ -23,96 +24,39 @@ class ArbeidsgivervarselChannelHandler(
     private val narmesteLederLookup: NarmesteLederLookup,
     private val metrics: DeliveryMetrics,
 ) : ChannelHandler {
+    /** Validates the notification, finds its recipient, makes sure the sak exists, and sends it there. */
     override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
-        val create =
-            delivery.payload as? ArbeidsgivervarselCreate
-                ?: return payloadFailure(delivery)
-        if (create.link.isNullOrBlank()) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
-        }
-        val sakstype = create.sakstype
-        if (sakstype == null && create.tag.isNullOrBlank()) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
-        }
-        if (sakstype != null && create.tag != null) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be set with sakstype")
-        }
-        if (sakstype == null && create.saksstatus != null) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL saksstatus needs a sakstype")
-        }
-        var saksmottaker: Saksmottaker? = null
-        val notificationRecipient =
-            when (val recipient = create.recipient) {
-                is AltinnResource ->
-                    if (recipient.resource.isBlank()) {
-                        return DeliveryOutcome.Failed(
-                            "ARBEIDSGIVERVARSEL recipient.resource must not be blank",
-                        )
-                    } else if (recipient.externalVarsling?.emailTitle?.isBlank() == true) {
-                        return invalidExternalNotification("emailTitle")
-                    } else if (recipient.externalVarsling?.smsText?.isBlank() == true) {
-                        return invalidExternalNotification("smsText")
-                    } else if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
-                        return invalidExternalEmailBody()
-                    } else if (sakstype != null && (recipient.sykmeldt == null || recipient.sakId.isNullOrBlank())) {
-                        return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL recipient.sykmeldt and recipient.sakId must be set with sakstype")
-                    } else if (
-                        sakstype != null &&
-                        recipient.sykmeldt?.let { Saksmottaker.AltinnRessurs.isValidSakId(recipient.sakId.orEmpty(), it) } != true
+        val create = delivery.payload as? ArbeidsgivervarselCreate ?: return payloadFailure(delivery)
+        create.invalidReason()?.let { return DeliveryOutcome.Failed("${CHANNEL.name} $it") }
+
+        val recipient =
+            when (val target = create.recipient) {
+                is AltinnResource -> target.toRecipient()
+                is NarmesteLederRecipient ->
+                    when (
+                        val leader =
+                            narmesteLederLookup.resolveForDelivery(
+                                channel = CHANNEL,
+                                sykmeldt = target.sykmeldt,
+                                orgnummer = create.orgnummer,
+                                requireEmail = target.externalVarsling != null,
+                                metrics = metrics,
+                            )
                     ) {
-                        return DeliveryOutcome.Failed(
-                            "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident",
-                        )
-                    } else {
-                        saksmottaker =
-                            recipient.sykmeldt?.let { sykmeldt ->
-                                recipient.sakId?.let { Saksmottaker.AltinnRessurs(recipient.resource, sykmeldt, it) }
-                            }
-                        recipient.toNotificationRecipient()
+                        is LeaderResolution.Missing -> return leader.outcome
+                        is LeaderResolution.Found -> target.toRecipient(leader.relation)
                     }
-                is NarmesteLederRecipient -> {
-                    if (recipient.externalVarsling?.emailTitle?.isBlank() == true) {
-                        return invalidExternalNotification("emailTitle")
-                    }
-                    if (recipient.externalVarsling?.resolvedEmailHtmlBody() == null && recipient.externalVarsling != null) {
-                        return invalidExternalEmailBody()
-                    }
-                    val relation =
-                        withChannelHandlerFailureContext(
-                            Channel.ARBEIDSGIVERVARSEL,
-                            "resolving nærmeste leder",
-                        ) {
-                            narmesteLederLookup.findActive(recipient.sykmeldt, create.orgnummer)
-                        }
-                            ?: return narmesteLederFailure(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
-                    if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
-                        return narmesteLederFailure(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
-                    }
-                    saksmottaker = Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, recipient.sykmeldt)
-                    ArbeidsgiverNotificationRecipient.NarmesteLeder(
-                        narmesteLederFnr = relation.narmesteLederFnr,
-                        ansattFnr = recipient.sykmeldt,
-                        externalVarsling =
-                            recipient.externalVarsling?.let {
-                                NarmesteLederExternalVarsling(
-                                    epostTittel = it.emailTitle,
-                                    epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
-                                    epostadresser = relation.epostadresser,
-                                )
-                            },
-                    )
-                }
             }
 
         val sak =
-            sakstype?.let {
+            create.sakstype?.let { sakstype ->
                 when (
                     val resolution =
                         saker.ensure(
-                            channel = Channel.ARBEIDSGIVERVARSEL,
-                            sakstype = it,
+                            channel = CHANNEL,
+                            sakstype = sakstype,
                             virksomhetsnummer = create.orgnummer.value,
-                            mottaker = requireNotNull(saksmottaker),
+                            mottaker = checkNotNull(recipient.saksmottaker) { "a sakstype is validated to have a saksmottaker" },
                             correlationId = delivery.correlationId(),
                             activityAt = create.visibleUntil,
                         )
@@ -121,56 +65,17 @@ class ArbeidsgivervarselChannelHandler(
                     is SakResolution.Ready -> resolution
                 }
             }
-        val request =
-            ArbeidsgiverNotificationRequest(
-                virksomhetsnummer = create.orgnummer.value,
-                eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
-                grupperingsid = sak?.grupperingsid ?: create.sakstilknytning?.sakId,
-                tag = sak?.merkelapp ?: requireNotNull(create.tag),
-                tekst = create.text,
-                lenke = create.link,
-                recipient = notificationRecipient,
-                meldingstype = create.meldingstype,
-                visibleUntil = create.visibleUntil,
-            )
-        val outcome = publish(request).toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
+
+        val outcome = publish(create.toRequest(delivery, recipient.notification, sak)).toDeliveryOutcome(CHANNEL)
         val status = create.saksstatus
         if (outcome != DeliveryOutcome.Sent || sak == null || status == null) return outcome
-        return saker.setStatus(Channel.ARBEIDSGIVERVARSEL, sak, status, delivery.correlationId()) ?: outcome
+        return saker.setStatus(CHANNEL, sak, status, delivery.correlationId()) ?: outcome
     }
 
     private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
-        withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
+        withChannelHandlerFailureContext(CHANNEL, "publishing notification") {
             publisher.publish(request)
         }
-
-    private fun AltinnResource.toNotificationRecipient() =
-        ArbeidsgiverNotificationRecipient.AltinnRessurs(
-            resource = resource,
-            externalVarsling =
-                externalVarsling?.let {
-                    AltinnExternalVarsling(
-                        epostTittel = it.emailTitle,
-                        epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
-                        smsTekst = it.smsText,
-                    )
-                },
-        )
-
-    private fun invalidExternalEmailBody() =
-        DeliveryOutcome.Failed(
-            "ARBEIDSGIVERVARSEL external notification emailText must not be blank",
-        )
-
-    private fun invalidExternalNotification(field: String) =
-        DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL external notification $field must not be blank")
-
-    private fun narmesteLederFailure(reason: NarmesteLederMissingReason): DeliveryOutcome.Failed {
-        metrics.narmesteLederMissing(reason)
-        return DeliveryOutcome.Failed(
-            "ARBEIDSGIVERVARSEL NarmesteLeder delivery unavailable: ${reason.name.lowercase()}",
-        )
-    }
 
     private fun payloadFailure(delivery: ClaimedDelivery): DeliveryOutcome =
         when (delivery.payload) {
@@ -182,6 +87,102 @@ class ArbeidsgivervarselChannelHandler(
                 )
         }
 }
+
+/** Where the notification goes, and the sak it belongs to when it has a sakstype. */
+private class Recipient(
+    val notification: ArbeidsgiverNotificationRecipient,
+    val saksmottaker: Saksmottaker?,
+)
+
+private val CHANNEL = Channel.ARBEIDSGIVERVARSEL
+
+/**
+ * Why the notification cannot be delivered, or `null`. The facade refuses these already, but a
+ * producer that writes the wire format directly can still send them, so the failure is terminal.
+ */
+private fun ArbeidsgivervarselCreate.invalidReason(): String? =
+    when {
+        link.isBlank() -> "link must not be blank"
+        sakstype == null && tag.isNullOrBlank() -> "tag must not be blank"
+        sakstype != null && tag != null -> "tag must not be set with sakstype"
+        sakstype == null && saksstatus != null -> "saksstatus needs a sakstype"
+        else -> recipient.invalidReason(inSak = sakstype != null)
+    }
+
+private fun ArbeidsgiverRecipient.invalidReason(inSak: Boolean): String? =
+    when (this) {
+        is AltinnResource ->
+            when {
+                resource.isBlank() -> "recipient.resource must not be blank"
+                externalVarsling?.emailTitle?.isBlank() == true -> "external notification emailTitle must not be blank"
+                externalVarsling?.smsText?.isBlank() == true -> "external notification smsText must not be blank"
+                externalVarsling != null && externalVarsling?.resolvedEmailHtmlBody() == null ->
+                    "external notification emailText must not be blank"
+                inSak && (sykmeldt == null || sakId.isNullOrBlank()) ->
+                    "recipient.sykmeldt and recipient.sakId must be set with sakstype"
+                inSak && sykmeldt?.let { Saksmottaker.AltinnRessurs.isValidSakId(sakId.orEmpty(), it) } != true ->
+                    "recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident"
+                else -> null
+            }
+        is NarmesteLederRecipient ->
+            when {
+                externalVarsling?.emailTitle?.isBlank() == true -> "external notification emailTitle must not be blank"
+                externalVarsling != null && externalVarsling?.resolvedEmailHtmlBody() == null ->
+                    "external notification emailText must not be blank"
+                else -> null
+            }
+    }
+
+private fun AltinnResource.toRecipient() =
+    Recipient(
+        notification =
+            ArbeidsgiverNotificationRecipient.AltinnRessurs(
+                resource = resource,
+                externalVarsling =
+                    externalVarsling?.let {
+                        AltinnExternalVarsling(
+                            epostTittel = it.emailTitle,
+                            epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
+                            smsTekst = it.smsText,
+                        )
+                    },
+            ),
+        saksmottaker = sykmeldt?.let { sykmeldt -> sakId?.let { Saksmottaker.AltinnRessurs(resource, sykmeldt, it) } },
+    )
+
+private fun NarmesteLederRecipient.toRecipient(relation: NarmesteLederRelasjon) =
+    Recipient(
+        notification =
+            ArbeidsgiverNotificationRecipient.NarmesteLeder(
+                narmesteLederFnr = relation.narmesteLederFnr,
+                ansattFnr = sykmeldt,
+                externalVarsling =
+                    externalVarsling?.let {
+                        NarmesteLederExternalVarsling(
+                            epostTittel = it.emailTitle,
+                            epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
+                            epostadresser = relation.epostadresser,
+                        )
+                    },
+            ),
+        saksmottaker = Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, sykmeldt),
+    )
+
+private fun ArbeidsgivervarselCreate.toRequest(
+    delivery: ClaimedDelivery,
+    recipient: ArbeidsgiverNotificationRecipient,
+    sak: SakResolution.Ready?,
+) = ArbeidsgiverNotificationRequest(
+    virksomhetsnummer = orgnummer.value,
+    eksternId = delivery.correlationId(),
+    grupperingsid = sak?.grupperingsid ?: sakstilknytning?.sakId,
+    tag = sak?.merkelapp ?: requireNotNull(tag),
+    tekst = text,
+    lenke = link,
+    recipient = recipient,
+    meldingstype = meldingstype,
+    visibleUntil = visibleUntil,
+)
 
 internal fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
     resolveEmailHtmlBody(emailText, emailBodyFormat)
