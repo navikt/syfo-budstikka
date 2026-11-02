@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import kotlin.time.Instant
 
 class ArbeidsgiverNotificationPortPrivacyTest :
@@ -40,7 +41,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                     altinnExternalVarsling,
                 ),
                 leaderRecipient,
-                NarmesteLederRelasjon(leader, listOf(emailAddress)),
+                NarmesteLederRelasjon(leader, listOf(emailAddress), TEST_LEDERRELASJON_ID),
                 ArbeidsgiverNotificationRequest(
                     virksomhetsnummer = "123456789",
                     eksternId = "external-id",

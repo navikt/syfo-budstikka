@@ -17,15 +17,21 @@ import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.NarmesteLederConfig
+import java.util.UUID
+
+// Computed so no literal personident-shaped value sits in the source.
+private val LEDER_FNR = "2".repeat(11)
+private val ANSATT_FNR = "1".repeat(11)
+private const val RELASJON_ID = "00000000-0000-4000-8000-00000000aa02"
 
 private class RecordingNarmesteLederTokenProvider(
-    private val token: String,
+    private val issued: String,
 ) : TokenProvider {
     var requestedTarget: String? = null
 
     override suspend fun token(target: String): String {
         requestedTarget = target
-        return token
+        return issued
     }
 }
 
@@ -40,11 +46,12 @@ class NarmesteLederClientTest :
         test("parses active relation") {
             NarmesteLederClient.parseActive(
                 HttpStatusCode.OK,
-                """{"lineManager":{"nationalIdentificationNumber":"22222222222","emailAddresses":["first@example.test","second@example.test"]}}""",
+                """{"lineManager":{"id":"$RELASJON_ID","nationalIdentificationNumber":"$LEDER_FNR","emailAddresses":["first@example.test","second@example.test"]}}""",
             ) shouldBe
                 NarmesteLederRelasjon(
-                    PersonIdentifier("22222222222"),
+                    PersonIdentifier(LEDER_FNR),
                     listOf("first@example.test", "second@example.test"),
+                    UUID.fromString(RELASJON_ID),
                 )
         }
 
@@ -58,7 +65,7 @@ class NarmesteLederClientTest :
                 requireNotNull(
                     NarmesteLederClient.parseActive(
                         HttpStatusCode.OK,
-                        """{"lineManager":{"nationalIdentificationNumber":"22222222222","emailAddresses":[]}}""",
+                        """{"lineManager":{"id":"$RELASJON_ID","nationalIdentificationNumber":"$LEDER_FNR","emailAddresses":[]}}""",
                     ),
                 )
             relation.epostadresser shouldBe emptyList()
@@ -69,10 +76,22 @@ class NarmesteLederClientTest :
                 requireNotNull(
                     NarmesteLederClient.parseActive(
                         HttpStatusCode.OK,
-                        """{"lineManager":{"nationalIdentificationNumber":"22222222222","emailAddresses":[],"ukjent":"verdi"}}""",
+                        """{"lineManager":{"id":"$RELASJON_ID","nationalIdentificationNumber":"$LEDER_FNR","emailAddresses":[],"ukjent":"verdi"}}""",
                     ),
                 )
-            relation.narmesteLederFnr shouldBe PersonIdentifier("22222222222")
+            relation.narmesteLederFnr shouldBe PersonIdentifier(LEDER_FNR)
+        }
+
+        test("an invalid relation id throws without echoing the response") {
+            val exception =
+                shouldThrow<IllegalStateException> {
+                    NarmesteLederClient.parseActive(
+                        HttpStatusCode.OK,
+                        """{"lineManager":{"id":"ikke-uuid","nationalIdentificationNumber":"$LEDER_FNR","emailAddresses":[]}}""",
+                    )
+                }
+            exception.message shouldBe "Narmeste leder register returned an invalid relation id"
+            exception.message shouldNotContain LEDER_FNR
         }
 
         test("a missing lineManager field throws instead of being read as no active leader") {
@@ -88,11 +107,11 @@ class NarmesteLederClientTest :
                 shouldThrow<IllegalStateException> {
                     NarmesteLederClient.parseActive(
                         HttpStatusCode.InternalServerError,
-                        """{"employeeNationalIdentificationNumber":"11111111111"}""",
+                        """{"employeeNationalIdentificationNumber":"$ANSATT_FNR"}""",
                     )
                 }
             exception.message shouldContain "500"
-            exception.message shouldNotContain "11111111111"
+            exception.message shouldNotContain ANSATT_FNR
         }
 
         test("a relation without nationalIdentificationNumber throws a sanitized exception") {
@@ -100,20 +119,20 @@ class NarmesteLederClientTest :
                 shouldThrow<IllegalStateException> {
                     NarmesteLederClient.parseActive(
                         HttpStatusCode.OK,
-                        """{"lineManager":{"emailAddresses":["leader-11111111111@example.test"]}}""",
+                        """{"lineManager":{"emailAddresses":["leader-$ANSATT_FNR@example.test"]}}""",
                     )
                 }
             exception.message shouldContain "200"
-            exception.message shouldNotContain "11111111111"
+            exception.message shouldNotContain ANSATT_FNR
         }
 
         test("a completely corrupt (non-JSON) body throws sanitized without a cause that may carry fnr") {
             val exception =
                 shouldThrow<IllegalStateException> {
-                    NarmesteLederClient.parseActive(HttpStatusCode.OK, "ikke-json-med-fnr-11111111111")
+                    NarmesteLederClient.parseActive(HttpStatusCode.OK, "ikke-json-med-fnr-$ANSATT_FNR")
                 }
             exception.message shouldContain "200"
-            exception.message shouldNotContain "11111111111"
+            exception.message shouldNotContain ANSATT_FNR
             // No cause: the kotlinx exception (which may render the body with fnr) must not be chained.
             exception.cause shouldBe null
         }
@@ -140,7 +159,7 @@ class NarmesteLederClientTest :
                 )
 
             NarmesteLederClient(httpClient, config, tokenProvider).findActive(
-                PersonIdentifier("11111111111"),
+                PersonIdentifier("$ANSATT_FNR"),
                 Orgnummer("123456789"),
             ) shouldBe null
 
@@ -149,6 +168,6 @@ class NarmesteLederClientTest :
             capturedUrl shouldBe "${config.url}/internal/api/v1/lookup"
             capturedAuth shouldBe "Bearer tok-42"
             capturedBody shouldBe
-                """{"employeeNationalIdentificationNumber":"11111111111","organizationNumber":"123456789"}"""
+                """{"employeeNationalIdentificationNumber":"$ANSATT_FNR","organizationNumber":"123456789"}"""
         }
     })

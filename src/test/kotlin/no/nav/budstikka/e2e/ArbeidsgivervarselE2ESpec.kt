@@ -19,6 +19,7 @@ import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
+import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.database.config.transact
@@ -66,7 +67,7 @@ class ArbeidsgivervarselE2ESpec :
             lookup.registerActive(
                 TEST_SYKMELDT,
                 TEST_ORGNUMMER,
-                NarmesteLederRelasjon(leader, emptyList()),
+                NarmesteLederRelasjon(leader, emptyList(), TEST_LEDERRELASJON_ID),
             )
 
             BudstikkaTestApp

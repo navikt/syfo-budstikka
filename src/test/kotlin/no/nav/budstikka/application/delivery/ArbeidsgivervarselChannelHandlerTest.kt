@@ -17,6 +17,7 @@ import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
+import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import java.util.UUID
@@ -82,7 +83,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val publisher = RecordingPublisher()
             handler(
                 publisher,
-                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
             ).handle(delivery(create(NarmesteLeder(TEST_SYKMELDT)))) shouldBe DeliveryOutcome.Sent
 
             publisher.requests.single().recipient shouldBe
@@ -94,7 +95,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             handler(
                 publisher,
                 FakeNarmesteLederLookup(
-                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test")),
+                    NarmesteLederRelasjon(LEDER, listOf("first@example.test", "second@example.test"), TEST_LEDERRELASJON_ID),
                 ),
             ).handle(
                 delivery(
@@ -127,7 +128,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val publisher = RecordingPublisher()
             handler(
                 publisher,
-                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"))),
+                FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID)),
             ).handle(
                 delivery(
                     create(
@@ -252,7 +253,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             val outcome =
                 handler(
                     RecordingPublisher(),
-                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList())),
+                    FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
                     metrics,
                 ).handle(
                     delivery(
