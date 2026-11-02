@@ -3,6 +3,8 @@ package no.nav.budstikka.application.delivery
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
+import no.nav.budstikka.contract.Kalenderavtalelokasjon
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.domain.NarmesteLederRelasjon
@@ -22,6 +24,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
         val link = "https://nav.no/sensitive-link"
         val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
         val sakTitle = "Sensitive sak title"
+        val address = "Sensitive address"
 
         val altinnExternalVarsling = AltinnExternalVarsling(emailTitle, emailHtmlBody, smsText)
         val leaderExternalVarsling =
@@ -69,6 +72,22 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 ),
                 ArbeidsgiversakExtendRequest("grouping-id", "sensitive-tag", visibleUntil, "external-id"),
                 ArbeidsgiversakStatusRequest("grouping-id", "sensitive-tag", Saksstatus.FERDIG, "external-id"),
+                KalenderavtaleCreateRequest(
+                    virksomhetsnummer = "123456789",
+                    grupperingsid = "grouping-id",
+                    tag = "sensitive-tag",
+                    eksternId = "external-id",
+                    text = notificationText,
+                    link = link,
+                    startAt = visibleUntil,
+                    endAt = visibleUntil,
+                    lokasjon = Kalenderavtalelokasjon(address, "0001", address),
+                    digital = false,
+                    tilstand = Kalenderavtaletilstand.AVLYST,
+                    recipient = leaderRecipient,
+                    correlationId = "external-id",
+                ),
+                KalenderavtaleUpdateRequest("sensitive-tag", "external-id", null, notificationText, leaderExternalVarsling, "external-id"),
                 SakResolution.Ready("grouping-id", "Dialogmøte"),
                 Saksmottaker.NarmesteLeder(TEST_LEDERRELASJON_ID, leader, employee),
                 Saksmottaker.AltinnRessurs("sensitive-resource", employee, "sensitive-sak-key"),
@@ -91,6 +110,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 "sensitive-tag",
                 visibleUntil.toString(),
                 sakTitle,
+                address,
                 TEST_LEDERRELASJON_ID.toString(),
                 "sensitive-sak-key",
             )
