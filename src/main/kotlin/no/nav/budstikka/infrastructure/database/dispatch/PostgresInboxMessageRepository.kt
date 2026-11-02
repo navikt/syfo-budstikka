@@ -24,6 +24,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Instant
 
 class PostgresInboxMessageRepository(
@@ -37,11 +38,13 @@ class PostgresInboxMessageRepository(
         }
         database.transact {
             val now = Clock.System.now()
-            InboxMessageTable.batchInsert(messages, ignore = true) { message ->
+            // One microsecond (the column's resolution) per row keeps the poll order through claim's
+            // (received_at, event_id) sort; a shared timestamp would leave it to the random event_id.
+            InboxMessageTable.batchInsert(messages.withIndex(), ignore = true) { (index, message) ->
                 this[InboxMessageTable.eventId] = message.eventId
                 this[InboxMessageTable.content] = message.content
                 this[InboxMessageTable.reference] = message.reference
-                this[InboxMessageTable.receivedAt] = now
+                this[InboxMessageTable.receivedAt] = now + index.microseconds
             }
         }
     }

@@ -106,6 +106,18 @@ class InboxDispatchRepositoryIntegrationTest :
             }
         }
 
+        test("claim keeps the poll order within one saveBatch, regardless of event_id") {
+            val repository = PostgresInboxMessageRepository(fixture.database)
+            // Kafka order is first, then second; the random event ids sort the other way.
+            val first = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
+            val second = UUID.fromString("00000000-0000-0000-0000-000000000004")
+            repository.saveBatch(listOf(inboxMessage(first), inboxMessage(second)))
+
+            val claimed = repository.claim(limit = 10, lease = lease, maxAttempts = 10)
+
+            claimed.map { it.message.eventId } shouldBe listOf(first, second)
+        }
+
         test("claim skips a CLAIMED row while its lease is still valid") {
             val repository = PostgresInboxMessageRepository(fixture.database)
             val eventId = UUID.fromString("00000000-0000-0000-0000-000000000003")
