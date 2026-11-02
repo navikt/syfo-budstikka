@@ -118,6 +118,21 @@ class DispatchSerializationTest :
                             reference = "ref-123",
                             orgnummer = SYNTHETIC_ORGNUMMER,
                         ),
+                    "ArbeidsgivervarselCreate med sakstype" to
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                AltinnResource(
+                                    resource = "nav_syfo_dialogmote",
+                                    externalVarsling = AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    sakId = "dialog-1",
+                                ),
+                            text = "Referat",
+                            link = "https://nav.no/ag",
+                            sakstype = Sakstype.DIALOGMOTE,
+                            saksstatus = Saksstatus.FERDIG,
+                        ),
                 )
 
             variants.forEach { (name, content) ->

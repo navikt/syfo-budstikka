@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import no.nav.budstikka.application.inbox.NoInboxMetrics
+import no.nav.budstikka.contract.Arbeidsgiversak
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrevCreate
@@ -103,6 +104,16 @@ class ProducerApiIngestTest :
                             sykmeldt = SYKMELDT,
                             microfrontendId = "syk-dialog",
                         ),
+                    "arbeidsgivervarselCreate with sakstype" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            recipient = Arbeidsgivervarsel.NarmesteLeder(SYKMELDT),
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = "Referat",
+                            link = "https://nav.no/ag",
+                        ),
                 )
             val expectedTypes =
                 mapOf(
@@ -114,6 +125,7 @@ class ProducerApiIngestTest :
                     "brevCreate" to BrevCreate::class,
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,
+                    "arbeidsgivervarselCreate with sakstype" to ArbeidsgivervarselCreate::class,
                 )
 
             variants.forEach { (name, encoded) ->

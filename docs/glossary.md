@@ -59,6 +59,10 @@ _Unngå_: reservasjon når også manglende verifisert kontaktinformasjon kan væ
 Kategorien som grupperer et ledervarsel i Dine Sykmeldte.
 _Unngå_: hendelsestype, varseltype
 
+**Sak (`Arbeidsgiversak`)**:
+Innhold om én sykmeldt i Min side – arbeidsgiver, samlet etter sakstype og eid av Budstikka.
+_Unngå_: case
+
 ## Livsløp
 
 **Referanse (`reference`)**:
