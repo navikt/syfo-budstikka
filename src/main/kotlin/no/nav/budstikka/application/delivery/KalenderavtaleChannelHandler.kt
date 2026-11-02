@@ -7,7 +7,6 @@ import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.Sakstype
 import no.nav.budstikka.domain.decision.Channel
-import java.util.UUID
 import kotlin.time.Instant
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
@@ -35,186 +34,163 @@ class KalenderavtaleChannelHandler(
                 )
         }
 
+    /** Creates the event in the current leader relation's sak, and sets the requested status after it. */
     private suspend fun create(
         delivery: ClaimedDelivery,
         create: KalenderavtaleCreate,
     ): DeliveryOutcome {
-        listOf(
-            "text" to create.text,
-            "link" to create.link,
-        ).firstOrNull { (_, value) -> value.isBlank() }
-            ?.let { (name, _) -> return DeliveryOutcome.Failed("KALENDERAVTALE $name must not be blank") }
-        if (create.text.length > MAX_KALENDERAVTALE_TEXT_LENGTH) {
-            return DeliveryOutcome.Failed("KALENDERAVTALE text must be at most $MAX_KALENDERAVTALE_TEXT_LENGTH characters")
-        }
+        create.invalidReason()?.let { return failed(it) }
         val leader =
-            when (val resolved = resolveLeader(create.recipient, create.orgnummer)) {
-                is ResolvedRecipient.Failure -> return resolved.outcome
-                is ResolvedRecipient.Leader -> resolved
+            when (val found = findLeader(create.recipient, create.orgnummer)) {
+                is LeaderLookup.Failed -> return found.outcome
+                is LeaderLookup.Found -> found
             }
         val sak =
-            when (val resolution = leaderSak(delivery, create.sakstype, create.orgnummer, leader, create.endAt ?: create.startAt)) {
+            when (val resolution = leaderSak(delivery, create.sakstype, create.orgnummer, leader.sak, create.endAt ?: create.startAt)) {
                 is SakResolution.Failed -> return resolution.outcome
                 is SakResolution.Ready -> resolution
             }
         val outcome =
-            withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "creating kalenderavtale") {
-                publisher.createKalenderavtale(
-                    KalenderavtaleCreateRequest(
-                        virksomhetsnummer = create.orgnummer.value,
-                        grupperingsid = sak.grupperingsid,
-                        tag = sak.merkelapp,
-                        eksternId = delivery.reference,
-                        text = create.text,
-                        link = create.link,
-                        startAt = create.startAt,
-                        endAt = create.endAt,
-                        lokasjon = create.lokasjon,
-                        digital = create.digital,
-                        tilstand = create.tilstand,
-                        recipient = leader.recipient,
-                        correlationId = delivery.correlationId(),
-                    ),
-                )
-            }.toDeliveryOutcome(Channel.KALENDERAVTALE)
+            withChannelHandlerFailureContext(CHANNEL, "creating kalenderavtale") {
+                publisher.createKalenderavtale(create.toRequest(delivery, sak, leader.recipient))
+            }.toDeliveryOutcome(CHANNEL)
         val status = create.saksstatus
         if (outcome != DeliveryOutcome.Sent || status == null) return outcome
-        return saker.setStatus(Channel.KALENDERAVTALE, sak, status, delivery.correlationId()) ?: outcome
+        return saker.setStatus(CHANNEL, sak, status, delivery.correlationId()) ?: outcome
     }
 
+    /**
+     * Updates the event where it was created. Email and status go to the current leader, who is looked up
+     * only when one of them is requested. The status is set first: a failure there is retried without
+     * repeating the update and its email, which Fager does not deduplicate.
+     */
     private suspend fun update(
         delivery: ClaimedDelivery,
         update: KalenderavtaleUpdate,
     ): DeliveryOutcome {
-        if ((update.text?.length ?: 0) > MAX_KALENDERAVTALE_TEXT_LENGTH) {
-            return DeliveryOutcome.Failed("KALENDERAVTALE text must be at most $MAX_KALENDERAVTALE_TEXT_LENGTH characters")
-        }
-        if (update.tilstand == null && update.text.isNullOrBlank() && !update.recipient.requestsEmail()) {
-            return DeliveryOutcome.Failed("KALENDERAVTALE update has no change")
-        }
+        update.invalidReason()?.let { return failed(it) }
         val status = update.saksstatus
         val leader =
             if (update.recipient.requestsEmail() || status != null) {
-                when (val resolved = resolveLeader(update.recipient, update.orgnummer)) {
-                    is ResolvedRecipient.Failure -> return resolved.outcome
-                    is ResolvedRecipient.Leader -> resolved
+                when (val found = findLeader(update.recipient, update.orgnummer)) {
+                    is LeaderLookup.Failed -> return found.outcome
+                    is LeaderLookup.Found -> found
                 }
             } else {
                 null
             }
-        // Before the update: a failure here is retried without repeating the update and its email,
-        // which Fager does not deduplicate.
         if (status != null && leader != null) {
             val sak =
-                when (val resolution = leaderSak(delivery, update.sakstype, update.orgnummer, leader)) {
+                when (val resolution = leaderSak(delivery, update.sakstype, update.orgnummer, leader.sak)) {
                     is SakResolution.Failed -> return resolution.outcome
                     is SakResolution.Ready -> resolution
                 }
-            saker.setStatus(Channel.KALENDERAVTALE, sak, status, delivery.correlationId())?.let { return it }
+            saker.setStatus(CHANNEL, sak, status, delivery.correlationId())?.let { return it }
         }
-        return withChannelHandlerFailureContext(Channel.KALENDERAVTALE, "updating kalenderavtale") {
-            publisher.updateKalenderavtale(
-                KalenderavtaleUpdateRequest(
-                    tag = update.sakstype.merkelapp,
-                    eksternId = delivery.reference,
-                    tilstand = update.tilstand,
-                    text = update.text,
-                    externalVarsling = leader?.recipient?.externalVarsling,
-                    idempotencyKey = delivery.correlationId(),
-                ),
-            )
-        }.toDeliveryOutcome(Channel.KALENDERAVTALE)
+        return withChannelHandlerFailureContext(CHANNEL, "updating kalenderavtale") {
+            publisher.updateKalenderavtale(update.toRequest(delivery, leader?.recipient?.externalVarsling))
+        }.toDeliveryOutcome(CHANNEL)
     }
 
-    /** The current leader relation's [sakstype] sak, created when needed and kept past [activityAt]. */
+    /** The active leader for [recipient], who must be a Nærmeste leder; a missing leader is metered. */
+    private suspend fun findLeader(
+        recipient: ArbeidsgiverRecipient,
+        orgnummer: Orgnummer,
+    ): LeaderLookup {
+        val target = recipient as? NarmesteLederRecipient ?: return LeaderLookup.Failed(failed("supports only a NarmesteLeder recipient"))
+        target.invalidEmailReason()?.let { return LeaderLookup.Failed(failed(it)) }
+        return when (
+            val found =
+                narmesteLederLookup.resolveForDelivery(
+                    channel = CHANNEL,
+                    sykmeldt = target.sykmeldt,
+                    orgnummer = orgnummer,
+                    requireEmail = target.externalVarsling != null,
+                    metrics = metrics,
+                )
+        ) {
+            is LeaderResolution.Missing -> LeaderLookup.Failed(found.outcome)
+            is LeaderResolution.Found ->
+                LeaderLookup.Found(target.toNotificationRecipient(found.relation), target.toSaksmottaker(found.relation))
+        }
+    }
+
+    /** The leader relation's [sakstype] sak, created when needed and kept past [activityAt]. */
     private suspend fun leaderSak(
         delivery: ClaimedDelivery,
         sakstype: Sakstype,
         orgnummer: Orgnummer,
-        leader: ResolvedRecipient.Leader,
+        mottaker: Saksmottaker.NarmesteLeder,
         activityAt: Instant? = null,
-    ): SakResolution =
-        saker.ensure(
-            channel = Channel.KALENDERAVTALE,
-            sakstype = sakstype,
-            virksomhetsnummer = orgnummer.value,
-            mottaker =
-                Saksmottaker.NarmesteLeder(
-                    relasjonId = leader.relasjonId,
-                    narmesteLederFnr = leader.recipient.narmesteLederFnr,
-                    sykmeldt = leader.recipient.ansattFnr,
-                ),
-            correlationId = delivery.correlationId(),
-            activityAt = activityAt,
-        )
+    ): SakResolution = saker.ensure(CHANNEL, sakstype, orgnummer.value, mottaker, delivery.correlationId(), activityAt)
 
-    private suspend fun resolveLeader(
-        recipient: ArbeidsgiverRecipient,
-        orgnummer: Orgnummer,
-    ): ResolvedRecipient {
-        val leader =
-            recipient as? NarmesteLederRecipient
-                ?: return ResolvedRecipient.Failure(
-                    DeliveryOutcome.Failed("KALENDERAVTALE supports only a NarmesteLeder recipient"),
-                )
-        val requested = leader.externalVarsling
-        if (requested != null && requested.emailTitle.isBlank()) {
-            return ResolvedRecipient.Failure(
-                DeliveryOutcome.Failed("KALENDERAVTALE external notification emailTitle must not be blank"),
-            )
-        }
-        val emailHtmlBody = requested?.resolvedEmailHtmlBody()
-        if (requested != null && emailHtmlBody == null) {
-            return ResolvedRecipient.Failure(
-                DeliveryOutcome.Failed("KALENDERAVTALE external notification emailText must not be blank"),
-            )
-        }
-        return when (
-            val resolution =
-                narmesteLederLookup.resolveForDelivery(
-                    channel = Channel.KALENDERAVTALE,
-                    sykmeldt = leader.sykmeldt,
-                    orgnummer = orgnummer,
-                    requireEmail = requested != null,
-                    metrics = metrics,
-                )
-        ) {
-            is LeaderResolution.Missing -> ResolvedRecipient.Failure(resolution.outcome)
-            is LeaderResolution.Found ->
-                ResolvedRecipient.Leader(
-                    relasjonId = resolution.relation.relasjonId,
-                    recipient =
-                        ArbeidsgiverNotificationRecipient.NarmesteLeder(
-                            narmesteLederFnr = resolution.relation.narmesteLederFnr,
-                            ansattFnr = leader.sykmeldt,
-                            externalVarsling =
-                                requested?.let {
-                                    NarmesteLederExternalVarsling(
-                                        epostTittel = it.emailTitle,
-                                        epostHtmlBody = requireNotNull(emailHtmlBody),
-                                        epostadresser = resolution.relation.epostadresser,
-                                    )
-                                },
-                        ),
-                )
-        }
-    }
-
-    private fun ArbeidsgiverRecipient.requestsEmail(): Boolean = (this as? NarmesteLederRecipient)?.externalVarsling != null
-
-    private sealed interface ResolvedRecipient {
-        data class Leader(
-            val relasjonId: UUID,
+    /** The active leader as kalenderavtale recipient, with the leader relation's sak; or why there is none. */
+    private sealed interface LeaderLookup {
+        class Found(
             val recipient: ArbeidsgiverNotificationRecipient.NarmesteLeder,
-        ) : ResolvedRecipient {
-            override fun toString(): String = "Leader(recipient=$recipient)"
-        }
+            val sak: Saksmottaker.NarmesteLeder,
+        ) : LeaderLookup
 
-        data class Failure(
+        class Failed(
             val outcome: DeliveryOutcome.Failed,
-        ) : ResolvedRecipient
+        ) : LeaderLookup
     }
 }
+
+private val CHANNEL = Channel.KALENDERAVTALE
+
+private fun failed(reason: String) = DeliveryOutcome.Failed("${CHANNEL.name} $reason")
+
+/** Why the event cannot be created, or `null`; a producer writing the wire format directly can send it anyway. */
+private fun KalenderavtaleCreate.invalidReason(): String? =
+    when {
+        text.isBlank() -> "text must not be blank"
+        link.isBlank() -> "link must not be blank"
+        text.length > MAX_KALENDERAVTALE_TEXT_LENGTH -> "text must be at most $MAX_KALENDERAVTALE_TEXT_LENGTH characters"
+        else -> null
+    }
+
+/** Why the event cannot be updated, or `null`. */
+private fun KalenderavtaleUpdate.invalidReason(): String? =
+    when {
+        (text?.length ?: 0) > MAX_KALENDERAVTALE_TEXT_LENGTH -> "text must be at most $MAX_KALENDERAVTALE_TEXT_LENGTH characters"
+        tilstand == null && text.isNullOrBlank() && !recipient.requestsEmail() -> "update has no change"
+        else -> null
+    }
+
+private fun ArbeidsgiverRecipient.requestsEmail(): Boolean = (this as? NarmesteLederRecipient)?.externalVarsling != null
+
+private fun KalenderavtaleCreate.toRequest(
+    delivery: ClaimedDelivery,
+    sak: SakResolution.Ready,
+    recipient: ArbeidsgiverNotificationRecipient.NarmesteLeder,
+) = KalenderavtaleCreateRequest(
+    virksomhetsnummer = orgnummer.value,
+    grupperingsid = sak.grupperingsid,
+    tag = sak.merkelapp,
+    eksternId = delivery.reference,
+    text = text,
+    link = link,
+    startAt = startAt,
+    endAt = endAt,
+    lokasjon = lokasjon,
+    digital = digital,
+    tilstand = tilstand,
+    recipient = recipient,
+    correlationId = delivery.correlationId(),
+)
+
+private fun KalenderavtaleUpdate.toRequest(
+    delivery: ClaimedDelivery,
+    externalVarsling: NarmesteLederExternalVarsling?,
+) = KalenderavtaleUpdateRequest(
+    tag = sakstype.merkelapp,
+    eksternId = delivery.reference,
+    tilstand = tilstand,
+    text = text,
+    externalVarsling = externalVarsling,
+    idempotencyKey = delivery.correlationId(),
+)
 
 /** Arbeidsgivernotifikasjoner rejects longer kalenderavtale texts. */
 private const val MAX_KALENDERAVTALE_TEXT_LENGTH = 300
