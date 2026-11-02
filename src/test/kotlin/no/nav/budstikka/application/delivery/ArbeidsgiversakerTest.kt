@@ -162,12 +162,12 @@ class ArbeidsgiversakerTest :
             val publisher = FakeArbeidsgiversakPublisher()
             val sak = SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
 
-            saker(publisher).setStatus(Channel.ARBEIDSGIVERVARSEL, sak, Saksstatus.FERDIG, CORRELATION_ID) shouldBe null
+            saker(publisher).setStatus(Channel.KALENDERAVTALE, sak, Saksstatus.FERDIG, CORRELATION_ID) shouldBe null
 
             publisher.saksstatuser.single() shouldBe
                 ArbeidsgiversakStatusRequest("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte", Saksstatus.FERDIG, CORRELATION_ID)
             saker(FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("Konflikt")))
-                .setStatus(Channel.ARBEIDSGIVERVARSEL, sak, Saksstatus.FERDIG, CORRELATION_ID) shouldBe DeliveryOutcome.Failed("Konflikt")
+                .setStatus(Channel.KALENDERAVTALE, sak, Saksstatus.FERDIG, CORRELATION_ID) shouldBe DeliveryOutcome.Failed("Konflikt")
         }
 
         test("titles are capitalised per name part and capped at 140 characters") {

@@ -135,6 +135,31 @@ class DispatchSerializationTest :
                             sakstype = Sakstype.DIALOGMOTE,
                             saksstatus = Saksstatus.FERDIG,
                         ),
+                    "KalenderavtaleCreate" to
+                        KalenderavtaleCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                NarmesteLeder(
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    externalVarsling = NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                ),
+                            sakstype = Sakstype.DIALOGMOTE,
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                            endAt = Instant.parse("2026-11-02T10:00:00Z"),
+                            lokasjon = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
+                            digital = true,
+                            tilstand = Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT,
+                        ),
+                    "KalenderavtaleUpdate" to
+                        KalenderavtaleUpdate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
+                            sakstype = Sakstype.OPPFOLGINGSPLAN,
+                            tilstand = Kalenderavtaletilstand.AVLYST,
+                            text = "Avlyst",
+                        ),
                 )
 
             variants.forEach { (name, content) ->

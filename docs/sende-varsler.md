@@ -31,6 +31,8 @@ settes sammen i en produsent.
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
+| `kalenderavtaleCreate` | Opprett en kalenderavtale for Nærmeste leder, i sak etter `sakstype`. |
+| `kalenderavtaleUpdate` | Endre tilstand eller tekst på en kalenderavtale. |
 
 `dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
 aldri må inneholde personopplysninger. Budstikka sender alltid downstream-varianten `INFO`
@@ -102,12 +104,12 @@ ikke `visibleUntil` bare synlighet. Feltet planlegger ugjenkallelig hard slettin
 tilhørende data fra Fagers database og Kafka. Det stopper ikke eksterne varsler som allerede er
 planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
 
-## Sak
+## Sak og kalenderavtale
 
 Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger
-`sakstype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`. Budstikka legger innholdet i riktig
-sak og oppretter den ved behov. Typen bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa
-Nordmann». Detaljene står i KDoc.
+`sakstype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`, `kalenderavtaleCreate` og
+`kalenderavtaleUpdate`. Budstikka legger innholdet i riktig sak og oppretter den ved behov. Typen
+bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». Detaljene står i KDoc.
 
 - **Nærmeste leder:** én sak per sakstype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
   får sin egen sak. `link` er valgfri: uten lenke lenker varselet til saken. Utelat lenken først når
@@ -123,11 +125,16 @@ Nordmann». Detaljene står i KDoc.
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
   `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
   et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`. `link` er påkrevd.
-- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. En ny sak får «Mottatt», og
-  uten `saksstatus` beholder saken statusen den har.
-- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel eller status.
+- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. På `kalenderavtaleUpdate`
+  gjelder den nåværende leders sak og settes før oppdateringen. En ny sak får «Mottatt», og uten
+  `saksstatus` beholder saken statusen den har.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel, avtale eller status, og
+  tidligst fire måneder etter møtet.
+- **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
+  Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
 - **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk
-  kan overskrive en nyere status.
+  kan overskrive en nyere oppdatering eller status. Fager dedupliserer ikke oppdateringer av
+  kalenderavtaler, så et nytt forsøk kan gi dobbel e-post.
 - **Uten sakstype:** overloadene med `tag` og `CaseAssociation` er deprecated. De virker til Fager
   krever sak, og fjernes i første minor-versjon etter at syfo-oppfolgingsplan-backend, den eneste
   kjente brukeren, har gått over til `sakstype`.

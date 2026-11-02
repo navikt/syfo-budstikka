@@ -629,6 +629,114 @@ object Budstikka {
             microfrontendId = microfrontendId,
         ).encode(eventId, reference)
     }
+
+    /**
+     * Creates a kalenderavtale for the active Nærmeste leder, in the [sakstype] sak
+     * of that leader relation. [reference] is the event's identity downstream: use it again in
+     * [kalenderavtaleUpdate]. Start and end cannot be changed later; for a new time, cancel this event
+     * and create a new one with a new [reference].
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your stable id for this kalenderavtale, unique within the [sakstype]. If an
+     *   event already exists for it, it counts as created only when it is in the same sak.
+     * @param orgnummer the organisation of the sak; the partition anchor.
+     * @param sykmeldt the Sykmeldt whose active Nærmeste leder receives the event.
+     * @param sakstype the sak the event belongs to.
+     * @param text the event text shown to the leader, at most 300 characters.
+     * @param link required target for the event.
+     * @param startAt when the event starts.
+     * @param endAt optional end; must be after [startAt].
+     * @param lokasjon optional physical meeting place.
+     * @param digital whether the leader can attend digitally.
+     * @param tilstand the initial state.
+     * @param email optional email to the leader. It is sent during Arbeidsgivernotifikasjoner's
+     *   contact-centre hours and is not sent if the event is cancelled first.
+     * @param saksstatus optional status to set on the sak after the event.
+     */
+    fun kalenderavtaleCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        sykmeldt: PersonIdentifier,
+        sakstype: Arbeidsgiversak.Type,
+        text: String,
+        link: String,
+        startAt: Instant,
+        endAt: Instant? = null,
+        lokasjon: Kalenderavtale.Lokasjon? = null,
+        digital: Boolean = false,
+        tilstand: Kalenderavtale.Tilstand = Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
+        email: Kalenderavtale.EmailNotification? = null,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        sykmeldt.requirePersonIdentifier("sykmeldt")
+        requireNotBlank(text, "text")
+        requireMaxLength(text, MAX_KALENDERAVTALE_TEXT_LENGTH, "text")
+        requireNotBlank(link, "link")
+        endAt?.let { require(it > startAt) { "endAt must be after startAt" } }
+        return KalenderavtaleCreate(
+            orgnummer = orgnummer,
+            recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
+            sakstype = sakstype.toWire(),
+            text = text,
+            link = link,
+            startAt = startAt,
+            endAt = endAt,
+            lokasjon = lokasjon?.toWireLokasjon(),
+            digital = digital,
+            tilstand = tilstand.toWireTilstand(),
+            saksstatus = saksstatus?.toWire(),
+        ).encode(eventId, reference)
+    }
+
+    /**
+     * Updates a kalenderavtale created with [kalenderavtaleCreate]. Set at least one of [tilstand],
+     * [text] and [email]; a field left out is unchanged.
+     *
+     * Known downstream limitation: Arbeidsgivernotifikasjoner does not deduplicate retried updates.
+     * If a retry follows an update that already succeeded, an [email] can be sent twice.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference the [kalenderavtaleCreate] reference of the event to update.
+     * @param orgnummer the same organisation as in the create; the partition anchor.
+     * @param sykmeldt the same Sykmeldt as in the create; used to resolve the leader's email.
+     * @param sakstype the same sakstype as in the create.
+     * @param tilstand optional new state.
+     * @param text optional new text, at most 300 characters.
+     * @param email optional email to the leader about the change.
+     * @param saksstatus optional status to set on the current leader's [sakstype] sak, before the
+     *   update; like [email], it needs an active leader.
+     */
+    fun kalenderavtaleUpdate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        sykmeldt: PersonIdentifier,
+        sakstype: Arbeidsgiversak.Type,
+        tilstand: Kalenderavtale.Tilstand? = null,
+        text: String? = null,
+        email: Kalenderavtale.EmailNotification? = null,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        sykmeldt.requirePersonIdentifier("sykmeldt")
+        requireNullOrNotBlank(text, "text")
+        text?.let { requireMaxLength(it, MAX_KALENDERAVTALE_TEXT_LENGTH, "text") }
+        require(tilstand != null || text != null || email != null) {
+            "tilstand, text or email must be set"
+        }
+        return KalenderavtaleUpdate(
+            orgnummer = orgnummer,
+            recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
+            sakstype = sakstype.toWire(),
+            tilstand = tilstand?.toWireTilstand(),
+            text = text,
+            saksstatus = saksstatus?.toWire(),
+        ).encode(eventId, reference)
+    }
 }
 
 private fun encodeDineSykmeldteVarselCreate(
@@ -685,6 +793,15 @@ private fun requireNotBlank(
     value: String,
     parameter: String,
 ) = require(value.isNotBlank()) { "$parameter must not be blank" }
+
+private fun requireMaxLength(
+    value: String,
+    maxLength: Int,
+    parameter: String,
+) = require(value.length <= maxLength) { "$parameter must be at most $maxLength characters" }
+
+/** Arbeidsgivernotifikasjoner rejects longer sak titles and kalenderavtale texts. */
+private const val MAX_KALENDERAVTALE_TEXT_LENGTH = 300
 
 private fun requireNullOrNotBlank(
     value: String?,
@@ -876,3 +993,30 @@ private fun Arbeidsgiversak.Type.toWire(): Sakstype =
         Arbeidsgiversak.Type.DIALOGMOTE -> Sakstype.DIALOGMOTE
         Arbeidsgiversak.Type.OPPFOLGINGSPLAN -> Sakstype.OPPFOLGINGSPLAN
     }
+
+private fun Kalenderavtale.Tilstand.toWireTilstand(): Kalenderavtaletilstand =
+    when (this) {
+        Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER -> Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER
+        Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_AVLYSE -> Kalenderavtaletilstand.ARBEIDSGIVER_VIL_AVLYSE
+        Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED -> Kalenderavtaletilstand.ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED
+        Kalenderavtale.Tilstand.ARBEIDSGIVER_HAR_GODTATT -> Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT
+        Kalenderavtale.Tilstand.AVLYST -> Kalenderavtaletilstand.AVLYST
+        Kalenderavtale.Tilstand.AVHOLDT -> Kalenderavtaletilstand.AVHOLDT
+    }
+
+private fun Kalenderavtale.Lokasjon.toWireLokasjon(): Kalenderavtalelokasjon {
+    requireNotBlank(adresse, "lokasjon.adresse")
+    requireNotBlank(postnummer, "lokasjon.postnummer")
+    requireNotBlank(poststed, "lokasjon.poststed")
+    return Kalenderavtalelokasjon(adresse = adresse, postnummer = postnummer, poststed = poststed)
+}
+
+private fun Kalenderavtale.EmailNotification.toWireExternalVarsling(): NarmesteLederExternalVarsling {
+    requireNotBlank(title, "email.title")
+    requireNotBlank(body, "email.body")
+    return NarmesteLederExternalVarsling(
+        emailTitle = title,
+        emailText = body,
+        emailBodyFormat = if (isHtml) EmailBodyFormat.HTML else null,
+    )
+}

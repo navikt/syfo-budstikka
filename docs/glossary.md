@@ -63,6 +63,10 @@ _Unngå_: hendelsestype, varseltype
 Innhold om én sykmeldt i Min side – arbeidsgiver, samlet etter sakstype og eid av Budstikka.
 _Unngå_: case
 
+**Kalenderavtale**:
+En møteavtale som nærmeste leder ser og kan svare på i Min side – arbeidsgiver.
+_Unngå_: calendar event
+
 ## Livsløp
 
 **Referanse (`reference`)**:

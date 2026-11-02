@@ -16,6 +16,9 @@ import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.EncodedDispatch
 import no.nav.budstikka.contract.EventId
 import no.nav.budstikka.contract.ExternalNotification
+import no.nav.budstikka.contract.Kalenderavtale
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate
 import no.nav.budstikka.contract.MicrofrontendDisable
@@ -29,6 +32,7 @@ import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
 import java.util.Optional
 import java.util.UUID
+import kotlin.time.Instant
 
 private val SYKMELDT = PersonIdentifier("1".repeat(11))
 private val ORGNUMMER = Orgnummer("999999999")
@@ -114,6 +118,26 @@ class ProducerApiIngestTest :
                             text = "Referat",
                             link = "https://nav.no/ag",
                         ),
+                    "kalenderavtaleCreate" to
+                        Budstikka.kalenderavtaleCreate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            sykmeldt = SYKMELDT,
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                        ),
+                    "kalenderavtaleUpdate" to
+                        Budstikka.kalenderavtaleUpdate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            sykmeldt = SYKMELDT,
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            tilstand = Kalenderavtale.Tilstand.AVLYST,
+                        ),
                 )
             val expectedTypes =
                 mapOf(
@@ -126,6 +150,8 @@ class ProducerApiIngestTest :
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,
                     "arbeidsgivervarselCreate with sakstype" to ArbeidsgivervarselCreate::class,
+                    "kalenderavtaleCreate" to KalenderavtaleCreate::class,
+                    "kalenderavtaleUpdate" to KalenderavtaleUpdate::class,
                 )
 
             variants.forEach { (name, encoded) ->
