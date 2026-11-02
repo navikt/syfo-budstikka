@@ -67,6 +67,10 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 ),
                 ArbeidsgiversakExtendRequest("grouping-id", "sensitive-tag", visibleUntil, "external-id"),
                 ArbeidsgiversakStatusRequest("grouping-id", "sensitive-tag", Saksstatus.FERDIG, "external-id"),
+                SakResolution.Ready("grouping-id", "Dialogmøte"),
+                Saksmottaker.NarmesteLeder(TEST_LEDERRELASJON_ID, leader, employee),
+                Saksmottaker.AltinnRessurs("sensitive-resource", employee, "sensitive-sak-key"),
+                PersonName(sakTitle, null, sakTitle),
             )
         val sensitiveValues =
             listOf(
@@ -85,6 +89,8 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 "sensitive-tag",
                 visibleUntil.toString(),
                 sakTitle,
+                TEST_LEDERRELASJON_ID.toString(),
+                "sensitive-sak-key",
             )
 
         values.forEach { value ->
