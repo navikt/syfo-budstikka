@@ -4,6 +4,7 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
  * Stable per dispatch across retries and replicas: the inbox event id, or the delivery id for a
@@ -64,3 +65,31 @@ private fun leaderFailure(
     metrics.narmesteLederMissing(reason)
     return DeliveryOutcome.Failed("${channel.name} NarmesteLeder delivery unavailable: ${reason.name.lowercase()}")
 }
+
+/** Why the email requested for the leader cannot be sent, or `null`. */
+internal fun NarmesteLederRecipient.invalidEmailReason(): String? =
+    when {
+        externalVarsling?.emailTitle?.isBlank() == true -> "external notification emailTitle must not be blank"
+        externalVarsling != null && externalVarsling?.resolvedEmailHtmlBody() == null ->
+            "external notification emailText must not be blank"
+        else -> null
+    }
+
+/** The leader of [relation] as downstream recipient; a requested email goes to the leader's addresses. */
+internal fun NarmesteLederRecipient.toNotificationRecipient(relation: NarmesteLederRelasjon) =
+    ArbeidsgiverNotificationRecipient.NarmesteLeder(
+        narmesteLederFnr = relation.narmesteLederFnr,
+        ansattFnr = sykmeldt,
+        externalVarsling =
+            externalVarsling?.let {
+                NarmesteLederExternalVarsling(
+                    epostTittel = it.emailTitle,
+                    epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
+                    epostadresser = relation.epostadresser,
+                )
+            },
+    )
+
+/** The sak of the leader relation: a new leader gets a sak of their own. */
+internal fun NarmesteLederRecipient.toSaksmottaker(relation: NarmesteLederRelasjon) =
+    Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, sykmeldt)

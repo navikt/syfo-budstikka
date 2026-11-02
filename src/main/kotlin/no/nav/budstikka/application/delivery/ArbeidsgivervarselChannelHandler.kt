@@ -124,13 +124,7 @@ private fun ArbeidsgiverRecipient.invalidReason(inSak: Boolean): String? =
                     "recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident"
                 else -> null
             }
-        is NarmesteLederRecipient ->
-            when {
-                externalVarsling?.emailTitle?.isBlank() == true -> "external notification emailTitle must not be blank"
-                externalVarsling != null && externalVarsling?.resolvedEmailHtmlBody() == null ->
-                    "external notification emailText must not be blank"
-                else -> null
-            }
+        is NarmesteLederRecipient -> invalidEmailReason()
     }
 
 private fun AltinnResource.toRecipient() =
@@ -151,22 +145,7 @@ private fun AltinnResource.toRecipient() =
     )
 
 private fun NarmesteLederRecipient.toRecipient(relation: NarmesteLederRelasjon) =
-    Recipient(
-        notification =
-            ArbeidsgiverNotificationRecipient.NarmesteLeder(
-                narmesteLederFnr = relation.narmesteLederFnr,
-                ansattFnr = sykmeldt,
-                externalVarsling =
-                    externalVarsling?.let {
-                        NarmesteLederExternalVarsling(
-                            epostTittel = it.emailTitle,
-                            epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
-                            epostadresser = relation.epostadresser,
-                        )
-                    },
-            ),
-        saksmottaker = Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, sykmeldt),
-    )
+    Recipient(notification = toNotificationRecipient(relation), saksmottaker = toSaksmottaker(relation))
 
 private fun ArbeidsgivervarselCreate.toRequest(
     delivery: ClaimedDelivery,
