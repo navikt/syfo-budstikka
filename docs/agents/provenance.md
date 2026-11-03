@@ -20,7 +20,7 @@ the local forms are deliberately smaller and are not synchronized copies.
 
 | Local path | Source | Revision | Local handling |
 |---|---|---|---|
-| `src/main/graphql/fager/schema.graphqls` | `navikt/arbeidsgiver-notifikasjon-produsent-api/app/src/main/resources/produsent.graphql` | `5c9251d6aaa850e08c559560bc6fed941842d5ea` | Copied unchanged as the Apollo code-generation schema for the fager producer API |
+| `src/main/graphql/fager/schema.graphqls` | `navikt/arbeidsgiver-notifikasjon-produsent-api/app/src/main/resources/produsent.graphql` | `03425d3ea1b441b92452ec74ebbe9dac74737bc4` | Copied unchanged as the Apollo code-generation schema for the fager producer API |
 
 ## Import rule
 
