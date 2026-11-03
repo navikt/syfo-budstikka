@@ -142,6 +142,97 @@ class ArbeidsgivervarselChannelHandlerTest :
             }
         }
 
+        test("retries a transient saksstatus failure with the same notification and status key") {
+            val publisher = RecordingPublisher()
+            val sakPublisher =
+                FakeArbeidsgiversakPublisher(
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke"),
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.Published,
+                )
+            val lookup = FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID))
+            val handler = handler(publisher, lookup, sakPublisher = sakPublisher)
+            val delivery =
+                delivery(
+                    create(
+                        NarmesteLeder(TEST_SYKMELDT, NarmesteLederExternalVarsling("Tittel", "Tekst")),
+                        tag = null,
+                        sakstype = Sakstype.DIALOGMOTE,
+                        saksstatus = Saksstatus.FERDIG,
+                    ),
+                )
+
+            shouldThrow<ChannelHandlerFailure> { handler.handle(delivery) }
+            publisher.requests.size shouldBe 1
+            sakPublisher.saksstatuser.size shouldBe 1
+
+            handler.handle(delivery) shouldBe DeliveryOutcome.Sent
+            publisher.requests.size shouldBe 2
+            publisher.requests[1] shouldBe publisher.requests[0]
+            val status =
+                ArbeidsgiversakStatusRequest(
+                    grupperingsid = "DIALOGMOTE:$TEST_LEDERRELASJON_ID",
+                    tag = "Dialogmøte",
+                    status = Saksstatus.FERDIG,
+                    idempotencyKey = "00000000-0000-0000-0000-000000000702",
+                )
+            sakPublisher.saksstatuser shouldBe listOf(status, status)
+        }
+
+        test("does not set saksstatus for an unverified duplicate after the leader email changes") {
+            var previous: ArbeidsgiverNotificationRequest? = null
+            val publisher =
+                object : ArbeidsgiverNotificationPublisher {
+                    override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
+                        val existing = previous
+                        if (existing == null) {
+                            previous = request
+                            return ArbeidsgiverNotificationResponse.Published
+                        }
+                        return if (existing == request) {
+                            ArbeidsgiverNotificationResponse.Published
+                        } else {
+                            ArbeidsgiverNotificationResponse.Rejected("DuplikatEksternIdOgMerkelapp")
+                        }
+                    }
+                }
+            val sakPublisher =
+                FakeArbeidsgiversakPublisher(
+                    ArbeidsgiverNotificationResponse.Published,
+                    ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke"),
+                )
+            var relation = NarmesteLederRelasjon(LEDER, listOf("first@example.test"), TEST_LEDERRELASJON_ID)
+            val lookup =
+                object : NarmesteLederLookup {
+                    override suspend fun findActive(
+                        sykmeldt: PersonIdentifier,
+                        orgnummer: no.nav.budstikka.contract.Orgnummer,
+                    ) = relation
+                }
+            val handler =
+                ArbeidsgivervarselChannelHandler(
+                    publisher,
+                    Arbeidsgiversaker(sakPublisher, FakePersonNameLookup(), ArbeidsgiversakConfig("https://dinesykmeldte.test")),
+                    lookup,
+                    RecordingDeliveryMetrics(),
+                )
+            val delivery =
+                delivery(
+                    create(
+                        NarmesteLeder(TEST_SYKMELDT, NarmesteLederExternalVarsling("Tittel", "Tekst")),
+                        tag = null,
+                        sakstype = Sakstype.DIALOGMOTE,
+                        saksstatus = Saksstatus.FERDIG,
+                    ),
+                )
+
+            shouldThrow<ChannelHandlerFailure> { handler.handle(delivery) }
+            relation = relation.copy(epostadresser = listOf("second@example.test"))
+            handler.handle(delivery) shouldBe DeliveryOutcome.Failed("DuplikatEksternIdOgMerkelapp")
+            sakPublisher.saksstatuser.size shouldBe 1
+        }
+
         test("a saksstatus needs a sakstype") {
             handler(RecordingPublisher()).handle(delivery(create(saksstatus = Saksstatus.FERDIG))) shouldBe
                 DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL saksstatus needs a sakstype")
@@ -167,13 +258,30 @@ class ArbeidsgivervarselChannelHandlerTest :
             sakPublisher.requests shouldBe emptyList()
         }
 
-        test("fails an invalid recipient without a sak and does not retry the publish") {
-            val publisher =
-                RecordingPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMottaker"))
+        listOf(
+            Triple("without a sak", create(), null),
+            Triple("with a producer-owned sak", create(sakstilknytning = Sakstilknytning("sak-1")), "sak-1"),
+            Triple(
+                "with a Budstikka-owned sak",
+                create(
+                    AltinnResource("nav_syfo_dialogmote", sykmeldt = TEST_SYKMELDT, sakId = "dialog-1"),
+                    tag = null,
+                    sakstype = Sakstype.DIALOGMOTE,
+                    saksstatus = Saksstatus.FERDIG,
+                ),
+                "DIALOGMOTE:nav_syfo_dialogmote:${TEST_ORGNUMMER.value}:dialog-1",
+            ),
+        ).forEach { (scenario, payload, expectedGrupperingsid) ->
+            test("fails an invalid recipient $scenario without retrying the publish") {
+                val publisher = RecordingPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMottaker"))
+                val sakPublisher = FakeArbeidsgiversakPublisher()
 
-            handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Failed("UgyldigMottaker")
+                handler(publisher, sakPublisher = sakPublisher).handle(delivery(payload)) shouldBe
+                    DeliveryOutcome.Failed("UgyldigMottaker")
 
-            publisher.requests.size shouldBe 1
+                publisher.requests.single().grupperingsid shouldBe expectedGrupperingsid
+                sakPublisher.saksstatuser shouldBe emptyList()
+            }
         }
 
         test("forwards visibleUntil to the notification request") {
@@ -502,13 +610,12 @@ private class ThrowingNarmesteLederLookup : NarmesteLederLookup {
 }
 
 private class RecordingPublisher(
-    vararg responses: ArbeidsgiverNotificationResponse,
+    private val response: ArbeidsgiverNotificationResponse = ArbeidsgiverNotificationResponse.Published,
 ) : ArbeidsgiverNotificationPublisher {
-    private val responses = ArrayDeque(responses.toList())
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
 
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
         requests += request
-        return responses.removeFirstOrNull() ?: ArbeidsgiverNotificationResponse.Published
+        return response
     }
 }

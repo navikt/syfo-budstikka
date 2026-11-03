@@ -1,10 +1,13 @@
 package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslingWire
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
+import no.nav.budstikka.contract.NarmesteLederExternalVarsling as NarmesteLederExternalVarslingWire
 
 /**
  * Stable per dispatch across retries and replicas: the inbox event id, or the delivery id for a
@@ -93,3 +96,38 @@ internal fun NarmesteLederRecipient.toNotificationRecipient(relation: NarmesteLe
 /** The sak of the leader relation: a new leader gets a sak of their own. */
 internal fun NarmesteLederRecipient.toSaksmottaker(relation: NarmesteLederRelasjon) =
     Saksmottaker.NarmesteLeder(relation.relasjonId, relation.narmesteLederFnr, sykmeldt)
+
+internal fun NarmesteLederExternalVarslingWire.resolvedEmailHtmlBody(): String? = resolveEmailHtmlBody(emailText, emailBodyFormat)
+
+internal fun AltinnExternalVarslingWire.resolvedEmailHtmlBody(): String? = resolveEmailHtmlBody(emailText, emailBodyFormat)
+
+private fun resolveEmailHtmlBody(
+    emailText: String,
+    emailBodyFormat: EmailBodyFormat?,
+): String? {
+    if (emailText.isBlank()) return null
+    return when (emailBodyFormat) {
+        EmailBodyFormat.HTML -> emailText
+        null -> emailText.toEscapedHtml()
+    }
+}
+
+private fun String.toEscapedHtml(): String =
+    buildString {
+        this@toEscapedHtml
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .forEach { character ->
+                append(
+                    when (character) {
+                        '&' -> "&amp;"
+                        '<' -> "&lt;"
+                        '>' -> "&gt;"
+                        '"' -> "&quot;"
+                        '\'' -> "&#39;"
+                        '\n' -> "<br>"
+                        else -> character
+                    },
+                )
+            }
+    }

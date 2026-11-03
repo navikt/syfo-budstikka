@@ -5,7 +5,6 @@ import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
-import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
@@ -162,40 +161,3 @@ private fun ArbeidsgivervarselCreate.toRequest(
     meldingstype = meldingstype,
     visibleUntil = visibleUntil,
 )
-
-internal fun no.nav.budstikka.contract.NarmesteLederExternalVarsling.resolvedEmailHtmlBody(): String? =
-    resolveEmailHtmlBody(emailText, emailBodyFormat)
-
-private fun no.nav.budstikka.contract.AltinnExternalVarsling.resolvedEmailHtmlBody(): String? =
-    resolveEmailHtmlBody(emailText, emailBodyFormat)
-
-private fun resolveEmailHtmlBody(
-    emailText: String,
-    emailBodyFormat: EmailBodyFormat?,
-): String? {
-    if (emailText.isBlank()) return null
-    return when (emailBodyFormat) {
-        EmailBodyFormat.HTML -> emailText
-        null -> emailText.toEscapedHtml()
-    }
-}
-
-private fun String.toEscapedHtml(): String =
-    buildString {
-        this@toEscapedHtml
-            .replace("\r\n", "\n")
-            .replace('\r', '\n')
-            .forEach { character ->
-                append(
-                    when (character) {
-                        '&' -> "&amp;"
-                        '<' -> "&lt;"
-                        '>' -> "&gt;"
-                        '"' -> "&quot;"
-                        '\'' -> "&#39;"
-                        '\n' -> "<br>"
-                        else -> character
-                    },
-                )
-            }
-    }
