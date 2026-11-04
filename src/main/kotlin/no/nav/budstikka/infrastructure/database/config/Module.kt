@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import no.nav.budstikka.application.observability.OperationalQueueSnapshotRepository
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.KeyedLock
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionRepository
@@ -17,6 +18,7 @@ import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryReposit
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.PostgresDeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
+import no.nav.budstikka.infrastructure.database.lock.PostgresKeyedLock
 import no.nav.budstikka.infrastructure.database.observability.PostgresOperationalQueueSnapshotRepository
 import no.nav.budstikka.infrastructure.database.retention.PostgresRetentionRepository
 import org.flywaydb.core.Flyway
@@ -29,6 +31,7 @@ fun DependencyRegistry.databaseModule() {
         .cleanup(HikariDataSource::close)
     provide<Database> { Database.connect(resolve<DataSource>()) }
     provide<TransactionRunner> { PostgresTransactionRunner(resolve()) }
+    provide<KeyedLock> { PostgresKeyedLock(resolve<DataSource>()) }
     provide<HealthCheck> {
         dataSourceHealthCheck(resolve())
     }
