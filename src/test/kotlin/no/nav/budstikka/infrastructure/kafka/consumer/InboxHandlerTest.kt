@@ -17,6 +17,63 @@ import java.util.UUID
 
 class InboxHandlerTest :
     FunSpec({
+        test("custom leader links require a real HTTPS nav.no host before inbox save, with safe diagnostics") {
+            val metrics = RecordingInboxMetrics()
+            val logger = LoggerFactory.getLogger(InboxMessageHandler::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logger.addAppender(appender)
+            try {
+                listOf(
+                    "https://nav.no.evil.test/private",
+                    "https://evilnav.no/private",
+                    "https://nav.no@evil.test/private",
+                    "https://user@nav.no/private",
+                    "http://nav.no/private",
+                    "//nav.no/private",
+                    "/private",
+                    "https://nav.no:bad/private",
+                    "https://[broken/private",
+                ).forEach { link ->
+                    with(createTestContext(metrics)) {
+                        handler.handle(testRecord(value = leaderPayload(link), eventId = UUID.randomUUID().toString()))
+                        inboxRepository.savedEvents shouldBe emptyList()
+                        deadLetterRepository.savedDeadLetters.single().apply {
+                            failureReason shouldBe "INVALID_LINK"
+                            errorMessage.orEmpty() shouldNotContain link
+                        }
+                    }
+                }
+                metrics.deadLetterPersistedCounts.entries
+                    .single()
+                    .value
+                    .get() shouldBe 9
+                appender.list.forEach { event ->
+                    event.renderedLogData() shouldNotContain "/private"
+                    event.renderedLogData() shouldNotContain TEST_SYKMELDT.value
+                }
+            } finally {
+                logger.detachAppender(appender)
+                appender.stop()
+            }
+        }
+
+        test("existing nav hosts, omitted leader links and Altinn links remain accepted") {
+            listOf(
+                leaderPayload("https://nav.no/path"),
+                leaderPayload("https://www.nav.no/arbeidsgiver/sykmeldte"),
+                leaderPayload("https://www.ekstern.dev.nav.no/arbeidsgiver/sykmeldte"),
+                leaderPayload("https://NAV.NO/path/NARMESTE_LEDER_ID/details"),
+                leaderPayload(null),
+                """{"reference":"ref","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"999999999","mottaker":{"type":"AltinnRessurs","resource":"resource"},"tag":"tag","text":"text","link":"https://www.altinn.no/path"}}""",
+            ).forEach { payload ->
+                with(createTestContext()) {
+                    handler.handle(testRecord(value = payload, eventId = UUID.randomUUID().toString()))
+                    inboxRepository.savedEvents.size shouldBe 1
+                    deadLetterRepository.savedDeadLetters shouldBe emptyList()
+                }
+            }
+        }
+
         test("valid dispatch is parsed, hydrated and saved in inbox") {
             with(createTestContext()) {
                 val eventId = "00000000-0000-0000-0000-000000000001"
@@ -204,6 +261,14 @@ class InboxHandlerTest :
             deadLetterRepository.savedDeadLetters.size shouldBe 0
         }
     })
+
+private fun leaderPayload(link: String?): String {
+    val linkField = link?.let { ""","link":"$it"""" }.orEmpty()
+    return """
+        {"reference":"ref","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"999999999",
+        "mottaker":{"type":"NarmesteLeder","sykmeldt":"${TEST_SYKMELDT.value}"},"tag":"tag","text":"text"$linkField}}
+        """.trimIndent()
+}
 
 private fun createTestContext(metrics: RecordingInboxMetrics = RecordingInboxMetrics()): TestContext {
     val inboxRepository = FakeInboxMessageRepository()

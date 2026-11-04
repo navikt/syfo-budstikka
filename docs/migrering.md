@@ -67,3 +67,33 @@ egen domeneregel og ikke en del av KRR-gaten.
 om regelen skal ligge hos produsenten, budstikka eller utgå. Cutover for denne
 flyten må ikke anta samme oppførsel før produktansvarlig har valgt og
 akseptansekriteriene i saken er oppfylt.
+
+## Lagret beslutningsgrunnlag for arbeidsgivervarsel
+
+Første utrulling av V12 og den nye Decision-/Delivery-koden krever **kort, kontrollert stopp/start
+uten overlapp mellom gammel og ny worker-kode**. En vanlig rullerende utrulling er ikke trygg:
+gamle Delivery-readers ignorerer snapshotkolonnene og kan sende en ny `RESOLVED`-rad etter et nytt
+registeroppslag. En aktiveringsbryter løser ikke dette og er ikke innført.
+
+1. Stopp gammel Budstikka-kode kontrollert og vent til alle gamle workers og pågående
+   transaksjoner er avsluttet. Kafka- og databasekøene skal beholdes; ikke slett, requeue eller
+   backfill leveranser for å omgå overgangen.
+2. Start bare ny kode. Flyway kjører expand-migreringen V12 ved oppstart; den tar inbox-lås før
+   delivery-lås og har `lock_timeout=5s`. Nye leveranser får `RESOLVED` med fryst beslutningsgrunnlag.
+   Gamle `READY`/`CLAIMED`-rader beholder `LEGACY` og kan fullføres med den eksplisitte reserven.
+3. Kontroller at ingen gammel kode kjører, og følg køene, oppslagsfeil og den faste loggmeldingen
+   «Resolving legacy delivery snapshot». Kartlegg gjenstående `LEGACY`-rader i `READY`/`CLAIMED`
+   uten å hente personfelter: `SELECT state, count(*) FROM delivery WHERE snapshot_state = 'LEGACY'
+   GROUP BY state;`. Ikke bruk fravær av loggmeldingen alene som bevis på at køen er tømt.
+4. Produsenter kan først utelate Nærmeste leder-lenken når alle Budstikka-instansene har ny kode.
+   Tilbakerulling til gammel kode krever også stopp/start og en særskilt vurdering av allerede
+   lagrede `RESOLVED`-rader og meldinger uten lenke. Ikke start gamle readers på den nye køen.
+
+En **senere, separat utrulling** skal fjerne `LegacyDeliverySnapshotResolver`, fjerne gammel
+skrivekompatibilitet og stramme gjenværende krav etter at ingen gamle skrivere eller
+`LEGACY`-leveranser i `READY`/`CLAIMED` finnes. Terminal historikk beholdes til vanlig retensjon
+sletter den. Denne oppryddingen er ikke levert med V12, og #364 er ikke ferdig ryddet før den er
+gjennomført. Det ligger ingen stage-2-migrering i samme release: Flyway kjører alle migreringene ved
+oppstart. `CHECK NOT VALID` ville heller ikke unntatt gamle rader fra sjekk ved UPDATE.
+
+Dette er operatørveiledning, ikke en utført produksjonsoperasjon.

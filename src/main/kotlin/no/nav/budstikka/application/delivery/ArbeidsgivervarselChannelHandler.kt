@@ -5,13 +5,16 @@ import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
+import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.Decision
+import no.nav.budstikka.domain.decision.DeliverySnapshot
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
- * Sends ARBEIDSGIVERVARSEL through an [AltinnResource] or a Nærmeste leder path. The latter resolves
- * the active leader at send time, so a deferred delivery follows leader changes without persisting
- * the leader's identifier. External notifications are always sent as LOEPENDE: [SendingWindowGate]
+ * Sends ARBEIDSGIVERVARSEL through an [AltinnResource] or a Nærmeste leder path using
+ * the leader and name saved at Decision, including on retry. Only explicitly marked legacy rows
+ * use [LegacyDeliverySnapshotResolver]. External notifications are sent as LOEPENDE: [SendingWindowGate]
  * has already waited for budstikka's delivery window. A requested external notification without a
  * leader email fails the entire delivery terminally; it does not degrade to in-app only. With a
  * sakstype, the notification goes in the Budstikka-owned sak of that type for the recipient; without
@@ -20,31 +23,27 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
     private val saker: Arbeidsgiversaker,
-    private val narmesteLederLookup: NarmesteLederLookup,
-    private val metrics: DeliveryMetrics,
+    private val legacySnapshots: LegacyDeliverySnapshotResolver,
 ) : ChannelHandler {
     /** Validates the notification, finds its recipient, makes sure the sak exists, and sends it there. */
     override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
         val create = delivery.payload as? ArbeidsgivervarselCreate ?: return payloadFailure(delivery)
         create.invalidReason()?.let { return DeliveryOutcome.Failed("${CHANNEL.name} $it") }
 
+        val snapshot =
+            when (val saved = delivery.snapshot) {
+                is DeliverySnapshot.Resolved -> saved
+                DeliverySnapshot.Legacy ->
+                    when (val decision = legacySnapshots.resolve(delivery)) {
+                        is Decision.Processed -> decision.deliveries.single().snapshot
+                        is Decision.Failed -> return DeliveryOutcome.Failed(decision.errorMessage)
+                        else -> error("Unexpected legacy snapshot decision")
+                    }
+            }
         val recipient =
             when (val target = create.recipient) {
                 is AltinnResource -> target.toRecipient()
-                is NarmesteLederRecipient ->
-                    when (
-                        val leader =
-                            narmesteLederLookup.resolveForDelivery(
-                                channel = CHANNEL,
-                                sykmeldt = target.sykmeldt,
-                                orgnummer = create.orgnummer,
-                                requireEmail = target.externalVarsling != null,
-                                metrics = metrics,
-                            )
-                    ) {
-                        is LeaderResolution.Missing -> return leader.outcome
-                        is LeaderResolution.Found -> target.toRecipient(leader.relation)
-                    }
+                is NarmesteLederRecipient -> target.toRecipient(checkNotNull(snapshot.leader) { "Resolved snapshot missing leader" })
             }
 
         val sak =
@@ -56,6 +55,7 @@ class ArbeidsgivervarselChannelHandler(
                             sakstype = sakstype,
                             virksomhetsnummer = create.orgnummer.value,
                             mottaker = checkNotNull(recipient.saksmottaker) { "a sakstype is validated to have a saksmottaker" },
+                            name = snapshot.name,
                             correlationId = delivery.correlationId(),
                             activityAt = create.visibleUntil,
                         )
@@ -65,7 +65,15 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
-        val outcome = publish(create.toRequest(delivery, recipient.notification, sak)).toDeliveryOutcome(CHANNEL)
+        val link =
+            when (create.recipient) {
+                is AltinnResource -> requireNotNull(create.link) { "Altinn link is required" }
+                is NarmesteLederRecipient -> {
+                    val relationId = checkNotNull(snapshot.leader) { "Resolved snapshot missing leader" }.relationId
+                    create.link?.replace("NARMESTE_LEDER_ID", relationId.toString()) ?: saker.dineSykmeldteLink(relationId)
+                }
+            }
+        val outcome = publish(create.toRequest(delivery, recipient.notification, sak, link)).toDeliveryOutcome(CHANNEL)
         val status = create.saksstatus
         if (outcome != DeliveryOutcome.Sent || sak == null || status == null) return outcome
         return saker.setStatus(CHANNEL, sak, status, delivery.correlationId()) ?: outcome
@@ -101,7 +109,7 @@ private val CHANNEL = Channel.ARBEIDSGIVERVARSEL
  */
 private fun ArbeidsgivervarselCreate.invalidReason(): String? =
     when {
-        link.isBlank() -> "link must not be blank"
+        link?.isBlank() == true || (recipient is AltinnResource && link == null) -> "link must not be blank"
         sakstype == null && tag.isNullOrBlank() -> "tag must not be blank"
         sakstype != null && tag != null -> "tag must not be set with sakstype"
         sakstype == null && saksstatus != null -> "saksstatus needs a sakstype"
@@ -150,6 +158,7 @@ private fun ArbeidsgivervarselCreate.toRequest(
     delivery: ClaimedDelivery,
     recipient: ArbeidsgiverNotificationRecipient,
     sak: SakResolution.Ready?,
+    link: String,
 ) = ArbeidsgiverNotificationRequest(
     virksomhetsnummer = orgnummer.value,
     eksternId = delivery.correlationId(),

@@ -8,12 +8,16 @@ import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchHeader
+import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageRepository
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.UUID
 
 /**
@@ -131,6 +135,14 @@ class InboxMessageHandler(
                 }
             }
 
+        val content = dispatch.content
+        if (content is ArbeidsgivervarselCreate &&
+            content.recipient is NarmesteLeder &&
+            content.link?.let { !isAllowedLeaderLink(it) } == true
+        ) {
+            return toDeadLetter(DeadLetterReason.INVALID_LINK, eventId)
+        }
+
         return InboxCandidate.Valid(
             ValidRecord(
                 message = InboxMessage(eventId = eventId, reference = dispatch.reference, content = dispatch.content),
@@ -141,6 +153,18 @@ class InboxMessageHandler(
         )
     }
 }
+
+private fun isAllowedLeaderLink(link: String): Boolean =
+    try {
+        val uri = URI(link).parseServerAuthority()
+        val host = uri.host?.lowercase()
+        uri.scheme.equals("https", ignoreCase = true) &&
+            uri.rawUserInfo == null &&
+            host != null &&
+            (host == "nav.no" || host.endsWith(".nav.no"))
+    } catch (_: URISyntaxException) {
+        false
+    }
 
 internal fun parseDispatch(payload: String): ParseResult =
     try {

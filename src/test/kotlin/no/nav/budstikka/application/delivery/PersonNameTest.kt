@@ -2,6 +2,7 @@ package no.nav.budstikka.application.delivery
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import no.nav.budstikka.domain.PersonName
 
 class PersonNameTest :
     FunSpec({

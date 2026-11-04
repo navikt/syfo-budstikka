@@ -18,12 +18,12 @@ import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
+import no.nav.budstikka.application.delivery.LegacyDeliverySnapshotResolver
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
-import no.nav.budstikka.application.delivery.NarmesteLederLookup
-import no.nav.budstikka.application.delivery.PersonNameLookup
 import no.nav.budstikka.application.delivery.SerializedSakCreation
+import no.nav.budstikka.application.inbox.ArbeidsgiverDecisionEnrichment
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.inbox.InboxMetrics
@@ -46,7 +46,10 @@ import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 import kotlin.time.Duration.Companion.seconds
 
 fun DependencyRegistry.workerModule() {
-    provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
+    provide<DecisionProcess> {
+        val enrichment = ArbeidsgiverDecisionEnrichment(resolve(), resolve(), resolve())
+        DecisionProcess(resolve<List<DecisionRule>>(), enrichment::enrich)
+    }
     provide<EffectuateDecision> {
         EffectuateDecision(
             transactionRunner = resolve<TransactionRunner>(),
@@ -56,7 +59,7 @@ fun DependencyRegistry.workerModule() {
     }
     provide<Map<Channel, ChannelHandler>> {
         val sakPublisher = SerializedSakCreation(resolve<ArbeidsgiversakPublisher>(), resolve<KeyedLock>())
-        val saker = Arbeidsgiversaker(sakPublisher, resolve<PersonNameLookup>(), resolve<ArbeidsgiversakConfig>())
+        val saker = Arbeidsgiversaker(sakPublisher, resolve<ArbeidsgiversakConfig>())
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
@@ -67,8 +70,7 @@ fun DependencyRegistry.workerModule() {
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
                     saker = saker,
-                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
-                    metrics = resolve<DeliveryMetrics>(),
+                    legacySnapshots = LegacyDeliverySnapshotResolver(resolve(), resolve(), resolve()),
                 ),
         )
     }

@@ -3,6 +3,7 @@ package no.nav.budstikka.application.port
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.DeliverySnapshot
 import java.util.UUID
 import kotlin.time.Duration
 
@@ -13,6 +14,7 @@ data class ClaimedDelivery(
     val reference: String,
     val channel: Channel,
     val payload: DispatchContent,
+    val snapshot: DeliverySnapshot = DeliverySnapshot.Legacy,
 ) {
     val claim: DeliveryClaim get() = DeliveryClaim(id, claimToken)
 }

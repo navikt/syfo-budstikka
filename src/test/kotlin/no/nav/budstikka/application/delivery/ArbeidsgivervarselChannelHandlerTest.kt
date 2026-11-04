@@ -18,7 +18,9 @@ import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstilknytning
 import no.nav.budstikka.contract.Sakstype
+import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.DeliverySnapshot
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.FakePersonNameLookup
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
@@ -213,9 +215,8 @@ class ArbeidsgivervarselChannelHandlerTest :
             val handler =
                 ArbeidsgivervarselChannelHandler(
                     publisher,
-                    Arbeidsgiversaker(sakPublisher, FakePersonNameLookup(), ArbeidsgiversakConfig("https://dinesykmeldte.test")),
-                    lookup,
-                    RecordingDeliveryMetrics(),
+                    Arbeidsgiversaker(sakPublisher, ArbeidsgiversakConfig("https://dinesykmeldte.test")),
+                    LegacyDeliverySnapshotResolver(lookup, FakePersonNameLookup(), RecordingDeliveryMetrics()),
                 )
             val delivery =
                 delivery(
@@ -306,15 +307,33 @@ class ArbeidsgivervarselChannelHandlerTest :
             outcome.reason shouldNotContain TEST_SYKMELDT.value
         }
 
-        test("fails a NarmesteLeder notification without link before lookup or publishing") {
+        test("defaults a leader notification link to the same Dine sykmeldte destination without a sakstype") {
             val publisher = RecordingPublisher()
-            val outcome =
-                handler(publisher, ThrowingNarmesteLederLookup()).handle(
-                    delivery(create(NarmesteLeder(TEST_SYKMELDT), link = null)),
-                )
+            handler(publisher, ThrowingNarmesteLederLookup())
+                .handle(
+                    delivery(create(NarmesteLeder(TEST_SYKMELDT), link = null)).copy(
+                        snapshot = DeliverySnapshot.Resolved(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
+                    ),
+                ).shouldBe(DeliveryOutcome.Sent)
+            publisher.requests.single().lenke shouldBe "https://dinesykmeldte.test/$TEST_LEDERRELASJON_ID"
+        }
 
-            (outcome as DeliveryOutcome.Failed).reason shouldBe "ARBEIDSGIVERVARSEL link must not be blank"
-            publisher.requests shouldBe emptyList()
+        listOf(
+            "https://www.nav.no/oppfolgingsplan/NARMESTE_LEDER_ID/detaljer/NARMESTE_LEDER_ID" to
+                "https://www.nav.no/oppfolgingsplan/$TEST_LEDERRELASJON_ID/detaljer/$TEST_LEDERRELASJON_ID",
+            "https://www.nav.no/arbeidsgiver/sykmeldte/already-embedded-id" to
+                "https://www.nav.no/arbeidsgiver/sykmeldte/already-embedded-id",
+            "https://legacy.example.test/old-path" to "https://legacy.example.test/old-path",
+        ).forEachIndexed { index, (link, expected) ->
+            test("stored custom link substitutes only the placeholder, without revalidating the host ($index)") {
+                val publisher = RecordingPublisher()
+                handler(publisher, ThrowingNarmesteLederLookup()).handle(
+                    delivery(create(NarmesteLeder(TEST_SYKMELDT), link = link)).copy(
+                        snapshot = DeliverySnapshot.Resolved(NarmesteLederRelasjon(LEDER, emptyList(), TEST_LEDERRELASJON_ID)),
+                    ),
+                ) shouldBe DeliveryOutcome.Sent
+                publisher.requests.single().lenke shouldBe expected
+            }
         }
 
         test("fails blank Altinn resource before publishing without leaking tag data") {
@@ -490,7 +509,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
 
             (outcome as DeliveryOutcome.Failed).reason shouldBe
-                "ARBEIDSGIVERVARSEL NarmesteLeder delivery unavailable: missing_active_leader"
+                "MISSING_ACTIVE_LEADER"
             metrics.narmesteLederMissing[NarmesteLederMissingReason.MISSING_ACTIVE_LEADER]?.get() shouldBe 1
             outcome.reason shouldNotContain TEST_SYKMELDT.value
             outcome.reason shouldNotContain TEST_ORGNUMMER.value
@@ -522,7 +541,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
 
             (outcome as DeliveryOutcome.Failed).reason shouldBe
-                "ARBEIDSGIVERVARSEL NarmesteLeder delivery unavailable: missing_email_address"
+                "MISSING_EMAIL_ADDRESS"
             metrics.narmesteLederMissing[NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS]?.get() shouldBe 1
             outcome.reason shouldNotContain TEST_SYKMELDT.value
             outcome.reason shouldNotContain TEST_ORGNUMMER.value
@@ -539,7 +558,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                     )
                 }
 
-            error.message shouldContain "ARBEIDSGIVERVARSEL channel failed while resolving nærmeste leder"
+            error.message shouldContain "ARBEIDSGIVERVARSEL channel failed while resolving legacy delivery snapshot"
             error.cause.shouldBeInstanceOf<IllegalStateException>()
             error.stackTrace.any { it.className.contains("ArbeidsgivervarselChannelHandler") } shouldBe true
         }
@@ -556,11 +575,9 @@ private fun handler(
     publisher,
     Arbeidsgiversaker(
         sakPublisher,
-        FakePersonNameLookup(),
         ArbeidsgiversakConfig("https://dinesykmeldte.test"),
     ),
-    lookup,
-    metrics,
+    LegacyDeliverySnapshotResolver(lookup, FakePersonNameLookup(), metrics),
 )
 
 private fun create(

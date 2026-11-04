@@ -5,15 +5,17 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
-import no.nav.budstikka.application.delivery.PersonName
 import no.nav.budstikka.application.delivery.PersonNameLookup
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.domain.PersonName
 import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.PdlConfig
@@ -29,11 +31,15 @@ class PdlClient(
     private val tokenProvider: TokenProvider,
 ) : DeathLookup,
     PersonNameLookup {
-    override suspend fun isDead(ident: PersonIdentifier): Boolean = parseIsDead(query(personQuery(ident.value)))
+    override suspend fun isDead(ident: PersonIdentifier): Boolean = parseIsDead(query(personQuery(ident.value)).bodyAsText())
 
-    override suspend fun findName(ident: PersonIdentifier): PersonName? = parseName(query(nameQuery(ident.value)))
+    override suspend fun findName(ident: PersonIdentifier): PersonName? {
+        val response = query(nameQuery(ident.value))
+        check(response.status.isSuccess()) { "PDL name lookup failed with status ${response.status.value}" }
+        return parseName(response.bodyAsText())
+    }
 
-    private suspend fun query(request: GraphqlRequest): String {
+    private suspend fun query(request: GraphqlRequest): HttpResponse {
         val accessToken = tokenProvider.token(config.scope)
         return httpClient
             .post(config.url) {
@@ -41,7 +47,7 @@ class PdlClient(
                 bearerAuth(accessToken)
                 header(BEHANDLINGSNUMMER_HEADER, config.behandlingsnummer)
                 setBody(sharedJson.encodeToString(request))
-            }.bodyAsText()
+            }
     }
 
     companion object {
@@ -73,8 +79,8 @@ class PdlClient(
             if (!response.errors.isNullOrEmpty()) {
                 error("PDL responded with ${response.errors.size} error(s) to the name lookup")
             }
-            return response.data
-                ?.fetchPerson
+            return checkNotNull(response.data) { "PDL name response has no data" }
+                .fetchPerson
                 ?.names
                 ?.firstOrNull()
                 ?.let { PersonName(firstName = it.fornavn, middleName = it.mellomnavn, lastName = it.etternavn) }

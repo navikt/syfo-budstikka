@@ -5,6 +5,8 @@ import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
+import no.nav.budstikka.domain.NarmesteLederRelasjon
+import no.nav.budstikka.domain.PersonName
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import kotlin.time.Instant
 

@@ -24,9 +24,9 @@ object Arbeidsgivervarsel {
     sealed interface Recipient
 
     /**
-     * Sends to the active Nærmeste leder for [sykmeldt]. Budstikka's delivery flow ends when no
-     * active leader exists. When external notification is requested, it also ends when the leader
-     * has no email address. It does not fall back to another recipient.
+     * Sends to the active Nærmeste leder for [sykmeldt] resolved at Decision. Budstikka saves the
+     * leader for delivery and retries. The decision fails when no active leader exists, or when
+     * external notification is requested and the leader has no email address. No recipient fallback.
      */
     data class NarmesteLeder(
         val sykmeldt: PersonIdentifier,
