@@ -25,9 +25,9 @@ class ArbeidsgivervarselChannelHandler(
         val create =
             delivery.payload as? ArbeidsgivervarselCreate
                 ?: return payloadFailure(delivery)
-        if (create.link.isBlank()) {
-            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
-        }
+        val link =
+            create.link?.takeUnless { it.isBlank() }
+                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL link must not be blank")
         val tag =
             create.tag?.takeUnless { it.isBlank() }
                 ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL tag must not be blank")
@@ -90,7 +90,7 @@ class ArbeidsgivervarselChannelHandler(
                             grupperingsid = create.sakstilknytning?.sakId,
                             tag = tag,
                             tekst = create.text,
-                            lenke = create.link,
+                            lenke = link,
                             recipient = notificationRecipient,
                             meldingstype = create.meldingstype,
                             visibleUntil = create.visibleUntil,

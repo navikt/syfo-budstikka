@@ -314,7 +314,8 @@ object Budstikka {
      *   [Arbeidsgivervarsel.HtmlEmailNotification] for an explicit HTML email body.
      * @param sakstype the sak the notification belongs to.
      * @param text the notification text shown to the recipient.
-     * @param link required target for the notification.
+     * @param link optional target for the notification; omit to link to the sak in Dine Sykmeldte.
+     *   Omit it only once Budstikka with that default is rolled out; see the release note.
      * @param messageType whether the notification is a beskjed or oppgave; defaults to BESKJED.
      * @param visibleUntil despite the name, the time when Arbeidsgivernotifikasjoner permanently
      *   deletes the notification. Omit to use the existing four-month retention period.
@@ -329,7 +330,7 @@ object Budstikka {
         recipient: Arbeidsgivervarsel.NarmesteLeder,
         sakstype: Arbeidsgiversak.Type,
         text: String,
-        link: String,
+        link: String? = null,
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
@@ -390,7 +391,8 @@ object Budstikka {
     /**
      * Creates an Arbeidsgivervarsel for Nærmeste leder in the [sakstype] sak of the leader relation,
      * with an explicitly trusted HTML email. Create [recipient] without its optional
-     * `externalNotification`; the two alternatives cannot be combined.
+     * `externalNotification`; the two alternatives cannot be combined. [link] is optional as in the
+     * plain overload.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -400,7 +402,7 @@ object Budstikka {
         htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
         sakstype: Arbeidsgiversak.Type,
         text: String,
-        link: String,
+        link: String? = null,
         messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
         visibleUntil: Instant? = null,
         sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
@@ -740,7 +742,7 @@ private fun encodeArbeidsgivervarselInSak(
     sakstype: Sakstype,
     saksstatus: Saksstatus?,
     text: String,
-    link: String,
+    link: String?,
     messageType: Arbeidsgivervarsel.MessageType,
     visibleUntil: Instant?,
     sendingWindow: SendingWindow,
@@ -748,7 +750,8 @@ private fun encodeArbeidsgivervarselInSak(
     requireReference(reference)
     orgnummer.requireOrgnummer()
     requireNotBlank(text, "text")
-    requireNotBlank(link, "link")
+    requireNullOrNotBlank(link, "link")
+    require(link != null || recipient !is AltinnResource) { "link is required for an Altinn resource" }
     return ArbeidsgivervarselCreate(
         orgnummer = orgnummer,
         recipient = recipient,

@@ -92,7 +92,9 @@ data class ArbeidsgivervarselCreate(
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val tag: String? = null,
     val text: String,
-    val link: String,
+    /** Required for an [AltinnResource]; a [NarmesteLeder] notification without it follows its sak. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val link: String? = null,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
@@ -105,6 +107,8 @@ data class ArbeidsgivervarselCreate(
     val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     init {
+        // Runs on decoding too, so Budstikka rejects an Altinn message without a link on receipt.
+        require(link != null || recipient !is AltinnResource) { "link is required for an Altinn resource" }
         sendingWindow = sendingWindow ?: SendingWindow.BUDSTIKKA_OPENING_HOURS
     }
 
@@ -114,7 +118,7 @@ data class ArbeidsgivervarselCreate(
     override fun toString(): String =
         "ArbeidsgivervarselCreate(meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
             "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null}, " +
-            "sakstype=$sakstype)"
+            "hasLink=${link != null}, sakstype=$sakstype)"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */

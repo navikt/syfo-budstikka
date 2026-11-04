@@ -3,10 +3,12 @@
 
 package no.nav.budstikka.contract
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlin.time.Instant
 
@@ -220,6 +222,34 @@ class DispatchSerializationTest :
                 NarmesteLederExternalVarsling(emailTitle = "Tittel", emailText = "A & <B>")
             altinn.externalVarsling shouldBe
                 AltinnExternalVarsling(emailTitle = "Tittel", emailText = "A & <B>", smsText = "SMS")
+        }
+
+        context("Arbeidsgivervarsel link") {
+            fun payload(mottaker: String) =
+                """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"${SYNTHETIC_ORGNUMMER.value}",""" +
+                    """"mottaker":$mottaker,"text":"Hei","sakstype":"DIALOGMOTE"}}"""
+
+            test("a Nærmeste leder notification without link is read and encodes without the field") {
+                val content =
+                    dispatchJson
+                        .decodeFromString<Dispatch>(
+                            payload("""{"type":"NarmesteLeder","sykmeldt":"${SYNTHETIC_SYKMELDT.value}"}"""),
+                        ).content as ArbeidsgivervarselCreate
+
+                content.link shouldBe null
+                dispatchJson.encodeToString(envelope(content)) shouldNotContain "\"link\""
+            }
+
+            test("an Altinn notification without link is rejected on receipt") {
+                shouldThrow<SerializationException> {
+                    dispatchJson.decodeFromString<Dispatch>(
+                        payload(
+                            """{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                                """"sykmeldt":"${SYNTHETIC_SYKMELDT.value}","sakId":"dialog-1"}""",
+                        ),
+                    )
+                }.message shouldContain "link is required for an Altinn resource"
+            }
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {

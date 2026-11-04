@@ -110,10 +110,12 @@ sak og oppretter den ved behov. Typen bestemmer merkelapp og tittel, for eksempe
 Nordmann». Detaljene står i KDoc.
 
 - **Nærmeste leder:** én sak per sakstype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
-  får sin egen sak.
+  får sin egen sak. `link` er valgfri: uten lenke lenker varselet til saken. Utelat lenken først når
+  Budstikka med denne standarden er rullet ut; se
+  [release note 0.7.0](releases/kontrakt/0.7.0.md#wire--og-utrullingskompatibilitet).
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
   `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
-  et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`.
+  et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`. `link` er påkrevd.
 - **Status:** valgfri `saksstatus` setter sakens status etter innholdet. En ny sak får «Mottatt», og
   uten `saksstatus` beholder saken statusen den har.
 - **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel eller status.

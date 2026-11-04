@@ -66,6 +66,17 @@ class ArbeidsgivervarselChannelHandlerTest :
             outcome.reason shouldNotContain TEST_SYKMELDT.value
         }
 
+        test("fails a NarmesteLeder notification without link before lookup or publishing") {
+            val publisher = RecordingPublisher()
+            val outcome =
+                handler(publisher, ThrowingNarmesteLederLookup()).handle(
+                    delivery(create(NarmesteLeder(TEST_SYKMELDT), link = null)),
+                )
+
+            (outcome as DeliveryOutcome.Failed).reason shouldBe "ARBEIDSGIVERVARSEL link must not be blank"
+            publisher.requests shouldBe emptyList()
+        }
+
         test("fails blank Altinn resource before publishing without leaking tag data") {
             val publisher = RecordingPublisher()
             val outcome =
@@ -306,12 +317,13 @@ private fun create(
     recipient: ArbeidsgiverRecipient = AltinnResource("producer-resource"),
     tag: String = "producer-tag",
     visibleUntil: Instant? = null,
+    link: String? = "https://nav.no/lenke",
 ) = ArbeidsgivervarselCreate(
     TEST_ORGNUMMER,
     recipient,
     tag,
     "Tekst",
-    "https://nav.no/lenke",
+    link,
     visibleUntil = visibleUntil,
 )
 

@@ -4,6 +4,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import java.util.UUID
 
 private const val REFERENCE = "ref-1"
@@ -39,6 +40,70 @@ class ArbeidsgiversakProducerApiTest :
                     """"externalVarsling":null},"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
                     """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"ONGOING",""" +
                     """"sakstype":"DIALOGMOTE","saksstatus":"FERDIG"}}"""
+            }
+
+            test("a notification to Nærmeste leder may omit link, which is then left out of the wire") {
+                val plain =
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                    )
+                val html =
+                    Budstikka.arbeidsgivervarselCreate(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                        htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification("Tittel", "<p>E-post</p>"),
+                        sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        text = SYNTHETIC_TEXT,
+                    )
+
+                plain.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate",""" +
+                    """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
+                    """"externalVarsling":null},"text":"SYNTETISK-VARSELTEKST",""" +
+                    """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","sakstype":"DIALOGMOTE"}}"""
+                html.value shouldNotContain "\"link\""
+            }
+
+            listOf(" ", "").forEach { link ->
+                test("a blank link [$link] to Nærmeste leder is rejected") {
+                    shouldThrow<IllegalArgumentException> {
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = link,
+                        )
+                    }.message shouldBe "link must not be blank when set"
+                }
+            }
+
+            test("every overload that can reach an Altinn resource still requires a link") {
+                val altinnCapable =
+                    Budstikka::class.members.filter { function ->
+                        function.name == "arbeidsgivervarselCreate" &&
+                            function.parameters.any {
+                                it.type.classifier == Arbeidsgivervarsel.AltinnResource::class ||
+                                    it.type.classifier == Arbeidsgivervarsel.Recipient::class
+                            }
+                    }
+
+                altinnCapable.size shouldBe 4
+                altinnCapable.forEach { function ->
+                    val link = function.parameters.single { it.name == "link" }
+                    link.type.isMarkedNullable shouldBe false
+                    link.isOptional shouldBe false
+                }
             }
 
             test("a notification to an Altinn resource carries the Sykmeldt and the producer's sak key") {
