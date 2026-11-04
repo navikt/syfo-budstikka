@@ -65,7 +65,7 @@ class NarmesteLederClient(
                 NarmesteLederRelasjon(
                     narmesteLederFnr = PersonIdentifier(relation.nationalIdentificationNumber),
                     epostadresser = relation.emailAddresses,
-                    relasjonId =
+                    relationId =
                         runCatching { UUID.fromString(relation.id) }.getOrElse {
                             error("Narmeste leder register returned an invalid relation id")
                         },

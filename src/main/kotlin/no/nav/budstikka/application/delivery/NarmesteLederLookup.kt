@@ -14,14 +14,11 @@ fun interface NarmesteLederLookup {
     ): NarmesteLederRelasjon?
 }
 
-/**
- * @property relasjonId the leader relation's id in esyfo-narmesteleder. It identifies this leader for
- *   this Sykmeldt and organisation, so content can be grouped per relation without a personident.
- */
+/** @property relationId identifier assigned by esyfo-narmesteleder to this relation record. */
 data class NarmesteLederRelasjon(
     val narmesteLederFnr: PersonIdentifier,
     val epostadresser: List<String>,
-    val relasjonId: UUID,
+    val relationId: UUID,
 ) {
     override fun toString(): String = "NarmesteLederRelasjon(hasEmailAddresses=${epostadresser.isNotEmpty()})"
 }
