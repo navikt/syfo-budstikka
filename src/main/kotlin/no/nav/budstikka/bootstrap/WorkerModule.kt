@@ -77,8 +77,6 @@ fun DependencyRegistry.workerModule() {
                 KalenderavtaleChannelHandler(
                     publisher = sakPublisher,
                     saker = saker,
-                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
-                    metrics = resolve<DeliveryMetrics>(),
                 ),
         )
     }
