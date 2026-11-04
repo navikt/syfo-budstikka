@@ -235,6 +235,52 @@ class KalenderavtaleChannelHandlerTest :
                 .distinct() shouldBe listOf("DIALOGMOTE:$SNAPSHOT_LEADER_RELATION_ID")
         }
 
+        test("sends a plain state or text update whose snapshot has no leader") {
+            listOf(
+                update(tilstand = Kalenderavtaletilstand.AVLYST),
+                update(tilstand = Kalenderavtaletilstand.AVHOLDT),
+                update(text = "Oppdatert tekst"),
+            ).forEach { plainUpdate ->
+                val publisher = FakeArbeidsgiversakPublisher()
+
+                handler(publisher).handle(delivery(plainUpdate, DeliverySnapshot.Resolved())) shouldBe DeliveryOutcome.Sent
+
+                publisher.requests.single() shouldBe
+                    KalenderavtaleUpdateRequest(
+                        tag = "Dialogmøte",
+                        eksternId = "avtale-1",
+                        tilstand = plainUpdate.tilstand,
+                        text = plainUpdate.text,
+                        externalVarsling = null,
+                        idempotencyKey = EVENT_ID,
+                    )
+            }
+        }
+
+        test("fails an update that requests email when its snapshot has no leader") {
+            val publisher = FakeArbeidsgiversakPublisher()
+
+            handler(publisher).handle(
+                delivery(update(tilstand = Kalenderavtaletilstand.AVLYST, email = PLAIN_EMAIL), DeliverySnapshot.Resolved()),
+            ) shouldBe DeliveryOutcome.Failed("KALENDERAVTALE resolved delivery snapshot is missing a leader")
+            publisher.requests shouldBe emptyList()
+        }
+
+        test("rejects an Altinn recipient as unsupported even when the snapshot has no leader") {
+            val altinn = AltinnResource("nav_syfo_dialogmote")
+            listOf(
+                create(recipient = altinn),
+                update(tilstand = Kalenderavtaletilstand.AVLYST).copy(recipient = altinn),
+                update(tilstand = Kalenderavtaletilstand.AVLYST, saksstatus = Saksstatus.FERDIG).copy(recipient = altinn),
+            ).forEach { payload ->
+                val publisher = FakeArbeidsgiversakPublisher()
+
+                handler(publisher).handle(delivery(payload, DeliverySnapshot.Resolved())) shouldBe
+                    DeliveryOutcome.Failed("KALENDERAVTALE supports only a NarmesteLeder recipient")
+                publisher.requests shouldBe emptyList()
+            }
+        }
+
         test("fails when an update snapshot has no leader") {
             val publisher = FakeArbeidsgiversakPublisher()
 
