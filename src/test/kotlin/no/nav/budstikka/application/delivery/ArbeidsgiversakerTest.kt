@@ -10,7 +10,6 @@ import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
-import no.nav.budstikka.fakes.FakePersonNameLookup
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.TEST_SYKMELDT
@@ -27,11 +26,10 @@ private val DELETED = ArbeidsgiverNotificationResponse.SakDeleted("DuplikatGrupp
 
 class ArbeidsgiversakerTest :
     FunSpec({
-        test("an existing sak is extended and used without looking up the name") {
+        test("an existing sak is extended and used without creation") {
             val publisher = FakeArbeidsgiversakPublisher()
-            val names = FakePersonNameLookup()
 
-            saker(publisher, names).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+            saker(publisher).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
 
             publisher.requests shouldBe
                 listOf(
@@ -42,15 +40,13 @@ class ArbeidsgiversakerTest :
                         correlationId = CORRELATION_ID,
                     ),
                 )
-            names.lookups shouldBe 0
         }
 
-        test("a missing sak is created with the Sykmeldt's name and a link to Dine Sykmeldte, then extended") {
+        test("a missing sak is created with the supplied name and a link to Dine Sykmeldte, then extended") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
-            val names =
-                FakePersonNameLookup().apply { register(TEST_SYKMELDT, PersonName("SYNTETISK", null, "SYKMELDT")) }
 
-            saker(publisher, names).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+            saker(publisher).ensure(NL, name = PersonName("SYNTETISK", null, "SYKMELDT")) shouldBe
+                SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
 
             publisher.sakCreates.single() shouldBe
                 ArbeidsgiversakCreateRequest(
@@ -87,10 +83,11 @@ class ArbeidsgiversakerTest :
 
         test("an Altinn sak is keyed on the resource, the organisation and the producer's sak key, without a link") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
-            val names =
-                FakePersonNameLookup().apply { register(TEST_SYKMELDT, PersonName("SYNTETISK", null, "SYKMELDT")) }
 
-            saker(publisher, names).ensure(Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT, "dialog-1")) shouldBe
+            saker(publisher).ensure(
+                Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT, "dialog-1"),
+                name = PersonName("SYNTETISK", null, "SYKMELDT"),
+            ) shouldBe
                 SakResolution.Ready("DIALOGMOTE:nav_syfo_dialogmote:${TEST_ORGNUMMER.value}:dialog-1", "Dialogmøte")
 
             publisher.sakCreates.single().apply {
@@ -100,22 +97,45 @@ class ArbeidsgiversakerTest :
             }
         }
 
+        listOf(NL, Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT, "dialog-1")).forEach { recipient ->
+            test("an explicit null name gives a general title for ${recipient::class.simpleName}") {
+                val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
+
+                saker(publisher).ensure(recipient, name = null)
+
+                publisher.sakCreates.single().title shouldBe "Dialogmøte"
+            }
+        }
+
+        test("the shared notification link is the sak destination, with or without a trailing slash in the base") {
+            listOf("https://dinesykmeldte.test/sykmeldte", "https://dinesykmeldte.test/sykmeldte/").forEach { base ->
+                val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
+                val service = saker(publisher, config = ArbeidsgiversakConfig(base))
+
+                service.ensure(NL, name = null)
+
+                service.dineSykmeldteLink(NL.relationId) shouldBe "https://dinesykmeldte.test/sykmeldte/$TEST_LEDERRELASJON_ID"
+                publisher.sakCreates.single().link shouldBe service.dineSykmeldteLink(NL.relationId)
+            }
+        }
+
         test("a deleted sak moves on to the next generation of its key") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND, DELETED, NOT_FOUND, NOT_FOUND)
 
-            saker(publisher).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
+            saker(publisher).ensure(NL, name = PersonName("SYNTETISK", null, "SYKMELDT")) shouldBe
+                SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
 
             publisher.sakCreates.map { it.grupperingsid } shouldBe
                 listOf("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "DIALOGMOTE:$TEST_LEDERRELASJON_ID:2")
+            publisher.sakCreates.map { it.title } shouldBe
+                listOf("Dialogmøte med Syntetisk Sykmeldt", "Dialogmøte med Syntetisk Sykmeldt")
         }
 
-        test("an existing next generation is found by extending it, without a name lookup or creation") {
+        test("an existing next generation is found by extending it, without creation") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND)
-            val names = FakePersonNameLookup()
 
-            saker(publisher, names).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
+            saker(publisher).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
             publisher.sakCreates shouldBe emptyList()
-            names.lookups shouldBe 0
         }
 
         test("a rejection is terminal") {
@@ -124,10 +144,17 @@ class ArbeidsgiversakerTest :
             saker(publisher).ensure(NL) shouldBe SakResolution.Failed(DeliveryOutcome.Failed("UgyldigMerkelapp"))
         }
 
-        test("a created sak that is not visible yet is retried") {
-            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND, NOT_FOUND)
+        test("a created sak that is not visible yet is retried with the same supplied name and key") {
+            val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND, NOT_FOUND, NOT_FOUND, NOT_FOUND)
+            val service = saker(publisher)
+            val name = PersonName("SYNTETISK", null, "SYKMELDT")
 
-            shouldThrow<ChannelHandlerFailure> { saker(publisher).ensure(NL) }
+            shouldThrow<ChannelHandlerFailure> { service.ensure(NL, name = name) }
+            service.ensure(NL, name = name) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+
+            publisher.sakCreates.size shouldBe 2
+            publisher.sakCreates[0] shouldBe publisher.sakCreates[1]
+            publisher.sakCreates[1].title shouldBe "Dialogmøte med Syntetisk Sykmeldt"
         }
 
         test("sets the requested status on the sak with the dispatch as idempotency key") {
@@ -166,11 +193,10 @@ private val CONFIG =
 
 private fun saker(
     publisher: FakeArbeidsgiversakPublisher,
-    names: FakePersonNameLookup = FakePersonNameLookup(),
+    config: ArbeidsgiversakConfig = CONFIG,
 ) = Arbeidsgiversaker(
     publisher = publisher,
-    personNames = names,
-    config = CONFIG,
+    config = config,
     clock =
         object : Clock {
             override fun now(): Instant = NOW
@@ -181,11 +207,13 @@ private suspend fun Arbeidsgiversaker.ensure(
     mottaker: Saksmottaker,
     sakstype: Sakstype = Sakstype.DIALOGMOTE,
     activityAt: Instant? = null,
+    name: PersonName? = null,
 ) = ensure(
     channel = Channel.ARBEIDSGIVERVARSEL,
     sakstype = sakstype,
     virksomhetsnummer = TEST_ORGNUMMER.value,
     mottaker = mottaker,
+    name = name,
     correlationId = CORRELATION_ID,
     activityAt = activityAt,
 )

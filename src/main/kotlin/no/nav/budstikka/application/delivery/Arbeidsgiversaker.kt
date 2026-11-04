@@ -20,13 +20,13 @@ import kotlin.time.Instant
  */
 class Arbeidsgiversaker(
     private val publisher: ArbeidsgiversakPublisher,
-    private val personNames: PersonNameLookup,
     private val config: ArbeidsgiversakConfig,
     private val clock: Clock = Clock.System,
 ) {
     /**
      * Makes sure the [sakstype] sak exists for [mottaker] and lives at least four months past
-     * [activityAt] (or now, if later).
+     * [activityAt] (or now, if later). Creation uses the caller's saved [name] snapshot; `null`
+     * gives a general title. This service does not look up names.
      *
      * Arbeidsgivernotifikasjoner never accepts the key of a deleted sak again, so a recipient who
      * comes back after their sak was deleted gets the next generation of the key: `key`, `key:2`,
@@ -38,22 +38,26 @@ class Arbeidsgiversaker(
         sakstype: Sakstype,
         virksomhetsnummer: String,
         mottaker: Saksmottaker,
+        name: PersonName?,
         correlationId: String,
         activityAt: Instant? = null,
     ): SakResolution {
         val now = clock.now()
         val keepUntil = maxOf(now, activityAt ?: now).plus(RETENTION_MONTHS, DateTimeUnit.MONTH, OSLO)
-        val sak = SakGenerations(channel, sakstype, virksomhetsnummer, mottaker, correlationId, keepUntil)
+        val sak = SakGenerations(channel, sakstype, virksomhetsnummer, mottaker, name, correlationId, keepUntil)
         for (generation in 1..MAX_GENERATIONS) {
             sak.extendIfExists(generation)?.let { return it }
             // A generation is only created after the one before it is deleted, so if the next one
-            // exists, this one is gone. Checking that first saves a name lookup and a create on every
+            // exists, this one is gone. Checking that first saves a create on every
             // delivery after a deletion.
             if (generation < MAX_GENERATIONS) sak.extendIfExists(generation + 1)?.let { return it }
             sak.create(generation)?.let { return it }
         }
         return SakResolution.Failed(DeliveryOutcome.Failed("${channel.name} sak key has $MAX_GENERATIONS deleted generations"))
     }
+
+    /** The sak destination, also used as the default notification link for this leader relation. */
+    fun dineSykmeldteLink(relationId: UUID): String = "${config.dineSykmeldteUrl.trimEnd('/')}/$relationId"
 
     /** Sets the status a producer asked for on [sak]; `null` when it is set. */
     suspend fun setStatus(
@@ -78,6 +82,7 @@ class Arbeidsgiversaker(
         private val sakstype: Sakstype,
         private val virksomhetsnummer: String,
         private val mottaker: Saksmottaker,
+        private val name: PersonName?,
         private val correlationId: String,
         private val keepUntil: Instant,
     ) {
@@ -97,7 +102,6 @@ class Arbeidsgiversaker(
         /** Creates the sak of [generation] and returns it; `null` when the key belonged to a deleted sak. */
         suspend fun create(generation: Int): SakResolution? {
             val grupperingsid = key(generation)
-            val name = withChannelHandlerFailureContext(channel, "looking up name") { personNames.findName(mottaker.sykmeldt) }
             val created =
                 withChannelHandlerFailureContext(channel, "creating sak") {
                     publisher.createSak(
@@ -137,13 +141,13 @@ class Arbeidsgiversaker(
 
     private fun Saksmottaker.keyPart(virksomhetsnummer: String): String =
         when (this) {
-            is Saksmottaker.NarmesteLeder -> relasjonId.toString()
+            is Saksmottaker.NarmesteLeder -> relationId.toString()
             is Saksmottaker.AltinnRessurs -> "$resource:$virksomhetsnummer:$sakId"
         }
 
     private fun Saksmottaker.link(): String? =
         when (this) {
-            is Saksmottaker.NarmesteLeder -> "${config.dineSykmeldteUrl.trimEnd('/')}/$relasjonId"
+            is Saksmottaker.NarmesteLeder -> dineSykmeldteLink(relationId)
             is Saksmottaker.AltinnRessurs -> null
         }
 
@@ -165,7 +169,7 @@ sealed interface Saksmottaker {
 
     /** The sak of one leader relation; a new leader gets a sak of their own. */
     data class NarmesteLeder(
-        val relasjonId: UUID,
+        val relationId: UUID,
         val narmesteLederFnr: PersonIdentifier,
         override val sykmeldt: PersonIdentifier,
     ) : Saksmottaker {
