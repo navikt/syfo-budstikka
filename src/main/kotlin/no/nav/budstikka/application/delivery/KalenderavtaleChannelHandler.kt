@@ -27,10 +27,9 @@ class KalenderavtaleChannelHandler(
         val snapshot =
             delivery.snapshot as? DeliverySnapshot.Resolved
                 ?: return failed("legacy delivery snapshot is unsupported")
-        val leader = snapshot.leader ?: return failed("resolved delivery snapshot is missing a leader")
         return when (val payload = delivery.payload) {
-            is KalenderavtaleCreate -> create(delivery, payload, leader, snapshot.name)
-            is KalenderavtaleUpdate -> update(delivery, payload, leader, snapshot.name)
+            is KalenderavtaleCreate -> create(delivery, payload, snapshot)
+            is KalenderavtaleUpdate -> update(delivery, payload, snapshot)
             else ->
                 DeliveryOutcome.Failed(
                     "Payload does not match KALENDERAVTALE channel: ${payload::class.simpleName}",
@@ -42,12 +41,12 @@ class KalenderavtaleChannelHandler(
     private suspend fun create(
         delivery: ClaimedDelivery,
         create: KalenderavtaleCreate,
-        leader: NarmesteLederRelasjon,
-        name: PersonName?,
+        snapshot: DeliverySnapshot.Resolved,
     ): DeliveryOutcome {
         val recipient =
             create.recipient as? NarmesteLederRecipient
                 ?: return failed("supports only a NarmesteLeder recipient")
+        val leader = snapshot.leader ?: return failed(MISSING_LEADER)
         recipient.deliveryReason(leader)?.let { return failed(it) }
         create.invalidReason()?.let { return failed(it) }
         val sak =
@@ -58,7 +57,7 @@ class KalenderavtaleChannelHandler(
                         create.sakstype,
                         create.orgnummer.value,
                         recipient.toSaksmottaker(leader),
-                        name,
+                        snapshot.name,
                         create.endAt ?: create.startAt,
                     )
             ) {
@@ -75,22 +74,28 @@ class KalenderavtaleChannelHandler(
     }
 
     /**
-     * Updates the event where it was created. Email and status go to the saved leader. The status
-     * is set first: a failure there is retried without repeating the update and its email, which
-     * Fager does not deduplicate.
+     * Updates the event where it was created. Email and status go to the saved leader; a plain text
+     * or state update needs no leader, so Decision saves none for it. The status is set first: a
+     * failure there is retried without repeating the update and its email, which Fager does not
+     * deduplicate.
      */
     private suspend fun update(
         delivery: ClaimedDelivery,
         update: KalenderavtaleUpdate,
-        leader: NarmesteLederRelasjon,
-        name: PersonName?,
+        snapshot: DeliverySnapshot.Resolved,
     ): DeliveryOutcome {
         val recipient =
             update.recipient as? NarmesteLederRecipient
                 ?: return failed("supports only a NarmesteLeder recipient")
-        recipient.deliveryReason(leader)?.let { return failed(it) }
-        update.invalidReason()?.let { return failed(it) }
         val status = update.saksstatus
+        val leader =
+            if (recipient.externalVarsling != null || status != null) {
+                snapshot.leader ?: return failed(MISSING_LEADER)
+            } else {
+                null
+            }
+        leader?.let { recipient.deliveryReason(it) }?.let { return failed(it) }
+        update.invalidReason()?.let { return failed(it) }
         if (status != null) {
             val sak =
                 when (
@@ -99,8 +104,8 @@ class KalenderavtaleChannelHandler(
                             delivery,
                             update.sakstype,
                             update.orgnummer.value,
-                            recipient.toSaksmottaker(leader),
-                            name,
+                            recipient.toSaksmottaker(requireNotNull(leader)),
+                            snapshot.name,
                         )
                 ) {
                     is SakResolution.Failed -> return resolution.outcome
@@ -110,7 +115,7 @@ class KalenderavtaleChannelHandler(
         }
         return withChannelHandlerFailureContext(CHANNEL, "updating kalenderavtale") {
             publisher.updateKalenderavtale(
-                update.toRequest(delivery, recipient.toNotificationRecipient(leader).externalVarsling),
+                update.toRequest(delivery, leader?.let { recipient.toNotificationRecipient(it).externalVarsling }),
             )
         }.toDeliveryOutcome(CHANNEL)
     }
@@ -136,6 +141,8 @@ class KalenderavtaleChannelHandler(
 }
 
 private val CHANNEL = Channel.KALENDERAVTALE
+
+private const val MISSING_LEADER = "resolved delivery snapshot is missing a leader"
 
 private fun failed(reason: String) = DeliveryOutcome.Failed("${CHANNEL.name} $reason")
 
