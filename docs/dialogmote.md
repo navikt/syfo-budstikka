@@ -52,7 +52,17 @@ syfomotebehov må flytte før eller samtidig med isdialogmote. Samtidig må esyf
 
 ## Nærmeste leder
 
-Budstikka slår opp aktiv leder og e-postadresser ved utsending, og eier saken. Arbeidsgivervarsler og kalenderavtaler til leder bruker `sakstype = Arbeidsgiversak.Type.DIALOGMOTE`; isdialogmote sender ingen sak. Budstikka legger alt i lederrelasjonens dialogmøtesak, med tittel «Dialogmøte med {navn}» og lenke til Dine Sykmeldte. syfomotebehov bruker samme sakstype, så møtebehov havner i samme sak. E-posttekstene er HTML; bruk `Kalenderavtale.EmailNotification.html` og `Arbeidsgivervarsel.HtmlEmailNotification` med statisk markup.
+Etter de øvrige beslutningsportene slår Decision opp aktiv nærmeste leder og lagrer fødselsnummer, e-postadresser og relasjons-id sammen med leveransen. For varsler med `sakstype` lagres også navnet når det finnes. Et manglende navn er gyldig og gir saken den generelle tittelen «Dialogmøte». En midlertidig feil i et oppslag er ikke et manglende navn: den avbryter beslutningen, slik at meldingen kan forsøkes på nytt.
+
+Levering, nye forsøk og sakoperasjoner bruker det lagrede beslutningsgrunnlaget. De gjør ingen nye leder- eller navneoppslag. Manglende aktiv leder, eller manglende e-postadresse når ekstern varsling er bestilt, avslutter beslutningen med `FAILED` før en leveranse eller Fager-kall opprettes.
+
+Arbeidsgivervarsler og kalenderavtaler til nærmeste leder bruker `sakstype = Arbeidsgiversak.Type.DIALOGMOTE`; isdialogmote sender ingen sak. Budstikka legger alt i lederrelasjonens dialogmøtesak, med lenke til Dine Sykmeldte basert på den lagrede relasjons-id-en. syfomotebehov bruker samme sakstype, så møtebehov havner i samme sak. E-posttekstene er HTML; bruk `Kalenderavtale.EmailNotification.html` og `Arbeidsgivervarsel.HtmlEmailNotification` med statisk markup.
+
+For et `Arbeidsgivervarsel` til nærmeste leder er lenken valgfri i overloadene med `sakstype`. Uten egen lenke peker varselet til lederens side i Dine Sykmeldte. En eksplisitt lenke beholdes, men alle forekomster av den eksakte plassholderen `NARMESTE_LEDER_ID` erstattes med lagret relasjons-id. En eksplisitt lenke må bruke HTTPS på `nav.no` eller et reelt underdomene, uten userinfo. Denne valideringen gjelder bare arbeidsgivervarsel til nærmeste leder; den gjelder ikke Altinn eller kalenderavtaler. Altinn-lenke er fortsatt påkrevd. Kalenderavtalens lenke er også påkrevd ved opprettelse, og Budstikka velger ingen standardlenke for den. Eldre generiske `arbeidsgivervarselCreate`-overloads krever fortsatt en lenke.
+
+Kalenderavtaler følger samme lagrede lederrelasjon. Opprettelse krever en aktiv leder og slår opp et valgfritt navn. Oppdatering slår bare opp leder når den bestiller e-post eller setter saksstatus, og slår bare opp navn når den setter saksstatus. En ren tekst- eller tilstandsoppdatering gjør ingen oppslag.
+
+Produsenter kan først utelate lenken til nærmeste leder når hele Budstikka-runtime er rullet ut med støtte for standardlenken, ikke bare når produsenten har oppdatert kontraktversjonen. Utrulling og håndtering av gamle leveranser står i [migreringsveiledningen](migrering.md#lagret-beslutningsgrunnlag-for-arbeidsgivervarsel).
 
 | Hendelse | Kall, i denne rekkefølgen |
 | --- | --- |
