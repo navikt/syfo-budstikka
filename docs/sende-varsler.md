@@ -98,8 +98,8 @@ Budstikka saniterer ikke HTML-en: overloaden er en eksplisitt tillitsgrense mot 
 `tag` må samsvare med produsentens registrerte merkelapp, og Altinn `resource` må samsvare med
 produsentens registrerte Altinn-ressurs i Arbeidsgivernotifikasjoner. Ellers feiler leveringen
 terminalt.
-Leveringen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
-feiler leveringen også terminalt hvis lederen mangler e-postadresse. Til tross for navnet styrer
+Beslutningen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
+feiler beslutningen også terminalt hvis lederen mangler e-postadresse. Til tross for navnet styrer
 ikke `visibleUntil` bare synlighet. Feltet planlegger ugjenkallelig hard sletting av varselet og
 tilhørende data fra Fagers database og Kafka. Det stopper ikke eksterne varsler som allerede er
 planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
@@ -112,14 +112,14 @@ Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sak
 bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». Detaljene står i KDoc.
 
 - **Nærmeste leder:** én sak per sakstype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
-  får sin egen sak. `link` er valgfri: uten lenke lenker varselet til saken. Utelat lenken først når
-  all Budstikka-kode med denne standarden er rullet ut; se
+  får sin egen sak. For `arbeidsgivervarselCreate` er `link` valgfri: uten lenke lenker varselet til
+  saken. Utelat lenken først når all Budstikka-kode med denne standarden er rullet ut; se
   [release note 0.7.0](releases/kontrakt/0.7.0.md#wire--og-utrullingskompatibilitet).
   Standardlenken er `{dineSykmeldteUrl}/{relationId}`, også uten `sakstype`, og bruker relasjons-id-en
   lagret ved beslutning. En egen lenke bevares, bortsett fra at alle forekomster av den eksakte
   plassholderen `NARMESTE_LEDER_ID` erstattes med lagret relasjons-id, også midt i stien:
   `https://www.nav.no/oppfolgingsplan/NARMESTE_LEDER_ID/detaljer`. En allerede innbakt id byttes ikke.
-  Egne lenker må bruke HTTPS med host `nav.no` eller et reelt underdomene, for eksempel
+  Egne arbeidsgivervarsel-lenker må bruke HTTPS med host `nav.no` eller et reelt underdomene, for eksempel
   `www.ekstern.dev.nav.no`, uten userinfo. Ugyldige lenker avvises før inbox-save med `INVALID_LINK`;
   regelen gjelder ikke Altinn. Lenken sendes til Fager, den hentes ikke over HTTP.
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
@@ -131,6 +131,7 @@ bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». D
 - **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel, avtale eller status, og
   tidligst fire måneder etter møtet.
 - **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
+  `link` er alltid påkrevd ved opprettelse; kalenderavtaler har ingen standardlenke.
   Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
 - **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk
   kan overskrive en nyere oppdatering eller status. Fager dedupliserer ikke oppdateringer av
@@ -147,6 +148,13 @@ mottakertypene. Null navn gir en generell sakstittel. Leveransen og nye forsøk 
 verdier, selv om registeret endres. Manglende aktiv leder eller manglende e-post ved bestilt ekstern
 varsling avslutter beslutningen med `MISSING_ACTIVE_LEADER` eller `MISSING_EMAIL_ADDRESS`.
 Midlertidige oppslagsfeil forsøkes på nytt og gjøres ikke om til manglende navn.
+
+For kalenderavtaler til Nærmeste leder hentes leder og valgfritt navn i Decision ved opprettelse.
+Ved oppdatering hentes leder bare når e-post er bestilt eller `saksstatus` er satt, og navn bare
+når `saksstatus` er satt. Ren tekst-/tilstandsoppdatering gjør ingen oppslag. E-postadresse er
+påkrevd bare ved bestilt ekstern varsling. Mangler gir de samme to feilårsakene på inbox `FAILED`,
+ikke Kafka-dead-letter. Kalenderavtaler med Altinn-mottaker gjør ingen oppslag og er fortsatt
+ikke støttet av kanalhandleren.
 
 ## Feil og personvern
 

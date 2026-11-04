@@ -80,8 +80,8 @@ data class KalenderavtaleCreate(
 
 /**
  * Updates the kalenderavtale whose eksternId is the dispatch reference; [sakstype] gives its
- * merkelapp. [recipient] is needed only to resolve the leader's email address when an external
- * notification is requested.
+ * merkelapp. Decision resolves [recipient]'s leader when email or [saksstatus] is requested,
+ * and the sykmeldt's optional name only for [saksstatus]. Other updates need no register lookup.
  */
 @InternalBudstikkaWire
 @Serializable

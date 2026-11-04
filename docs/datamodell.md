@@ -151,6 +151,13 @@ arbeidsgivervarsel med `operation=CREATE` og mottaker Nærmeste leder; listen m�
 adresse ved bestilt ekstern varsling. Navn er valgfritt; fornavn og etternavn må være satt sammen.
 Irrelevante kanaler trenger ingen lederfelter. Snapshot er ikke en del av den publiserte payloaden.
 
+V13 krever alltid `RESOLVED` for `KALENDERAVTALE`: ingen gammel writer kjenner denne kanalen.
+For Nærmeste leder kreves lederfeltene ved `CREATE`, bestilt `mottaker.externalVarsling` eller
+satt `saksstatus`; e-postlisten må være ikke-tom bare ved bestilt e-post. En ren tekst- eller
+tilstandsoppdatering og en ikke-støttet Altinn-mottaker trenger ingen lederfelter. Navn kan fortsatt
+være null. CHECK-en bruker wire-feltene `mottaker`, `externalVarsling` og `saksstatus`; sistnevnte
+utelates ved null. V12 endres ikke, og låsene tas fortsatt i rekkefølgen inbox før delivery.
+
 Verdiene maskeres i `toString`; skrivefeil fra PostgreSQL/Exposed erstattes med en fast feil uten
 SQL, radverdier eller opprinnelig exceptionkjede. Oppbevaringsjobben sletter de nye kolonnene sammen
 med terminale leveranser eldre enn 180 dager. Rollen `esyfo-analyse` har fortsatt SELECT på alle
