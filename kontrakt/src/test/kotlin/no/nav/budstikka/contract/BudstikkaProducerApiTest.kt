@@ -1,11 +1,14 @@
 package no.nav.budstikka.contract
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 private const val REFERENCE = "ref-1"
@@ -415,20 +418,56 @@ class BudstikkaProducerApiTest :
 
         context("microfrontend") {
             test("enable carries the optional visibility limit") {
+                val visibleUntil = Clock.System.now() + 30.days
                 val encoded =
                     Budstikka.microfrontendEnable(
                         eventId = EVENT_ID,
                         reference = REFERENCE,
                         sykmeldt = SYNTHETIC_SYKMELDT,
                         microfrontendId = "syk-dialog",
-                        visibleUntil = VISIBLE_UNTIL,
+                        visibleUntil = visibleUntil,
                     )
 
                 encoded.key shouldBe SYNTHETIC_SYKMELDT.value
                 encoded.value shouldBe
                     """{"reference":"ref-1","content":{"type":"MicrofrontendEnable",""" +
                     """"personIdentifier":"00000000000","microfrontendId":"syk-dialog",""" +
-                    """"visibleUntil":"2026-01-01T00:00:00Z"}}"""
+                    """"visibleUntil":"$visibleUntil"}}"""
+            }
+
+            test("enable accepts a visibility limit up to 335 days ahead") {
+                Budstikka
+                    .microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = Clock.System.now() + 334.days,
+                    ).value shouldContain "\"visibleUntil\":"
+            }
+
+            test("enable rejects a visibility limit more than 335 days ahead") {
+                shouldThrow<IllegalArgumentException> {
+                    Budstikka.microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = Clock.System.now() + 336.days,
+                    )
+                }.message shouldContain "visibleUntil"
+            }
+
+            test("enable accepts a visibility limit that has passed, so a retry encodes the same dispatch") {
+                val passed = Clock.System.now() - 1.days
+                Budstikka
+                    .microfrontendEnable(
+                        eventId = EVENT_ID,
+                        reference = REFERENCE,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        microfrontendId = "syk-dialog",
+                        visibleUntil = passed,
+                    ).value shouldContain "\"visibleUntil\":\"$passed\""
             }
 
             test("enable without a visibility limit stays visible until disabled") {

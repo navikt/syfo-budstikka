@@ -5,6 +5,8 @@
 
 package no.nav.budstikka.contract
 
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 /**
@@ -410,7 +412,10 @@ object Budstikka {
      *   use reference-based inactivate matching. Required all the same, so every dispatch is traceable.
      * @param sykmeldt the person for whom Min side makes the microfrontend visible.
      * @param microfrontendId the id Min side knows the microfrontend by.
-     * @param visibleUntil when Min side hides it automatically; omit to keep it until disabled.
+     * @param visibleUntil when Budstikka hides it again by sending a disable; omit to keep it until
+     *   disabled. At most 335 days ahead; a time that has passed hides it right away. The last command for the same
+     *   `(sykmeldt, microfrontendId)` wins: a later enable or disable cancels a pending scheduled
+     *   hide, and a new enable with a later [visibleUntil] extends the visibility.
      */
     fun microfrontendEnable(
         eventId: EventId,
@@ -422,6 +427,7 @@ object Budstikka {
         requireReference(reference)
         sykmeldt.requirePersonIdentifier("sykmeldt")
         requireNotBlank(microfrontendId, "microfrontendId")
+        visibleUntil?.let { requireVisibleUntilWithinLimit(it) }
         return MicrofrontendEnable(
             personIdentifier = sykmeldt,
             microfrontendId = microfrontendId,
@@ -630,3 +636,16 @@ private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeld
         Arbeidsgivervarsel.MessageType.BESKJED -> ArbeidsgiverMeldingstype.BESKJED
         Arbeidsgivervarsel.MessageType.OPPGAVE -> ArbeidsgiverMeldingstype.OPPGAVE
     }
+
+/**
+ * A scheduled hide is held in Budstikka's inbox, whose absolute retention cap is 365 days. The
+ * 30-day margin keeps the hide well inside that cap; the same limit applies when Budstikka decides.
+ */
+private val MAX_MICROFRONTEND_VISIBILITY = 335.days
+
+private fun requireVisibleUntilWithinLimit(visibleUntil: Instant) {
+    val now = Clock.System.now()
+    require(visibleUntil <= now + MAX_MICROFRONTEND_VISIBILITY) {
+        "visibleUntil must be at most ${MAX_MICROFRONTEND_VISIBILITY.inWholeDays} days ahead"
+    }
+}
