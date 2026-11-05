@@ -7,6 +7,7 @@ import no.nav.budstikka.application.delivery.ChannelHandler
 import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.inbox.EffectuateDecision
+import no.nav.budstikka.application.inbox.EffectuationResult
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.DeliveryClaim
@@ -85,14 +86,16 @@ class LeaseExpiryRaceIntegrationTest :
             val claimB = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
             claimB.token shouldNotBe claimA.token
 
-            effectuate.effectuate(claimA, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe false
+            effectuate.effectuate(claimA, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe
+                EffectuationResult.Skipped
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 0L
                 val row = InboxMessageTable.selectAll().where { InboxMessageTable.eventId eq eventId }.single()
                 row[InboxMessageTable.state] shouldBe "CLAIMED"
                 row[InboxMessageTable.claimToken] shouldBe claimB.token.value
             }
-            effectuate.effectuate(claimB, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe true
+            effectuate.effectuate(claimB, Decision.Processed(listOf(microfrontendDraft(reference = "race-ref")))) shouldBe
+                EffectuationResult.Completed
 
             fixture.database.transact {
                 DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.count() shouldBe 1L

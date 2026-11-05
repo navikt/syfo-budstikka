@@ -1,6 +1,7 @@
 package no.nav.budstikka.application.port
 
 import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.PersonIdentifier
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -22,6 +23,27 @@ data class ClaimedInboxMessage(
 data class InboxClaim(
     val eventId: UUID,
     val token: ClaimToken,
+)
+
+/** Min side identifies a microfrontend per person; the last command for this key wins (ADR 0018). */
+data class MicrofrontendKey(
+    val personIdentifier: PersonIdentifier,
+    val microfrontendId: String,
+) {
+    /** Omits both parts: the person identifier and the surface shown to the person. */
+    override fun toString(): String = "MicrofrontendKey()"
+}
+
+/**
+ * A microfrontend command as seen under its key lock. A scheduled disable takes its source command's
+ * place in ingest order, so [receivedAt] is the source's for a derived row.
+ */
+data class MicrofrontendCommand(
+    val receivedAt: Instant,
+    /** Pending scheduled disables derived from commands earlier in ingest order, locked for cancellation. */
+    val earlierScheduledDisables: List<UUID>,
+    /** A producer command for the same key, later in ingest order, has already been decided. */
+    val laterCommandDecided: Boolean,
 )
 
 interface InboxMessageRepository {
@@ -84,5 +106,43 @@ interface InboxMessageRepository {
         claim: InboxClaim,
         reason: String,
         nextRetry: Instant,
+    ): Boolean
+
+    /**
+     * Serialises microfrontend decisions for [key] with a transaction-scoped advisory lock, then reads
+     * the row [eventId] in ingest order `(received_at, event_id)` against the other rows for the key.
+     * Call it before any other row lock in the transaction. Retention never takes the key lock and only
+     * tries its own, so it cannot wait on this one.
+     *
+     * Row locks are taken in one statement ordered by `(received_at, event_id)`: the row [eventId] and
+     * every pending scheduled disable (WAIT, or CLAIMED by a worker that has not decided it yet) derived
+     * from an earlier command. Retention locks its candidates in the same order, so the two cannot form
+     * a lock cycle. Returns `null` when the row no longer exists.
+     */
+    fun lockMicrofrontendCommandInTransaction(
+        eventId: UUID,
+        key: MicrofrontendKey,
+    ): MicrofrontendCommand?
+
+    /**
+     * Cancels rows that are not decided yet (RECEIVED, CLAIMED or WAIT) by marking them PROCESSED
+     * without materialising deliveries: the convention FERDIGSTILL uses for pending OPPRETT (#273).
+     * A cancelled CLAIMED row loses its claim, so its worker's compare-and-set fails. The caller must
+     * hold the rows' locks. Rows that are already terminal are left as they are. Returns the number of
+     * cancelled rows.
+     */
+    fun cancelPendingInTransaction(eventIds: List<UUID>): Int
+
+    /**
+     * Inserts [message] as a row derived from [sourceEventId] that waits in WAIT until [notBefore].
+     * The row inherits the source's `received_at`, which is both its place in ingest order and the
+     * start of its retention clock. Ignored when [InboxMessage.eventId] already exists, so a repeated
+     * decision cannot schedule twice. Returns whether a row was inserted.
+     */
+    fun saveDerivedInTransaction(
+        sourceEventId: UUID,
+        message: InboxMessage,
+        waitReason: String,
+        notBefore: Instant,
     ): Boolean
 }

@@ -8,8 +8,9 @@ package no.nav.budstikka.infrastructure.database.dispatch
  * - [CLAIMED]: claimed by the decision worker with a lease, invisible to other pollers
  *   until the lease expires or the row is effectuated.
  * - [PROCESSED] / [DROPPED] / [FAILED]: terminal effectuation outcomes.
- * - [WAIT]: held outside the sending window. `next_attempt_time` carries the next
- *   window opening; the row is re-claimed when it passes, and waking does NOT consume the attempt
+ * - [WAIT]: held outside the sending window, or a scheduled microfrontend disable waiting for
+ *   `visibleUntil` (ADR 0018). `next_attempt_time` carries the next window opening or
+ *   `visibleUntil`; the row is re-claimed when it passes, and waking does NOT consume the attempt
  *   budget. The wait reason is stored in `wait_reason`, not `error_message`.
  *
  * The delivery table has a similar but separate state series (READY/…/SENT). They share a shape, not
