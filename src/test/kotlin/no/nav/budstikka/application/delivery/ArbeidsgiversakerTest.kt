@@ -29,7 +29,7 @@ class ArbeidsgiversakerTest :
         test("an existing sak is extended and used without creation") {
             val publisher = FakeArbeidsgiversakPublisher()
 
-            saker(publisher).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+            saker(publisher).extendOrCreate(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
 
             publisher.requests shouldBe
                 listOf(
@@ -45,7 +45,7 @@ class ArbeidsgiversakerTest :
         test("a missing sak is created with the supplied name and a link to Dine Sykmeldte, then extended") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
 
-            saker(publisher).ensure(NL, name = PersonName("SYNTETISK", null, "SYKMELDT")) shouldBe
+            saker(publisher).extendOrCreate(NL, name = PersonName("SYNTETISK", null, "SYKMELDT")) shouldBe
                 SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
 
             publisher.sakCreates.single() shouldBe
@@ -67,7 +67,7 @@ class ArbeidsgiversakerTest :
         test("the sak lives four months past a later activity, such as a kalenderavtale") {
             val publisher = FakeArbeidsgiversakPublisher()
 
-            saker(publisher).ensure(NL, activityAt = Instant.parse("2026-12-01T09:00:00Z"))
+            saker(publisher).extendOrCreate(NL, activityAt = Instant.parse("2026-12-01T09:00:00Z"))
 
             publisher.sakExtensions.single().keepUntil shouldBe Instant.parse("2027-04-01T08:00:00Z")
         }
@@ -75,7 +75,7 @@ class ArbeidsgiversakerTest :
         test("the sakstype decides the merkelapp, key and title") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
 
-            saker(publisher).ensure(NL, sakstype = Sakstype.OPPFOLGINGSPLAN) shouldBe
+            saker(publisher).extendOrCreate(NL, sakstype = Sakstype.OPPFOLGINGSPLAN) shouldBe
                 SakResolution.Ready("OPPFOLGINGSPLAN:$TEST_LEDERRELASJON_ID", "Oppfølging")
 
             publisher.sakCreates.single().title shouldBe "Oppfølgingsplan"
@@ -84,7 +84,7 @@ class ArbeidsgiversakerTest :
         test("an Altinn sak is keyed on the resource, the organisation and the producer's sak key, without a link") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
 
-            saker(publisher).ensure(
+            saker(publisher).extendOrCreate(
                 Saksmottaker.AltinnRessurs("nav_syfo_dialogmote", TEST_SYKMELDT, "dialog-1"),
                 name = PersonName("SYNTETISK", null, "SYKMELDT"),
             ) shouldBe
@@ -101,7 +101,7 @@ class ArbeidsgiversakerTest :
             test("an explicit null name gives a general title for ${recipient::class.simpleName}") {
                 val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
 
-                saker(publisher).ensure(recipient, name = null)
+                saker(publisher).extendOrCreate(recipient, name = null)
 
                 publisher.sakCreates.single().title shouldBe "Dialogmøte"
             }
@@ -112,7 +112,7 @@ class ArbeidsgiversakerTest :
                 val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND)
                 val service = saker(publisher, config = ArbeidsgiversakConfig(base))
 
-                service.ensure(NL, name = null)
+                service.extendOrCreate(NL, name = null)
 
                 service.dineSykmeldteLink(NL.relationId) shouldBe "https://dinesykmeldte.test/sykmeldte/$TEST_LEDERRELASJON_ID"
                 publisher.sakCreates.single().link shouldBe service.dineSykmeldteLink(NL.relationId)
@@ -122,7 +122,7 @@ class ArbeidsgiversakerTest :
         test("a deleted sak moves on to the next generation of its key") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND, NOT_FOUND, DELETED, NOT_FOUND, NOT_FOUND)
 
-            saker(publisher).ensure(NL, name = PersonName("SYNTETISK", null, "SYKMELDT")) shouldBe
+            saker(publisher).extendOrCreate(NL, name = PersonName("SYNTETISK", null, "SYKMELDT")) shouldBe
                 SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
 
             publisher.sakCreates.map { it.grupperingsid } shouldBe
@@ -134,14 +134,14 @@ class ArbeidsgiversakerTest :
         test("an existing next generation is found by extending it, without creation") {
             val publisher = FakeArbeidsgiversakPublisher(NOT_FOUND)
 
-            saker(publisher).ensure(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
+            saker(publisher).extendOrCreate(NL) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID:2", "Dialogmøte")
             publisher.sakCreates shouldBe emptyList()
         }
 
         test("a rejection is terminal") {
             val publisher = FakeArbeidsgiversakPublisher(ArbeidsgiverNotificationResponse.Rejected("UgyldigMerkelapp"))
 
-            saker(publisher).ensure(NL) shouldBe SakResolution.Failed(DeliveryOutcome.Failed("UgyldigMerkelapp"))
+            saker(publisher).extendOrCreate(NL) shouldBe SakResolution.Failed(DeliveryOutcome.Failed("UgyldigMerkelapp"))
         }
 
         test("a created sak that is not visible yet is retried with the same supplied name and key") {
@@ -149,8 +149,8 @@ class ArbeidsgiversakerTest :
             val service = saker(publisher)
             val name = PersonName("SYNTETISK", null, "SYKMELDT")
 
-            shouldThrow<ChannelHandlerFailure> { service.ensure(NL, name = name) }
-            service.ensure(NL, name = name) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
+            shouldThrow<ChannelHandlerFailure> { service.extendOrCreate(NL, name = name) }
+            service.extendOrCreate(NL, name = name) shouldBe SakResolution.Ready("DIALOGMOTE:$TEST_LEDERRELASJON_ID", "Dialogmøte")
 
             publisher.sakCreates.size shouldBe 2
             publisher.sakCreates[0] shouldBe publisher.sakCreates[1]
@@ -203,12 +203,12 @@ private fun saker(
         },
 )
 
-private suspend fun Arbeidsgiversaker.ensure(
+private suspend fun Arbeidsgiversaker.extendOrCreate(
     mottaker: Saksmottaker,
     sakstype: Sakstype = Sakstype.DIALOGMOTE,
     activityAt: Instant? = null,
     name: PersonName? = null,
-) = ensure(
+) = extendOrCreate(
     channel = Channel.ARBEIDSGIVERVARSEL,
     sakstype = sakstype,
     virksomhetsnummer = TEST_ORGNUMMER.value,

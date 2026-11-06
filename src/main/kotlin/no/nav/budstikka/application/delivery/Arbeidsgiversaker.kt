@@ -24,16 +24,16 @@ class Arbeidsgiversaker(
     private val clock: Clock = Clock.System,
 ) {
     /**
-     * Makes sure the [sakstype] sak exists for [mottaker] and lives at least four months past
-     * [activityAt] (or now, if later). Creation uses the caller's saved [name] snapshot; `null`
-     * gives a general title. This service does not look up names.
+     * Extends the [sakstype] sak for [mottaker] to live at least four months past [activityAt] (or
+     * now, if later), or creates it when missing, and returns it. Creation uses the caller's saved
+     * [name] snapshot; `null` gives a general title. This service does not look up names.
      *
      * Arbeidsgivernotifikasjoner never accepts the key of a deleted sak again, so a recipient who
      * comes back after their sak was deleted gets the next generation of the key: `key`, `key:2`,
      * `key:3` and so on. The generations are tried in order: an existing sak is extended and used, a
      * missing one is created, and one that turns out to be deleted moves on to the next generation.
      */
-    suspend fun ensure(
+    suspend fun extendOrCreate(
         channel: Channel,
         sakstype: Sakstype,
         virksomhetsnummer: String,
@@ -76,7 +76,7 @@ class Arbeidsgiversaker(
         }
     }
 
-    /** The generations of one sak key, and the calls [ensure] makes on them. */
+    /** The generations of one sak key, and the calls [extendOrCreate] makes on them. */
     private inner class SakGenerations(
         private val channel: Channel,
         private val sakstype: Sakstype,
