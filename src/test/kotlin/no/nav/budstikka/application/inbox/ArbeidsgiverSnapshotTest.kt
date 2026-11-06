@@ -11,10 +11,14 @@ import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstype
 import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.PersonName
@@ -36,6 +40,7 @@ class ArbeidsgiverSnapshotTest :
         var nameCalls = 0
         var relation: NarmesteLederRelasjon? = null
         var lookupFailure: Exception? = null
+        var nameLookupFailure: Exception? = null
         var name: PersonName? = null
         val metrics = RecordingDeliveryMetrics()
         val lookup =
@@ -49,6 +54,7 @@ class ArbeidsgiverSnapshotTest :
                 override suspend fun findName(ident: PersonIdentifier): PersonName? {
                     nameCalls++
                     lookupFailure?.let { throw it }
+                    nameLookupFailure?.let { throw it }
                     return name
                 }
             }
@@ -77,9 +83,11 @@ class ArbeidsgiverSnapshotTest :
             ),
         )
         beforeTest {
+            metrics.narmesteLederMissing.clear()
             leaderCalls = 0
             nameCalls = 0
             lookupFailure = null
+            nameLookupFailure = null
             relation = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), listOf("snapshot@example.test"), TEST_LEDERRELASJON_ID)
             name = PersonName("Synthetic", null, "Snapshot")
         }
@@ -103,14 +111,204 @@ class ArbeidsgiverSnapshotTest :
                 .leader
                 ?.epostadresser shouldBe listOf("snapshot@example.test")
         }
+        test("kalender create requires a leader, requires requested email, and resolves optional name for the sak") {
+            fun calendar(external: Boolean = false) =
+                Dispatch(
+                    "calendar",
+                    KalenderavtaleCreate(
+                        TEST_ORGNUMMER,
+                        NarmesteLeder(TEST_SYKMELDT, if (external) NarmesteLederExternalVarsling("title", "body") else null),
+                        Sakstype.DIALOGMOTE,
+                        "text",
+                        "https://nav.no/calendar",
+                        Instant.parse("2026-12-01T10:00:00Z"),
+                    ),
+                )
+            relation = null
+            process().process(calendar()) shouldBe Decision.Failed("MISSING_ACTIVE_LEADER")
+            relation = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), emptyList(), TEST_LEDERRELASJON_ID)
+            process().process(calendar(external = true)) shouldBe Decision.Failed("MISSING_EMAIL_ADDRESS")
+            nameCalls shouldBe 0
+            name = null
+            val source = calendar()
+            val draft =
+                process()
+                    .process(source)
+                    .shouldBeInstanceOf<Decision.Processed>()
+                    .deliveries
+                    .single()
+            draft.snapshot shouldBe DeliverySnapshot.Resolved(relation, null)
+            draft.recipient shouldBe Recipient.Virksomhet(TEST_ORGNUMMER)
+            draft.content shouldBe source.content
+            leaderCalls shouldBe 3
+            nameCalls shouldBe 1
+        }
         test("terminal gates prevent enrichment; unrelated channels and operations do not look up names or leaders") {
             val wait = Decision.NotInSendingWindow(Instant.parse("2026-11-05T10:00:00Z"), "window")
             val gate = DecisionRule { ResolvedRule { wait } }
             process(listOf(gate)).process(event()) shouldBe wait
+            val calendar =
+                KalenderavtaleCreate(
+                    TEST_ORGNUMMER,
+                    NarmesteLeder(TEST_SYKMELDT),
+                    Sakstype.DIALOGMOTE,
+                    "text",
+                    "https://nav.no/calendar",
+                    Instant.parse("2026-12-01T10:00:00Z"),
+                )
+            process(listOf(gate)).process(Dispatch("calendar", calendar)) shouldBe wait
+            process(listOf(gate)).process(
+                Dispatch(
+                    "calendar-update",
+                    KalenderavtaleUpdate(TEST_ORGNUMMER, NarmesteLeder(TEST_SYKMELDT), Sakstype.DIALOGMOTE, saksstatus = Saksstatus.FERDIG),
+                ),
+            ) shouldBe wait
             process().process(Dispatch("other", MicrofrontendEnable(TEST_SYKMELDT, "mf")))
             process().process(Dispatch("inactive", ArbeidsgivervarselInactivate("ref", TEST_ORGNUMMER)))
             leaderCalls shouldBe 0
             nameCalls shouldBe 0
+        }
+        test("text-only and state-only kalender updates never look up leader or name") {
+            val update = KalenderavtaleUpdate(TEST_ORGNUMMER, NarmesteLeder(TEST_SYKMELDT), Sakstype.DIALOGMOTE, text = "updated")
+            lookupFailure = IllegalStateException("No lookup is allowed")
+            listOf(update, update.copy(text = null, tilstand = Kalenderavtaletilstand.AVHOLDT)).forEach {
+                process()
+                    .process(Dispatch("calendar-update", it))
+                    .shouldBeInstanceOf<Decision.Processed>()
+                    .deliveries
+                    .single()
+                    .snapshot shouldBe DeliverySnapshot.Resolved()
+            }
+            leaderCalls shouldBe 0
+            nameCalls shouldBe 0
+        }
+        listOf(false, true).forEach { external ->
+            listOf(false, true).forEach { status ->
+                test("kalender update resolves only needed data: external=$external, status=$status") {
+                    val recipient = NarmesteLeder(TEST_SYKMELDT, if (external) NarmesteLederExternalVarsling("title", "body") else null)
+                    val source =
+                        Dispatch(
+                            "calendar-update",
+                            KalenderavtaleUpdate(
+                                TEST_ORGNUMMER,
+                                recipient,
+                                Sakstype.DIALOGMOTE,
+                                tilstand = Kalenderavtaletilstand.AVHOLDT,
+                                text = "updated",
+                                saksstatus = if (status) Saksstatus.FERDIG else null,
+                            ),
+                        )
+                    if (external || status) {
+                        relation = null
+                        process().process(source) shouldBe Decision.Failed("MISSING_ACTIVE_LEADER")
+                        relation = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), emptyList(), TEST_LEDERRELASJON_ID)
+                        if (external) {
+                            process().process(source) shouldBe Decision.Failed("MISSING_EMAIL_ADDRESS")
+                            relation = relation!!.copy(epostadresser = listOf("snapshot@example.test"))
+                        }
+                    } else {
+                        lookupFailure = IllegalStateException("No lookup is allowed")
+                    }
+                    val draft =
+                        process()
+                            .process(source)
+                            .shouldBeInstanceOf<Decision.Processed>()
+                            .deliveries
+                            .single()
+                    draft.snapshot shouldBe
+                        DeliverySnapshot.Resolved(
+                            leader = if (external || status) relation else null,
+                            name = if (status) name else null,
+                        )
+                    draft.content shouldBe source.content
+                    draft.recipient shouldBe Recipient.Virksomhet(TEST_ORGNUMMER)
+                    leaderCalls shouldBe
+                        if (external) {
+                            3
+                        } else if (status) {
+                            2
+                        } else {
+                            0
+                        }
+                    nameCalls shouldBe if (status) 1 else 0
+                    if (external || status) {
+                        metrics.narmesteLederMissing[NarmesteLederMissingReason.MISSING_ACTIVE_LEADER]?.get() shouldBe 1
+                    }
+                    if (external) {
+                        metrics.narmesteLederMissing[NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS]?.get() shouldBe 1
+                    }
+                }
+            }
+        }
+        test("kalender Altinn recipients remain unresolved for the downstream unsupported-recipient failure") {
+            // Do not turn the handler's unsupported-recipient error into a Decision lookup failure.
+            val recipient = AltinnResource("resource", sykmeldt = TEST_SYKMELDT, sakId = "sak-1")
+            val contents =
+                listOf(
+                    KalenderavtaleCreate(
+                        TEST_ORGNUMMER,
+                        recipient,
+                        Sakstype.DIALOGMOTE,
+                        "text",
+                        "https://nav.no/calendar",
+                        Instant.parse("2026-12-01T10:00:00Z"),
+                    ),
+                    KalenderavtaleUpdate(TEST_ORGNUMMER, recipient, Sakstype.DIALOGMOTE, text = "updated"),
+                    KalenderavtaleUpdate(TEST_ORGNUMMER, recipient, Sakstype.DIALOGMOTE, saksstatus = Saksstatus.FERDIG),
+                )
+            lookupFailure = IllegalStateException("No lookup is allowed")
+            contents.forEach {
+                process()
+                    .process(Dispatch("altinn-calendar", it))
+                    .shouldBeInstanceOf<Decision.Processed>()
+                    .deliveries
+                    .single()
+                    .snapshot shouldBe DeliverySnapshot.Resolved()
+            }
+            leaderCalls shouldBe 0
+            nameCalls shouldBe 0
+        }
+        test("kalender transient leader and name failures are redacted; retry resolves fresh data rather than freezing null") {
+            val source =
+                Dispatch(
+                    "calendar-retry",
+                    KalenderavtaleUpdate(
+                        TEST_ORGNUMMER,
+                        NarmesteLeder(TEST_SYKMELDT),
+                        Sakstype.DIALOGMOTE,
+                        saksstatus = Saksstatus.FERDIG,
+                    ),
+                )
+            lookupFailure = IllegalStateException("private lookup data")
+            val leaderError = shouldThrow<IllegalStateException> { process().process(source) }
+            leaderError.message shouldBe "Decision enrichment lookup failed"
+            generateSequence<Throwable>(leaderError) { it.cause }
+                .map { it.message }
+                .toList()
+                .all { it == leaderError.message } shouldBe true
+            lookupFailure = null
+            nameLookupFailure = IllegalStateException("private lookup data")
+            val nameError = shouldThrow<IllegalStateException> { process().process(source) }
+            nameError.message shouldBe leaderError.message
+            generateSequence<Throwable>(nameError) { it.cause }
+                .map { it.message }
+                .toList()
+                .all { it == nameError.message } shouldBe true
+            nameLookupFailure = null
+            name = null
+            process()
+                .process(source)
+                .shouldBeInstanceOf<Decision.Processed>()
+                .deliveries
+                .single()
+                .snapshot shouldBe DeliverySnapshot.Resolved(relation, null)
+            name = PersonName("Synthetic", null, "Retry")
+            process()
+                .process(source)
+                .shouldBeInstanceOf<Decision.Processed>()
+                .deliveries
+                .single()
+                .snapshot shouldBe DeliverySnapshot.Resolved(relation, name)
         }
         test("missing leader and required email fail terminally with bounded metric reasons") {
             relation = null

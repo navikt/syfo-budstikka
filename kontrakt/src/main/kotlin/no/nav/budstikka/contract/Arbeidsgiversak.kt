@@ -32,3 +32,64 @@ object Arbeidsgiversak {
         FERDIG,
     }
 }
+
+/** Producer-facing inputs for a kalenderavtale; see `Budstikka.kalenderavtaleCreate`. */
+object Kalenderavtale {
+    /** Kalenderavtale state shown to the leader. */
+    enum class Tilstand {
+        /** Waiting for the employer's response. This is the default. */
+        VENTER_SVAR_FRA_ARBEIDSGIVER,
+
+        /** The employer wants to cancel. */
+        ARBEIDSGIVER_VIL_AVLYSE,
+
+        /** The employer wants a different time or place. */
+        ARBEIDSGIVER_VIL_ENDRE_TID_ELLER_STED,
+
+        /** The employer has accepted. */
+        ARBEIDSGIVER_HAR_GODTATT,
+
+        /** The event is cancelled. */
+        AVLYST,
+
+        /** The event has taken place. */
+        AVHOLDT,
+    }
+
+    /** Physical meeting place shown to the leader. */
+    data class Lokasjon(
+        val adresse: String,
+        val postnummer: String,
+        val poststed: String,
+    ) {
+        override fun toString(): String = "Lokasjon()"
+    }
+
+    /**
+     * Email to the Nærmeste leder's registered addresses. Budstikka resolves the addresses at send
+     * time. Use [plainText] for ordinary text, which is escaped before delivery, or [html] for static,
+     * reviewed markup that is forwarded unchanged; never interpolate untrusted values into it.
+     */
+    @ConsistentCopyVisibility
+    data class EmailNotification private constructor(
+        val title: String,
+        val body: String,
+        val isHtml: Boolean,
+    ) {
+        override fun toString(): String = "EmailNotification(isHtml=$isHtml)"
+
+        companion object {
+            /** Plain-text email; the body is escaped before delivery. */
+            fun plainText(
+                title: String,
+                text: String,
+            ): EmailNotification = EmailNotification(title = title, body = text, isHtml = false)
+
+            /** HTML email forwarded unchanged; an explicit trust boundary owned by the producer. */
+            fun html(
+                title: String,
+                htmlBody: String,
+            ): EmailNotification = EmailNotification(title = title, body = htmlBody, isHtml = true)
+        }
+    }
+}

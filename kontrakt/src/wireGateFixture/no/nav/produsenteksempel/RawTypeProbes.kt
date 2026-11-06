@@ -13,6 +13,10 @@ import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.DittSykefravaerCreate
 import no.nav.budstikka.contract.DittSykefravaerInactivate
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
+import no.nav.budstikka.contract.Kalenderavtalelokasjon
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.Ledervarsel
 import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.LedervarselInactivate
@@ -40,6 +44,10 @@ typealias RawDispatch = Dispatch // opt-in-probe
 typealias RawDispatchContent = DispatchContent // opt-in-probe
 typealias RawDittSykefravaerCreate = DittSykefravaerCreate // opt-in-probe
 typealias RawDittSykefravaerInactivate = DittSykefravaerInactivate // opt-in-probe
+typealias RawKalenderavtaleCreate = KalenderavtaleCreate // opt-in-probe
+typealias RawKalenderavtalelokasjon = Kalenderavtalelokasjon // opt-in-probe
+typealias RawKalenderavtaletilstand = Kalenderavtaletilstand // opt-in-probe
+typealias RawKalenderavtaleUpdate = KalenderavtaleUpdate // opt-in-probe
 typealias RawLedervarsel = Ledervarsel // opt-in-probe
 typealias RawLedervarselCreate = LedervarselCreate // opt-in-probe
 typealias RawLedervarselInactivate = LedervarselInactivate // opt-in-probe

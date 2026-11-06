@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.database.delivery
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.encodeToString
 import no.nav.budstikka.application.delivery.ArbeidsgiversakConfig
 import no.nav.budstikka.application.delivery.Arbeidsgiversaker
 import no.nav.budstikka.application.delivery.ArbeidsgivervarselChannelHandler
@@ -10,7 +11,16 @@ import no.nav.budstikka.application.delivery.DeliveryOutcome
 import no.nav.budstikka.application.delivery.LegacyDeliverySnapshotResolver
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.delivery.NoDeliveryMetrics
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
+import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
+import no.nav.budstikka.contract.Sakstype
+import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliverySnapshot
@@ -18,13 +28,118 @@ import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.FakePersonNameLookup
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import java.sql.DriverManager
 import java.sql.SQLException
+import java.sql.Types
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 class DeliverySnapshotMigrationTest :
     FunSpec({
+        test("V12 to V13 requires resolved kalender rows and conditional leader snapshots with real wire field names") {
+            PostgresTestFixture().use { fixture ->
+                fixture.migrate("12")
+                DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { connection ->
+                    connection.createStatement().use { sql ->
+                        sql.executeUpdate(
+                            """
+                            INSERT INTO delivery(reference, operation, channel, recipient_type, recipient_id, payload)
+                            VALUES ('legacy', 'CREATE', 'ARBEIDSGIVERVARSEL', 'VIRKSOMHET', '999999999', '{}'::jsonb)
+                            """,
+                        )
+                    }
+                    fixture.migrate()
+                    connection
+                        .prepareStatement(
+                            """
+                        INSERT INTO delivery(reference, operation, channel, recipient_type, recipient_id, payload,
+                                             snapshot_state, leader_fnr, leader_emails, leader_relation_id)
+                        VALUES ('calendar-upgrade', ?, 'KALENDERAVTALE', 'VIRKSOMHET', ?, ?::jsonb, ?, ?, ?::jsonb, ?)
+                        """,
+                        ).use { insert ->
+                            fun write(
+                                content: DispatchContent,
+                                snapshot: String = "RESOLVED",
+                                leaderFnr: String? = "2".repeat(11),
+                                emails: String? = """["snapshot@example.test"]""",
+                                relation: Boolean = true,
+                            ) {
+                                insert.setString(1, if (content is KalenderavtaleCreate) "CREATE" else "UPDATE")
+                                insert.setString(2, TEST_ORGNUMMER.value)
+                                insert.setString(3, dispatchJson.encodeToString(content))
+                                insert.setString(4, snapshot)
+                                insert.setString(5, leaderFnr)
+                                insert.setString(6, emails)
+                                if (relation) insert.setObject(7, TEST_LEDERRELASJON_ID) else insert.setNull(7, Types.OTHER)
+                                insert.executeUpdate() shouldBe 1
+                            }
+
+                            val create =
+                                KalenderavtaleCreate(
+                                    TEST_ORGNUMMER,
+                                    NarmesteLeder(TEST_SYKMELDT),
+                                    Sakstype.DIALOGMOTE,
+                                    "text",
+                                    "https://nav.no/calendar",
+                                    Instant.parse("2026-12-01T10:00:00Z"),
+                                )
+                            shouldThrow<SQLException> { write(create, snapshot = "LEGACY") }.sqlState shouldBe "23514"
+                            listOf(false, true).forEach { external ->
+                                val recipient =
+                                    NarmesteLeder(TEST_SYKMELDT, if (external) NarmesteLederExternalVarsling("title", "body") else null)
+                                val contents =
+                                    listOf(
+                                        create.copy(recipient = recipient),
+                                        KalenderavtaleUpdate(TEST_ORGNUMMER, recipient, Sakstype.DIALOGMOTE, text = "updated"),
+                                        KalenderavtaleUpdate(
+                                            TEST_ORGNUMMER,
+                                            recipient,
+                                            Sakstype.DIALOGMOTE,
+                                            saksstatus = Saksstatus.FERDIG,
+                                        ),
+                                    )
+                                contents.forEach { content ->
+                                    val needsLeader =
+                                        content is KalenderavtaleCreate ||
+                                            external ||
+                                            (content as? KalenderavtaleUpdate)?.saksstatus != null
+                                    write(content)
+                                    shouldThrow<SQLException> { write(content, snapshot = "LEGACY") }.sqlState shouldBe "23514"
+                                    if (needsLeader) {
+                                        shouldThrow<SQLException> { write(content, leaderFnr = null) }.sqlState shouldBe "23514"
+                                        shouldThrow<SQLException> { write(content, leaderFnr = "short") }.sqlState shouldBe "23514"
+                                        shouldThrow<SQLException> { write(content, relation = false) }.sqlState shouldBe "23514"
+                                        shouldThrow<SQLException> { write(content, emails = null) }.sqlState shouldBe "23514"
+                                        shouldThrow<SQLException> { write(content, emails = "{}") }.sqlState shouldBe "23514"
+                                        if (external) {
+                                            shouldThrow<SQLException> { write(content, emails = "[]") }.sqlState shouldBe "23514"
+                                        } else {
+                                            write(content, emails = "[]")
+                                        }
+                                    } else {
+                                        write(content, leaderFnr = null, emails = null, relation = false)
+                                    }
+                                }
+                            }
+                            val altinn = create.copy(recipient = AltinnResource("resource", sykmeldt = TEST_SYKMELDT, sakId = "sak-1"))
+                            write(altinn, leaderFnr = null, emails = null, relation = false)
+                            shouldThrow<SQLException> { write(altinn, snapshot = "LEGACY") }.sqlState shouldBe "23514"
+                        }
+                    connection.createStatement().use { sql ->
+                        sql.executeQuery("SELECT snapshot_state FROM delivery WHERE reference = 'legacy'").use {
+                            it.next()
+                            it.getString(1) shouldBe "LEGACY"
+                        }
+                        sql.executeQuery("""SELECT version FROM flyway_schema_history WHERE version = '13' AND success""").use {
+                            it.next() shouldBe true
+                        }
+                    }
+                }
+            }
+        }
         test("V11 upgrade preserves old writers and every existing state; resolved leader rows enforce snapshot data") {
             PostgresTestFixture().use { fixture ->
                 fixture.migrate("11")

@@ -575,6 +575,8 @@ class BudstikkaProducerApiTest :
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",
+                    "kalenderavtaleCreate",
+                    "kalenderavtaleUpdate",
                 )
         }
     })

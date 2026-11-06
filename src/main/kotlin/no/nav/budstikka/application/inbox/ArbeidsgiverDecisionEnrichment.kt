@@ -6,8 +6,13 @@ import no.nav.budstikka.application.delivery.NarmesteLederLookup
 import no.nav.budstikka.application.delivery.NarmesteLederMissingReason
 import no.nav.budstikka.application.delivery.PersonNameLookup
 import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.DispatchContent
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DeliverySnapshot
 
@@ -20,11 +25,11 @@ class ArbeidsgiverDecisionEnrichment(
     suspend fun enrich(decision: Decision.Processed): Decision {
         val drafts =
             decision.deliveries.map { draft ->
-                val create = draft.content as? ArbeidsgivervarselCreate ?: return@map draft
+                val requirements = draft.content.lookupRequirements() ?: return@map draft
                 val leader =
-                    (create.recipient as? NarmesteLeder)?.let { recipient ->
+                    (requirements.recipient as? NarmesteLeder)?.takeIf { requirements.requireLeader }?.let { recipient ->
                         val relation =
-                            safeDecisionLookup { leaders.findActive(recipient.sykmeldt, create.orgnummer) }
+                            safeDecisionLookup { leaders.findActive(recipient.sykmeldt, requirements.orgnummer) }
                                 ?: return missing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
                         if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
                             return missing(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
@@ -32,12 +37,12 @@ class ArbeidsgiverDecisionEnrichment(
                         relation.copy(epostadresser = relation.epostadresser.toList())
                     }
                 val sykmeldt =
-                    when (val recipient = create.recipient) {
+                    when (val recipient = requirements.recipient) {
                         is NarmesteLeder -> recipient.sykmeldt
                         is AltinnResource -> recipient.sykmeldt
                     }
                 val name =
-                    if (create.sakstype != null && sykmeldt != null) {
+                    if (requirements.requireName && sykmeldt != null) {
                         safeDecisionLookup { names.findName(sykmeldt) }
                     } else {
                         null
@@ -52,6 +57,32 @@ class ArbeidsgiverDecisionEnrichment(
         return Decision.Failed(reason.name)
     }
 }
+
+private data class LookupRequirements(
+    val recipient: ArbeidsgiverRecipient,
+    val orgnummer: Orgnummer,
+    val requireLeader: Boolean,
+    val requireName: Boolean,
+)
+
+private fun DispatchContent.lookupRequirements(): LookupRequirements? =
+    when (this) {
+        is ArbeidsgivervarselCreate -> LookupRequirements(recipient, orgnummer, requireLeader = true, requireName = sakstype != null)
+        is KalenderavtaleCreate ->
+            (recipient as? NarmesteLeder)?.let {
+                LookupRequirements(it, orgnummer, requireLeader = true, requireName = true)
+            }
+        is KalenderavtaleUpdate ->
+            (recipient as? NarmesteLeder)?.let {
+                LookupRequirements(
+                    it,
+                    orgnummer,
+                    requireLeader = it.externalVarsling != null || saksstatus != null,
+                    requireName = saksstatus != null,
+                )
+            }
+        else -> null
+    }
 
 internal suspend fun <T> safeDecisionLookup(action: suspend () -> T): T =
     try {
