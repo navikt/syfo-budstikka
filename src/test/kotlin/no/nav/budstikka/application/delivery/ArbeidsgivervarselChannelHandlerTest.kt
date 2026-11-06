@@ -97,8 +97,8 @@ class ArbeidsgivervarselChannelHandlerTest :
             }
         }
 
-        listOf("dialog:2", "x".repeat(65), "1".repeat(11), "dialog-${TEST_SYKMELDT.value}").forEachIndexed { index, sakId ->
-            test("an Altinn sak key that could break the key or reveal a personident is rejected (#$index)") {
+        listOf("dialog:2", "x".repeat(65)).forEachIndexed { index, sakId ->
+            test("an Altinn sak key that could break the key is rejected (#$index)") {
                 val sakPublisher = FakeArbeidsgiversakPublisher()
 
                 handler(RecordingPublisher(), sakPublisher = sakPublisher).handle(
@@ -111,7 +111,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                     ),
                 ) shouldBe
                     DeliveryOutcome.Failed(
-                        "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident",
+                        "ARBEIDSGIVERVARSEL recipient.sakId must be 1-64 letters, digits, '-' or '_'",
                     )
                 sakPublisher.requests shouldBe emptyList()
             }

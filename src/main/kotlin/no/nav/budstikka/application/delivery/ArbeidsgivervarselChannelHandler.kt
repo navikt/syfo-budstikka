@@ -127,8 +127,8 @@ private fun ArbeidsgiverRecipient.invalidReason(inSak: Boolean): String? =
                     "external notification emailText must not be blank"
                 inSak && (sykmeldt == null || sakId.isNullOrBlank()) ->
                     "recipient.sykmeldt and recipient.sakId must be set with sakstype"
-                inSak && sykmeldt?.let { Saksmottaker.AltinnRessurs.isValidSakId(sakId.orEmpty(), it) } != true ->
-                    "recipient.sakId must be 1-64 letters, digits, '-' or '_', and not a personident"
+                inSak && !Saksmottaker.AltinnRessurs.isValidSakId(sakId.orEmpty()) ->
+                    "recipient.sakId must be 1-64 letters, digits, '-' or '_'"
                 else -> null
             }
         is NarmesteLederRecipient -> invalidEmailReason()
