@@ -129,7 +129,7 @@ class KalenderavtaleChannelHandler(
         name: PersonName?,
         activityAt: Instant? = null,
     ): SakResolution =
-        saker.ensure(
+        saker.extendOrCreate(
             channel = CHANNEL,
             sakstype = sakstype,
             virksomhetsnummer = orgnummer,
