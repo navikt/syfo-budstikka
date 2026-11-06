@@ -1,6 +1,18 @@
 package no.nav.budstikka.application.delivery
 
+import no.nav.budstikka.application.port.ClaimedDelivery
+import no.nav.budstikka.contract.EmailBodyFormat
+import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslingWire
+import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
+import no.nav.budstikka.contract.NarmesteLederExternalVarsling as NarmesteLederExternalVarslingWire
+
+/**
+ * Stable per dispatch across retries and replicas: the inbox event id, or the delivery id for a
+ * derived delivery without one. Used as correlation header and downstream idempotency key.
+ */
+internal fun ClaimedDelivery.correlationId(): String = (inboxEventId ?: id).toString()
 
 /**
  * Maps an Arbeidsgivernotifikasjoner response to a delivery outcome. [ArbeidsgiverNotificationResponse.NotYetAvailable]
@@ -13,4 +25,67 @@ internal fun ArbeidsgiverNotificationResponse.toDeliveryOutcome(channel: Channel
         is ArbeidsgiverNotificationResponse.SakDeleted -> DeliveryOutcome.Failed(reason)
         is ArbeidsgiverNotificationResponse.NotYetAvailable ->
             throw ChannelHandlerFailure(channel, "waiting for a downstream object", IllegalStateException(reason))
+    }
+
+/** Why the email requested for the leader cannot be sent, or `null`. */
+internal fun NarmesteLederRecipient.invalidEmailReason(): String? =
+    when {
+        externalVarsling?.emailTitle?.isBlank() == true -> "external notification emailTitle must not be blank"
+        externalVarsling != null && externalVarsling?.resolvedEmailHtmlBody() == null ->
+            "external notification emailText must not be blank"
+        else -> null
+    }
+
+/** The leader of [relation] as downstream recipient; a requested email goes to the leader's addresses. */
+internal fun NarmesteLederRecipient.toNotificationRecipient(relation: NarmesteLederRelasjon) =
+    ArbeidsgiverNotificationRecipient.NarmesteLeder(
+        narmesteLederFnr = relation.narmesteLederFnr,
+        ansattFnr = sykmeldt,
+        externalVarsling =
+            externalVarsling?.let {
+                NarmesteLederExternalVarsling(
+                    epostTittel = it.emailTitle,
+                    epostHtmlBody = requireNotNull(it.resolvedEmailHtmlBody()),
+                    epostadresser = relation.epostadresser,
+                )
+            },
+    )
+
+/** The sak of the leader relation: a new leader gets a sak of their own. */
+internal fun NarmesteLederRecipient.toSaksmottaker(relation: NarmesteLederRelasjon) =
+    Saksmottaker.NarmesteLeder(relation.relationId, relation.narmesteLederFnr, sykmeldt)
+
+internal fun NarmesteLederExternalVarslingWire.resolvedEmailHtmlBody(): String? = resolveEmailHtmlBody(emailText, emailBodyFormat)
+
+internal fun AltinnExternalVarslingWire.resolvedEmailHtmlBody(): String? = resolveEmailHtmlBody(emailText, emailBodyFormat)
+
+private fun resolveEmailHtmlBody(
+    emailText: String,
+    emailBodyFormat: EmailBodyFormat?,
+): String? {
+    if (emailText.isBlank()) return null
+    return when (emailBodyFormat) {
+        EmailBodyFormat.HTML -> emailText
+        null -> emailText.toEscapedHtml()
+    }
+}
+
+private fun String.toEscapedHtml(): String =
+    buildString {
+        this@toEscapedHtml
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .forEach { character ->
+                append(
+                    when (character) {
+                        '&' -> "&amp;"
+                        '<' -> "&lt;"
+                        '>' -> "&gt;"
+                        '"' -> "&quot;"
+                        '\'' -> "&#39;"
+                        '\n' -> "<br>"
+                        else -> character
+                    },
+                )
+            }
     }

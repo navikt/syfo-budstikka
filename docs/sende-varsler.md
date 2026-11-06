@@ -111,8 +111,15 @@ Nordmann». Detaljene står i KDoc.
 
 - **Nærmeste leder:** én sak per sakstype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
   får sin egen sak. `link` er valgfri: uten lenke lenker varselet til saken. Utelat lenken først når
-  Budstikka med denne standarden er rullet ut; se
+  all Budstikka-kode med denne standarden er rullet ut; se
   [release note 0.7.0](releases/kontrakt/0.7.0.md#wire--og-utrullingskompatibilitet).
+  Standardlenken er `{dineSykmeldteUrl}/{relationId}`, også uten `sakstype`, og bruker relasjons-id-en
+  lagret ved beslutning. En egen lenke bevares, bortsett fra at alle forekomster av den eksakte
+  plassholderen `NARMESTE_LEDER_ID` erstattes med lagret relasjons-id, også midt i stien:
+  `https://www.nav.no/oppfolgingsplan/NARMESTE_LEDER_ID/detaljer`. En allerede innbakt id byttes ikke.
+  Egne lenker må bruke HTTPS med host `nav.no` eller et reelt underdomene, for eksempel
+  `www.ekstern.dev.nav.no`, uten userinfo. Ugyldige lenker avvises før inbox-save med `INVALID_LINK`;
+  regelen gjelder ikke Altinn. Lenken sendes til Fager, den hentes ikke over HTTP.
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
   `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
   et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`. `link` er påkrevd.
@@ -126,6 +133,13 @@ Nordmann». Detaljene står i KDoc.
   kjente brukeren, har gått over til `sakstype`.
 
 Bakgrunnen står i [ADR 0019](adr/0019-budstikka-eier-arbeidsgiversakene-og-produsenten-velger-sakstype.md).
+
+Budstikka lagrer aktiv leder, e-postliste og relasjons-id ved beslutning, før utsending.
+Når `sakstype` er satt, lagres også navnet til den sykmeldte hvis registeret har det, for begge
+mottakertypene. Null navn gir en generell sakstittel. Leveransen og nye forsøk bruker samme lagrede
+verdier, selv om registeret endres. Manglende aktiv leder eller manglende e-post ved bestilt ekstern
+varsling avslutter beslutningen med `MISSING_ACTIVE_LEADER` eller `MISSING_EMAIL_ADDRESS`.
+Midlertidige oppslagsfeil forsøkes på nytt og gjøres ikke om til manglende navn.
 
 ## Feil og personvern
 

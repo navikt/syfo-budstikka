@@ -8,20 +8,23 @@ import no.nav.budstikka.contract.Dispatch
 /**
  * Resolves every rule concurrently, then applies the resolved rules sequentially. Rule order
  * affects transformations and which terminal decision wins, but does not prevent already-started
- * lookups.
+ * lookups. Final enrichment runs only for Processed, before the result is persisted.
  */
 class DecisionProcess internal constructor(
     private val rules: List<DecisionRule>,
+    private val enrich: suspend (Decision.Processed) -> Decision = { it },
 ) {
     suspend fun process(event: Dispatch): Decision =
         coroutineScope {
             val resolved = rules.map { async { it.resolve(event) } }.awaitAll()
             val seed: Decision = Decision.Processed(listOf(event.content.toDeliveryDraft(event.reference)))
-            resolved.fold(seed) { decision, rule ->
-                when (decision) {
-                    is Decision.Processed -> rule.apply(decision.deliveries)
-                    else -> decision
+            val decision =
+                resolved.fold(seed) { decision, rule ->
+                    when (decision) {
+                        is Decision.Processed -> rule.apply(decision.deliveries)
+                        else -> decision
+                    }
                 }
-            }
+            if (decision is Decision.Processed) enrich(decision) else decision
         }
 }

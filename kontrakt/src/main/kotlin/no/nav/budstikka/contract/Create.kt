@@ -128,7 +128,7 @@ sealed interface ArbeidsgiverRecipient
 
 /**
  * Personal Arbeidsgivervarsel path. Budstikka resolves the active Nærmeste leder from [sykmeldt]
- * at delivery time.
+ * at Decision, and saves the relation for delivery and retries.
  */
 @InternalBudstikkaWire
 @Serializable

@@ -40,6 +40,11 @@ class DittSykefravaerE2ESpec :
                         value = dispatchJson.encodeToString(Dispatch(reference, content)),
                         headers = mapOf(DispatchHeader.EVENT_ID to UUID.randomUUID().toString()),
                     )
+                    if (content is DittSykefravaerCreate) {
+                        eventually(30.seconds) {
+                            app.consumeRecords(app.dittSykefravaerTopic).filter { it.key() == reference } shouldHaveSize 1
+                        }
+                    }
                 }
 
                 eventually(30.seconds) {

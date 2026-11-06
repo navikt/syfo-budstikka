@@ -8,7 +8,6 @@ import io.kotest.matchers.shouldBe
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.NarmesteLederLookup
-import no.nav.budstikka.application.delivery.NarmesteLederRelasjon
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.Dispatch
@@ -17,6 +16,7 @@ import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.dispatchJson
+import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.fakes.FakeArbeidsgiverNotificationPublisher
 import no.nav.budstikka.fakes.FakeNarmesteLederLookup
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
@@ -31,6 +31,7 @@ import no.nav.budstikka.testsupport.BudstikkaTestApp
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
 @Tags("E2E")
@@ -60,10 +61,11 @@ class ArbeidsgivervarselE2ESpec :
                 }
         }
 
-        test("NarmesteLeder with an active relation is published and delivery reaches SENT") {
+        test("NarmesteLeder snapshot is persisted and supplies the default link without a delivery lookup") {
             val publisher = FakeArbeidsgiverNotificationPublisher()
             val lookup = FakeNarmesteLederLookup()
             val leader = PersonIdentifier("00000000000")
+            val lookupCalls = AtomicInteger()
             lookup.registerActive(
                 TEST_SYKMELDT,
                 TEST_ORGNUMMER,
@@ -73,16 +75,32 @@ class ArbeidsgivervarselE2ESpec :
             BudstikkaTestApp
                 .start {
                     provide<ArbeidsgiverNotificationPublisher> { publisher }
-                    provide<NarmesteLederLookup> { lookup }
+                    provide<NarmesteLederLookup> {
+                        NarmesteLederLookup { sykmeldt, orgnummer ->
+                            lookupCalls.incrementAndGet()
+                            lookup.findActive(sykmeldt, orgnummer)
+                        }
+                    }
                 }.use { app ->
                     val eventId = UUID.randomUUID()
-                    app.produceArbeidsgivervarsel(eventId, NarmesteLeder(TEST_SYKMELDT))
+                    app.produceArbeidsgivervarsel(eventId, NarmesteLeder(TEST_SYKMELDT), link = null)
 
                     eventually(30.seconds) {
                         app.deliveryStateFor(eventId) shouldBe sentState()
                         publisher.requests.map { it.eksternId }.shouldContainExactly(eventId.toString())
                         publisher.requests.single().recipient shouldBe
                             ArbeidsgiverNotificationRecipient.NarmesteLeder(leader, TEST_SYKMELDT)
+                        lookupCalls.get() shouldBe 1
+                        publisher.requests.single().lenke shouldBe
+                            "https://www.ekstern.dev.nav.no/arbeidsgiver/sykmeldte/$TEST_LEDERRELASJON_ID"
+                        app.database.transact {
+                            val row = DeliveryTable.selectAll().where { DeliveryTable.inboxEventId eq eventId }.single()
+                            row[DeliveryTable.snapshotState] shouldBe "RESOLVED"
+                            row[DeliveryTable.leaderFnr] shouldBe leader.value
+                            row[DeliveryTable.leaderEmails] shouldBe emptyList()
+                            row[DeliveryTable.leaderRelationId] shouldBe TEST_LEDERRELASJON_ID
+                            row[DeliveryTable.nameFirst] shouldBe null
+                        }
                     }
                 }
         }
@@ -110,6 +128,7 @@ class ArbeidsgivervarselE2ESpec :
 private fun BudstikkaTestApp.produceArbeidsgivervarsel(
     eventId: UUID,
     recipient: no.nav.budstikka.contract.ArbeidsgiverRecipient,
+    link: String? = "https://nav.no/e2e/arbeidsgivervarsel",
 ) {
     val dispatch =
         Dispatch(
@@ -120,7 +139,7 @@ private fun BudstikkaTestApp.produceArbeidsgivervarsel(
                     recipient = recipient,
                     tag = "Dialogmøte",
                     text = "Du har en ny oppgave",
-                    link = "https://nav.no/e2e/arbeidsgivervarsel",
+                    link = link,
                     sendingWindow = SendingWindow.ONGOING,
                 ),
         )
@@ -141,8 +160,8 @@ private fun sentState() =
 
 private fun failedState() =
     ArbeidsgivervarselDeliveryState(
-        inboxState = InboxMessageState.PROCESSED.name,
-        deliveryState = DeliveryState.FAILED.name,
+        inboxState = InboxMessageState.FAILED.name,
+        deliveryState = null,
     )
 
 private data class ArbeidsgivervarselDeliveryState(

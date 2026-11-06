@@ -4,6 +4,9 @@ import io.ktor.server.plugins.di.DependencyRegistry
 import io.ktor.server.plugins.di.resolve
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
+import no.nav.budstikka.application.delivery.ArbeidsgiversakConfig
+import no.nav.budstikka.application.delivery.ArbeidsgiversakPublisher
+import no.nav.budstikka.application.delivery.Arbeidsgiversaker
 import no.nav.budstikka.application.delivery.ArbeidsgivervarselChannelHandler
 import no.nav.budstikka.application.delivery.BrevChannelHandler
 import no.nav.budstikka.application.delivery.BrukervarselChannelHandler
@@ -15,10 +18,12 @@ import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
+import no.nav.budstikka.application.delivery.LegacyDeliverySnapshotResolver
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
-import no.nav.budstikka.application.delivery.NarmesteLederLookup
+import no.nav.budstikka.application.delivery.SerializedSakCreation
+import no.nav.budstikka.application.inbox.ArbeidsgiverDecisionEnrichment
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.inbox.InboxMetrics
@@ -27,6 +32,7 @@ import no.nav.budstikka.application.observability.OperationalQueueSnapshotReposi
 import no.nav.budstikka.application.observability.OperationalQueueSnapshotWorker
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.KeyedLock
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.application.retention.RetentionMetrics
 import no.nav.budstikka.application.retention.RetentionRepository
@@ -40,7 +46,10 @@ import no.nav.budstikka.infrastructure.worker.config.WorkerConfig
 import kotlin.time.Duration.Companion.seconds
 
 fun DependencyRegistry.workerModule() {
-    provide<DecisionProcess> { DecisionProcess(resolve<List<DecisionRule>>()) }
+    provide<DecisionProcess> {
+        val enrichment = ArbeidsgiverDecisionEnrichment(resolve(), resolve(), resolve())
+        DecisionProcess(resolve<List<DecisionRule>>(), enrichment::enrich)
+    }
     provide<EffectuateDecision> {
         EffectuateDecision(
             transactionRunner = resolve<TransactionRunner>(),
@@ -49,6 +58,8 @@ fun DependencyRegistry.workerModule() {
         )
     }
     provide<Map<Channel, ChannelHandler>> {
+        val sakPublisher = SerializedSakCreation(resolve<ArbeidsgiversakPublisher>(), resolve<KeyedLock>())
+        val saker = Arbeidsgiversaker(sakPublisher, resolve<ArbeidsgiversakConfig>())
         mapOf(
             Channel.BRUKERVARSEL to BrukervarselChannelHandler(resolve<MinSideBrukervarselPublisher>()),
             Channel.LEDERVARSEL to LedervarselChannelHandler(resolve<LedervarselPublisher>()),
@@ -58,8 +69,8 @@ fun DependencyRegistry.workerModule() {
             Channel.ARBEIDSGIVERVARSEL to
                 ArbeidsgivervarselChannelHandler(
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
-                    narmesteLederLookup = resolve<NarmesteLederLookup>(),
-                    metrics = resolve<DeliveryMetrics>(),
+                    saker = saker,
+                    legacySnapshots = LegacyDeliverySnapshotResolver(resolve(), resolve(), resolve()),
                 ),
         )
     }

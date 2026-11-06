@@ -2,7 +2,7 @@ package no.nav.budstikka.application.delivery
 
 import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
-import java.util.UUID
+import no.nav.budstikka.domain.NarmesteLederRelasjon
 
 fun interface NarmesteLederLookup {
     /**
@@ -12,13 +12,4 @@ fun interface NarmesteLederLookup {
         sykmeldt: PersonIdentifier,
         orgnummer: Orgnummer,
     ): NarmesteLederRelasjon?
-}
-
-/** @property relationId identifier assigned by esyfo-narmesteleder to this relation record. */
-data class NarmesteLederRelasjon(
-    val narmesteLederFnr: PersonIdentifier,
-    val epostadresser: List<String>,
-    val relationId: UUID,
-) {
-    override fun toString(): String = "NarmesteLederRelasjon(hasEmailAddresses=${epostadresser.isNotEmpty()})"
 }

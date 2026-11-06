@@ -8,6 +8,7 @@ import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstype
+import no.nav.budstikka.domain.PersonName
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.fakes.FakeArbeidsgiversakPublisher
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID

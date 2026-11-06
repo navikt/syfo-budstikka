@@ -1,8 +1,8 @@
 package no.nav.budstikka.fakes
 
-import no.nav.budstikka.application.delivery.PersonName
 import no.nav.budstikka.application.delivery.PersonNameLookup
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.domain.PersonName
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 

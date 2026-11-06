@@ -52,13 +52,14 @@ class PostgresTestFixture : AutoCloseable {
         createSchema()
     }
 
-    fun migrate() {
+    fun migrate(target: String = "latest") {
         Flyway
             .configure()
             .dataSource(schemaJdbcUrl, postgres.username, postgres.password)
             .locations("classpath:database.migration")
             .schemas(schemaName)
             .defaultSchema(schemaName)
+            .target(target)
             .load()
             .migrate()
     }
