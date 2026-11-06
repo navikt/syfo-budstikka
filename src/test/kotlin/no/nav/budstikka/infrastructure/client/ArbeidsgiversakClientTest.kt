@@ -15,6 +15,11 @@ import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
 import no.nav.budstikka.application.delivery.ArbeidsgiversakCreateRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakExtendRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiversakStatusRequest
+import no.nav.budstikka.application.delivery.KalenderavtaleCreateRequest
+import no.nav.budstikka.application.delivery.KalenderavtaleUpdateRequest
+import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
+import no.nav.budstikka.contract.Kalenderavtalelokasjon
+import no.nav.budstikka.contract.Kalenderavtaletilstand
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.infrastructure.auth.TokenProvider
@@ -166,6 +171,171 @@ class ArbeidsgiversakClientTest :
                 }
             }
         }
+
+        context("nyKalenderavtale") {
+            test("sends Oslo times, place, state and one email per leader address in NKS hours") {
+                var body = ""
+                var correlationId = ""
+                client { request ->
+                    body = (request.body as TextContent).text
+                    correlationId = request.headers["X-Request-ID"].orEmpty()
+                    respond(
+                        """{"data":{"nyKalenderavtale":{"__typename":"NyKalenderavtaleVellykket"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.createKalenderavtale(kalenderavtaleRequest()) shouldBe ArbeidsgiverNotificationResponse.Published
+
+                body shouldContain """"grupperingsid":"mote-1""""
+                body shouldContain """"eksternId":"avtale-1""""
+                body shouldContain """"startTidspunkt":"2026-11-02T10:00:00+01:00""""
+                body shouldContain """"sluttTidspunkt":"2026-11-02T11:00:00+01:00""""
+                body shouldContain """"lokasjon":{"adresse":"Gate 1","postnummer":"0001","poststed":"Oslo"}"""
+                body shouldContain """"erDigitalt":true"""
+                body shouldContain """"tilstand":"VENTER_SVAR_FRA_ARBEIDSGIVER""""
+                body shouldContain """"epostadresse":"first@example.test""""
+                body shouldContain """"epostadresse":"second@example.test""""
+                body shouldContain """"sendevindu":"NKS_AAPNINGSTID""""
+                correlationId shouldBe "event-4"
+            }
+
+            test("uses the summer-time offset for an event in summer") {
+                var body = ""
+                client { request ->
+                    body = (request.body as TextContent).text
+                    respond(
+                        """{"data":{"nyKalenderavtale":{"__typename":"NyKalenderavtaleVellykket"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.createKalenderavtale(
+                    kalenderavtaleRequest().copy(startAt = Instant.parse("2026-06-15T08:00:00Z"), endAt = null),
+                )
+
+                body shouldContain """"startTidspunkt":"2026-06-15T10:00:00+02:00""""
+            }
+
+            test("sends an empty email list without an external notification") {
+                var body = ""
+                client { request ->
+                    body = (request.body as TextContent).text
+                    respond(
+                        """{"data":{"nyKalenderavtale":{"__typename":"NyKalenderavtaleVellykket"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.createKalenderavtale(kalenderavtaleRequest(email = false))
+
+                body shouldContain """"eksterneVarsler":[]"""
+            }
+
+            test("maps every business result") {
+                mapOf(
+                    "SakFinnesIkke" to ArbeidsgiverNotificationResponse.NotYetAvailable(NOT_FOUND + "SakFinnesIkke"),
+                    "UgyldigKalenderavtale" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigKalenderavtale"),
+                    "UgyldigMerkelapp" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMerkelapp"),
+                    "UgyldigMottaker" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMottaker"),
+                    "UkjentProdusent" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentProdusent"),
+                ).forEach { (typeName, expected) ->
+                    client {
+                        respond("""{"data":{"nyKalenderavtale":{"__typename":"$typeName"}}}""", HttpStatusCode.OK)
+                    }.createKalenderavtale(kalenderavtaleRequest()) shouldBe expected
+                }
+            }
+        }
+
+        context("nyKalenderavtale duplicate") {
+            fun duplicateThen(existing: String) =
+                client { request ->
+                    val body = (request.body as TextContent).text
+                    if (body.contains("hentNotifikasjon")) {
+                        body shouldContain """"id":"avtale-123""""
+                        respond("""{"data":{"hentNotifikasjon":$existing}}""", HttpStatusCode.OK)
+                    } else {
+                        respond(
+                            """{"data":{"nyKalenderavtale":{"__typename":"DuplikatEksternIdOgMerkelapp",""" +
+                                """"idTilEksisterende":"avtale-123"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }
+                }
+
+            fun fetched(notifikasjon: String) = """{"__typename":"HentetNotifikasjon","notifikasjon":$notifikasjon}"""
+
+            test("counts as created when the existing kalenderavtale is in the same sak") {
+                duplicateThen(
+                    fetched("""{"__typename":"Kalenderavtale","metadata":{"grupperingsid":"mote-1"}}"""),
+                ).createKalenderavtale(kalenderavtaleRequest()) shouldBe ArbeidsgiverNotificationResponse.Published
+            }
+
+            test("is rejected when the reference is used in another sak") {
+                duplicateThen(
+                    fetched("""{"__typename":"Kalenderavtale","metadata":{"grupperingsid":"mote-2"}}"""),
+                ).createKalenderavtale(kalenderavtaleRequest()) shouldBe
+                    ArbeidsgiverNotificationResponse.Rejected(
+                        REJECTED + "DuplikatEksternIdOgMerkelapp for another sak or notification type",
+                    )
+            }
+
+            test("is rejected when the reference belongs to another notification type") {
+                duplicateThen(fetched("""{"__typename":"Beskjed"}""")).createKalenderavtale(kalenderavtaleRequest()) shouldBe
+                    ArbeidsgiverNotificationResponse.Rejected(
+                        REJECTED + "DuplikatEksternIdOgMerkelapp for another sak or notification type",
+                    )
+            }
+
+            test("is rejected when the existing event cannot be found") {
+                duplicateThen("""{"__typename":"NotifikasjonFinnesIkke"}""").createKalenderavtale(kalenderavtaleRequest()) shouldBe
+                    ArbeidsgiverNotificationResponse.Rejected(
+                        REJECTED + "DuplikatEksternIdOgMerkelapp that could not be verified",
+                    )
+            }
+        }
+
+        context("oppdaterKalenderavtaleByEksternId") {
+            test("sends only the requested changes and the dispatch as idempotency key") {
+                var body = ""
+                client { request ->
+                    body = (request.body as TextContent).text
+                    respond(
+                        """{"data":{"oppdaterKalenderavtaleByEksternId":{"__typename":"OppdaterKalenderavtaleVellykket"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.updateKalenderavtale(
+                    KalenderavtaleUpdateRequest(
+                        tag = "Dialogmøte",
+                        eksternId = "avtale-1",
+                        tilstand = Kalenderavtaletilstand.AVLYST,
+                        text = null,
+                        externalVarsling = null,
+                        idempotencyKey = "event-3",
+                    ),
+                ) shouldBe ArbeidsgiverNotificationResponse.Published
+
+                body shouldContain """"eksternId":"avtale-1""""
+                body shouldContain """"nyTilstand":"AVLYST""""
+                body shouldContain """"idempotencyKey":"event-3""""
+                body shouldContain """"eksterneVarsler":[]"""
+                body shouldNotContain "\"nyTekst\""
+            }
+
+            test("maps a kalenderavtale that does not exist yet to a retryable result") {
+                mapOf(
+                    "NotifikasjonFinnesIkke" to
+                        ArbeidsgiverNotificationResponse.NotYetAvailable(NOT_FOUND + "NotifikasjonFinnesIkke"),
+                    "Konflikt" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "Konflikt"),
+                    "UgyldigKalenderavtale" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigKalenderavtale"),
+                    "UgyldigMerkelapp" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UgyldigMerkelapp"),
+                    "UkjentProdusent" to ArbeidsgiverNotificationResponse.Rejected(REJECTED + "UkjentProdusent"),
+                ).forEach { (typeName, expected) ->
+                    client {
+                        respond(
+                            """{"data":{"oppdaterKalenderavtaleByEksternId":{"__typename":"$typeName"}}}""",
+                            HttpStatusCode.OK,
+                        )
+                    }.updateKalenderavtale(
+                        KalenderavtaleUpdateRequest("Dialogmøte", "avtale-1", Kalenderavtaletilstand.AVLYST, null, null, "event-3"),
+                    ) shouldBe expected
+                }
+            }
+        }
     })
 
 private val LEADER =
@@ -192,6 +362,35 @@ private fun extendRequest() =
         tag = "Dialogmøte",
         keepUntil = Instant.parse("2026-12-01T11:00:00Z"),
         correlationId = "event-2",
+    )
+
+private fun kalenderavtaleRequest(email: Boolean = true) =
+    KalenderavtaleCreateRequest(
+        virksomhetsnummer = "123456789",
+        grupperingsid = "mote-1",
+        tag = "Dialogmøte",
+        eksternId = "avtale-1",
+        text = "Dialogmøte med Test",
+        link = "https://nav.no/ag",
+        startAt = Instant.parse("2026-11-02T09:00:00Z"),
+        endAt = Instant.parse("2026-11-02T10:00:00Z"),
+        lokasjon = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
+        digital = true,
+        tilstand = Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER,
+        recipient =
+            LEADER.copy(
+                externalVarsling =
+                    if (email) {
+                        NarmesteLederExternalVarsling(
+                            epostTittel = "Tittel",
+                            epostHtmlBody = "<p>E-post</p>",
+                            epostadresser = listOf("first@example.test", "second@example.test"),
+                        )
+                    } else {
+                        null
+                    },
+            ),
+        correlationId = "event-4",
     )
 
 private fun client(handler: MockRequestHandler) =
