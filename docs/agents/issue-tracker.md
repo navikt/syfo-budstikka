@@ -140,41 +140,36 @@ to create repository labels.
 
 ## Projects
 
-The team board is [Team eSyfo](https://github.com/orgs/navikt/projects/157):
+The `projects` entry in `.github/ISSUE_TEMPLATE/` names the team board. The
+board's fields, status options, and project workflows belong to the board and
+change independently of this repository, so they are not described here.
 
-- owner: `navikt`
-- project number: `157`
+- Read the board's fields and options at runtime, for example with
+  `gh project field-list`, and match them by exact name. Never assume a status
+  name, field name, or opaque ID.
+- The forms' `projects` entry applies only to form-driven creation. For a
+  programmatically created issue, check whether a project workflow already
+  added it before adding it explicitly.
+- Set a status or other field value only when the user or the task has
+  established it. Never infer one; if no option matches the intended state,
+  ask.
+- Change project state only as part of an authorized write, not because an
+  issue was inspected or selected.
+- `gh project` commands require the `project` token scope. If `gh auth status`
+  does not list it, stop before the first project call and ask the user to run
+  `gh auth refresh -s project` or to explicitly skip the project step.
+- Project workflows may add items or change fields on their own. After every
+  project write, and after closing an issue, read the item back and verify its
+  issue URL, project, and field values. Allow a short read-only retry before
+  adding an item that a workflow may already have added. Missing or wrong
+  project state is a partial failure handled by the stop-and-repair rule above.
+- A terminal project status is tracker state, not proof that the work shipped;
+  the issue's closure reason and final comment carry that distinction.
 
-Resolve project, field, item, and option IDs at runtime. The number and the
-exact semantic names below are configuration; opaque IDs are not.
+## Ready for implementation
 
-Manual issues created through this repository's forms use
-`projects: ["navikt/157"]`. GitHub applies that field only to form-driven
-creation and only when the author has the required project access.
-Programmatically created issues must therefore be added to the project
-explicitly and verified.
-
-GitHub forms cannot choose a project field value. The project's enabled `Item
-added to project` workflow owns initial status for that path and must set
-`Backlog`. Smoke-test one issue after changing the forms or project workflow;
-if it lands elsewhere, treat that as a configuration failure. Independently of
-the smoke test, triage must read and verify status before an intake issue
-becomes pickable.
-
-### Status mapping
-
-| Workflow state | Exact `Status` option |
-|---|---|
-| Created for later prioritization | `Backlog` |
-| Approved and independently pickable | `Plukk meg! 🙌` |
-| Work has started | `Jeg jobbes med! ⚒️` |
-| Waiting for team discussion or a team-owned decision | `Til diskusjon` |
-| Closed or otherwise terminal | `Done` |
-
-### Ready for implementation
-
-`Backlog` may contain incomplete intake. Set `Plukk meg! 🙌` only after reading
-the complete issue and verifying that it has:
+Treat an issue as ready for implementation only after reading the complete
+issue and verifying that it has:
 
 - a clear goal and scope, including the nearest relevant non-goal;
 - verifiable acceptance criteria;
@@ -184,67 +179,5 @@ the complete issue and verifying that it has:
 - confirmed issue type, project membership, and other explicitly chosen
   tracker metadata.
 
-If one of these is materially missing, keep the issue in `Backlog` or use `Til
-diskusjon` when a team-owned decision is the blocker. State what must be
-clarified; do not manufacture readiness.
-
-For a newly approved set of implementation issues, put open unblocked issues
-in `Plukk meg! 🙌` and blocked issues in `Backlog`, unless the user chose
-another configured state. If implementation starts in the current session,
-set only the issue actually being started to `Jeg jobbes med! ⚒️`; other
-unblocked slices remain pickable. Do not change existing project state merely
-because an issue was inspected or selected.
-
-`Sommer epics 🎯` and `AID-oppdraget` are special planning lanes, not fallback
-statuses. Set them only when the user explicitly chooses one. Never infer
-`Priority`, `Size`, `Estimate`, `Tertial`, `Måleparameter`, or `Tags`; propose
-only a value established by the task and include it in the authorized write
-set.
-
-### Project operations
-
-`gh project` commands require the `project` token scope. If `gh auth status`
-does not list it, stop before the first project call and ask the user to run
-`gh auth refresh -s project` or to explicitly skip project linking; a missing
-scope is a decision stop, not a silent skip.
-
-Prefer semantic GitHub project tools when they expose the complete operation.
-With `gh`, the minimum write path is:
-
-```sh
-gh project item-add 157 --owner navikt --url ISSUE_URL --format json
-gh project field-list 157 --owner navikt --format json
-gh project item-edit --id ITEM_ID --project-id PROJECT_ID \
-  --field-id STATUS_FIELD_ID --single-select-option-id STATUS_OPTION_ID
-```
-
-Capture the item ID returned by `item-add`. For an existing item, query by the
-exact issue URL and paginate until the item is found or the project is
-exhausted; never treat the first 30 or 100 items as the whole board. Match the
-`Status` field and option by the exact configured names above.
-
-After every add or field mutation, read the item back and verify its issue URL,
-project, and field value. A created issue with missing or wrong project state
-is a partial failure: preserve the issue, stop further writes, present the
-smallest repair, and obtain authorization before repairing it.
-
-Closing an issue normally lets the project's enabled built-in workflow set
-`Done`. This is a terminal tracker state, not proof that the issue shipped; the
-issue's closure reason and final comment carry that distinction. Read the
-project item back after closing. If it is not `Done`, report the mismatch and
-propose an explicit authorized status repair rather than assuming the
-automation is enabled.
-
-Wayfinder adds the map to Team eSyfo as `Til diskusjon`. Project 157 currently
-has `Auto-add sub-issues to project` enabled, so attaching native decision
-tickets can also add them to the board. Include that automatic effect in the
-authorized write set, then verify each child before continuing. Because the
-workflow is asynchronous, allow a short bounded read-only retry before treating
-an absent item as a partial failure. Keep writes stopped while polling, and do
-not call `item-add` again when the workflow already added the child.
-
-An unclaimed decision ticket starts in `Backlog`; a ticket claimed for the
-current session uses `Jeg jobbes med! ⚒️`; a ticket waiting for team discussion
-uses `Til diskusjon`; and the enabled close workflow sets terminal tickets to
-`Done`. These items remain decision work, not implementation slices, even when
-the project workflow makes them visible on the board.
+If one of these is materially missing, state what must be clarified; do not
+manufacture readiness.
