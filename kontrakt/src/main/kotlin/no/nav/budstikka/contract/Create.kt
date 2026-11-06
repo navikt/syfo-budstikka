@@ -88,15 +88,27 @@ data class ArbeidsgivervarselCreate(
     val orgnummer: Orgnummer,
     @SerialName("mottaker")
     val recipient: ArbeidsgiverRecipient,
-    val tag: String,
+    /** The producer's merkelapp; set only without a [sakstype], which decides the merkelapp itself. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tag: String? = null,
     val text: String,
-    val link: String,
+    /** Required for an [AltinnResource]; a [NarmesteLeder] notification without it follows its sak. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val link: String? = null,
     val meldingstype: ArbeidsgiverMeldingstype = ArbeidsgiverMeldingstype.BESKJED,
     val sakstilknytning: Sakstilknytning? = null,
     val visibleUntil: Instant? = null,
     var sendingWindow: SendingWindow? = null,
+    /** The Budstikka-owned sak the notification belongs to; replaces [sakstilknytning]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sakstype: Sakstype? = null,
+    /** Status to set on the [sakstype] sak after the notification. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val saksstatus: Saksstatus? = null,
 ) : DispatchContent {
     init {
+        // Runs on decoding too, so Budstikka rejects an Altinn message without a link on receipt.
+        require(link != null || recipient !is AltinnResource) { "link is required for an Altinn resource" }
         sendingWindow = sendingWindow ?: SendingWindow.BUDSTIKKA_OPENING_HOURS
     }
 
@@ -105,7 +117,8 @@ data class ArbeidsgivervarselCreate(
     /** Omits free text and identifiers; see [BrukervarselCreate.toString]. */
     override fun toString(): String =
         "ArbeidsgivervarselCreate(meldingstype=$meldingstype, sendingWindow=$sendingWindow, " +
-            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null})"
+            "hasExternalVarsling=${recipient.hasExternalVarsling()}, hasSakstilknytning=${sakstilknytning != null}, " +
+            "hasLink=${link != null}, sakstype=$sakstype)"
 }
 
 /** Exactly one recipient path is selected for each Arbeidsgivervarsel. */
@@ -135,8 +148,14 @@ data class NarmesteLeder(
 data class AltinnResource(
     val resource: String,
     val externalVarsling: AltinnExternalVarsling? = null,
+    /** The Sykmeldt the content concerns, for the sak title; required with a [Sakstype]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sykmeldt: PersonIdentifier? = null,
+    /** The producer's stable key for this organisation's sak about the Sykmeldt; required with a [Sakstype]. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sakId: String? = null,
 ) : ArbeidsgiverRecipient {
-    /** Omits external notification text. */
+    /** Omits external notification text, the Sykmeldt and the sak key. */
     override fun toString(): String = "AltinnResource(hasExternalVarsling=${externalVarsling != null})"
 }
 

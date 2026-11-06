@@ -38,7 +38,9 @@ val rawWireGeneratedClassPatterns =
         "no.nav.budstikka.contract.Ledervarsel**",
         "no.nav.budstikka.contract.Microfrontend**",
         "no.nav.budstikka.contract.NarmesteLeder**",
+        "no.nav.budstikka.contract.Saksstatus**",
         "no.nav.budstikka.contract.Sakstilknytning**",
+        "no.nav.budstikka.contract.Sakstype**",
     )
 
 extensions.configure<KotlinJvmProjectExtension>("kotlin") {

@@ -1,5 +1,6 @@
 package no.nav.produsenteksempel
 
+import no.nav.budstikka.contract.Arbeidsgiversak
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.BrevFallback
 import no.nav.budstikka.contract.Budstikka
@@ -111,6 +112,19 @@ object FacadeOnlyProducer {
             reference = "fixture-4",
             sykmeldt = sykmeldt,
             microfrontendId = "syk-dialog",
+        )
+
+    fun arbeidsgivervarselInSak(eventId: EventId): EncodedDispatch =
+        Budstikka.arbeidsgivervarselCreate(
+            eventId = eventId,
+            reference = "fixture-5",
+            orgnummer = orgnummer,
+            recipient = Arbeidsgivervarsel.NarmesteLeder(sykmeldt),
+            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+            text = "Referat",
+            link = "https://nav.no/ag",
+            messageType = Arbeidsgivervarsel.MessageType.BESKJED,
+            sendingWindow = SendingWindow.ONGOING,
         )
 
     /** Everything a Produsent needs to build a Kafka record, still without touching the envelope. */

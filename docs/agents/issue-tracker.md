@@ -166,14 +166,14 @@ becomes pickable.
 | Workflow state | Exact `Status` option |
 |---|---|
 | Created for later prioritization | `Backlog` |
-| Approved and independently pickable | `Plukk meg! 🙌` |
+| Approved and independently pickable | `Ukas prioriteringer! 🙌` |
 | Work has started | `Jeg jobbes med! ⚒️` |
 | Waiting for team discussion or a team-owned decision | `Til diskusjon` |
 | Closed or otherwise terminal | `Done` |
 
 ### Ready for implementation
 
-`Backlog` may contain incomplete intake. Set `Plukk meg! 🙌` only after reading
+`Backlog` may contain incomplete intake. Set `Ukas prioriteringer! 🙌` only after reading
 the complete issue and verifying that it has:
 
 - a clear goal and scope, including the nearest relevant non-goal;
@@ -189,13 +189,13 @@ diskusjon` when a team-owned decision is the blocker. State what must be
 clarified; do not manufacture readiness.
 
 For a newly approved set of implementation issues, put open unblocked issues
-in `Plukk meg! 🙌` and blocked issues in `Backlog`, unless the user chose
+in `Ukas prioriteringer! 🙌` and blocked issues in `Backlog`, unless the user chose
 another configured state. If implementation starts in the current session,
 set only the issue actually being started to `Jeg jobbes med! ⚒️`; other
 unblocked slices remain pickable. Do not change existing project state merely
 because an issue was inspected or selected.
 
-`Sommer epics 🎯` and `AID-oppdraget` are special planning lanes, not fallback
+`Ukas epics 🎯` and `AID-oppdraget` are special planning lanes, not fallback
 statuses. Set them only when the user explicitly chooses one. Never infer
 `Priority`, `Size`, `Estimate`, `Tertial`, `Måleparameter`, or `Tags`; propose
 only a value established by the task and include it in the authorized write

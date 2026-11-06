@@ -266,6 +266,10 @@ object Budstikka {
      * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
      *   hours.
      */
+    @Deprecated(
+        "Arbeidsgivernotifikasjoner will require every notification to belong to a sak. " +
+            "Use the overload that takes sakstype; for an Altinn resource it also takes sykmeldt and sakId.",
+    )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
         reference: String,
@@ -299,11 +303,63 @@ object Budstikka {
     }
 
     /**
+     * Sends an Arbeidsgivervarsel to the active Nærmeste leder for a Sykmeldt, in the [sakstype] sak
+     * of that leader relation. A missing active leader is terminal; when external notification was
+     * requested, a missing leader email address is also terminal.
+     *
+     * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
+     * @param reference your own id for this notification, used for correlation and bookkeeping.
+     * @param orgnummer the organisation that owns the notification and the partition anchor.
+     * @param recipient the active Nærmeste leder for a Sykmeldt. Use the overload with
+     *   [Arbeidsgivervarsel.HtmlEmailNotification] for an explicit HTML email body.
+     * @param sakstype the sak the notification belongs to.
+     * @param text the notification text shown to the recipient.
+     * @param link optional target for the notification; omit to link to the sak in Dine Sykmeldte.
+     *   Omit it only once Budstikka with that default is rolled out; see the release note.
+     * @param messageType whether the notification is a beskjed or oppgave; defaults to BESKJED.
+     * @param visibleUntil despite the name, the time when Arbeidsgivernotifikasjoner permanently
+     *   deletes the notification. Omit to use the existing four-month retention period.
+     * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
+     *   hours.
+     * @param saksstatus optional status to set on the sak after the notification.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.NarmesteLeder,
+        sakstype: Arbeidsgiversak.Type,
+        text: String,
+        link: String? = null,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarselInSak(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = recipient.toWireRecipient(),
+            sakstype = sakstype.toWire(),
+            saksstatus = saksstatus?.toWire(),
+            text = text,
+            link = link,
+            messageType = messageType,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
+
+    /**
      * Creates an Arbeidsgivervarsel for Nærmeste leder with an explicitly trusted HTML email.
      * [htmlEmail] is forwarded unchanged to Arbeidsgivernotifikasjoner. The ordinary overload keeps
      * its existing plain-text-and-escaping semantics. Create [recipient] without its optional
      * `externalNotification`; the two alternatives cannot be combined.
      */
+    @Deprecated(
+        "Arbeidsgivernotifikasjoner will require every notification to belong to a sak. " +
+            "Use the overload that takes sakstype.",
+    )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
         reference: String,
@@ -333,11 +389,49 @@ object Budstikka {
         )
 
     /**
+     * Creates an Arbeidsgivervarsel for Nærmeste leder in the [sakstype] sak of the leader relation,
+     * with an explicitly trusted HTML email. Create [recipient] without its optional
+     * `externalNotification`; the two alternatives cannot be combined. [link] is optional as in the
+     * plain overload.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.NarmesteLeder,
+        htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
+        sakstype: Arbeidsgiversak.Type,
+        text: String,
+        link: String? = null,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarselInSak(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = recipient.toHtmlWireRecipient(htmlEmail),
+            sakstype = sakstype.toWire(),
+            saksstatus = saksstatus?.toWire(),
+            text = text,
+            link = link,
+            messageType = messageType,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
+
+    /**
      * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email
      * and the required [smsText]. The ordinary overload keeps its existing plain-text-and-escaping
      * semantics. Create [recipient] without its optional `externalNotification`; the two
      * alternatives cannot be combined.
      */
+    @Deprecated(
+        "Arbeidsgivernotifikasjoner will require every notification to belong to a sak. " +
+            "Use the overload that takes sykmeldt, sakId and sakstype.",
+    )
     fun arbeidsgivervarselCreate(
         eventId: EventId,
         reference: String,
@@ -363,6 +457,82 @@ object Budstikka {
             link = link,
             messageType = messageType,
             caseAssociation = caseAssociation,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
+
+    /**
+     * Sends an Arbeidsgivervarsel to everyone with an Altinn resource, in the [sakstype] sak that
+     * [sakId] names for the organisation and [sykmeldt]. External notification is optional and follows
+     * the recipient's `externalNotification`, as plain text; use the overload with
+     * [Arbeidsgivervarsel.HtmlEmailNotification] for an HTML email.
+     *
+     * @param sykmeldt the Sykmeldt the notification concerns; their name goes in the sak title.
+     * @param sakId your stable key for this organisation's sak about [sykmeldt], for example a dialog
+     *   id: 1-64 letters, digits, '-' or '_'. Use the same key for all content in the sak. It is
+     *   visible to the employer, so never a personident.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.AltinnResource,
+        sykmeldt: PersonIdentifier,
+        sakId: String,
+        sakstype: Arbeidsgiversak.Type,
+        text: String,
+        link: String,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarselInSak(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = (recipient.toWireRecipient() as AltinnResource).withSak(sykmeldt, sakId),
+            sakstype = sakstype.toWire(),
+            saksstatus = saksstatus?.toWire(),
+            text = text,
+            link = link,
+            messageType = messageType,
+            visibleUntil = visibleUntil,
+            sendingWindow = sendingWindow,
+        )
+
+    /**
+     * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email and
+     * the required [smsText], in the [sakstype] sak that [sakId] names for the organisation and
+     * [sykmeldt]. Create [recipient] without its optional `externalNotification`.
+     */
+    fun arbeidsgivervarselCreate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        recipient: Arbeidsgivervarsel.AltinnResource,
+        sykmeldt: PersonIdentifier,
+        sakId: String,
+        htmlEmail: Arbeidsgivervarsel.HtmlEmailNotification,
+        smsText: String,
+        sakstype: Arbeidsgiversak.Type,
+        text: String,
+        link: String,
+        messageType: Arbeidsgivervarsel.MessageType = Arbeidsgivervarsel.MessageType.BESKJED,
+        visibleUntil: Instant? = null,
+        sendingWindow: SendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+        saksstatus: Arbeidsgiversak.Status? = null,
+    ): EncodedDispatch =
+        encodeArbeidsgivervarselInSak(
+            eventId = eventId,
+            reference = reference,
+            orgnummer = orgnummer,
+            recipient = recipient.toHtmlWireRecipient(htmlEmail, smsText).withSak(sykmeldt, sakId),
+            sakstype = sakstype.toWire(),
+            saksstatus = saksstatus?.toWire(),
+            text = text,
+            link = link,
+            messageType = messageType,
             visibleUntil = visibleUntil,
             sendingWindow = sendingWindow,
         )
@@ -531,6 +701,7 @@ private fun Orgnummer.requireOrgnummer() =
         "orgnummer must be $ORGNUMMER_LENGTH digits"
     }
 
+/** The encoder of the deprecated overloads, unchanged from 0.6.0. */
 private fun encodeArbeidsgivervarsel(
     eventId: EventId,
     reference: String,
@@ -560,6 +731,37 @@ private fun encodeArbeidsgivervarsel(
         sakstilknytning = caseAssociation?.let { Sakstilknytning(it.caseId) },
         visibleUntil = visibleUntil,
         sendingWindow = sendingWindow,
+    ).encode(eventId, reference)
+}
+
+private fun encodeArbeidsgivervarselInSak(
+    eventId: EventId,
+    reference: String,
+    orgnummer: Orgnummer,
+    recipient: ArbeidsgiverRecipient,
+    sakstype: Sakstype,
+    saksstatus: Saksstatus?,
+    text: String,
+    link: String?,
+    messageType: Arbeidsgivervarsel.MessageType,
+    visibleUntil: Instant?,
+    sendingWindow: SendingWindow,
+): EncodedDispatch {
+    requireReference(reference)
+    orgnummer.requireOrgnummer()
+    requireNotBlank(text, "text")
+    requireNullOrNotBlank(link, "link")
+    require(link != null || recipient !is AltinnResource) { "link is required for an Altinn resource" }
+    return ArbeidsgivervarselCreate(
+        orgnummer = orgnummer,
+        recipient = recipient,
+        text = text,
+        link = link,
+        meldingstype = messageType.toWireMessageType(),
+        visibleUntil = visibleUntil,
+        sendingWindow = sendingWindow,
+        sakstype = sakstype,
+        saksstatus = saksstatus,
     ).encode(eventId, reference)
 }
 
@@ -631,6 +833,18 @@ private fun Arbeidsgivervarsel.AltinnResource.toHtmlWireRecipient(
     )
 }
 
+private fun AltinnResource.withSak(
+    sykmeldt: PersonIdentifier,
+    sakId: String,
+): AltinnResource {
+    sykmeldt.requirePersonIdentifier("sykmeldt")
+    require(sakId.matches(SAK_ID)) { "sakId must be 1-64 letters, digits, '-' or '_'" }
+    return copy(sykmeldt = sykmeldt, sakId = sakId)
+}
+
+/** No separators, since the id becomes part of Budstikka's sak key. */
+private val SAK_ID = Regex("[A-Za-z0-9_-]{1,64}")
+
 private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeldingstype =
     when (this) {
         Arbeidsgivervarsel.MessageType.BESKJED -> ArbeidsgiverMeldingstype.BESKJED
@@ -649,3 +863,16 @@ private fun requireVisibleUntilWithinLimit(visibleUntil: Instant) {
         "visibleUntil must be at most ${MAX_MICROFRONTEND_VISIBILITY.inWholeDays} days ahead"
     }
 }
+
+private fun Arbeidsgiversak.Status.toWire(): Saksstatus =
+    when (this) {
+        Arbeidsgiversak.Status.MOTTATT -> Saksstatus.MOTTATT
+        Arbeidsgiversak.Status.UNDER_BEHANDLING -> Saksstatus.UNDER_BEHANDLING
+        Arbeidsgiversak.Status.FERDIG -> Saksstatus.FERDIG
+    }
+
+private fun Arbeidsgiversak.Type.toWire(): Sakstype =
+    when (this) {
+        Arbeidsgiversak.Type.DIALOGMOTE -> Sakstype.DIALOGMOTE
+        Arbeidsgiversak.Type.OPPFOLGINGSPLAN -> Sakstype.OPPFOLGINGSPLAN
+    }

@@ -27,7 +27,7 @@ settes sammen i en produsent.
 | `dineSykmeldteVarselInactivate` | Lukk en tidligere aktivitet i Dine Sykmeldte. |
 | `dittSykefravaerCreate` | Opprett INFO-melding i Ditt Sykefravær. |
 | `dittSykefravaerInactivate` | Lukk en tidligere Ditt Sykefravær-melding. |
-| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs. |
+| `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs, i sak etter `sakstype`. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
@@ -101,6 +101,31 @@ feiler leveringen også terminalt hvis lederen mangler e-postadresse. Til tross 
 ikke `visibleUntil` bare synlighet. Feltet planlegger ugjenkallelig hard sletting av varselet og
 tilhørende data fra Fagers database og Kafka. Det stopper ikke eksterne varsler som allerede er
 planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
+
+## Sak
+
+Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger
+`sakstype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`. Budstikka legger innholdet i riktig
+sak og oppretter den ved behov. Typen bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa
+Nordmann». Detaljene står i KDoc.
+
+- **Nærmeste leder:** én sak per sakstype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
+  får sin egen sak. `link` er valgfri: uten lenke lenker varselet til saken. Utelat lenken først når
+  Budstikka med denne standarden er rullet ut; se
+  [release note 0.7.0](releases/kontrakt/0.7.0.md#wire--og-utrullingskompatibilitet).
+- **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
+  `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
+  et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`. `link` er påkrevd.
+- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. En ny sak får «Mottatt», og
+  uten `saksstatus` beholder saken statusen den har.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel eller status.
+- **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk
+  kan overskrive en nyere status.
+- **Uten sakstype:** overloadene med `tag` og `CaseAssociation` er deprecated. De virker til Fager
+  krever sak, og fjernes i første minor-versjon etter at syfo-oppfolgingsplan-backend, den eneste
+  kjente brukeren, har gått over til `sakstype`.
+
+Bakgrunnen står i [ADR 0019](adr/0019-budstikka-eier-arbeidsgiversakene-og-produsenten-velger-sakstype.md).
 
 ## Feil og personvern
 

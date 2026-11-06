@@ -168,6 +168,13 @@ class ContractPrivacyTest :
                         resource = "sensitive-producer-resource",
                         externalVarsling = altinnExternalVarsling,
                     ),
+                "AltinnResource med sykmeldt" to
+                    AltinnResource(
+                        resource = "sensitive-producer-resource",
+                        externalVarsling = altinnExternalVarsling,
+                        sykmeldt = SYNTHETIC_SYKMELDT,
+                        sakId = SYNTHETIC_SAK_ID,
+                    ),
             ).forEach { (name, value) ->
                 test(name) {
                     value.toString().shouldNotLeak()
@@ -263,6 +270,50 @@ class ContractPrivacyTest :
                             reference = SYNTHETIC_REFERENCE,
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
+                        ),
+                    "arbeidsgivervarselCreate with sakstype" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = Arbeidsgivervarsel.NarmesteLeder(SYNTHETIC_SYKMELDT),
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
+                    "arbeidsgivervarselCreate to Altinn with sakstype" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = Arbeidsgivervarsel.AltinnResource("sensitive-producer-resource"),
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            sakId = SYNTHETIC_SAK_ID,
+                            htmlEmail = Arbeidsgivervarsel.HtmlEmailNotification(SYNTHETIC_EMAIL_TITLE, SYNTHETIC_EMAIL_TEXT),
+                            smsText = SYNTHETIC_SMS_TEXT,
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
+                        ),
+                    "arbeidsgivervarselCreate to Altinn with sakstype and plain-text notification" to
+                        Budstikka.arbeidsgivervarselCreate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                Arbeidsgivervarsel.AltinnResource(
+                                    "sensitive-producer-resource",
+                                    Arbeidsgivervarsel.AltinnExternalNotification(
+                                        SYNTHETIC_EMAIL_TITLE,
+                                        SYNTHETIC_EMAIL_TEXT,
+                                        SYNTHETIC_SMS_TEXT,
+                                    ),
+                                ),
+                            sykmeldt = SYNTHETIC_SYKMELDT,
+                            sakId = SYNTHETIC_SAK_ID,
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                            text = SYNTHETIC_TEXT,
+                            link = SYNTHETIC_LINK,
                         ),
                 )
 
