@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Grillmester pre-commit gate. Enable once per clone:
-#   git config core.hooksPath .githooks
-# Enforces that PII/secrets never live in `.grill/` or the staged files (see /handoff).
-set -euo pipefail
-root="$(git rev-parse --show-toplevel)"
-exec bash "$root/scripts/scan-grill-pii.sh"
