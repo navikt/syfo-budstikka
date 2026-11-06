@@ -80,27 +80,21 @@ class ArbeidsgivervarselChannelHandler(
                 }
             }
 
-        return when (
-            val response =
-                withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
-                    publisher.publish(
-                        ArbeidsgiverNotificationRequest(
-                            virksomhetsnummer = create.orgnummer.value,
-                            eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
-                            grupperingsid = create.sakstilknytning?.sakId,
-                            tag = tag,
-                            tekst = create.text,
-                            lenke = link,
-                            recipient = notificationRecipient,
-                            meldingstype = create.meldingstype,
-                            visibleUntil = create.visibleUntil,
-                        ),
-                    )
-                }
-        ) {
-            ArbeidsgiverNotificationResponse.Published -> DeliveryOutcome.Sent
-            is ArbeidsgiverNotificationResponse.Rejected -> DeliveryOutcome.Failed(response.reason)
-        }
+        return withChannelHandlerFailureContext(Channel.ARBEIDSGIVERVARSEL, "publishing notification") {
+            publisher.publish(
+                ArbeidsgiverNotificationRequest(
+                    virksomhetsnummer = create.orgnummer.value,
+                    eksternId = (delivery.inboxEventId ?: delivery.id).toString(),
+                    grupperingsid = create.sakstilknytning?.sakId,
+                    tag = tag,
+                    tekst = create.text,
+                    lenke = link,
+                    recipient = notificationRecipient,
+                    meldingstype = create.meldingstype,
+                    visibleUntil = create.visibleUntil,
+                ),
+            )
+        }.toDeliveryOutcome(Channel.ARBEIDSGIVERVARSEL)
     }
 
     private fun AltinnResource.toNotificationRecipient() =

@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.fakes.TEST_LEDERRELASJON_ID
 import kotlin.time.Instant
 
@@ -18,6 +19,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
         val notificationText = "Sensitive notification text"
         val link = "https://nav.no/sensitive-link"
         val visibleUntil = Instant.parse("2026-07-01T10:00:00Z")
+        val sakTitle = "Sensitive sak title"
 
         val altinnExternalVarsling = AltinnExternalVarsling(emailTitle, emailHtmlBody, smsText)
         val leaderExternalVarsling =
@@ -53,6 +55,18 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                     meldingstype = ArbeidsgiverMeldingstype.BESKJED,
                     visibleUntil = visibleUntil,
                 ),
+                ArbeidsgiversakCreateRequest(
+                    virksomhetsnummer = "123456789",
+                    grupperingsid = "grouping-id",
+                    tag = "sensitive-tag",
+                    title = sakTitle,
+                    link = link,
+                    keepUntil = visibleUntil,
+                    recipient = leaderRecipient,
+                    correlationId = "external-id",
+                ),
+                ArbeidsgiversakExtendRequest("grouping-id", "sensitive-tag", visibleUntil, "external-id"),
+                ArbeidsgiversakStatusRequest("grouping-id", "sensitive-tag", Saksstatus.FERDIG, "external-id"),
             )
         val sensitiveValues =
             listOf(
@@ -70,6 +84,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 "sensitive-resource",
                 "sensitive-tag",
                 visibleUntil.toString(),
+                sakTitle,
             )
 
         values.forEach { value ->

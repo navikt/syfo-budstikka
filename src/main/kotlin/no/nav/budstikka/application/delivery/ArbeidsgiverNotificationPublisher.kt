@@ -59,6 +59,19 @@ sealed interface ArbeidsgiverNotificationResponse {
     data class Rejected(
         val reason: String,
     ) : ArbeidsgiverNotificationResponse
+
+    /**
+     * An object the request depends on does not exist downstream yet, for example a sak that is
+     * still being created. Retrying later may succeed.
+     */
+    data class NotYetAvailable(
+        val reason: String,
+    ) : ArbeidsgiverNotificationResponse
+
+    /** The sak key belonged to a sak that has been deleted downstream; it can never be used again. */
+    data class SakDeleted(
+        val reason: String,
+    ) : ArbeidsgiverNotificationResponse
 }
 
 interface ArbeidsgiverNotificationPublisher {
