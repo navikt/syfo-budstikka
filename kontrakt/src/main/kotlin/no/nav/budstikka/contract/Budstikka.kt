@@ -470,7 +470,7 @@ object Budstikka {
      * @param sykmeldt the Sykmeldt the notification concerns; their name goes in the sak title.
      * @param sakId your stable key for this organisation's sak about [sykmeldt], for example a dialog
      *   id: 1-64 letters, digits, '-' or '_'. Use the same key for all content in the sak. It is
-     *   visible to the employer, so never a personident; 11 digits alone or [sykmeldt] are rejected.
+     *   visible to the employer, so never a personident.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -839,15 +839,11 @@ private fun AltinnResource.withSak(
 ): AltinnResource {
     sykmeldt.requirePersonIdentifier("sykmeldt")
     require(sakId.matches(SAK_ID)) { "sakId must be 1-64 letters, digits, '-' or '_'" }
-    require(sykmeldt.value !in sakId && !ELEVEN_DIGITS.matches(sakId)) { "sakId must not be a personident" }
     return copy(sykmeldt = sykmeldt, sakId = sakId)
 }
 
 /** No separators, since the id becomes part of Budstikka's sak key. */
 private val SAK_ID = Regex("[A-Za-z0-9_-]{1,64}")
-
-/** May be a personident, which must never reach the sak key the employer can see. */
-private val ELEVEN_DIGITS = Regex("[0-9]{11}")
 
 private fun Arbeidsgivervarsel.MessageType.toWireMessageType(): ArbeidsgiverMeldingstype =
     when (this) {

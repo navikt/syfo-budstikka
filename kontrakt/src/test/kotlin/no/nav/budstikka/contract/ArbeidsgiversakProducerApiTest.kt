@@ -176,13 +176,6 @@ class ArbeidsgiversakProducerApiTest :
                 }
             }
 
-            mapOf("11 digits" to "1".repeat(11), "the Sykmeldt" to "dialog-${SYNTHETIC_SYKMELDT.value}").forEach { (what, sakId) ->
-                test("an Altinn sak key containing $what is rejected without echoing it") {
-                    shouldThrow<IllegalArgumentException> { altinnWithSakId(sakId) }.message shouldBe
-                        "sakId must not be a personident"
-                }
-            }
-
             listOf(
                 Arbeidsgiversak.Type.DIALOGMOTE to "DIALOGMOTE",
                 Arbeidsgiversak.Type.OPPFOLGINGSPLAN to "OPPFOLGINGSPLAN",
