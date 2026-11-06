@@ -50,7 +50,7 @@ class ArbeidsgivervarselChannelHandler(
             create.sakstype?.let { sakstype ->
                 when (
                     val resolution =
-                        saker.ensure(
+                        saker.extendOrCreate(
                             channel = CHANNEL,
                             sakstype = sakstype,
                             virksomhetsnummer = create.orgnummer.value,
