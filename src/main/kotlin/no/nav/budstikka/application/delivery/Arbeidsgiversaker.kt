@@ -186,13 +186,9 @@ sealed interface Saksmottaker {
 
         companion object {
             private val SAK_ID = Regex("[A-Za-z0-9_-]{1,64}")
-            private val ELEVEN_DIGITS = Regex("[0-9]{11}")
 
-            /** No key separators, and never a personident, since the employer can see the sak key. */
-            fun isValidSakId(
-                sakId: String,
-                sykmeldt: PersonIdentifier,
-            ): Boolean = sakId.matches(SAK_ID) && sykmeldt.value !in sakId && !sakId.matches(ELEVEN_DIGITS)
+            /** 1-64 letters, digits, '-' or '_', so the key has no separators. */
+            fun isValidSakId(sakId: String): Boolean = sakId.matches(SAK_ID)
         }
     }
 }

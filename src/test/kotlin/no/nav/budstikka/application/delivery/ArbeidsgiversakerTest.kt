@@ -177,11 +177,11 @@ class ArbeidsgiversakerTest :
             PersonName("SYNTETISK", null, "SYKMELDT").toString() shouldNotContain "SYNTETISK"
         }
 
-        test("an Altinn sak key has no separators and is never a personident") {
-            Saksmottaker.AltinnRessurs.isValidSakId("4711", TEST_SYKMELDT) shouldBe true
-            Saksmottaker.AltinnRessurs.isValidSakId("0f8fad5b-d9cb-469f-a165-a1b2c3d4e5f6", TEST_SYKMELDT) shouldBe true
-            listOf("", "dialog:2", "dialog 2", "x".repeat(65), "1".repeat(11), "dialog-${TEST_SYKMELDT.value}").forEach {
-                Saksmottaker.AltinnRessurs.isValidSakId(it, TEST_SYKMELDT) shouldBe false
+        test("an Altinn sak key is 1-64 letters, digits, '-' or '_'") {
+            Saksmottaker.AltinnRessurs.isValidSakId("4711") shouldBe true
+            Saksmottaker.AltinnRessurs.isValidSakId("0f8fad5b-d9cb-469f-a165-a1b2c3d4e5f6") shouldBe true
+            listOf("", "dialog:2", "dialog 2", "x".repeat(65)).forEach {
+                Saksmottaker.AltinnRessurs.isValidSakId(it) shouldBe false
             }
         }
     })
