@@ -118,14 +118,6 @@ Løpet starter appen mot Testcontainers med Postgres, Kafka og fakes for ekstern
 Se [teststrategien](docs/teststrategi.md) for testnivåer og lokal kjøring. Kjør `./gradlew tasks`
 for tilgjengelige Gradle-oppgaver.
 
-## Pre-commit-vakt for sensitive data
-
-Aktiver pre-commit-vakten mot PII i stagede filer én gang per klon:
-
-```sh
-git config core.hooksPath .githooks
-```
-
 ## For Nav-ansatte
 
 Spørsmål om tjenesten kan tas i [#esyfo på Slack](https://nav-it.slack.com/archives/C012X796B4L).
