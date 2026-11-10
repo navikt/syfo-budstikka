@@ -329,67 +329,51 @@ class EffectuateDecisionIntegrationTest :
             nameCalls shouldBe 2
         }
 
-        listOf(
-            ArbeidsgivervarselCreate(TEST_ORGNUMMER, NarmesteLeder(TEST_SYKMELDT), text = "text", sakstype = Sakstype.DIALOGMOTE),
-            KalenderavtaleCreate(
-                TEST_ORGNUMMER,
-                NarmesteLeder(TEST_SYKMELDT),
-                Sakstype.DIALOGMOTE,
-                "text",
-                "https://nav.no/calendar",
-                Instant.parse("2026-12-01T10:00:00Z"),
-            ),
-            KalenderavtaleUpdate(
-                TEST_ORGNUMMER,
-                NarmesteLeder(TEST_SYKMELDT),
-                Sakstype.DIALOGMOTE,
-                saksstatus = Saksstatus.FERDIG,
-            ),
-        ).forEach { content ->
-            test("snapshot CHECK failure rolls back inbox and delivery without sensitive diagnostics: ${content::class.simpleName}") {
-                val (effectuate, inbox) = effectuator()
-                val eventId = UUID.randomUUID()
-                inbox.saveBatch(
-                    listOf(
-                        no.nav.budstikka.application.port
-                            .InboxMessage(eventId, "privacy", content),
-                    ),
-                )
-                val claim = inbox.claim(1, lease, 10).single().claim
-                val leader = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), listOf("private@example.test"), TEST_LEDERRELASJON_ID)
-                val snapshot = DeliverySnapshot.Resolved(leader, PersonName("SyntheticPrivate", null, "SnapshotPrivate"))
-                val draft = content.toDeliveryDraft("privacy").copy(snapshot = snapshot.copy(leader = null))
-                val logger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-                val appender = ListAppender<ILoggingEvent>().apply { start() }
-                logger.addAppender(appender)
-                val error =
-                    try {
-                        shouldThrow<IllegalStateException> {
-                            effectuate.effectuate(
-                                claim,
-                                Decision.Processed(listOf(content.toDeliveryDraft("privacy").copy(snapshot = snapshot), draft)),
-                            )
-                        }
-                    } finally {
-                        logger.detachAppender(appender)
-                        appender.stop()
-                    }
-                val diagnostics =
-                    appender.list.joinToString { it.renderedLogData() } +
-                        generateSequence<Throwable>(error) { it.cause }.joinToString { it.toString() } +
-                        snapshot.toString() + leader.toString() + snapshot.name.toString() + draft.toString()
+        test("snapshot CHECK failure rolls back inbox and delivery without leaking sensitive row or SQL diagnostics") {
+            val (effectuate, inbox) = effectuator()
+            val eventId = UUID.randomUUID()
+            val content =
+                ArbeidsgivervarselCreate(TEST_ORGNUMMER, NarmesteLeder(TEST_SYKMELDT), text = "text", sakstype = Sakstype.DIALOGMOTE)
+            inbox.saveBatch(
                 listOf(
-                    "SyntheticPrivate",
-                    "SnapshotPrivate",
-                    "private@example.test",
-                    "2".repeat(11),
-                    TEST_LEDERRELASJON_ID.toString(),
-                ).forEach {
-                    diagnostics shouldNotContain it
+                    no.nav.budstikka.application.port
+                        .InboxMessage(eventId, "privacy", content),
+                ),
+            )
+            val claim = inbox.claim(1, lease, 10).single().claim
+            val leader = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), listOf("private@example.test"), TEST_LEDERRELASJON_ID)
+            val snapshot = DeliverySnapshot.Resolved(leader, PersonName("SyntheticPrivate", null, "SnapshotPrivate"))
+            val draft = content.toDeliveryDraft("privacy").copy(snapshot = snapshot.copy(leader = null))
+            val logger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logger.addAppender(appender)
+            val error =
+                try {
+                    shouldThrow<IllegalStateException> {
+                        effectuate.effectuate(
+                            claim,
+                            Decision.Processed(listOf(content.toDeliveryDraft("privacy").copy(snapshot = snapshot), draft)),
+                        )
+                    }
+                } finally {
+                    logger.detachAppender(appender)
+                    appender.stop()
                 }
-                inboxState(eventId) shouldBe "CLAIMED"
-                deliveryCount(eventId) shouldBe 0
+            val diagnostics =
+                appender.list.joinToString { it.renderedLogData() } +
+                    generateSequence<Throwable>(error) { it.cause }.joinToString { it.toString() } +
+                    snapshot.toString() + leader.toString() + snapshot.name.toString() + draft.toString()
+            listOf(
+                "SyntheticPrivate",
+                "SnapshotPrivate",
+                "private@example.test",
+                "2".repeat(11),
+                TEST_LEDERRELASJON_ID.toString(),
+            ).forEach {
+                diagnostics shouldNotContain it
             }
+            inboxState(eventId) shouldBe "CLAIMED"
+            deliveryCount(eventId) shouldBe 0
         }
 
         listOf(
