@@ -686,7 +686,7 @@ object Budstikka {
             endAt = endAt,
             lokasjon = lokasjon?.toWireLokasjon(),
             digital = digital,
-            tilstand = tilstand.toWireTilstand(),
+            tilstand = tilstand.toWire(),
             saksstatus = saksstatus?.toWire(),
         ).encode(eventId, reference)
     }
@@ -732,7 +732,7 @@ object Budstikka {
             orgnummer = orgnummer,
             recipient = NarmesteLeder(sykmeldt = sykmeldt, externalVarsling = email?.toWireExternalVarsling()),
             sakstype = sakstype.toWire(),
-            tilstand = tilstand?.toWireTilstand(),
+            tilstand = tilstand?.toWire(),
             text = text,
             saksstatus = saksstatus?.toWire(),
         ).encode(eventId, reference)
@@ -994,7 +994,7 @@ private fun Arbeidsgiversak.Type.toWire(): Sakstype =
         Arbeidsgiversak.Type.OPPFOLGINGSPLAN -> Sakstype.OPPFOLGINGSPLAN
     }
 
-private fun Kalenderavtale.Tilstand.toWireTilstand(): Kalenderavtaletilstand =
+private fun Kalenderavtale.Tilstand.toWire(): Kalenderavtaletilstand =
     when (this) {
         Kalenderavtale.Tilstand.VENTER_SVAR_FRA_ARBEIDSGIVER -> Kalenderavtaletilstand.VENTER_SVAR_FRA_ARBEIDSGIVER
         Kalenderavtale.Tilstand.ARBEIDSGIVER_VIL_AVLYSE -> Kalenderavtaletilstand.ARBEIDSGIVER_VIL_AVLYSE

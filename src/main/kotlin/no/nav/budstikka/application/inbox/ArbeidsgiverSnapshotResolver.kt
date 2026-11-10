@@ -13,43 +13,56 @@ import no.nav.budstikka.contract.KalenderavtaleCreate
 import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.Orgnummer
+import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.domain.decision.Decision
+import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DeliverySnapshot
 
-/** Resolves the snapshot only for deliveries which passed every gate, before the atomic inbox/delivery write. */
+/**
+ * Freezes the active Nærmeste leder and the Sykmeldt's name on each delivery as a
+ * [DeliverySnapshot.Resolved], so delivery, retries and sak operations never ask the registers again.
+ *
+ * Runs as the last step of `DecisionProcess`, only for [Decision.Processed]. Messages that wait for the
+ * sending window or are stopped by a gate cause no lookups.
+ *
+ * - No active leader, or no email address when external notification is ordered: [Decision.Failed].
+ * - No name: valid. The sak then gets its general title.
+ * - A register error throws, so the inbox lease expires and the message is retried.
+ */
 class ArbeidsgiverSnapshotResolver(
     private val leaders: NarmesteLederLookup,
     private val names: PersonNameLookup,
     private val metrics: DeliveryMetrics,
 ) {
     suspend fun resolve(decision: Decision.Processed): Decision {
-        val drafts =
-            decision.deliveries.map { draft ->
-                val requirements = draft.content.lookupRequirements() ?: return@map draft
-                val leader =
-                    (requirements.recipient as? NarmesteLeder)?.takeIf { requirements.requireLeader }?.let { recipient ->
-                        val relation =
-                            safeSnapshotLookup { leaders.findActive(recipient.sykmeldt, requirements.orgnummer) }
-                                ?: return missing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
-                        if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
-                            return missing(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
-                        }
-                        relation.copy(epostadresser = relation.epostadresser.toList())
-                    }
-                val sykmeldt =
-                    when (val recipient = requirements.recipient) {
-                        is NarmesteLeder -> recipient.sykmeldt
-                        is AltinnResource -> recipient.sykmeldt
-                    }
-                val name =
-                    if (requirements.requireName && sykmeldt != null) {
-                        safeSnapshotLookup { names.findName(sykmeldt) }
-                    } else {
-                        null
-                    }
-                draft.copy(snapshot = DeliverySnapshot.Resolved(leader, name))
+        val resolved = mutableListOf<DeliveryDraft>()
+        for (draft in decision.deliveries) {
+            val lookups = draft.content.neededLookups()
+            if (lookups == null) {
+                resolved += draft
+                continue
             }
-        return Decision.Processed(drafts)
+
+            val leaderFor = lookups.leaderFor
+            val leader =
+                if (leaderFor == null) {
+                    null
+                } else {
+                    val relation =
+                        safeSnapshotLookup { leaders.findActive(leaderFor.sykmeldt, lookups.orgnummer) }
+                            ?: return missing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
+                    if (leaderFor.externalVarsling != null && relation.epostadresser.isEmpty()) {
+                        return missing(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
+                    }
+                    relation.copy(epostadresser = relation.epostadresser.toList())
+                }
+
+            val nameOf = lookups.nameOf
+            val name = if (nameOf == null) null else safeSnapshotLookup { names.findName(nameOf) }
+
+            resolved += draft.copy(snapshot = DeliverySnapshot.Resolved(leader, name))
+        }
+        return Decision.Processed(resolved)
     }
 
     private fun missing(reason: NarmesteLederMissingReason): Decision.Failed {
@@ -58,30 +71,44 @@ class ArbeidsgiverSnapshotResolver(
     }
 }
 
-private data class LookupRequirements(
-    val recipient: ArbeidsgiverRecipient,
+/** What one delivery needs from the registers. A null field means that lookup is skipped. */
+private class Lookups(
     val orgnummer: Orgnummer,
-    val requireLeader: Boolean,
-    val requireName: Boolean,
+    val leaderFor: NarmesteLeder?,
+    val nameOf: PersonIdentifier?,
 )
 
-private fun DispatchContent.lookupRequirements(): LookupRequirements? =
+/** Null means nothing is looked up, and the delivery is left as it is. */
+private fun DispatchContent.neededLookups(): Lookups? =
     when (this) {
-        is ArbeidsgivervarselCreate -> LookupRequirements(recipient, orgnummer, requireLeader = true, requireName = sakstype != null)
+        is ArbeidsgivervarselCreate ->
+            Lookups(
+                orgnummer = orgnummer,
+                leaderFor = recipient as? NarmesteLeder,
+                // The name is only used for the title of a Budstikka-owned sak.
+                nameOf = if (sakstype != null) recipient.sykmeldtOrNull() else null,
+            )
+        // Kalenderavtaler are only supported for a Nærmeste leder; other recipients fail downstream.
         is KalenderavtaleCreate ->
-            (recipient as? NarmesteLeder)?.let {
-                LookupRequirements(it, orgnummer, requireLeader = true, requireName = true)
+            (recipient as? NarmesteLeder)?.let { leader ->
+                Lookups(orgnummer, leaderFor = leader, nameOf = leader.sykmeldt)
             }
         is KalenderavtaleUpdate ->
-            (recipient as? NarmesteLeder)?.let {
-                LookupRequirements(
-                    it,
-                    orgnummer,
-                    requireLeader = it.externalVarsling != null || saksstatus != null,
-                    requireName = saksstatus != null,
+            (recipient as? NarmesteLeder)?.let { leader ->
+                val setsSaksstatus = saksstatus != null
+                Lookups(
+                    orgnummer = orgnummer,
+                    leaderFor = if (setsSaksstatus || leader.externalVarsling != null) leader else null,
+                    nameOf = if (setsSaksstatus) leader.sykmeldt else null,
                 )
             }
         else -> null
+    }
+
+private fun ArbeidsgiverRecipient.sykmeldtOrNull(): PersonIdentifier? =
+    when (this) {
+        is NarmesteLeder -> sykmeldt
+        is AltinnResource -> sykmeldt
     }
 
 internal suspend fun <T> safeSnapshotLookup(action: suspend () -> T): T =
