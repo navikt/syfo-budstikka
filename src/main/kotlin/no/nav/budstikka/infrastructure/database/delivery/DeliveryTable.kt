@@ -73,40 +73,6 @@ object DeliveryTable : Table("delivery") {
                 }
             }
         }
-        check("delivery_snapshot_kalenderavtale_check") {
-            object : Op<Boolean>() {
-                override fun toQueryBuilder(queryBuilder: QueryBuilder) {
-                    queryBuilder.append(
-                        """
-                        channel <> 'KALENDERAVTALE'
-                        OR (
-                            snapshot_state = 'RESOLVED'
-                            AND (
-                                payload -> 'mottaker' ->> 'type' IS DISTINCT FROM 'NarmesteLeder'
-                                OR NOT (
-                                    operation = 'CREATE'
-                                    OR (payload -> 'mottaker' -> 'externalVarsling' IS NOT NULL
-                                        AND payload -> 'mottaker' -> 'externalVarsling' <> 'null'::jsonb)
-                                    OR (payload -> 'saksstatus' IS NOT NULL AND payload -> 'saksstatus' <> 'null'::jsonb)
-                                )
-                                OR (
-                                    leader_fnr IS NOT NULL AND length(leader_fnr) = 11
-                                    AND leader_relation_id IS NOT NULL
-                                    AND leader_emails IS NOT NULL
-                                    AND CASE WHEN jsonb_typeof(leader_emails) = 'array' THEN
-                                        CASE WHEN payload -> 'mottaker' -> 'externalVarsling' IS NOT NULL
-                                                  AND payload -> 'mottaker' -> 'externalVarsling' <> 'null'::jsonb
-                                             THEN jsonb_array_length(leader_emails) > 0
-                                             ELSE TRUE END
-                                        ELSE FALSE END
-                                )
-                            )
-                        )
-                        """.trimIndent(),
-                    )
-                }
-            }
-        }
         check("delivery_claim_token_state_check") { (state eq DeliveryState.CLAIMED.name) eq claimToken.isNotNull() }
         check("delivery_next_attempt_time_state_check") { (state neq DeliveryState.CLAIMED.name) or nextAttemptTime.isNotNull() }
         index("delivery_state_next_attempt_time_idx", false, state, nextAttemptTime)

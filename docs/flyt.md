@@ -81,16 +81,14 @@ Altinn-mottaker på kalender berikes ikke; den eksisterende terminale kanalfeile
 Dette gir lavere latens på oppslag, men fortsatt forutsigbar regelrekkefølge i selve beslutningen.
 Berikelsen gjør ingen oppslag for meldinger som venter på sendevinduet eller er stoppet av en gate.
 Manglende aktiv leder og manglende e-post ved bestilt ekstern varsling gir inbox `FAILED` med
-`MISSING_ACTIVE_LEADER` eller `MISSING_EMAIL_ADDRESS`. De samme avgrensede årsakene telles fortsatt
-i `narmeste_leder_missing_total{reason}`.
+`MISSING_ACTIVE_LEADER` eller `MISSING_EMAIL_ADDRESS`, ikke en rad i `dead_letter_message`. De samme
+avgrensede årsakene telles fortsatt i `narmeste_leder_missing_total{reason}`.
 
 Delivery bruker lagret leder, e-postliste, relasjons-id og valgfritt navn for utsending, nye forsøk,
 saksopprettelse, nye saksgenerasjoner og status. Den gjør ingen nye registeroppslag for `RESOLVED`.
 Bare gamle arbeidsgivervarsel-rader med `LEGACY` bruker den eksplisitte `LegacyDeliverySnapshotResolver`; hvert forsøk
 logger den faste meldingen «Resolving legacy delivery snapshot» med kanal, uten persondata.
 Se [utrullingsprosedyren](migrering.md#lagret-beslutningsgrunnlag-for-arbeidsgivervarsel).
-V13 tillater aldri `LEGACY` på kalenderavtaler. Manglende leder/e-post gir inbox `FAILED`,
-ikke en rad i `dead_letter_message`.
 
 ## Kanal-mapping
 
