@@ -86,8 +86,7 @@ registeroppslag. En aktiveringsbryter løser ikke dette og er ikke innført.
    og leveranse. Nye leveranser får `RESOLVED`; et manglende navn er gyldig og aktiverer ikke
    legacy-oppslag. Delivery bruker dette snapshotet også ved nye forsøk. Gamle
    `READY`/`CLAIMED`-rader beholder `LEGACY` og kan fullføres med den eksplisitte reserven for
-   arbeidsgivervarsler. V13 krever `RESOLVED` for kalenderavtaler, som ikke har gamle writers eller
-   legacy-reserve.
+   arbeidsgivervarsler. Kalenderavtaler har ingen gamle writers eller legacy-reserve.
 3. Kontroller at ingen gammel kode kjører, og følg køene, oppslagsfeil og den faste loggmeldingen
    «Resolving legacy delivery snapshot». Kartlegg gjenstående `LEGACY`-rader i `READY`/`CLAIMED`
    uten å hente personfelter: `SELECT state, count(*) FROM delivery WHERE snapshot_state = 'LEGACY'
