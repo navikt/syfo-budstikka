@@ -58,9 +58,9 @@ class ArbeidsgiverSnapshotTest :
                     return name
                 }
             }
-        val enrichment = ArbeidsgiverDecisionEnrichment(lookup, names, metrics)
+        val resolver = ArbeidsgiverSnapshotResolver(lookup, names, metrics)
 
-        fun process(rules: List<DecisionRule> = emptyList()) = DecisionProcess(rules, enrichment::enrich)
+        fun process(rules: List<DecisionRule> = emptyList()) = DecisionProcess(rules, resolver::resolve)
 
         fun event(
             external: Boolean = false,
@@ -143,7 +143,7 @@ class ArbeidsgiverSnapshotTest :
             leaderCalls shouldBe 3
             nameCalls shouldBe 1
         }
-        test("terminal gates prevent enrichment; unrelated channels and operations do not look up names or leaders") {
+        test("terminal gates prevent snapshot resolution; unrelated channels and operations do not look up names or leaders") {
             val wait = Decision.NotInSendingWindow(Instant.parse("2026-11-05T10:00:00Z"), "window")
             val gate = DecisionRule { ResolvedRule { wait } }
             process(listOf(gate)).process(event()) shouldBe wait
@@ -281,7 +281,7 @@ class ArbeidsgiverSnapshotTest :
                 )
             lookupFailure = IllegalStateException("private lookup data")
             val leaderError = shouldThrow<IllegalStateException> { process().process(source) }
-            leaderError.message shouldBe "Decision enrichment lookup failed"
+            leaderError.message shouldBe "Snapshot lookup failed"
             generateSequence<Throwable>(leaderError) { it.cause }
                 .map { it.message }
                 .toList()
@@ -355,7 +355,7 @@ class ArbeidsgiverSnapshotTest :
             nameCalls shouldBe 1
             lookupFailure = IllegalStateException("private lookup data")
             val error = shouldThrow<IllegalStateException> { process().process(altinn) }
-            error.message shouldBe "Decision enrichment lookup failed"
+            error.message shouldBe "Snapshot lookup failed"
             generateSequence<Throwable>(error) { it.cause }.map { it.message }.toList().all { it == error.message } shouldBe true
             val leaderError = shouldThrow<IllegalStateException> { process().process(event()) }
             generateSequence<Throwable>(leaderError) { it.cause }.map { it.message }.toList().all { it == error.message } shouldBe true

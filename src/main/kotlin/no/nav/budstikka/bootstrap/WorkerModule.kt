@@ -23,7 +23,7 @@ import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.delivery.MicrofrontendPublisher
 import no.nav.budstikka.application.delivery.MinSideBrukervarselPublisher
 import no.nav.budstikka.application.delivery.SerializedSakCreation
-import no.nav.budstikka.application.inbox.ArbeidsgiverDecisionEnrichment
+import no.nav.budstikka.application.inbox.ArbeidsgiverSnapshotResolver
 import no.nav.budstikka.application.inbox.EffectuateDecision
 import no.nav.budstikka.application.inbox.InboxMessageWorker
 import no.nav.budstikka.application.inbox.InboxMetrics
@@ -47,8 +47,8 @@ import kotlin.time.Duration.Companion.seconds
 
 fun DependencyRegistry.workerModule() {
     provide<DecisionProcess> {
-        val enrichment = ArbeidsgiverDecisionEnrichment(resolve(), resolve(), resolve())
-        DecisionProcess(resolve<List<DecisionRule>>(), enrichment::enrich)
+        val snapshotResolver = ArbeidsgiverSnapshotResolver(resolve(), resolve(), resolve())
+        DecisionProcess(resolve<List<DecisionRule>>(), snapshotResolver::resolve)
     }
     provide<EffectuateDecision> {
         EffectuateDecision(

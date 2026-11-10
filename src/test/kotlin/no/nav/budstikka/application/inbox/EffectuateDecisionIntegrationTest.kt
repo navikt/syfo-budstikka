@@ -124,7 +124,7 @@ class EffectuateDecisionIntegrationTest :
                         return name
                     }
                 }
-            val enrichment = ArbeidsgiverDecisionEnrichment(leaders, names, NoDeliveryMetrics)
+            val resolver = ArbeidsgiverSnapshotResolver(leaders, names, NoDeliveryMetrics)
             val create =
                 ArbeidsgivervarselCreate(
                     TEST_ORGNUMMER,
@@ -140,7 +140,7 @@ class EffectuateDecisionIntegrationTest :
                 ),
             )
             val claim = inbox.claim(1, lease, 10).single().claim
-            val decision = DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("snapshot", create))
+            val decision = DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("snapshot", create))
             effectuate.effectuate(claim, decision) shouldBe true
             inboxState(eventId) shouldBe "PROCESSED"
             val delivery = deliveries.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
@@ -212,8 +212,8 @@ class EffectuateDecisionIntegrationTest :
             val repository = PostgresDeliveryRepository(fixture.database)
             val leader = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), listOf("snapshot@example.test"), TEST_LEDERRELASJON_ID)
             val name = PersonName("Synthetic", null, "Calendar")
-            val enrichment =
-                ArbeidsgiverDecisionEnrichment(
+            val resolver =
+                ArbeidsgiverSnapshotResolver(
                     NarmesteLederLookup { _, _ -> leader },
                     object : PersonNameLookup {
                         override suspend fun findName(ident: PersonIdentifier): PersonName = name
@@ -248,7 +248,7 @@ class EffectuateDecisionIntegrationTest :
                     ),
                 )
                 val claim = inbox.claim(1, lease, 10).single().claim
-                val decision = DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("calendar", content))
+                val decision = DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("calendar", content))
                 effectuate.effectuate(claim, decision) shouldBe true
                 inboxState(eventId) shouldBe "PROCESSED"
                 deliveryCount(eventId) shouldBe 1
@@ -276,7 +276,7 @@ class EffectuateDecisionIntegrationTest :
                         return null
                     }
                 }
-            val enrichment = ArbeidsgiverDecisionEnrichment(NarmesteLederLookup { _, _ -> leader }, names, NoDeliveryMetrics)
+            val resolver = ArbeidsgiverSnapshotResolver(NarmesteLederLookup { _, _ -> leader }, names, NoDeliveryMetrics)
             val forbiddenNames =
                 object : PersonNameLookup {
                     override suspend fun findName(ident: PersonIdentifier): PersonName? = error("Delivery must not look up names")
@@ -311,7 +311,7 @@ class EffectuateDecisionIntegrationTest :
                 val claim = inbox.claim(1, lease, 10).single().claim
                 effectuate.effectuate(
                     claim,
-                    DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("null-name", content)),
+                    DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("null-name", content)),
                 ) shouldBe
                     true
                 val delivery = repository.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
@@ -429,8 +429,8 @@ class EffectuateDecisionIntegrationTest :
                     object : PersonNameLookup {
                         override suspend fun findName(ident: PersonIdentifier): PersonName? = error("private register response")
                     }
-                val enrichment =
-                    ArbeidsgiverDecisionEnrichment(
+                val resolver =
+                    ArbeidsgiverSnapshotResolver(
                         NarmesteLederLookup { _, _ ->
                             NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), emptyList(), TEST_LEDERRELASJON_ID)
                         },
@@ -438,7 +438,7 @@ class EffectuateDecisionIntegrationTest :
                         NoDeliveryMetrics,
                     )
                 shouldThrow<IllegalStateException> {
-                    effectuate.effectuate(claim, DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("pdl-retry", content)))
+                    effectuate.effectuate(claim, DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("pdl-retry", content)))
                 }
                 inboxState(eventId) shouldBe "CLAIMED"
                 deliveryCount(eventId) shouldBe 0

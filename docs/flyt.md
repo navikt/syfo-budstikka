@@ -67,19 +67,17 @@ tilstandsoverganger eies av [datamodell.md](datamodell.md).
 1. **Fetch/resolve i parallell:** alle `DecisionRule.resolve(event)` kjøres med `async/awaitAll`.
 2. **Decide/apply sekvensielt:** de resolverte reglene foldes i rekkefølge over deliveries.
    Første `Dropped`/`Failed` stopper resten (short-circuit).
-3. **Lagre beslutningsgrunnlag:** bare etter `Processed` henter `ArbeidsgiverDecisionEnrichment`
+3. **Lagre beslutningsgrunnlag:** bare etter `Processed` henter `ArbeidsgiverSnapshotResolver`
    aktiv nærmeste leder for arbeidsgivervarsel til Nærmeste leder. Den henter også navnet til den
    sykmeldte når varselet har `sakstype`, både for Nærmeste leder og Altinn. Oppslagene skjer før
    `EffectuateDecision` åpner transaksjonen. Navnet kan være null; en midlertidig oppslagsfeil
    kastes og lar inbox-leasen utløpe uten delvis lagrede leveranser.
 
-Kalenderavtaler til Nærmeste leder berikes i samme steg: create trenger leder og valgfritt navn;
-update trenger leder ved bestilt e-post eller `saksstatus`, og navn bare ved `saksstatus`.
-Ren tekst-/tilstandsoppdatering lagrer `RESOLVED` uten leder/navn og gjør ingen oppslag.
-Altinn-mottaker på kalender berikes ikke; den eksisterende terminale kanalfeilen beholdes.
+Kalenderavtaler til Nærmeste leder får samme oppslag i samme steg. Hvilke oppslag hver operasjon
+gjør, står i [produsentveiledningen](sende-varsler.md#sak-og-kalenderavtale).
 
 Dette gir lavere latens på oppslag, men fortsatt forutsigbar regelrekkefølge i selve beslutningen.
-Berikelsen gjør ingen oppslag for meldinger som venter på sendevinduet eller er stoppet av en gate.
+Det gjøres ingen oppslag for meldinger som venter på sendevinduet eller er stoppet av en gate.
 Manglende aktiv leder og manglende e-post ved bestilt ekstern varsling gir inbox `FAILED` med
 `MISSING_ACTIVE_LEADER` eller `MISSING_EMAIL_ADDRESS`, ikke en rad i `dead_letter_message`. De samme
 avgrensede årsakene telles fortsatt i `narmeste_leder_missing_total{reason}`.

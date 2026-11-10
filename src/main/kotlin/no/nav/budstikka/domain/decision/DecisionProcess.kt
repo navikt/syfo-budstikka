@@ -8,11 +8,11 @@ import no.nav.budstikka.contract.Dispatch
 /**
  * Resolves every rule concurrently, then applies the resolved rules sequentially. Rule order
  * affects transformations and which terminal decision wins, but does not prevent already-started
- * lookups. Final enrichment runs only for Processed, before the result is persisted.
+ * lookups. Final snapshot resolution runs only for Processed, before the result is persisted.
  */
 class DecisionProcess internal constructor(
     private val rules: List<DecisionRule>,
-    private val enrich: suspend (Decision.Processed) -> Decision = { it },
+    private val resolveSnapshot: suspend (Decision.Processed) -> Decision = { it },
 ) {
     suspend fun process(event: Dispatch): Decision =
         coroutineScope {
@@ -25,6 +25,6 @@ class DecisionProcess internal constructor(
                         else -> decision
                     }
                 }
-            if (decision is Decision.Processed) enrich(decision) else decision
+            if (decision is Decision.Processed) resolveSnapshot(decision) else decision
         }
 }

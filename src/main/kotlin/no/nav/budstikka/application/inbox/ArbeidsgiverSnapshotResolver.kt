@@ -16,20 +16,20 @@ import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DeliverySnapshot
 
-/** Enriches only deliveries which passed every gate, before the atomic inbox/delivery write. */
-class ArbeidsgiverDecisionEnrichment(
+/** Resolves the snapshot only for deliveries which passed every gate, before the atomic inbox/delivery write. */
+class ArbeidsgiverSnapshotResolver(
     private val leaders: NarmesteLederLookup,
     private val names: PersonNameLookup,
     private val metrics: DeliveryMetrics,
 ) {
-    suspend fun enrich(decision: Decision.Processed): Decision {
+    suspend fun resolve(decision: Decision.Processed): Decision {
         val drafts =
             decision.deliveries.map { draft ->
                 val requirements = draft.content.lookupRequirements() ?: return@map draft
                 val leader =
                     (requirements.recipient as? NarmesteLeder)?.takeIf { requirements.requireLeader }?.let { recipient ->
                         val relation =
-                            safeDecisionLookup { leaders.findActive(recipient.sykmeldt, requirements.orgnummer) }
+                            safeSnapshotLookup { leaders.findActive(recipient.sykmeldt, requirements.orgnummer) }
                                 ?: return missing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
                         if (recipient.externalVarsling != null && relation.epostadresser.isEmpty()) {
                             return missing(NarmesteLederMissingReason.MISSING_EMAIL_ADDRESS)
@@ -43,7 +43,7 @@ class ArbeidsgiverDecisionEnrichment(
                     }
                 val name =
                     if (requirements.requireName && sykmeldt != null) {
-                        safeDecisionLookup { names.findName(sykmeldt) }
+                        safeSnapshotLookup { names.findName(sykmeldt) }
                     } else {
                         null
                     }
@@ -84,12 +84,12 @@ private fun DispatchContent.lookupRequirements(): LookupRequirements? =
         else -> null
     }
 
-internal suspend fun <T> safeDecisionLookup(action: suspend () -> T): T =
+internal suspend fun <T> safeSnapshotLookup(action: suspend () -> T): T =
     try {
         action()
     } catch (error: CancellationException) {
         throw error
     } catch (_: Exception) {
         // Register clients can include personal data in their throwable chains.
-        throw IllegalStateException("Decision enrichment lookup failed")
+        throw IllegalStateException("Snapshot lookup failed")
     }

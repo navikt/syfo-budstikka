@@ -1,6 +1,6 @@
 package no.nav.budstikka.application.delivery
 
-import no.nav.budstikka.application.inbox.ArbeidsgiverDecisionEnrichment
+import no.nav.budstikka.application.inbox.ArbeidsgiverSnapshotResolver
 import no.nav.budstikka.application.logging.applicationLogger
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.domain.decision.Decision
@@ -16,14 +16,14 @@ class LegacyDeliverySnapshotResolver(
     names: PersonNameLookup,
     metrics: DeliveryMetrics,
 ) {
-    private val enrichment = ArbeidsgiverDecisionEnrichment(leaders, names, metrics)
+    private val snapshotResolver = ArbeidsgiverSnapshotResolver(leaders, names, metrics)
     private val logger = applicationLogger(LegacyDeliverySnapshotResolver::class.java)
 
     suspend fun resolve(delivery: ClaimedDelivery): Decision {
         check(delivery.snapshot == DeliverySnapshot.Legacy) { "Legacy resolver requires an explicit legacy snapshot" }
         logger.info("Resolving legacy delivery snapshot", mapOf("channel" to delivery.channel.name))
         return withChannelHandlerFailureContext(delivery.channel, "resolving legacy delivery snapshot") {
-            enrichment.enrich(Decision.Processed(listOf(delivery.payload.toDeliveryDraft(delivery.reference))))
+            snapshotResolver.resolve(Decision.Processed(listOf(delivery.payload.toDeliveryDraft(delivery.reference))))
         }
     }
 }
