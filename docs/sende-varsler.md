@@ -121,7 +121,7 @@ bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». D
   `https://www.nav.no/oppfolgingsplan/NARMESTE_LEDER_ID/detaljer`. En allerede innbakt id byttes ikke.
   Egne arbeidsgivervarsel-lenker må bruke HTTPS med host `nav.no` eller et reelt underdomene, for eksempel
   `www.ekstern.dev.nav.no`, uten userinfo. Ugyldige lenker avvises før inbox-save med `INVALID_LINK`;
-  regelen gjelder ikke Altinn. Lenken sendes til Fager, den hentes ikke over HTTP.
+  regelen gjelder ikke Altinn eller kalenderavtaler. Lenken sendes til Fager, den hentes ikke over HTTP.
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
   `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
   et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`. `link` er påkrevd.
