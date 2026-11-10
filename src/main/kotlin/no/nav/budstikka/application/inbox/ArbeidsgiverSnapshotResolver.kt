@@ -19,15 +19,15 @@ import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DeliverySnapshot
 
 /**
- * Freezes the active Nærmeste leder and the Sykmeldt's name on each delivery as a
- * [DeliverySnapshot.Resolved], so delivery, retries and sak operations never ask the registers again.
+ * Resolves the required Nærmeste leder and Sykmeldt data into a [DeliverySnapshot.Resolved].
+ * Resolved deliveries reuse these values for retries and sak operations without new lookups.
  *
- * Runs as the last step of `DecisionProcess`, only for [Decision.Processed]. Messages that wait for the
- * sending window or are stopped by a gate cause no lookups.
+ * `DecisionProcess` calls this only for [Decision.Processed], after all gates have passed.
+ * `LegacyDeliverySnapshotResolver` also uses it at delivery time for persisted legacy rows.
  *
  * - No active leader, or no email address when external notification is ordered: [Decision.Failed].
  * - No name: valid. The sak then gets its general title.
- * - A register error throws, so the inbox lease expires and the message is retried.
+ * - Register errors propagate to the caller, which owns retries.
  */
 class ArbeidsgiverSnapshotResolver(
     private val leaders: NarmesteLederLookup,
@@ -88,7 +88,6 @@ private fun DispatchContent.neededLookups(): Lookups? =
                 // The name is only used for the title of a Budstikka-owned sak.
                 nameOf = if (sakstype != null) recipient.sykmeldtOrNull() else null,
             )
-        // Kalenderavtaler are only supported for a Nærmeste leder; other recipients fail downstream.
         is KalenderavtaleCreate ->
             (recipient as? NarmesteLeder)?.let { leader ->
                 Lookups(orgnummer, leaderFor = leader, nameOf = leader.sykmeldt)

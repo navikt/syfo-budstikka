@@ -149,6 +149,8 @@ skriver alltid `RESOLVED`, også for andre kanaler og når navnet mangler. Den v
 fordi en verdi er null. CHECK krever fødselsnummer, e-postliste og relasjons-id for `RESOLVED`
 arbeidsgivervarsel med `operation=CREATE` og mottaker Nærmeste leder; listen må inneholde minst én
 adresse ved bestilt ekstern varsling. Navn er valgfritt; fornavn og etternavn må være satt sammen.
+For kalenderavtaler håndhever `ArbeidsgiverSnapshotResolver` kravene til lederopplysninger i
+applikasjonen; databasen har ingen tilsvarende CHECK.
 Irrelevante kanaler trenger ingen lederfelter. Snapshot er ikke en del av den publiserte payloaden.
 
 Verdiene maskeres i `toString`; skrivefeil fra PostgreSQL/Exposed erstattes med en fast feil uten
