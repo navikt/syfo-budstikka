@@ -22,6 +22,8 @@ import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.KalenderavtaleCreate
+import no.nav.budstikka.contract.KalenderavtaleUpdate
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.PersonIdentifier
@@ -57,6 +59,7 @@ import org.slf4j.LoggerFactory
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 class EffectuateDecisionIntegrationTest :
     FunSpec({
@@ -113,6 +116,7 @@ class EffectuateDecisionIntegrationTest :
                     leaderCalls++
                     leader
                 }
+
             val names =
                 object : PersonNameLookup {
                     override suspend fun findName(ident: PersonIdentifier): PersonName {
@@ -120,7 +124,7 @@ class EffectuateDecisionIntegrationTest :
                         return name
                     }
                 }
-            val enrichment = ArbeidsgiverDecisionEnrichment(leaders, names, NoDeliveryMetrics)
+            val resolver = ArbeidsgiverSnapshotResolver(leaders, names, NoDeliveryMetrics)
             val create =
                 ArbeidsgivervarselCreate(
                     TEST_ORGNUMMER,
@@ -136,7 +140,7 @@ class EffectuateDecisionIntegrationTest :
                 ),
             )
             val claim = inbox.claim(1, lease, 10).single().claim
-            val decision = DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("snapshot", create))
+            val decision = DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("snapshot", create))
             effectuate.effectuate(claim, decision) shouldBe true
             inboxState(eventId) shouldBe "PROCESSED"
             val delivery = deliveries.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
@@ -203,6 +207,63 @@ class EffectuateDecisionIntegrationTest :
             sakPublisher.saksstatuser[1] shouldBe sakPublisher.saksstatuser[0]
         }
 
+        test("kalender Decision snapshots roundtrip atomically for create, email, status and lookup-free updates") {
+            val (effectuate, inbox) = effectuator()
+            val repository = PostgresDeliveryRepository(fixture.database)
+            val leader = NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), listOf("snapshot@example.test"), TEST_LEDERRELASJON_ID)
+            val name = PersonName("Synthetic", null, "Calendar")
+            val resolver =
+                ArbeidsgiverSnapshotResolver(
+                    NarmesteLederLookup { _, _ -> leader },
+                    object : PersonNameLookup {
+                        override suspend fun findName(ident: PersonIdentifier): PersonName = name
+                    },
+                    NoDeliveryMetrics,
+                )
+            val recipient = NarmesteLeder(TEST_SYKMELDT)
+            val create =
+                KalenderavtaleCreate(
+                    TEST_ORGNUMMER,
+                    recipient,
+                    Sakstype.DIALOGMOTE,
+                    "text",
+                    "https://nav.no/calendar",
+                    Instant.parse("2026-12-01T10:00:00Z"),
+                )
+            val update = KalenderavtaleUpdate(TEST_ORGNUMMER, recipient, Sakstype.DIALOGMOTE, text = "updated")
+            val variants =
+                listOf(
+                    create to DeliverySnapshot.Resolved(leader, name),
+                    update to DeliverySnapshot.Resolved(),
+                    update.copy(recipient = recipient.copy(externalVarsling = NarmesteLederExternalVarsling("title", "body"))) to
+                        DeliverySnapshot.Resolved(leader),
+                    update.copy(saksstatus = Saksstatus.FERDIG) to DeliverySnapshot.Resolved(leader, name),
+                )
+            variants.forEach { (content, expected) ->
+                val eventId = UUID.randomUUID()
+                inbox.saveBatch(
+                    listOf(
+                        no.nav.budstikka.application.port
+                            .InboxMessage(eventId, "calendar", content),
+                    ),
+                )
+                val claim = inbox.claim(1, lease, 10).single().claim
+                val decision = DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("calendar", content))
+                effectuate.effectuate(claim, decision) shouldBe true
+                inboxState(eventId) shouldBe "PROCESSED"
+                deliveryCount(eventId) shouldBe 1
+                val delivery = repository.claim(1, lease, 10, setOf(Channel.KALENDERAVTALE)).single()
+                delivery.snapshot shouldBe expected
+                delivery.payload shouldBe content
+                fixture.database.transact {
+                    val row = DeliveryTable.selectAll().where { DeliveryTable.id eq delivery.id }.single()
+                    row[DeliveryTable.recipientType] shouldBe "VIRKSOMHET"
+                    row[DeliveryTable.recipientId] shouldBe TEST_ORGNUMMER.value
+                }
+                repository.markSent(delivery.claim) shouldBe true
+            }
+        }
+
         test("resolved null names roundtrip for leader and Altinn and never enter legacy lookups") {
             val (effectuate, inbox) = effectuator()
             val repository = PostgresDeliveryRepository(fixture.database)
@@ -215,7 +276,7 @@ class EffectuateDecisionIntegrationTest :
                         return null
                     }
                 }
-            val enrichment = ArbeidsgiverDecisionEnrichment(NarmesteLederLookup { _, _ -> leader }, names, NoDeliveryMetrics)
+            val resolver = ArbeidsgiverSnapshotResolver(NarmesteLederLookup { _, _ -> leader }, names, NoDeliveryMetrics)
             val forbiddenNames =
                 object : PersonNameLookup {
                     override suspend fun findName(ident: PersonIdentifier): PersonName? = error("Delivery must not look up names")
@@ -250,7 +311,7 @@ class EffectuateDecisionIntegrationTest :
                 val claim = inbox.claim(1, lease, 10).single().claim
                 effectuate.effectuate(
                     claim,
-                    DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("null-name", content)),
+                    DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("null-name", content)),
                 ) shouldBe
                     true
                 val delivery = repository.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
@@ -315,44 +376,57 @@ class EffectuateDecisionIntegrationTest :
             deliveryCount(eventId) shouldBe 0
         }
 
-        test("transient PDL failure leaves no delivery or processed inbox") {
-            val (effectuate, inbox) = effectuator()
-            val eventId = UUID.randomUUID()
-            val content =
-                ArbeidsgivervarselCreate(
-                    TEST_ORGNUMMER,
-                    AltinnResource("resource", sykmeldt = TEST_SYKMELDT, sakId = "sak-1"),
-                    text = "text",
-                    link = "https://altinn.no/path",
-                    sakstype = Sakstype.DIALOGMOTE,
+        listOf(
+            ArbeidsgivervarselCreate(
+                TEST_ORGNUMMER,
+                AltinnResource("resource", sykmeldt = TEST_SYKMELDT, sakId = "sak-1"),
+                text = "text",
+                link = "https://altinn.no/path",
+                sakstype = Sakstype.DIALOGMOTE,
+            ),
+            KalenderavtaleCreate(
+                TEST_ORGNUMMER,
+                NarmesteLeder(TEST_SYKMELDT),
+                Sakstype.DIALOGMOTE,
+                "text",
+                "https://nav.no/calendar",
+                Instant.parse("2026-12-01T10:00:00Z"),
+            ),
+            KalenderavtaleUpdate(
+                TEST_ORGNUMMER,
+                NarmesteLeder(TEST_SYKMELDT),
+                Sakstype.DIALOGMOTE,
+                saksstatus = Saksstatus.FERDIG,
+            ),
+        ).forEach { content ->
+            test("transient PDL failure leaves no delivery or processed inbox: ${content::class.simpleName}") {
+                val (effectuate, inbox) = effectuator()
+                val eventId = UUID.randomUUID()
+                inbox.saveBatch(
+                    listOf(
+                        no.nav.budstikka.application.port
+                            .InboxMessage(eventId, "pdl-retry", content),
+                    ),
                 )
-            inbox.saveBatch(
-                listOf(
-                    no.nav.budstikka.application.port
-                        .InboxMessage(eventId, "pdl-retry", content),
-                ),
-            )
-            val claim = inbox.claim(1, lease, 10).single().claim
-            val names =
-                object : PersonNameLookup {
-                    override suspend fun findName(ident: PersonIdentifier): PersonName? = error("private register response")
+                val claim = inbox.claim(1, lease, 10).single().claim
+                val names =
+                    object : PersonNameLookup {
+                        override suspend fun findName(ident: PersonIdentifier): PersonName? = error("private register response")
+                    }
+                val resolver =
+                    ArbeidsgiverSnapshotResolver(
+                        NarmesteLederLookup { _, _ ->
+                            NarmesteLederRelasjon(PersonIdentifier("2".repeat(11)), emptyList(), TEST_LEDERRELASJON_ID)
+                        },
+                        names,
+                        NoDeliveryMetrics,
+                    )
+                shouldThrow<IllegalStateException> {
+                    effectuate.effectuate(claim, DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("pdl-retry", content)))
                 }
-            val enrichment =
-                ArbeidsgiverDecisionEnrichment(
-                    NarmesteLederLookup {
-                        _,
-                        _,
-                        ->
-                        error("unexpected lookup")
-                    },
-                    names,
-                    NoDeliveryMetrics,
-                )
-            shouldThrow<IllegalStateException> {
-                effectuate.effectuate(claim, DecisionProcess(emptyList(), enrichment::enrich).process(Dispatch("pdl-retry", content)))
+                inboxState(eventId) shouldBe "CLAIMED"
+                deliveryCount(eventId) shouldBe 0
             }
-            inboxState(eventId) shouldBe "CLAIMED"
-            deliveryCount(eventId) shouldBe 0
         }
 
         test("Failed writes no delivery rows and inbox FAILED with reason") {

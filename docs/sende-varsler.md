@@ -31,6 +31,8 @@ settes sammen i en produsent.
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
+| `kalenderavtaleCreate` | Opprett en kalenderavtale for Nærmeste leder, i sak etter `sakstype`. |
+| `kalenderavtaleUpdate` | Endre tilstand eller tekst på en kalenderavtale. |
 
 `dittSykefravaerCreate` krever `messageType`: en stabil, analytics-synlig kategori som
 aldri må inneholde personopplysninger. Budstikka sender alltid downstream-varianten `INFO`
@@ -96,38 +98,44 @@ Budstikka saniterer ikke HTML-en: overloaden er en eksplisitt tillitsgrense mot 
 `tag` må samsvare med produsentens registrerte merkelapp, og Altinn `resource` må samsvare med
 produsentens registrerte Altinn-ressurs i Arbeidsgivernotifikasjoner. Ellers feiler leveringen
 terminalt.
-Leveringen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
-feiler leveringen også terminalt hvis lederen mangler e-postadresse. Til tross for navnet styrer
+Beslutningen feiler terminalt når en aktiv nærmeste leder mangler. Når ekstern varsling er valgt,
+feiler beslutningen også terminalt hvis lederen mangler e-postadresse. Til tross for navnet styrer
 ikke `visibleUntil` bare synlighet. Feltet planlegger ugjenkallelig hard sletting av varselet og
 tilhørende data fra Fagers database og Kafka. Det stopper ikke eksterne varsler som allerede er
 planlagt. Uten `visibleUntil` sletter Fager dataene etter fire måneder.
 
-## Sak
+## Sak og kalenderavtale
 
 Alt innhold i Min side – arbeidsgiver hører til en sak, og Budstikka eier sakene. Du velger
-`sakstype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`. Budstikka legger innholdet i riktig
-sak og oppretter den ved behov. Typen bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa
-Nordmann». Detaljene står i KDoc.
+`sakstype` (`Arbeidsgiversak.Type`) på `arbeidsgivervarselCreate`, `kalenderavtaleCreate` og
+`kalenderavtaleUpdate`. Budstikka legger innholdet i riktig sak og oppretter den ved behov. Typen
+bestemmer merkelapp og tittel, for eksempel «Dialogmøte med Lisa Nordmann». Detaljene står i KDoc.
 
 - **Nærmeste leder:** én sak per sakstype og lederrelasjon, med lenke til Dine Sykmeldte. En ny leder
-  får sin egen sak. `link` er valgfri: uten lenke lenker varselet til saken. Utelat lenken først når
-  all Budstikka-kode med denne standarden er rullet ut; se
+  får sin egen sak. For `arbeidsgivervarselCreate` er `link` valgfri: uten lenke lenker varselet til
+  saken. Utelat lenken først når all Budstikka-kode med denne standarden er rullet ut; se
   [release note 0.7.0](releases/kontrakt/0.7.0.md#wire--og-utrullingskompatibilitet).
   Standardlenken er `{dineSykmeldteUrl}/{relationId}`, også uten `sakstype`, og bruker relasjons-id-en
   lagret ved beslutning. En egen lenke bevares, bortsett fra at alle forekomster av den eksakte
   plassholderen `NARMESTE_LEDER_ID` erstattes med lagret relasjons-id, også midt i stien:
   `https://www.nav.no/oppfolgingsplan/NARMESTE_LEDER_ID/detaljer`. En allerede innbakt id byttes ikke.
-  Egne lenker må bruke HTTPS med host `nav.no` eller et reelt underdomene, for eksempel
+  Egne arbeidsgivervarsel-lenker må bruke HTTPS med host `nav.no` eller et reelt underdomene, for eksempel
   `www.ekstern.dev.nav.no`, uten userinfo. Ugyldige lenker avvises før inbox-save med `INVALID_LINK`;
   regelen gjelder ikke Altinn. Lenken sendes til Fager, den hentes ikke over HTTP.
 - **Altinn-ressurs:** her finnes ingen lederrelasjon, så du oppgir `sykmeldt` for tittelen og en stabil
   `sakId` per virksomhet og sykmeldt, for eksempel en dialog-id. Arbeidsgiveren ser den, så den er aldri
   et fødselsnummer. Én sak per sakstype, ressurs, virksomhet og `sakId`. `link` er påkrevd.
-- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. En ny sak får «Mottatt», og
-  uten `saksstatus` beholder saken statusen den har.
-- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel eller status.
+- **Status:** valgfri `saksstatus` setter sakens status etter innholdet. På `kalenderavtaleUpdate`
+  gjelder den nåværende leders sak og settes før oppdateringen. En ny sak får «Mottatt», og uten
+  `saksstatus` beholder saken statusen den har.
+- **Levetid:** saken slettes med alt innhold fire måneder etter siste varsel, avtale eller status, og
+  tidligst fire måneder etter møtet.
+- **Kalenderavtale:** `reference` er avtalens identitet; bruk den igjen i `kalenderavtaleUpdate`.
+  `link` er alltid påkrevd ved opprettelse; kalenderavtaler har ingen standardlenke.
+  Start og slutt kan ikke endres, så ved nytt tidspunkt avlyser du den gamle og oppretter en ny.
 - **Begrensninger:** rekkefølgen mellom leveranser er ikke garantert (#315), så et forsinket nytt forsøk
-  kan overskrive en nyere status.
+  kan overskrive en nyere oppdatering eller status. Fager dedupliserer ikke oppdateringer av
+  kalenderavtaler, så et nytt forsøk kan gi dobbel e-post.
 - **Uten sakstype:** overloadene med `tag` og `CaseAssociation` er deprecated. De virker til Fager
   krever sak, og fjernes i første minor-versjon etter at syfo-oppfolgingsplan-backend, den eneste
   kjente brukeren, har gått over til `sakstype`.
@@ -140,6 +148,13 @@ mottakertypene. Null navn gir en generell sakstittel. Leveransen og nye forsøk 
 verdier, selv om registeret endres. Manglende aktiv leder eller manglende e-post ved bestilt ekstern
 varsling avslutter beslutningen med `MISSING_ACTIVE_LEADER` eller `MISSING_EMAIL_ADDRESS`.
 Midlertidige oppslagsfeil forsøkes på nytt og gjøres ikke om til manglende navn.
+
+For kalenderavtaler til Nærmeste leder hentes leder og valgfritt navn i Decision ved opprettelse.
+Ved oppdatering hentes leder bare når e-post er bestilt eller `saksstatus` er satt, og navn bare
+når `saksstatus` er satt. Ren tekst-/tilstandsoppdatering gjør ingen oppslag. E-postadresse er
+påkrevd bare ved bestilt ekstern varsling. Mangler gir de samme to feilårsakene på inbox `FAILED`,
+ikke Kafka-dead-letter. Kalenderavtaler med Altinn-mottaker gjør ingen oppslag og er fortsatt
+ikke støttet av kanalhandleren.
 
 ## Feil og personvern
 
