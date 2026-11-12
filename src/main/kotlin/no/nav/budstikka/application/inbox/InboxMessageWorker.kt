@@ -61,9 +61,18 @@ class InboxMessageWorker(
         claim: InboxClaim,
         decision: Decision,
     ) {
-        if (!effectuator.effectuate(claim, decision)) {
-            metrics.decisionCasLost()
-            return
+        when (effectuator.effectuate(claim, decision)) {
+            EffectuationResult.Skipped -> {
+                metrics.decisionCasLost()
+                return
+            }
+
+            EffectuationResult.CompletedWithCappedScheduledDisable -> {
+                metrics.scheduledDisableCapped()
+                logger.event(InboxLogEvents.scheduledDisableCapped)
+            }
+
+            EffectuationResult.Completed -> Unit
         }
 
         metrics.record(decision)

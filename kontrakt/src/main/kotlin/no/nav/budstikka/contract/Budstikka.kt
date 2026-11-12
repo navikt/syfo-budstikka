@@ -583,9 +583,10 @@ object Budstikka {
      * @param sykmeldt the person for whom Min side makes the microfrontend visible.
      * @param microfrontendId the id Min side knows the microfrontend by.
      * @param visibleUntil when Budstikka hides it again by sending a disable; omit to keep it until
-     *   disabled. At most 335 days ahead; a time that has passed hides it right away. The last command for the same
-     *   `(sykmeldt, microfrontendId)` wins: a later enable or disable cancels a pending scheduled
-     *   hide, and a new enable with a later [visibleUntil] extends the visibility.
+     *   disabled. At most 335 days ahead; a time that has passed becomes an immediate disable.
+     *   A later enable or disable for the same `(sykmeldt, microfrontendId)` replaces a pending
+     *   scheduled hide; a later [visibleUntil] extends visibility. This does not cancel deliveries
+     *   already queued or order their retries.
      */
     fun microfrontendEnable(
         eventId: EventId,

@@ -15,6 +15,7 @@ class RecordingInboxMetrics : InboxMetrics {
     val outsideSendingWindowCounts = ConcurrentHashMap<String, AtomicInteger>()
     val deadLetterPersistedCounts = ConcurrentHashMap<DeadLetterReason, AtomicInteger>()
     val decisionCasLostCount = AtomicInteger()
+    val scheduledDisableCappedCount = AtomicInteger()
 
     override fun claimed(count: Int) {
         claimedCount.addAndGet(count)
@@ -49,5 +50,9 @@ class RecordingInboxMetrics : InboxMetrics {
 
     override fun decisionCasLost() {
         decisionCasLostCount.incrementAndGet()
+    }
+
+    override fun scheduledDisableCapped() {
+        scheduledDisableCappedCount.incrementAndGet()
     }
 }
