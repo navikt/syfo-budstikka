@@ -16,6 +16,7 @@ import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.DittSykefravaerChannelHandler
 import no.nav.budstikka.application.delivery.DittSykefravaerPublisher
 import no.nav.budstikka.application.delivery.DocumentDistributor
+import no.nav.budstikka.application.delivery.KalenderavtaleChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselChannelHandler
 import no.nav.budstikka.application.delivery.LedervarselPublisher
 import no.nav.budstikka.application.delivery.LegacyDeliverySnapshotResolver
@@ -71,6 +72,11 @@ fun DependencyRegistry.workerModule() {
                     publisher = resolve<ArbeidsgiverNotificationPublisher>(),
                     saker = saker,
                     legacySnapshots = LegacyDeliverySnapshotResolver(resolve(), resolve(), resolve()),
+                ),
+            Channel.KALENDERAVTALE to
+                KalenderavtaleChannelHandler(
+                    publisher = sakPublisher,
+                    saker = saker,
                 ),
         )
     }
