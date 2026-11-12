@@ -105,7 +105,13 @@ data class ArbeidsgivervarselCreate(
     /** Status to set on the [sakstype] sak after the notification. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val saksstatus: Saksstatus? = null,
+    /** Legacy messages retain their event identity; the modern facade selects the stable reference. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val identity: Identity = Identity.EVENT_ID,
 ) : DispatchContent {
+    @InternalBudstikkaWire
+    enum class Identity { EVENT_ID, REFERENCE }
+
     init {
         // Runs on decoding too, so Budstikka rejects an Altinn message without a link on receipt.
         require(link != null || recipient !is AltinnResource) { "link is required for an Altinn resource" }

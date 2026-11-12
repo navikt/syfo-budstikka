@@ -10,14 +10,19 @@ import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.castTo
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.jetbrains.exposed.v1.jdbc.update
 import java.sql.Connection
 import kotlin.time.Clock
 
@@ -89,6 +94,17 @@ class PostgresRetentionRepository(
                 .forUpdate()
                 .map { it[InboxMessageTable.eventId] to it[InboxMessageTable.state] }
 
+        // Older replicas may have inserted rows after the identity migration. Pin their known
+        // target before ON DELETE SET NULL removes the source id, under the same transaction.
+        if (candidates.isNotEmpty()) {
+            DeliveryTable.update({
+                (DeliveryTable.inboxEventId inList candidates.map { it.first }) and
+                    (DeliveryTable.channel eq "ARBEIDSGIVERVARSEL") and
+                    (DeliveryTable.operation eq "CREATE") and DeliveryTable.notificationId.isNull()
+            }) {
+                it[notificationId] = DeliveryTable.inboxEventId.castTo(TextColumnType())
+            }
+        }
         val deleted = InboxMessageTable.deleteWhere { InboxMessageTable.eventId inList candidates.map { it.first } }
         check(deleted == candidates.size) { "Inbox retention deletion count differs from selected candidates" }
         return InboxDeletionCounts(

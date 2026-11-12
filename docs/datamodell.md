@@ -34,6 +34,7 @@ erDiagram
         text        recipient_type
         text        recipient_id
         jsonb       payload
+        text        notification_id "nullable; frosset Fager-identitet for arbeidsgivervarsel"
         text        snapshot_state "LEGACY|RESOLVED"
         text        leader_fnr "nullable, betinget påkrevd"
         jsonb       leader_emails "nullable e-postliste, betinget påkrevd"
@@ -104,6 +105,9 @@ erDiagram
   `nais/nais-prod.yaml` og rull ut på nytt. Rader som allerede er slettet, kan ikke
   gjenopprettes ved tilbakerulling (hard sletting).
 
+  Før inbox slettes, fylles manglende `notification_id` for gamle arbeidsgivervarsel-opprettelser
+  fra `inbox_event_id` i samme transaksjon. Identiteten beholdes dermed selv om FK-en blir null.
+
 ## Worker-flyt og state-overganger
 
 ### Claim-algoritmen (ADR 0004)
@@ -172,6 +176,17 @@ med terminale leveranser eldre enn 180 dager. Rollen `esyfo-analyse` har fortsat
 nåværende og framtidige public-tabeller og får dermed også tilgang til disse kolonnene; dette er
 akseptert. Det gjøres ingen historisk backfill av `SENT`/`FAILED`.
 
+
+### Lagret identitet for arbeidsgivervarsler
+
+`notification_id` lagrer Fagers `eksternId` før første eksterne kall og gjenbrukes ved retry.
+For nye referansebaserte varsler avledes den fra et fast kanalnavnerom, virksomhet og `reference`;
+sakstypen bestemmer Fager-merkelappen. Gamle meldinger beholder inbox-event-id-en som identitet.
+
+V14 følger V13 og fyller kjente identiteter på eksisterende CREATE-rader. En uforsøkt rad uten
+inbox-kobling får delivery-id-en som opprinnelig reserve. En allerede forsøkt rad uten kjent mål
+beholder `NULL` og feiler terminalt. Kolonnen er nullable for andre kanaler og ukjent eldre identitet,
+og slettes sammen med leveransen etter vanlig retensjon.
 
 ### `inbox_message.state`
 

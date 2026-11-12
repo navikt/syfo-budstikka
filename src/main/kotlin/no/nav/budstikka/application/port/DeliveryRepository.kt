@@ -15,6 +15,7 @@ data class ClaimedDelivery(
     val channel: Channel,
     val payload: DispatchContent,
     val snapshot: DeliverySnapshot = DeliverySnapshot.Legacy,
+    val notificationId: String? = null,
 ) {
     val claim: DeliveryClaim get() = DeliveryClaim(id, claimToken)
 }

@@ -69,7 +69,7 @@ class ArbeidsgiverNotifikasjonClientTest :
             body shouldContain """"epostHtmlBody":"<p>A &amp; <strong>B</strong></p>""""
             body shouldContain """"epostTittel":"Tittel <rå>""""
             body shouldContain """"smsTekst":"SMS <rå>""""
-            correlationId shouldBe "external-id"
+            correlationId shouldBe "technical-event-id"
             authorization shouldBe "Bearer token"
         }
 
@@ -312,6 +312,7 @@ private fun request(
 ) = ArbeidsgiverNotificationRequest(
     virksomhetsnummer = "123456789",
     eksternId = "external-id",
+    correlationId = "technical-event-id",
     grupperingsid = groupingId,
     tag = tag,
     tekst = "Tekst",

@@ -9,6 +9,7 @@ import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DeliverySnapshot
+import no.nav.budstikka.domain.decision.referenceNotificationId
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
@@ -29,6 +30,12 @@ class ArbeidsgivervarselChannelHandler(
     override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
         val create = delivery.payload as? ArbeidsgivervarselCreate ?: return payloadFailure(delivery)
         create.invalidReason()?.let { return DeliveryOutcome.Failed("${CHANNEL.name} $it") }
+
+        val notificationId =
+            delivery.notificationId ?: when (create.identity) {
+                ArbeidsgivervarselCreate.Identity.REFERENCE -> referenceNotificationId(create.orgnummer, delivery.reference)
+                ArbeidsgivervarselCreate.Identity.EVENT_ID -> delivery.inboxEventId?.toString()
+            } ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL missing legacy notification identity")
 
         val snapshot =
             when (val saved = delivery.snapshot) {
@@ -73,7 +80,7 @@ class ArbeidsgivervarselChannelHandler(
                     create.link?.replace("NARMESTE_LEDER_ID", relationId.toString()) ?: saker.dineSykmeldteLink(relationId)
                 }
             }
-        val outcome = publish(create.toRequest(delivery, recipient.notification, sak, link)).toDeliveryOutcome(CHANNEL)
+        val outcome = publish(create.toRequest(delivery, recipient.notification, sak, link, notificationId)).toDeliveryOutcome(CHANNEL)
         val status = create.saksstatus
         if (outcome != DeliveryOutcome.Sent || sak == null || status == null) return outcome
         return saker.setStatus(CHANNEL, sak, status, delivery.correlationId()) ?: outcome
@@ -109,6 +116,7 @@ private val CHANNEL = Channel.ARBEIDSGIVERVARSEL
  */
 private fun ArbeidsgivervarselCreate.invalidReason(): String? =
     when {
+        identity == ArbeidsgivervarselCreate.Identity.REFERENCE && sakstype == null -> "reference identity requires sakstype"
         link?.isBlank() == true || (recipient is AltinnResource && link == null) -> "link must not be blank"
         sakstype == null && tag.isNullOrBlank() -> "tag must not be blank"
         sakstype != null && tag != null -> "tag must not be set with sakstype"
@@ -159,9 +167,11 @@ private fun ArbeidsgivervarselCreate.toRequest(
     recipient: ArbeidsgiverNotificationRecipient,
     sak: SakResolution.Ready?,
     link: String,
+    notificationId: String,
 ) = ArbeidsgiverNotificationRequest(
     virksomhetsnummer = orgnummer.value,
-    eksternId = delivery.correlationId(),
+    eksternId = notificationId,
+    correlationId = delivery.correlationId(),
     grupperingsid = sak?.grupperingsid ?: sakstilknytning?.sakId,
     tag = sak?.merkelapp ?: requireNotNull(tag),
     tekst = text,

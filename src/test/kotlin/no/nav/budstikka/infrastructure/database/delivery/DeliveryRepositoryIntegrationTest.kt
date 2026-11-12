@@ -11,8 +11,12 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import no.nav.budstikka.application.logging.MdcKeys
 import no.nav.budstikka.application.port.ClaimToken
+import no.nav.budstikka.contract.AltinnResource
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
 import no.nav.budstikka.fakes.brukervarselDraft
 import no.nav.budstikka.fakes.inboxMessage
 import no.nav.budstikka.fakes.microfrontendDraft
@@ -79,6 +83,44 @@ class DeliveryRepositoryIntegrationTest :
                     it[DeliveryTable.attempt] = attempt
                     it[nextAttemptTime] = Clock.System.now() - 1.minutes
                 }
+            }
+        }
+
+        ArbeidsgivervarselCreate.Identity.entries.forEach { identity ->
+            test("materialized $identity identity survives inbox deletion and reclaim") {
+                val repository = PostgresDeliveryRepository(fixture.database)
+                val payload =
+                    ArbeidsgivervarselCreate(
+                        TEST_ORGNUMMER,
+                        AltinnResource("synthetic-resource"),
+                        "synthetic-tag",
+                        "Synthetic task",
+                        "https://nav.no/test",
+                        identity = identity,
+                    )
+                val eventId =
+                    saveDraft(
+                        "reference",
+                        DeliveryDraft(
+                            "reference",
+                            no.nav.budstikka.domain.decision.Operation.CREATE,
+                            Channel.ARBEIDSGIVERVARSEL,
+                            Recipient.Virksomhet(TEST_ORGNUMMER),
+                            payload,
+                        ),
+                    )
+                val expectedId =
+                    when (identity) {
+                        ArbeidsgivervarselCreate.Identity.EVENT_ID -> eventId.toString()
+                        ArbeidsgivervarselCreate.Identity.REFERENCE -> "2f9230c2-4d95-300b-ade2-3da991605649"
+                    }
+                val original = repository.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
+                original.notificationId shouldBe expectedId
+                fixture.database.transact { InboxMessageTable.deleteWhere { InboxMessageTable.eventId eq eventId } }
+                expireLease(original.id)
+                val resumed = repository.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
+                resumed.inboxEventId shouldBe null
+                resumed.notificationId shouldBe expectedId
             }
         }
 

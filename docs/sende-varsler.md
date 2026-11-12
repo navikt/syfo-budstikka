@@ -47,6 +47,11 @@ Dette er Budstikkas additive producer-API. Flexs eksisterende Kafka-kontrakt på
 ikke-tom referanse som appen kan finne igjen. For `brukervarselInactivate` og
 `dineSykmeldteVarselInactivate` bruker du samme `reference` og samme mottaker som ved opprettelse.
 
+For `arbeidsgivervarselCreate` med `sakstype` identifiserer `reference` ett konkret varsel innen
+virksomheten og sakstypen, på tvers av produsenter og mottakere. Bruk en ugjennomsiktig, unik nøkkel, for eksempel en UUID eller en nøkkel med
+produsentprefiks. Ikke gjenbruk den for et nytt varsel eller ved bytte av mottaker. Referansen
+er forskjellig fra `sakId`: flere varsler kan høre til samme sak.
+
 Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `microfrontendId`, ikke
 på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
 `visibleUntil` planlegger Budstikka en disable som behandles på eller etter tidspunktet.
