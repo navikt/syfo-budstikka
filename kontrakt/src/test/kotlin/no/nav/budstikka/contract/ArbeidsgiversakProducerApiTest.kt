@@ -18,6 +18,23 @@ private val EVENT_ID = EventId(UUID.fromString("00000000-0000-4000-8000-00000000
  */
 class ArbeidsgiversakProducerApiTest :
     FunSpec({
+        context("arbeidsgivervarselInactivate") {
+            test("closes the same reference in the same organisation and sakstype with a new event id") {
+                val closeEventId = EventId(UUID.fromString("00000000-0000-4000-8000-000000000002"))
+                val encoded =
+                    Budstikka.arbeidsgivervarselInactivate(
+                        eventId = closeEventId,
+                        reference = REFERENCE,
+                        orgnummer = SYNTHETIC_ORGNUMMER,
+                        sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                    )
+                encoded.eventId shouldBe closeEventId
+                encoded.key shouldBe SYNTHETIC_ORGNUMMER.value
+                encoded.value shouldBe
+                    """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselInactivate","referanse":"ref-1","orgnummer":"999999999","sakstype":"DIALOGMOTE"}}"""
+            }
+        }
+
         context("arbeidsgiversak") {
             test("a notification to Nærmeste leder carries the sakstype instead of a tag") {
                 val encoded =

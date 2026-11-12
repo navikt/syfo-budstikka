@@ -21,6 +21,15 @@ data class ArbeidsgiverNotificationRequest(
             "hasGrupperingsid=${grupperingsid != null}, recipient=$recipient)"
 }
 
+/** A frozen target and a separate technical id for this deletion attempt. */
+data class ArbeidsgiverNotificationDeleteRequest(
+    val eksternId: String,
+    val tag: String,
+    val correlationId: String,
+) {
+    override fun toString(): String = "ArbeidsgiverNotificationDeleteRequest()"
+}
+
 sealed interface ArbeidsgiverNotificationRecipient {
     data class AltinnRessurs(
         val resource: String,
@@ -55,6 +64,7 @@ data class NarmesteLederExternalVarsling(
 }
 
 sealed interface ArbeidsgiverNotificationResponse {
+    /** The operation is accepted, including deletion of an already absent target. */
     data object Published : ArbeidsgiverNotificationResponse
 
     data class Rejected(
@@ -77,4 +87,6 @@ sealed interface ArbeidsgiverNotificationResponse {
 
 interface ArbeidsgiverNotificationPublisher {
     suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse
+
+    suspend fun delete(request: ArbeidsgiverNotificationDeleteRequest): ArbeidsgiverNotificationResponse
 }

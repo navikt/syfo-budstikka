@@ -128,6 +128,14 @@ object FacadeOnlyProducer {
             sendingWindow = SendingWindow.ONGOING,
         )
 
+    fun arbeidsgivervarselInactivate(eventId: EventId): EncodedDispatch =
+        Budstikka.arbeidsgivervarselInactivate(
+            eventId = eventId,
+            reference = "fixture-5",
+            orgnummer = orgnummer,
+            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+        )
+
     fun kalenderavtaleCreate(eventId: EventId): EncodedDispatch =
         Budstikka.kalenderavtaleCreate(
             eventId = eventId,

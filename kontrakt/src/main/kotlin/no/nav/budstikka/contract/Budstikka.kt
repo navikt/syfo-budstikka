@@ -545,6 +545,26 @@ object Budstikka {
         )
 
     /**
+     * Permanently deletes an Arbeidsgivervarsel created by a sakstype overload using reference
+     * identity. Use the same [reference], [orgnummer] and [sakstype] as for creation, and a new
+     * [eventId] for this operation. Retry reuses that event id.
+     *
+     * An already absent target counts as deleted. This does not cancel a later creation or external
+     * SMS/email already ordered by Arbeidsgivernotifikasjoner. Event-id-based legacy notifications
+     * are not addressed by this operation.
+     */
+    fun arbeidsgivervarselInactivate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        sakstype: Arbeidsgiversak.Type,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        return ArbeidsgivervarselInactivate(reference, orgnummer, sakstype.toWire()).encode(eventId, reference)
+    }
+
+    /**
      * Brev: a document distributed to the Sykmeldt through dokumentdistribusjon. By default
      * dokdist picks the channel itself — digital mailbox (Digipost/e-Boks) for persons without
      * Reservasjon, central print otherwise. A Brev cannot be inactivated once sent, so there is

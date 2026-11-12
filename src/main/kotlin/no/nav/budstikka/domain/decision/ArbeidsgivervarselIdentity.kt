@@ -1,6 +1,7 @@
 package no.nav.budstikka.domain.decision
 
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.Orgnummer
 import java.util.UUID
@@ -27,5 +28,6 @@ internal fun materializedNotificationId(
                 ArbeidsgivervarselCreate.Identity.EVENT_ID -> eventId.toString()
                 ArbeidsgivervarselCreate.Identity.REFERENCE -> referenceNotificationId(content.orgnummer, reference)
             }
+        is ArbeidsgivervarselInactivate -> content.sakstype?.let { referenceNotificationId(content.orgnummer, reference) }
         else -> null
     }
