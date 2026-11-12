@@ -144,7 +144,7 @@ class ArbeidsgivervarselChannelHandlerTest :
             }
         }
 
-        test("retries a transient saksstatus failure with the same notification and status key") {
+        test("retries a transient saksstatus failure with the saved leader and the same notification and status key") {
             val publisher = RecordingPublisher()
             val sakPublisher =
                 FakeArbeidsgiversakPublisher(
@@ -153,8 +153,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                     ArbeidsgiverNotificationResponse.Published,
                     ArbeidsgiverNotificationResponse.Published,
                 )
-            val lookup = FakeNarmesteLederLookup(NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID))
-            val handler = handler(publisher, lookup, sakPublisher = sakPublisher)
+            val handler = handler(publisher, ThrowingNarmesteLederLookup(), sakPublisher = sakPublisher)
             val delivery =
                 delivery(
                     create(
@@ -163,6 +162,11 @@ class ArbeidsgivervarselChannelHandlerTest :
                         sakstype = Sakstype.DIALOGMOTE,
                         saksstatus = Saksstatus.FERDIG,
                     ),
+                ).copy(
+                    snapshot =
+                        DeliverySnapshot.Resolved(
+                            NarmesteLederRelasjon(LEDER, listOf("leader@example.test"), TEST_LEDERRELASJON_ID),
+                        ),
                 )
 
             shouldThrow<ChannelHandlerFailure> { handler.handle(delivery) }
