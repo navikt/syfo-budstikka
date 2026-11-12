@@ -28,6 +28,7 @@ settes sammen i en produsent.
 | `dittSykefravaerCreate` | Opprett INFO-melding i Ditt Sykefravær. |
 | `dittSykefravaerInactivate` | Lukk en tidligere Ditt Sykefravær-melding. |
 | `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs, i sak etter `sakstype`. |
+| `arbeidsgivervarselInactivate` | Hard-slett et referansebasert arbeidsgivervarsel. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
@@ -65,6 +66,31 @@ Brev kan ikke lukkes.
 Ta automatisk skjuling og forlengelse i bruk først når alle Budstikka-instansene har
 runtime-støtten. Ved tilbakerulling kan eldre kode sende lagrede planlagte disables,
 men den kansellerer dem ikke når en nyere enable behandles.
+
+### Lukk arbeidsgivervarsel
+
+Bruk samme `reference`, `orgnummer` og `sakstype` som ved opprettelse. Opprettelse og lukking får
+hver sin lagrede `EventId`; nye forsøk gjenbruker id-en til operasjonen. Du trenger ingen id fra Fager.
+
+```kotlin
+val closed = Budstikka.arbeidsgivervarselInactivate(
+    eventId = closeEventId, // lagret for denne lukkingen
+    reference = notificationReference,
+    orgnummer = orgnummer,
+    sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+)
+```
+
+Lukkingen hard-sletter varselet uten nye lederoppslag. Saken og eventuelle kalenderavtaler følger
+sine egne livsløp. Et varsel som allerede er borte i Fager, regnes som ferdig lukket.
+Lukking kansellerer ingen opprettelse som venter i inbox eller delivery; den kan fortsatt bli
+levert senere. Den stopper heller ikke SMS eller e-post som allerede er bestilt. Produsenten
+må håndtere dette ved behov.
+
+Funksjonen gjelder varsler opprettet med `sakstype`-overloadene i denne kontraktversjonen.
+Eldre meldinger bruker hendelsesbasert identitet og kan fortsatt leveres, men kan ikke lukkes
+med denne funksjonen. Ta den nye kontrakten i bruk først når støtten er rullet ut på alle
+Budstikka-instansene; se [utrullingsveiledningen](migrering.md#stabil-identitet-for-arbeidsgivervarsler).
 
 ## EventId, retry og partisjonering
 

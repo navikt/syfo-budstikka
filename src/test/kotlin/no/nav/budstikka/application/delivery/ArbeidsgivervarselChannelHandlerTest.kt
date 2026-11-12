@@ -6,14 +6,17 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationDeleteRequest
 import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.contract.AltinnResource
 import no.nav.budstikka.contract.ArbeidsgiverRecipient
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.EmailBodyFormat
 import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.NarmesteLederExternalVarsling
+import no.nav.budstikka.contract.Orgnummer
 import no.nav.budstikka.contract.PersonIdentifier
 import no.nav.budstikka.contract.Saksstatus
 import no.nav.budstikka.contract.Sakstilknytning
@@ -33,7 +36,7 @@ import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslin
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
-        test("reference-based creation uses a stable target independent of its event id") {
+        test("reference-based creation and closing address the same notification with separate event ids") {
             val publisher = RecordingPublisher()
             val sakPublisher = FakeArbeidsgiversakPublisher()
             val handler = handler(publisher, ThrowingNarmesteLederLookup(), sakPublisher = sakPublisher)
@@ -46,7 +49,33 @@ class ArbeidsgivervarselChannelHandlerTest :
                     ).copy(identity = ArbeidsgivervarselCreate.Identity.REFERENCE),
                 )
             handler.handle(source) shouldBe DeliveryOutcome.Sent
+            val existingSakRequests = sakPublisher.requests.size
+            val close =
+                delivery(ArbeidsgivervarselInactivate(source.reference, TEST_ORGNUMMER, Sakstype.DIALOGMOTE))
+                    .copy(inboxEventId = UUID.fromString("00000000-0000-0000-0000-000000000799"))
+
+            handler.handle(close) shouldBe DeliveryOutcome.Sent
+            publisher.deletions.single() shouldBe publisher.requests.single().let { it.tag to it.eksternId }
+            publisher.requests.size shouldBe 1
+            sakPublisher.requests.size shouldBe existingSakRequests
             publisher.requests.single().eksternId shouldBe "2f9230c2-4d95-300b-ade2-3da991605649"
+        }
+
+        test("closing isolates organisation and sakstype and does not resolve a current leader") {
+            val publisher = RecordingPublisher()
+            val handler = handler(publisher, ThrowingNarmesteLederLookup())
+            val targets =
+                listOf(
+                    ArbeidsgivervarselInactivate("reference", TEST_ORGNUMMER, Sakstype.DIALOGMOTE),
+                    ArbeidsgivervarselInactivate("reference", Orgnummer("888888888"), Sakstype.DIALOGMOTE),
+                    ArbeidsgivervarselInactivate("reference", TEST_ORGNUMMER, Sakstype.OPPFOLGINGSPLAN),
+                    ArbeidsgivervarselInactivate("another-reference", TEST_ORGNUMMER, Sakstype.DIALOGMOTE),
+                )
+            targets.forEach { target ->
+                handler.handle(delivery(target).copy(reference = target.reference)) shouldBe DeliveryOutcome.Sent
+            }
+            publisher.deletions.toSet().size shouldBe 4
+            publisher.requests shouldBe emptyList()
         }
 
         test("legacy uses a frozen identity after cleanup and refuses to invent a previously attempted target") {
@@ -57,6 +86,20 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.requests.single().eksternId shouldBe "original-frozen-id"
             handler.handle(orphan) shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL missing legacy notification identity")
             publisher.requests.size shouldBe 1
+        }
+
+        test("invalid close context fails without an external call") {
+            val publisher = RecordingPublisher()
+            val handler = handler(publisher, ThrowingNarmesteLederLookup())
+            listOf(
+                ArbeidsgivervarselInactivate("reference", TEST_ORGNUMMER),
+                ArbeidsgivervarselInactivate("mismatch", TEST_ORGNUMMER, Sakstype.DIALOGMOTE),
+                ArbeidsgivervarselInactivate("reference", Orgnummer("invalid"), Sakstype.DIALOGMOTE),
+            ).forEach { target ->
+                handler.handle(delivery(target)).shouldBeInstanceOf<DeliveryOutcome.Failed>()
+            }
+            publisher.deletions shouldBe emptyList()
+            publisher.requests shouldBe emptyList()
         }
 
         test("publishes arbitrary nonblank Altinn recipient and tag unchanged") {
@@ -217,6 +260,9 @@ class ArbeidsgivervarselChannelHandlerTest :
             var previous: ArbeidsgiverNotificationRequest? = null
             val publisher =
                 object : ArbeidsgiverNotificationPublisher {
+                    override suspend fun delete(request: ArbeidsgiverNotificationDeleteRequest): ArbeidsgiverNotificationResponse =
+                        error("Unexpected delete")
+
                     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
                         val existing = previous
                         if (existing == null) {
@@ -661,6 +707,12 @@ private class RecordingPublisher(
     private val response: ArbeidsgiverNotificationResponse = ArbeidsgiverNotificationResponse.Published,
 ) : ArbeidsgiverNotificationPublisher {
     val requests = mutableListOf<ArbeidsgiverNotificationRequest>()
+    val deletions = mutableListOf<Pair<String, String>>()
+
+    override suspend fun delete(request: ArbeidsgiverNotificationDeleteRequest): ArbeidsgiverNotificationResponse {
+        deletions += request.tag to request.eksternId
+        return response
+    }
 
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse {
         requests += request

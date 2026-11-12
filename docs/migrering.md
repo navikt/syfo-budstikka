@@ -125,3 +125,7 @@ En tidligere forsøkt leveranse uten kjent identitet feiler terminalt med
 Ikke start eldre workers på referansebaserte meldinger ved tilbakerulling. Følg den kontrollerte
 stopp/starten ovenfor, og avklar håndtering av allerede mottatte meldinger før eldre kode startes.
 Migreringene er additive, men eldre kode bruker ikke den lagrede identiteten.
+
+Referansebasert lukking gjelder bare nye varsler som er opprettet med denne identiteten.
+Et fraværende mål regnes som ferdig lukket; ventende eller senere opprettelser kanselleres ikke.
+Produsenten må håndtere denne grensen før den aktuelle flyten flyttes.

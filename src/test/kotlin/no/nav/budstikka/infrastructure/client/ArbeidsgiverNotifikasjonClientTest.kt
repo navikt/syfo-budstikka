@@ -14,6 +14,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationDeleteRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationResponse
@@ -31,6 +32,60 @@ import kotlin.time.Instant
 
 class ArbeidsgiverNotifikasjonClientTest :
     FunSpec({
+        listOf("HardDeleteNotifikasjonVellykket", "NotifikasjonFinnesIkke").forEach { result ->
+            test("delete treats $result as absent and keeps its target out of the correlation header") {
+                var body = ""
+                var correlation = ""
+                val client =
+                    client { request ->
+                        body = (request.body as TextContent).text
+                        correlation = request.headers["X-Request-ID"].orEmpty()
+                        respond("""{"data":{"hardDeleteNotifikasjonByEksternId_V2":{"__typename":"$result"}}}""", HttpStatusCode.OK)
+                    }
+                val deletion =
+                    ArbeidsgiverNotificationDeleteRequest(
+                        eksternId = "sensitive-notification-target",
+                        tag = "Dialogmøte",
+                        correlationId = "00000000-0000-0000-0000-000000000099",
+                    )
+                client.delete(deletion) shouldBe ArbeidsgiverNotificationResponse.Published
+                body shouldContain "hardDeleteNotifikasjonByEksternId_V2"
+                body shouldContain "sensitive-notification-target"
+                correlation shouldBe deletion.correlationId
+                deletion.toString().contains(deletion.eksternId) shouldBe false
+            }
+        }
+
+        test("delete maps business rejections without exposing downstream error text") {
+            listOf("UgyldigMerkelapp", "UkjentProdusent").forEach { typeName ->
+                client {
+                    respond(
+                        """{"data":{"hardDeleteNotifikasjonByEksternId_V2":{"__typename":"$typeName","feilmelding":"sensitive target"}}}""",
+                        HttpStatusCode.OK,
+                    )
+                }.delete(deletion()) shouldBe
+                    ArbeidsgiverNotificationResponse.Rejected(
+                        "Arbeidsgiver notification API rejected request: $typeName",
+                    )
+            }
+        }
+
+        test("delete retries transport failures, GraphQL errors and unknown result types") {
+            listOf(
+                HttpStatusCode.NotFound to "sensitive target",
+                HttpStatusCode.ServiceUnavailable to "sensitive target",
+                HttpStatusCode.OK to """{"errors":[{"message":"sensitive target"}]}""",
+                HttpStatusCode.OK to """{"data":{"hardDeleteNotifikasjonByEksternId_V2":{"__typename":"UnknownResult"}}}""",
+            ).forEach { (status, response) ->
+                val error =
+                    shouldThrow<IllegalStateException> {
+                        client { respond(response, status) }.delete(deletion())
+                    }
+                error.message.orEmpty() shouldNotContain "sensitive target"
+                error.cause shouldBe null
+            }
+        }
+
         test("sends nyBeskjed with producer HTML, optional grouping id and Altinn external notification") {
             var body = ""
             var correlationId = ""
@@ -300,6 +355,8 @@ private fun client(handler: MockRequestHandler) =
             override suspend fun token(target: String) = "token"
         },
     )
+
+private fun deletion() = ArbeidsgiverNotificationDeleteRequest("sensitive target", "Dialogmøte", "technical-event-id")
 
 private fun request(
     tag: String = "Dialogmøte",

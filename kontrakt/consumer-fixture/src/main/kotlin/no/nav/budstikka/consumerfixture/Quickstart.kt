@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import no.nav.budstikka.contract.Arbeidsgivervarsel
+import no.nav.budstikka.contract.Arbeidsgiversak
 import no.nav.budstikka.contract.Budstikka
 import no.nav.budstikka.contract.EventId
 import no.nav.budstikka.contract.Orgnummer
@@ -62,4 +63,24 @@ fun main() {
         check(arbeidsgivervarsel.headers["eventId"] == eventId.toString())
         check(arbeidsgivervarsel.value.contains(recipientJson))
     }
+
+    val employerReference = "synthetic-employer-notification-0001"
+    val employerCreate = Budstikka.arbeidsgivervarselCreate(
+        eventId = eventId,
+        reference = employerReference,
+        orgnummer = Orgnummer("999999999"),
+        recipient = Arbeidsgivervarsel.NarmesteLeder(PersonIdentifier("00000000000")),
+        sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+        text = "SYNTETISK-VARSELTEKST",
+    )
+    val closeEventId = EventId(UUID.fromString("00000000-0000-4000-8000-000000000102"))
+    val employerClose = Budstikka.arbeidsgivervarselInactivate(
+        eventId = closeEventId,
+        reference = employerReference,
+        orgnummer = Orgnummer("999999999"),
+        sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+    )
+    check(employerClose.key == employerCreate.key)
+    check(employerClose.eventId != employerCreate.eventId)
+    check(employerClose.headers["eventId"] == closeEventId.toString())
 }

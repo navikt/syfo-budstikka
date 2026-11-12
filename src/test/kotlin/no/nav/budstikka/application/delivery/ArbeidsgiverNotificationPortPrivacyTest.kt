@@ -48,6 +48,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                     altinnExternalVarsling,
                 ),
                 leaderRecipient,
+                ArbeidsgiverNotificationDeleteRequest("external-id", "sensitive-tag", "technical-event-id"),
                 NarmesteLederRelasjon(leader, listOf(emailAddress), TEST_LEDERRELASJON_ID),
                 ArbeidsgiverNotificationRequest(
                     virksomhetsnummer = "123456789",

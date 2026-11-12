@@ -1,11 +1,14 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package no.nav.budstikka.contract
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 /*
- * Every Inactivate variant carries a `reference` and a Recipient and nothing else. `reference` is
+ * Every Inactivate variant carries a `reference` and the context identifying its target. `reference` is
  * the Produsent's own id for one notification to one person — an indirect identifier — so the
  * generated data class `toString` is replaced by the variant name alone. The variant is what a
  * log line needs; correlation belongs on the eventId.
@@ -70,6 +73,8 @@ data class ArbeidsgivervarselInactivate(
     @SerialName("referanse")
     val reference: String,
     val orgnummer: Orgnummer,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sakstype: Sakstype? = null,
 ) : DispatchContent {
     override val partitionKey: String get() = orgnummer.value
 

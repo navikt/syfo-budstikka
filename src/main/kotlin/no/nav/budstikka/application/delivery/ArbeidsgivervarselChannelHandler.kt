@@ -19,18 +19,26 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * has already waited for budstikka's delivery window. A requested external notification without a
  * leader email fails the entire delivery terminally; it does not degrade to in-app only. With a
  * sakstype, the notification goes in the Budstikka-owned sak of that type for the recipient; without
- * one, it keeps the producer's tag and optional sak link. Closing remains a permanent failure.
+ * one, it keeps the producer's tag and optional sak link. Closing addresses a reference-based target
+ * without recipient lookups or sak creation.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
     private val saker: Arbeidsgiversaker,
     private val legacySnapshots: LegacyDeliverySnapshotResolver,
 ) : ChannelHandler {
-    /** Validates the notification, finds its recipient, makes sure the sak exists, and sends it there. */
-    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
-        val create = delivery.payload as? ArbeidsgivervarselCreate ?: return payloadFailure(delivery)
-        create.invalidReason()?.let { return DeliveryOutcome.Failed("${CHANNEL.name} $it") }
+    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome =
+        when (val content = delivery.payload) {
+            is ArbeidsgivervarselCreate -> create(delivery, content)
+            is ArbeidsgivervarselInactivate -> inactivate(delivery, content)
+            else -> payloadFailure(delivery)
+        }
 
+    private suspend fun create(
+        delivery: ClaimedDelivery,
+        create: ArbeidsgivervarselCreate,
+    ): DeliveryOutcome {
+        create.invalidReason()?.let { return DeliveryOutcome.Failed("${CHANNEL.name} $it") }
         val notificationId =
             delivery.notificationId ?: when (create.identity) {
                 ArbeidsgivervarselCreate.Identity.REFERENCE -> referenceNotificationId(create.orgnummer, delivery.reference)
@@ -86,20 +94,37 @@ class ArbeidsgivervarselChannelHandler(
         return saker.setStatus(CHANNEL, sak, status, delivery.correlationId()) ?: outcome
     }
 
+    private suspend fun inactivate(
+        delivery: ClaimedDelivery,
+        close: ArbeidsgivervarselInactivate,
+    ): DeliveryOutcome {
+        val sakstype =
+            close.sakstype
+                ?: return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL closing requires a reference-based sakstype notification")
+        if (close.reference.isBlank() || close.reference != delivery.reference) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL closing reference is invalid")
+        }
+        if (close.orgnummer.value.length != 9 || !close.orgnummer.value.all(Char::isDigit)) {
+            return DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL closing orgnummer is invalid")
+        }
+        val request =
+            ArbeidsgiverNotificationDeleteRequest(
+                eksternId = delivery.notificationId ?: referenceNotificationId(close.orgnummer, close.reference),
+                tag = sakstype.merkelapp,
+                correlationId = delivery.correlationId(),
+            )
+        return withChannelHandlerFailureContext(CHANNEL, "deleting notification") {
+            publisher.delete(request)
+        }.toDeliveryOutcome(CHANNEL)
+    }
+
     private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         withChannelHandlerFailureContext(CHANNEL, "publishing notification") {
             publisher.publish(request)
         }
 
     private fun payloadFailure(delivery: ClaimedDelivery): DeliveryOutcome =
-        when (delivery.payload) {
-            is ArbeidsgivervarselInactivate ->
-                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate is not implemented")
-            else ->
-                DeliveryOutcome.Failed(
-                    "Payload does not match ARBEIDSGIVERVARSEL channel: ${delivery.payload::class.simpleName}",
-                )
-        }
+        DeliveryOutcome.Failed("Payload does not match ARBEIDSGIVERVARSEL channel: ${delivery.payload::class.simpleName}")
 }
 
 /** Where the notification goes, and the sak it belongs to when it has a sakstype. */
