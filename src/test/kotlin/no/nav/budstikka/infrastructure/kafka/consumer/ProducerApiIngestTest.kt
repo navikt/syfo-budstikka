@@ -67,8 +67,8 @@ class ProducerApiIngestTest :
                             reference = "ref-1",
                             sykmeldt = SYKMELDT,
                             orgnummer = ORGNUMMER,
-                            oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
-                            text = "Din ansatte har fått en innkalling",
+                            oppgavetype = Oppgavetype.DIALOGMOTE_SVAR_BEHOV,
+                            text = "Syntetisk spørsmål om møtebehov",
                         ),
                     "dineSykmeldteVarselInactivate" to
                         Budstikka.dineSykmeldteVarselInactivate(eventId = eventId, reference = "ref-1", sykmeldt = SYKMELDT),
