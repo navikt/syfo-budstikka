@@ -18,11 +18,14 @@ enum class InboxQueueState {
 
 /** Operational view of non-terminal delivery rows, evaluated at [OperationalQueueSnapshot.observedAt]. */
 enum class DeliveryQueueState {
-    /** Immediately claimable. Age starts at creation for READY and at lease expiry for CLAIMED. */
+    /** Immediately claimable. Age starts at creation or when a postponement/lease expires. */
     DUE,
 
     /** CLAIMED with an active lease. */
     IN_FLIGHT,
+
+    /** READY held until the next sending-window opening. This is expected waiting, not backlog. */
+    WAITING,
 }
 
 data class QueueStats(

@@ -41,6 +41,31 @@ opprettelse og lukking, og begge operasjonene må bruke samme `reference` og `sy
 Dette er Budstikkas additive producer-API. Flexs eksisterende Kafka-kontrakt på
 `flex.ditt-sykefravaer-melding` eies fortsatt av `ditt-sykefravaer-backend`.
 
+## Sendevindu
+
+`brukervarselCreate` og `arbeidsgivervarselCreate` bruker som standard
+`BUDSTIKKA_OPENING_HOURS`: mandag til fredag fra kl. 09.00 til kl. 20.00 i Oslo-tid,
+unntatt norske helligdager og julaften. Kl. 20.00 er utenfor vinduet. Varselet holdes i
+Budstikka til neste åpning. Tidligere var lørdag inkludert; endringen gjelder også eksisterende
+produsenter som bruker dette vinduet. `dineSykmeldteVarselCreate` bruker som standard `ONGOING`,
+men kan velge `BUDSTIKKA_OPENING_HOURS`. Med `ONGOING` holdes ikke varselet på grunn av klokkeslettet.
+
+Budstikka sjekker vinduet før den beslutter å opprette varselet og før hvert leveringsforsøk.
+En forsinket leveranse eller et nytt forsøk utenfor vinduet utsettes til neste åpning uten å
+bruke feilbudsjettet. Dette gjelder opprettelsene som har et sendevindu. Lukking,
+mikrofrontend, kalenderavtaler og brev, også avledede reservebrev, har ikke sendevindu.
+Budstikka styrer ikke tidspunktet for ekstern varsling etter at Min side har mottatt
+varselet. Min side [revarsler oppgaver automatisk](https://tms-docs.nav.no/varsler/start/#revarsling)
+og kan holde tilbake ekstern varsling for batching.
+
+Kontrollen ved levering gjelder når alle Budstikka-instansene har den nye versjonen.
+Eldre instanser kan plukke opp utsatte leveranser uten å respektere tidspunktet. Ved
+tilbakerulling gjelder derfor ikke denne garantien for ventende leveranser.
+
+En ventende opprettelse blir foreløpig ikke kansellert dersom produsenten ferdigstiller varselet
+før vinduet åpner. Opprettelsen kan da bli levert etter ferdigstillingen. Dette følges opp i
+[#26](https://github.com/navikt/syfo-budstikka/issues/26).
+
 ## Opprett og lukk
 
 `reference` er produsentens egen kobling mellom en opprettelse og en senere lukking. Velg en stabil,

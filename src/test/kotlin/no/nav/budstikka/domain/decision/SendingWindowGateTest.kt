@@ -10,10 +10,12 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.LedervarselCreate
+import no.nav.budstikka.contract.NarmesteLeder
 import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.Varseltype
@@ -77,6 +79,54 @@ class SendingWindowGateTest :
             val decision = gate.resolve(event).apply(emptyList())
 
             decision.shouldBeInstanceOf<Decision.Processed>().deliveries shouldBe emptyList()
+        }
+
+        test("lørdag: default og eksplisitt åpningstid venter til mandag") {
+            val now = LocalDateTime(2025, 2, 8, 12, 0).toInstant(oslo)
+            val gate = SendingWindowGate(MutableClock(now))
+            val contents =
+                listOf(
+                    BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "test"),
+                    ArbeidsgivervarselCreate(
+                        orgnummer = TEST_ORGNUMMER,
+                        recipient = NarmesteLeder(TEST_SYKMELDT),
+                        text = "test",
+                    ),
+                    LedervarselCreate(
+                        sykmeldt = TEST_SYKMELDT,
+                        orgnummer = TEST_ORGNUMMER,
+                        oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
+                        text = "test",
+                        sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+                    ),
+                )
+
+            contents.forEach { content ->
+                val event = Dispatch(reference = "ref-1", content = content)
+                val decision = gate.resolve(event).apply(emptyList())
+                decision.shouldBeInstanceOf<Decision.NotInSendingWindow>().nextRetry shouldBe
+                    LocalDateTime(2025, 2, 10, 9, 0).toInstant(oslo)
+            }
+        }
+
+        test("lørdag: ONGOING og standardvinduet for Ledervarsel passerer") {
+            val now = LocalDateTime(2025, 2, 8, 12, 0).toInstant(oslo)
+            val gate = SendingWindowGate(MutableClock(now))
+            val contents =
+                listOf(
+                    brukervarselContent(SendingWindow.ONGOING),
+                    LedervarselCreate(
+                        sykmeldt = TEST_SYKMELDT,
+                        orgnummer = TEST_ORGNUMMER,
+                        oppgavetype = Oppgavetype.DIALOGMOTE_INNKALLING,
+                        text = "test",
+                    ),
+                )
+
+            contents.forEach { content ->
+                val event = Dispatch(reference = "ref-1", content = content)
+                gate.resolve(event).apply(emptyList()).shouldBeInstanceOf<Decision.Processed>()
+            }
         }
 
         test("tirsdag 03:00 (stengt) gir NotInSendingWindow med nextRetry i fremtiden") {

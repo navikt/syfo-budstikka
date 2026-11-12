@@ -20,13 +20,21 @@ import no.nav.budstikka.application.worker.AlreadyLoggedWorkerFailure
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.application.worker.LeaseWorkerLogEvents
+import no.nav.budstikka.contract.ArbeidsgivervarselCreate
 import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.BrukervarselInactivate
+import no.nav.budstikka.contract.LedervarselCreate
 import no.nav.budstikka.contract.MicrofrontendEnable
+import no.nav.budstikka.contract.NarmesteLeder
+import no.nav.budstikka.contract.Oppgavetype
 import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
+import no.nav.budstikka.fakes.TEST_ORGNUMMER
+import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.worker.BackgroundLoop
 import no.nav.budstikka.testsupport.structuredFields
@@ -40,10 +48,143 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlin.time.Instant.Companion.fromEpochMilliseconds
 
 class DeliveryWorkerTest :
     FunSpec({
+        test("a delivery waiting until Saturday is postponed without spending a send attempt while ongoing and closing still send") {
+            val scheduled =
+                validMicrofrontendDelivery(UUID.randomUUID()).copy(
+                    channel = Channel.BRUKERVARSEL,
+                    payload = BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "Synthetic task"),
+                )
+            val ongoing =
+                scheduled.copy(
+                    id = UUID.randomUUID(),
+                    payload = (scheduled.payload as BrukervarselCreate).copy(sendingWindow = SendingWindow.ONGOING),
+                )
+            val closing = scheduled.copy(id = UUID.randomUUID(), payload = BrukervarselInactivate("ref-1", TEST_SYKMELDT))
+            val employer =
+                scheduled.copy(
+                    id = UUID.randomUUID(),
+                    channel = Channel.ARBEIDSGIVERVARSEL,
+                    payload =
+                        ArbeidsgivervarselCreate(
+                            TEST_ORGNUMMER,
+                            NarmesteLeder(TEST_SYKMELDT),
+                            tag = "Synthetic",
+                            text = "Synthetic task",
+                            link = "https://nav.no/synthetic",
+                        ),
+                )
+            val leader =
+                scheduled.copy(
+                    id = UUID.randomUUID(),
+                    channel = Channel.LEDERVARSEL,
+                    payload =
+                        LedervarselCreate(
+                            TEST_SYKMELDT,
+                            TEST_ORGNUMMER,
+                            Oppgavetype.DIALOGMOTE_INNKALLING,
+                            "Synthetic task",
+                            sendingWindow = SendingWindow.BUDSTIKKA_OPENING_HOURS,
+                        ),
+                )
+            val repository = PollingDeliveryRepository(listOf(scheduled, employer, leader, ongoing, closing))
+            val metrics = RecordingDeliveryMetrics()
+            val handled = mutableListOf<UUID>()
+            val handler =
+                object : ChannelHandler {
+                    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
+                        handled += delivery.id
+                        return DeliveryOutcome.Sent
+                    }
+                }
+
+            workerWith(
+                repository,
+                RecordingMicrofrontendPublisher(),
+                clock = MutableClock(Instant.parse("2026-11-14T10:00:00Z")),
+                handlers = listOf(Channel.BRUKERVARSEL, Channel.ARBEIDSGIVERVARSEL, Channel.LEDERVARSEL).associateWith { handler },
+                metrics = metrics,
+            ).runOnce()
+
+            handled.shouldContainExactly(ongoing.id, closing.id)
+            repository.attemptedDeliveryIds.shouldContainExactly(ongoing.id, closing.id)
+            val nextOpen = Instant.parse("2026-11-16T08:00:00Z")
+            repository.postponedDeliveries.shouldContainExactly(scheduled.id to nextOpen, employer.id to nextOpen, leader.id to nextOpen)
+            metrics.deliveryPostponed.values.sumOf { it.get() } shouldBe 3
+        }
+
+        test("a Friday failure waits through the weekend and retries in the next open window") {
+            val delivery =
+                validMicrofrontendDelivery(UUID.randomUUID()).copy(
+                    channel = Channel.BRUKERVARSEL,
+                    payload = BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "Synthetic task"),
+                )
+            val repository = PollingDeliveryRepository(listOf(delivery))
+            val clock = MutableClock(Instant.parse("2026-11-13T12:00:00Z"))
+            var calls = 0
+            val handler =
+                object : ChannelHandler {
+                    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
+                        if (++calls == 1) error("Temporary failure")
+                        return DeliveryOutcome.Sent
+                    }
+                }
+            val worker =
+                workerWith(
+                    repository,
+                    RecordingMicrofrontendPublisher(),
+                    clock = clock,
+                    handlers = mapOf(Channel.BRUKERVARSEL to handler),
+                )
+
+            worker.runOnce()
+            clock.current = Instant.parse("2026-11-14T10:00:00Z")
+            worker.runOnce()
+            calls shouldBe 1
+            repository.attemptedDeliveryIds.shouldHaveSize(1)
+            repository.sentDeliveryIds.shouldBeEmpty()
+
+            clock.current = Instant.parse("2026-11-16T08:00:00Z")
+            worker.runOnce()
+            calls shouldBe 2
+            repository.attemptedDeliveryIds.shouldHaveSize(2)
+            repository.sentDeliveryIds.shouldContainExactly(delivery.id)
+        }
+
+        test("the sending window is checked for each delivery when a batch crosses closing time") {
+            val first =
+                validMicrofrontendDelivery(UUID.randomUUID()).copy(
+                    channel = Channel.BRUKERVARSEL,
+                    payload = BrukervarselCreate(TEST_SYKMELDT, Varseltype.BESKJED, "Synthetic message"),
+                )
+            val second = first.copy(id = UUID.randomUUID())
+            val repository = PollingDeliveryRepository(listOf(first, second))
+            val clock = MutableClock(Instant.parse("2026-11-13T18:59:59Z"))
+            val handled = mutableListOf<UUID>()
+            val handler =
+                object : ChannelHandler {
+                    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
+                        handled += delivery.id
+                        clock.current = Instant.parse("2026-11-13T19:00:00Z")
+                        return DeliveryOutcome.Sent
+                    }
+                }
+
+            workerWith(
+                repository,
+                RecordingMicrofrontendPublisher(),
+                clock = clock,
+                handlers = mapOf(Channel.BRUKERVARSEL to handler),
+            ).runOnce()
+
+            handled.shouldContainExactly(first.id)
+            repository.postponedDeliveries.shouldContainExactly(second.id to Instant.parse("2026-11-16T08:00:00Z"))
+        }
+
         test("runOnce sends microfrontend deliveries and marks them SENT") {
             val deliveryId = UUID.fromString("00000000-0000-0000-0000-000000000201")
             val repository =
@@ -358,6 +499,7 @@ private fun workerWith(
                 maxConsecutiveItemFailures = maxConsecutiveItemFailures,
             ),
         metrics = metrics,
+        clock = clock,
     )
 
 private class ThrowingChannelHandler : ChannelHandler {
@@ -376,6 +518,16 @@ private class PollingDeliveryRepository(
     val claimCount = AtomicInteger(0)
     val sentDeliveryIds = mutableListOf<UUID>()
     val failedDeliveries = mutableListOf<Pair<UUID, String>>()
+    val postponedDeliveries = mutableListOf<Pair<UUID, Instant>>()
+
+    override suspend fun postponeUntil(
+        claim: DeliveryClaim,
+        nextAttempt: Instant,
+    ): Boolean {
+        if (!transitionSucceeds) return false
+        postponedDeliveries += claim.deliveryId to nextAttempt
+        return true
+    }
 
     override fun saveInTransaction(
         inboxEventId: UUID,

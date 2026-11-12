@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 class DeliveryRepositoryIntegrationTest :
     FunSpec({
@@ -116,6 +117,30 @@ class DeliveryRepositoryIntegrationTest :
             claimed.forEach { delivery ->
                 rowForReference(delivery.reference)[DeliveryTable.claimToken] shouldBe delivery.claimToken.value
             }
+        }
+
+        test("postponing preserves the retry budget and makes a delivery unavailable until its next attempt") {
+            val repository = PostgresDeliveryRepository(fixture.database)
+            saveDraft("delayed-ref", brukervarselDraft())
+            val original = repository.claim(1, lease, 10, setOf(Channel.BRUKERVARSEL)).single()
+            repository.beginAttempt(original.claim, 10) shouldBe true
+            val nextAttempt = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()) + 60.minutes
+
+            repository.postponeUntil(original.claim, nextAttempt) shouldBe true
+
+            val waiting = rowForReference("delayed-ref")
+            waiting[DeliveryTable.state] shouldBe "READY"
+            waiting[DeliveryTable.claimToken] shouldBe null
+            waiting[DeliveryTable.nextAttemptTime] shouldBe nextAttempt
+            waiting[DeliveryTable.attempt] shouldBe 1
+            repository.claim(1, lease, 10, setOf(Channel.BRUKERVARSEL)).shouldHaveSize(0)
+
+            expireLease(original.id)
+            val resumed = repository.claim(1, lease, 10, setOf(Channel.BRUKERVARSEL)).single()
+            resumed.claimToken shouldNotBe original.claimToken
+            repository.postponeUntil(original.claim, nextAttempt) shouldBe false
+            repository.beginAttempt(resumed.claim, 10) shouldBe true
+            rowForReference("delayed-ref")[DeliveryTable.attempt] shouldBe 2
         }
 
         test("claim reclaims a CLAIMED row after lease expiry") {

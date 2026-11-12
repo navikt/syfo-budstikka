@@ -10,6 +10,7 @@ import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Compani
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_CLAIMED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_CLAIM_LOST
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_EMPTY_POLLS
+import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.DELIVERY_POSTPONED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.NARMESTE_LEDER_MISSING
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.RESULT_FAILED
 import no.nav.budstikka.infrastructure.metrics.MicrometerDeliveryMetrics.Companion.RESULT_SENT
@@ -27,11 +28,17 @@ class MicrometerDeliveryMetricsTest :
             metrics.emptyPoll()
             metrics.sent(Channel.MICROFRONTEND)
             metrics.failed(Channel.BREV)
+            metrics.postponed(Channel.BRUKERVARSEL)
             metrics.claimLost(Channel.MICROFRONTEND)
             metrics.narmesteLederMissing(NarmesteLederMissingReason.MISSING_ACTIVE_LEADER)
 
             registry.get(DELIVERY_CLAIMED).counter().count() shouldBe 2.0
             registry.get(DELIVERY_EMPTY_POLLS).counter().count() shouldBe 1.0
+            registry
+                .get(DELIVERY_POSTPONED)
+                .tag(TAG_CHANNEL, "brukervarsel")
+                .counter()
+                .count() shouldBe 1.0
             registry
                 .get(DELIVERY_CLAIM_LOST)
                 .tag(TAG_CHANNEL, "microfrontend")

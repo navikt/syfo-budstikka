@@ -312,6 +312,40 @@ class InboxMessageWorkerTest :
             (nextRetry > now) shouldBe true
         }
 
+        test("default sending window schedules a Saturday notification for Monday") {
+            val saturday = LocalDateTime(2025, 2, 8, 12, 0).toInstant(osloTz)
+            val monday = LocalDateTime(2025, 2, 10, 9, 0).toInstant(osloTz)
+            val clock = MutableClock(saturday)
+            val eventId = UUID.randomUUID()
+            val content = BrukervarselCreate(TEST_SYKMELDT, Varseltype.OPPGAVE, "test")
+            val repository =
+                PollingInboxMessageRepository(
+                    messages = listOf(inboxMessage(eventId, reference = "ref-1", content = content)),
+                )
+            val deliveries = RecordingDeliveryRepository()
+            val worker =
+                workerWith(
+                    repository,
+                    deliveryRepository = deliveries,
+                    decisionProcess = DecisionProcess(listOf(SendingWindowGate(clock))),
+                    clock = clock,
+                )
+
+            worker.runOnce()
+
+            repository.waitingMessages.getValue(eventId).second shouldBe monday
+            repository.processedEventIds.shouldBeEmpty()
+            deliveries.saved.shouldBeEmpty()
+
+            clock.current = monday
+            worker.runOnce()
+
+            repository.processedEventIds.shouldContainExactly(eventId)
+            val (source, drafts) = deliveries.saved.single()
+            source shouldBe eventId
+            drafts.single().content shouldBe content
+        }
+
         test("runOnce persistst reason for waiting messages") {
             val now = NorwegianRodeDager.easterSunday(2025).atTime(3, 0).toInstant(osloTz)
             val clock = MutableClock(now)
@@ -395,6 +429,7 @@ private fun workerWith(
     maxConsecutiveItemFailures: Int = LeaseDrainConfig.DEFAULT_MAX_CONSECUTIVE_ITEM_FAILURES,
     clock: Clock = Clock.System,
     metrics: InboxMetrics = NoInboxMetrics,
+    deliveryRepository: DeliveryRepository = RecordingDeliveryRepository(),
     decisionProcess: DecisionProcess,
 ): InboxMessageWorker =
     InboxMessageWorker(
@@ -403,7 +438,7 @@ private fun workerWith(
             EffectuateDecision(
                 transactionRunner = FakeTransactionRunner(),
                 inboxMessageRepository = repository,
-                deliveryRepository = RecordingDeliveryRepository(),
+                deliveryRepository = deliveryRepository,
             ),
         decisionProcess = decisionProcess,
         drainer =
@@ -518,6 +553,11 @@ private class RecordingDeliveryRepository : DeliveryRepository {
     ): Boolean = true
 
     override suspend fun markSent(claim: DeliveryClaim): Boolean = true
+
+    override suspend fun postponeUntil(
+        claim: DeliveryClaim,
+        nextAttempt: Instant,
+    ): Boolean = true
 
     override suspend fun markFailed(
         claim: DeliveryClaim,
