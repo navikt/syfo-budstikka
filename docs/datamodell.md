@@ -33,6 +33,13 @@ erDiagram
         text        recipient_type
         text        recipient_id
         jsonb       payload
+        text        snapshot_state "LEGACY|RESOLVED"
+        text        leader_fnr "nullable, betinget påkrevd"
+        jsonb       leader_emails "nullable e-postliste, betinget påkrevd"
+        uuid        leader_relation_id "nullable, betinget påkrevd"
+        text        name_first "nullable"
+        text        name_middle "nullable"
+        text        name_last "nullable"
         text        state "READY|CLAIMED|SENT|FAILED"
         uuid        claim_token "nullable; CHECK: satt kun ved CLAIMED"
         int         attempt
@@ -71,7 +78,8 @@ erDiagram
 - Melding som ikke kan behandles ved inntak (manglende/ugyldig header, tom payload, korrupt
   JSON, konvolutt uten `reference`, parser-urepresenterbar content) skrives til
   `dead_letter_message`; offset committes. En *representable-men-ulovlig* kombinasjon
-  dead-letteres IKKE — den når inbox og håndteres av beslutnings-workeren.
+  håndteres normalt av beslutnings-workeren. Egne Nærmeste leder-lenker uten gyldig HTTPS-host på
+  `nav.no` eller et underdomene, eller med userinfo, avvises før inbox-save med `INVALID_LINK`.
 - **Retensjon:** Oppryddingen er implementert og styres av
   `workers.retentionCleanup.enabled`. Workeren er aktivert i både dev og prod. Teamet har
   godkjent prodaktivering og policyverdiene 100/180 dager (#239) fordi `inbox_message`,
@@ -129,6 +137,27 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
   `saveInTransaction(...)` av delivery-rader bare hvis CAS lykkes.
   `DeliveryRepository.saveInTransaction` bruker `batchInsert(draft)` for 0..N rader
   for samme inbox-melding.
+  Beslutningsgrunnlaget følger `DeliveryDraft.snapshot` til egne kolonner og leses tilbake i
+  `ClaimedDelivery.snapshot`. `recipient_type` og `recipient_id` beholder rutingsankeret
+  (virksomheten for arbeidsgivervarsel), ikke lederens fødselsnummer.
+
+### Lagret beslutningsgrunnlag på `delivery`
+
+V12 er en expand-migrering. `snapshot_state` har DB-standard `LEGACY` slik at eksisterende rader og
+gamle INSERT-former kan gå gjennom claim og terminale overganger. Den nye repository-writeren
+skriver alltid `RESOLVED`, også for andre kanaler og når navnet mangler. Den velger aldri legacy
+fordi en verdi er null. CHECK krever fødselsnummer, e-postliste og relasjons-id for `RESOLVED`
+arbeidsgivervarsel med `operation=CREATE` og mottaker Nærmeste leder; listen må inneholde minst én
+adresse ved bestilt ekstern varsling. Navn er valgfritt; fornavn og etternavn må være satt sammen.
+For kalenderavtaler håndhever `ArbeidsgiverSnapshotResolver` kravene til lederopplysninger i
+applikasjonen; databasen har ingen tilsvarende CHECK.
+Irrelevante kanaler trenger ingen lederfelter. Snapshot er ikke en del av den publiserte payloaden.
+
+Verdiene maskeres i `toString`; skrivefeil fra PostgreSQL/Exposed erstattes med en fast feil uten
+SQL, radverdier eller opprinnelig exceptionkjede. Oppbevaringsjobben sletter de nye kolonnene sammen
+med terminale leveranser eldre enn 180 dager. Rollen `esyfo-analyse` har fortsatt SELECT på alle
+nåværende og framtidige public-tabeller og får dermed også tilgang til disse kolonnene; dette er
+akseptert. Det gjøres ingen historisk backfill av `SENT`/`FAILED`.
 
 ### `inbox_message.state`
 

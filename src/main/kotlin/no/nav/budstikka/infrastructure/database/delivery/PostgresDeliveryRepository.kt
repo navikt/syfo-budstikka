@@ -5,10 +5,15 @@ import no.nav.budstikka.application.port.ClaimToken
 import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryClaim
 import no.nav.budstikka.application.port.DeliveryRepository
+import no.nav.budstikka.contract.PersonIdentifier
+import no.nav.budstikka.domain.NarmesteLederRelasjon
+import no.nav.budstikka.domain.PersonName
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
+import no.nav.budstikka.domain.decision.DeliverySnapshot
 import no.nav.budstikka.domain.decision.Recipient
 import no.nav.budstikka.infrastructure.database.config.transact
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -23,6 +28,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
+import java.sql.SQLException
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -40,16 +46,29 @@ class PostgresDeliveryRepository(
         if (draft.isEmpty()) {
             return
         }
-        DeliveryTable.batchInsert(draft) { draftEntry ->
-            this[DeliveryTable.inboxEventId] = inboxEventId
-            this[DeliveryTable.reference] = draftEntry.reference
-            this[DeliveryTable.operation] = draftEntry.operation.name
-            this[DeliveryTable.channel] = draftEntry.channel.name
-            val (type, id) = draftEntry.recipient.toColumns()
-            this[DeliveryTable.recipientType] = type
-            this[DeliveryTable.recipientId] = id
-            this[DeliveryTable.payload] = draftEntry.content
-            this[DeliveryTable.createdAt] = Clock.System.now()
+        try {
+            DeliveryTable.batchInsert(draft) { draftEntry ->
+                this[DeliveryTable.inboxEventId] = inboxEventId
+                this[DeliveryTable.reference] = draftEntry.reference
+                this[DeliveryTable.operation] = draftEntry.operation.name
+                this[DeliveryTable.channel] = draftEntry.channel.name
+                val (type, id) = draftEntry.recipient.toColumns()
+                this[DeliveryTable.recipientType] = type
+                this[DeliveryTable.recipientId] = id
+                this[DeliveryTable.payload] = draftEntry.content
+                val snapshot = draftEntry.snapshot
+                this[DeliveryTable.snapshotState] = "RESOLVED"
+                this[DeliveryTable.leaderFnr] = snapshot.leader?.narmesteLederFnr?.value
+                this[DeliveryTable.leaderEmails] = snapshot.leader?.epostadresser
+                this[DeliveryTable.leaderRelationId] = snapshot.leader?.relationId
+                this[DeliveryTable.nameFirst] = snapshot.name?.firstName
+                this[DeliveryTable.nameMiddle] = snapshot.name?.middleName
+                this[DeliveryTable.nameLast] = snapshot.name?.lastName
+                this[DeliveryTable.createdAt] = Clock.System.now()
+            }
+        } catch (_: SQLException) {
+            // PostgreSQL constraint errors and Exposed statements include the complete sensitive row.
+            throw IllegalStateException("Delivery snapshot persistence failed")
         }
     }
 
@@ -75,6 +94,13 @@ class PostgresDeliveryRepository(
                         DeliveryTable.reference,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
+                        DeliveryTable.snapshotState,
+                        DeliveryTable.leaderFnr,
+                        DeliveryTable.leaderEmails,
+                        DeliveryTable.leaderRelationId,
+                        DeliveryTable.nameFirst,
+                        DeliveryTable.nameMiddle,
+                        DeliveryTable.nameLast,
                     ).where {
                         (
                             (DeliveryTable.state eq DeliveryState.READY.name) or
@@ -98,6 +124,7 @@ class PostgresDeliveryRepository(
                             reference = row[DeliveryTable.reference],
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
+                            snapshot = row.snapshot(),
                         )
                     }
             if (claimed.isNotEmpty()) {
@@ -239,6 +266,31 @@ class PostgresDeliveryRepository(
             } > 0
         }
 }
+
+private fun ResultRow.snapshot(): DeliverySnapshot =
+    when (this[DeliveryTable.snapshotState]) {
+        "LEGACY" -> DeliverySnapshot.Legacy
+        "RESOLVED" ->
+            DeliverySnapshot.Resolved(
+                leader =
+                    this[DeliveryTable.leaderFnr]?.let {
+                        NarmesteLederRelasjon(
+                            PersonIdentifier(it),
+                            checkNotNull(this[DeliveryTable.leaderEmails]) { "Resolved snapshot missing leader emails" },
+                            checkNotNull(this[DeliveryTable.leaderRelationId]) { "Resolved snapshot missing leader relation" },
+                        )
+                    },
+                name =
+                    this[DeliveryTable.nameFirst]?.let {
+                        PersonName(
+                            it,
+                            this[DeliveryTable.nameMiddle],
+                            checkNotNull(this[DeliveryTable.nameLast]) { "Incomplete snapshot name" },
+                        )
+                    },
+            )
+        else -> error("Unknown delivery snapshot state")
+    }
 
 private fun Recipient.toColumns(): Pair<String, String> =
     when (this) {

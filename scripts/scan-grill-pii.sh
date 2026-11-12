@@ -31,7 +31,14 @@ scan_file() {
   # utvetydig ikke-PII, så den nulles ut før skanning; alle andre 11-sifrede sekvenser flagges
   # fortsatt — også om de står på samme linje som den syntetiske verdien.
   normalized="$(mktemp)"
-  sed 's/00000000000/SYNTETISK-PERSONIDENT/g' "$file" > "$normalized" 2>/dev/null || cp "$file" "$normalized"
+  # Bare kjente, verdilose kodemønstre normaliseres. Resten av linjen skannes fortsatt.
+  sed -E \
+    -e 's/00000000000/SYNTETISK-PERSONIDENT/g' \
+    -e 's/(token):[[:space:]]*ClaimToken([,)]|$)/SAFE-CLAIM-TYPE\2/g' \
+    -e 's/^([[:space:]]*val[[:space:]]+)(password):[[:space:]]*String[[:space:]]*$/SAFE-PASSWORD-TYPE/' \
+    -e 's/^([[:space:]]*)(password)[[:space:]]*=[[:space:]]*postgres[.](password),?[[:space:]]*$/SAFE-CONTAINER-REFERENCE/' \
+    -e 's/claim_(token)[[:space:]]*=[[:space:]]*(gen_random_uuid\(\)|NULL)([,[:space:]]|$)/SAFE-CLAIM-VALUE\3/g' \
+    "$file" > "$normalized" 2>/dev/null || cp "$file" "$normalized"
   for i in "${!rule_names[@]}"; do
     name="${rule_names[$i]}"; pat="${rule_regex[$i]}"
     # -I hopper binærfiler, -n gir linjenr; vi beholder KUN linjenrene (kaster innholdet).

@@ -1,25 +1,7 @@
 package no.nav.budstikka.infrastructure.client
 
-import com.apollographql.apollo.api.Operation
 import com.apollographql.apollo.api.Optional
-import com.apollographql.apollo.api.composeJsonRequest
-import com.apollographql.apollo.api.json.buildJsonString
-import com.apollographql.apollo.api.json.jsonReader
-import com.apollographql.apollo.api.parseResponse
 import io.ktor.client.HttpClient
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.http.isSuccess
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
@@ -37,16 +19,12 @@ import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarse
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EksterntVarselInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EpostKontaktInfoInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.EpostMottakerInput
-import no.nav.budstikka.infrastructure.client.fager.generated.type.FutureTemporalInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.MetadataInput
-import no.nav.budstikka.infrastructure.client.fager.generated.type.MottakerInput
-import no.nav.budstikka.infrastructure.client.fager.generated.type.NaermesteLederMottakerInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NotifikasjonInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NyBeskjedInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.NyOppgaveInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.SendetidspunktInput
 import no.nav.budstikka.infrastructure.client.fager.generated.type.Sendevindu
-import okio.Buffer
 
 /**
  * GraphQL anti-corruption adapter for arbeidsgiver-notifikasjon-produsent-api. Apollo generates the
@@ -59,67 +37,23 @@ import okio.Buffer
  * with a `P4M` fallback, matching esyfovarsel's retention period.
  */
 class ArbeidsgiverNotifikasjonClient(
-    private val httpClient: HttpClient,
-    private val config: ArbeidsgiverNotifikasjonConfig,
-    private val tokenProvider: TokenProvider,
+    httpClient: HttpClient,
+    config: ArbeidsgiverNotifikasjonConfig,
+    tokenProvider: TokenProvider,
 ) : ArbeidsgiverNotificationPublisher {
+    private val executor = FagerGraphqlExecutor(httpClient, config, tokenProvider)
+
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
             ArbeidsgiverMeldingstype.BESKJED ->
-                execute(request, request.toNyBeskjedMutation()) { data ->
+                executor.execute(request.eksternId, request.toNyBeskjedMutation()) { data ->
                     data.nyBeskjed.toNotificationResponse()
                 }
             ArbeidsgiverMeldingstype.OPPGAVE ->
-                execute(request, request.toNyOppgaveMutation()) { data ->
+                executor.execute(request.eksternId, request.toNyOppgaveMutation()) { data ->
                     data.nyOppgave.toNotificationResponse()
                 }
         }
-
-    private suspend fun <D : Operation.Data> execute(
-        request: ArbeidsgiverNotificationRequest,
-        operation: Operation<D>,
-        classify: (D) -> ArbeidsgiverNotificationResponse,
-    ): ArbeidsgiverNotificationResponse {
-        val credential = tokenProvider.token(config.scope)
-        val response =
-            httpClient.post(config.url) {
-                contentType(ContentType.Application.Json)
-                bearerAuth(credential)
-                header(X_REQUEST_ID_HEADER, request.eksternId)
-                setBody(operation.requestBody())
-            }
-        return response.toNotificationResponse(operation, classify)
-    }
-
-    private suspend fun <D : Operation.Data> HttpResponse.toNotificationResponse(
-        operation: Operation<D>,
-        classify: (D) -> ArbeidsgiverNotificationResponse,
-    ): ArbeidsgiverNotificationResponse {
-        if (status == HttpStatusCode.BadRequest) {
-            return ArbeidsgiverNotificationResponse.Rejected(
-                "Arbeidsgiver notification API rejected request with status ${status.value}",
-            )
-        }
-        if (status == HttpStatusCode.Unauthorized || status == HttpStatusCode.Forbidden || status.value in 500..599) {
-            error("Arbeidsgiver notification API failed with status ${status.value}")
-        }
-        // A 404 is a missing route or ingress/configuration fault, not a GraphQL business rejection.
-        if (!status.isSuccess()) error("Arbeidsgiver notification API returned unexpected status ${status.value}")
-
-        val responseBody = bodyAsText()
-        val payload =
-            Buffer()
-                .writeUtf8(responseBody)
-                .jsonReader()
-                .use { jsonReader ->
-                    operation.parseResponse(jsonReader)
-                }
-        if (payload.exception != null) {
-            error("Arbeidsgiver notification API returned an invalid response")
-        }
-        if (!payload.errors.isNullOrEmpty()) error("Arbeidsgiver notification API returned GraphQL errors")
-        return classify(payload.data ?: error("Arbeidsgiver notification API returned no result"))
-    }
 
     private fun ArbeidsgiverNotificationRequest.toNyBeskjedMutation() =
         NyBeskjedMutation(
@@ -156,32 +90,8 @@ class ArbeidsgiverNotifikasjonClient(
             eksternId = eksternId,
             grupperingsid = grupperingsid.toOptional(),
             hardDelete =
-                Optional.present(
-                    visibleUntil?.let {
-                        FutureTemporalInput(
-                            den = Optional.present(LocalDateTime.Formats.ISO.format(it.toLocalDateTime(OSLO_TIME_ZONE))),
-                        )
-                    } ?: FutureTemporalInput(om = Optional.present(HARD_DELETE_AFTER_FOUR_MONTHS)),
-                ),
+                Optional.present(visibleUntil.toHardDeleteInput()),
         )
-
-    private fun ArbeidsgiverNotificationRecipient.toGraphqlRecipient() =
-        when (this) {
-            is ArbeidsgiverNotificationRecipient.AltinnRessurs ->
-                MottakerInput(
-                    altinnRessurs = Optional.present(AltinnRessursMottakerInput(resource)),
-                )
-            is ArbeidsgiverNotificationRecipient.NarmesteLeder ->
-                MottakerInput(
-                    naermesteLeder =
-                        Optional.present(
-                            NaermesteLederMottakerInput(
-                                naermesteLederFnr = narmesteLederFnr.value,
-                                ansattFnr = ansattFnr.value,
-                            ),
-                        ),
-                )
-        }
 
     private fun ArbeidsgiverNotificationRecipient.toGraphqlExternalVarsler(): List<EksterntVarselInput>? =
         when (this) {
@@ -266,31 +176,8 @@ class ArbeidsgiverNotifikasjonClient(
                 error("Arbeidsgiver notification API returned an unexpected NyOppgave result")
         }
 
-    private fun rejected(resultType: String) =
-        ArbeidsgiverNotificationResponse.Rejected(
-            "Arbeidsgiver notification API rejected request: $resultType",
-        )
-
-    private fun <T : Any> T?.toOptional(): Optional<T?> = if (this == null) Optional.Absent else Optional.present(this)
-
-    private fun <T : Any> List<T>?.toOptional(): Optional<List<T>> = if (this == null) Optional.Absent else Optional.present(this)
-
     private fun ongoingSendTime() =
         SendetidspunktInput(
             sendevindu = Optional.present(Sendevindu.LOEPENDE),
         )
-
-    private fun <D : Operation.Data> Operation<D>.requestBody(): String =
-        buildJsonString {
-            this@requestBody.composeJsonRequest(this)
-        }
-
-    private companion object {
-        private const val HARD_DELETE_AFTER_FOUR_MONTHS = "P4M"
-        private val OSLO_TIME_ZONE = TimeZone.of("Europe/Oslo")
-
-        // Fager documents X-Request-ID as an accepted correlation header in docs/gql/intro.html
-        // at the pinned revision.
-        private const val X_REQUEST_ID_HEADER = "X-Request-ID"
-    }
 }

@@ -3,10 +3,12 @@
 
 package no.nav.budstikka.contract
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlin.time.Instant
 
@@ -118,6 +120,46 @@ class DispatchSerializationTest :
                             reference = "ref-123",
                             orgnummer = SYNTHETIC_ORGNUMMER,
                         ),
+                    "ArbeidsgivervarselCreate med sakstype" to
+                        ArbeidsgivervarselCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                AltinnResource(
+                                    resource = "nav_syfo_dialogmote",
+                                    externalVarsling = AltinnExternalVarsling("Tittel", "E-post", "SMS"),
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    sakId = "dialog-1",
+                                ),
+                            text = "Referat",
+                            link = "https://nav.no/ag",
+                            sakstype = Sakstype.DIALOGMOTE,
+                            saksstatus = Saksstatus.FERDIG,
+                        ),
+                    "KalenderavtaleCreate" to
+                        KalenderavtaleCreate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient =
+                                NarmesteLeder(
+                                    sykmeldt = SYNTHETIC_SYKMELDT,
+                                    externalVarsling = NarmesteLederExternalVarsling("Tittel", "E-post"),
+                                ),
+                            sakstype = Sakstype.DIALOGMOTE,
+                            text = "Dialogmøte",
+                            link = "https://nav.no/ag",
+                            startAt = Instant.parse("2026-11-02T09:00:00Z"),
+                            endAt = Instant.parse("2026-11-02T10:00:00Z"),
+                            lokasjon = Kalenderavtalelokasjon("Gate 1", "0001", "Oslo"),
+                            digital = true,
+                            tilstand = Kalenderavtaletilstand.ARBEIDSGIVER_HAR_GODTATT,
+                        ),
+                    "KalenderavtaleUpdate" to
+                        KalenderavtaleUpdate(
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            recipient = NarmesteLeder(sykmeldt = SYNTHETIC_SYKMELDT),
+                            sakstype = Sakstype.OPPFOLGINGSPLAN,
+                            tilstand = Kalenderavtaletilstand.AVLYST,
+                            text = "Avlyst",
+                        ),
                 )
 
             variants.forEach { (name, content) ->
@@ -205,6 +247,34 @@ class DispatchSerializationTest :
                 NarmesteLederExternalVarsling(emailTitle = "Tittel", emailText = "A & <B>")
             altinn.externalVarsling shouldBe
                 AltinnExternalVarsling(emailTitle = "Tittel", emailText = "A & <B>", smsText = "SMS")
+        }
+
+        context("Arbeidsgivervarsel link") {
+            fun payload(mottaker: String) =
+                """{"reference":"ref-1","content":{"type":"ArbeidsgivervarselCreate","orgnummer":"${SYNTHETIC_ORGNUMMER.value}",""" +
+                    """"mottaker":$mottaker,"text":"Hei","sakstype":"DIALOGMOTE"}}"""
+
+            test("a Nærmeste leder notification without link is read and encodes without the field") {
+                val content =
+                    dispatchJson
+                        .decodeFromString<Dispatch>(
+                            payload("""{"type":"NarmesteLeder","sykmeldt":"${SYNTHETIC_SYKMELDT.value}"}"""),
+                        ).content as ArbeidsgivervarselCreate
+
+                content.link shouldBe null
+                dispatchJson.encodeToString(envelope(content)) shouldNotContain "\"link\""
+            }
+
+            test("an Altinn notification without link is rejected on receipt") {
+                shouldThrow<SerializationException> {
+                    dispatchJson.decodeFromString<Dispatch>(
+                        payload(
+                            """{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
+                                """"sykmeldt":"${SYNTHETIC_SYKMELDT.value}","sakId":"dialog-1"}""",
+                        ),
+                    )
+                }.message shouldContain "link is required for an Altinn resource"
+            }
         }
 
         test("partitionKey is not serialized (computed getter without backing field)") {

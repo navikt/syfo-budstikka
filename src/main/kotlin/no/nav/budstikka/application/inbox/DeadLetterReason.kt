@@ -25,4 +25,9 @@ enum class DeadLetterReason(
         metricTag = "unparseable_payload",
         safeMessage = "Kafka record payload could not be parsed as a Dispatch",
     ),
+    INVALID_LINK(
+        code = "INVALID_LINK",
+        metricTag = "invalid_link",
+        safeMessage = "NarmesteLeder link must use HTTPS on nav.no or a subdomain without userinfo",
+    ),
 }

@@ -14,6 +14,7 @@ import no.nav.budstikka.infrastructure.auth.config.authModule
 import no.nav.budstikka.infrastructure.auth.config.toTexasConfig
 import no.nav.budstikka.infrastructure.client.clientModule
 import no.nav.budstikka.infrastructure.client.config.toArbeidsgiverNotifikasjonConfig
+import no.nav.budstikka.infrastructure.client.config.toArbeidsgiversakConfig
 import no.nav.budstikka.infrastructure.client.config.toDocumentDistributorConfig
 import no.nav.budstikka.infrastructure.client.config.toKrrConfig
 import no.nav.budstikka.infrastructure.client.config.toNarmesteLederConfig
@@ -49,6 +50,7 @@ internal fun Application.installDependencyInjection(overrides: DependencyRegistr
         provide { config.toArbeidsgiverNotifikasjonConfig() }
         provide { config.toKrrConfig() }
         provide { config.toNarmesteLederConfig() }
+        provide { config.toArbeidsgiversakConfig() }
         provide { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
         provide<InboxMetrics> { MicrometerInboxMetrics(resolve<PrometheusMeterRegistry>()) }
         provide<DeliveryMetrics> { MicrometerDeliveryMetrics(resolve<PrometheusMeterRegistry>()) }
