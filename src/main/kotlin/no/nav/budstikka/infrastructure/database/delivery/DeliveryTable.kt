@@ -27,6 +27,7 @@ object DeliveryTable : Table("delivery") {
     val recipientType = text("recipient_type")
     val recipientId = text("recipient_id")
     val payload = jsonb<DispatchContent>("payload", dispatchJson)
+    val notificationId = text("notification_id").nullable()
     val state = text("state").default("READY")
     val claimToken = javaUUID("claim_token").nullable()
     val attempt = integer("attempt").default(0)

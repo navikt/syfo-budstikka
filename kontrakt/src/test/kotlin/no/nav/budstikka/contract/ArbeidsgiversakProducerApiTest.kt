@@ -39,7 +39,7 @@ class ArbeidsgiversakProducerApiTest :
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":null},"text":"SYNTETISK-VARSELTEKST","link":"https://nav.no/ag",""" +
                     """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,"sendingWindow":"ONGOING",""" +
-                    """"sakstype":"DIALOGMOTE","saksstatus":"FERDIG"}}"""
+                    """"sakstype":"DIALOGMOTE","saksstatus":"FERDIG","identity":"REFERENCE"}}"""
             }
 
             test("a notification to Nærmeste leder may omit link, which is then left out of the wire") {
@@ -68,7 +68,7 @@ class ArbeidsgiversakProducerApiTest :
                     """"orgnummer":"999999999","mottaker":{"type":"NarmesteLeder","sykmeldt":"00000000000",""" +
                     """"externalVarsling":null},"text":"SYNTETISK-VARSELTEKST",""" +
                     """"meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
-                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","sakstype":"DIALOGMOTE"}}"""
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","sakstype":"DIALOGMOTE","identity":"REFERENCE"}}"""
                 html.value shouldNotContain "\"link\""
             }
 
@@ -126,7 +126,7 @@ class ArbeidsgiversakProducerApiTest :
                     """"externalVarsling":{"emailTitle":"Tittel","emailText":"<p>E-post</p>","smsText":"SMS",""" +
                     """"emailBodyFormat":"HTML"},"sykmeldt":"00000000000","sakId":"dialog-1"},"text":"SYNTETISK-VARSELTEKST",""" +
                     """"link":"https://nav.no/ag","meldingstype":"BESKJED","sakstilknytning":null,"visibleUntil":null,""" +
-                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","sakstype":"DIALOGMOTE"}}"""
+                    """"sendingWindow":"BUDSTIKKA_OPENING_HOURS","sakstype":"DIALOGMOTE","identity":"REFERENCE"}}"""
             }
 
             test("an Altinn notification without HTML keeps the recipient's plain-text notification") {

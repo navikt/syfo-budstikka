@@ -12,6 +12,7 @@ import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DeliverySnapshot
 import no.nav.budstikka.domain.decision.Recipient
+import no.nav.budstikka.domain.decision.materializedNotificationId
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -56,6 +57,7 @@ class PostgresDeliveryRepository(
                 this[DeliveryTable.recipientType] = type
                 this[DeliveryTable.recipientId] = id
                 this[DeliveryTable.payload] = draftEntry.content
+                this[DeliveryTable.notificationId] = materializedNotificationId(draftEntry.content, draftEntry.reference, inboxEventId)
                 val snapshot = draftEntry.snapshot
                 this[DeliveryTable.snapshotState] = "RESOLVED"
                 this[DeliveryTable.leaderFnr] = snapshot.leader?.narmesteLederFnr?.value
@@ -94,6 +96,7 @@ class PostgresDeliveryRepository(
                         DeliveryTable.reference,
                         DeliveryTable.channel,
                         DeliveryTable.payload,
+                        DeliveryTable.notificationId,
                         DeliveryTable.snapshotState,
                         DeliveryTable.leaderFnr,
                         DeliveryTable.leaderEmails,
@@ -124,6 +127,7 @@ class PostgresDeliveryRepository(
                             reference = row[DeliveryTable.reference],
                             channel = Channel.valueOf(row[DeliveryTable.channel]),
                             payload = row[DeliveryTable.payload],
+                            notificationId = row[DeliveryTable.notificationId],
                             snapshot = row.snapshot(),
                         )
                     }

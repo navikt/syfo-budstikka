@@ -33,6 +33,32 @@ import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslin
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
+        test("reference-based creation uses a stable target independent of its event id") {
+            val publisher = RecordingPublisher()
+            val sakPublisher = FakeArbeidsgiversakPublisher()
+            val handler = handler(publisher, ThrowingNarmesteLederLookup(), sakPublisher = sakPublisher)
+            val source =
+                delivery(
+                    create(
+                        AltinnResource("producer-resource", sykmeldt = TEST_SYKMELDT, sakId = "sak-1"),
+                        tag = null,
+                        sakstype = Sakstype.DIALOGMOTE,
+                    ).copy(identity = ArbeidsgivervarselCreate.Identity.REFERENCE),
+                )
+            handler.handle(source) shouldBe DeliveryOutcome.Sent
+            publisher.requests.single().eksternId shouldBe "2f9230c2-4d95-300b-ade2-3da991605649"
+        }
+
+        test("legacy uses a frozen identity after cleanup and refuses to invent a previously attempted target") {
+            val publisher = RecordingPublisher()
+            val handler = handler(publisher, ThrowingNarmesteLederLookup())
+            val orphan = delivery(create()).copy(inboxEventId = null)
+            handler.handle(orphan.copy(notificationId = "original-frozen-id")) shouldBe DeliveryOutcome.Sent
+            publisher.requests.single().eksternId shouldBe "original-frozen-id"
+            handler.handle(orphan) shouldBe DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL missing legacy notification identity")
+            publisher.requests.size shouldBe 1
+        }
+
         test("publishes arbitrary nonblank Altinn recipient and tag unchanged") {
             val publisher = RecordingPublisher()
             handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Sent
@@ -41,6 +67,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                 ArbeidsgiverNotificationRequest(
                     virksomhetsnummer = TEST_ORGNUMMER.value,
                     eksternId = "00000000-0000-0000-0000-000000000702",
+                    correlationId = "00000000-0000-0000-0000-000000000702",
                     grupperingsid = null,
                     tag = "producer-tag",
                     tekst = "Tekst",

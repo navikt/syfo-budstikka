@@ -46,11 +46,11 @@ class ArbeidsgiverNotifikasjonClient(
     override suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         when (request.meldingstype) {
             ArbeidsgiverMeldingstype.BESKJED ->
-                executor.execute(request.eksternId, request.toNyBeskjedMutation()) { data ->
+                executor.execute(request.correlationId, request.toNyBeskjedMutation()) { data ->
                     data.nyBeskjed.toNotificationResponse()
                 }
             ArbeidsgiverMeldingstype.OPPGAVE ->
-                executor.execute(request.eksternId, request.toNyOppgaveMutation()) { data ->
+                executor.execute(request.correlationId, request.toNyOppgaveMutation()) { data ->
                     data.nyOppgave.toNotificationResponse()
                 }
         }

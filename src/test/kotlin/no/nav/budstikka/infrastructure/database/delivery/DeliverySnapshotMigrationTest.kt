@@ -39,10 +39,16 @@ class DeliverySnapshotMigrationTest :
 
                         fun insert(state: String) =
                             """
-                        INSERT INTO delivery(reference, operation, channel, recipient_type, recipient_id,
+                        WITH source AS (
+                            INSERT INTO inbox_message(event_id, reference, content, state)
+                            VALUES (gen_random_uuid(), 'upgrade-$state', $payload, 'PROCESSED')
+                            RETURNING event_id
+                        )
+                        INSERT INTO delivery(inbox_event_id, reference, operation, channel, recipient_type, recipient_id,
                                              payload, state, claim_token, next_attempt_time)
-                        VALUES ('upgrade-$state', 'CREATE', 'ARBEIDSGIVERVARSEL', 'VIRKSOMHET', '999999999', $payload, '$state',
-                        ${if (state == "CLAIMED") "gen_random_uuid()" else "NULL"}, ${if (state == "CLAIMED") "now()" else "NULL"})
+                        SELECT event_id, 'upgrade-$state', 'CREATE', 'ARBEIDSGIVERVARSEL', 'VIRKSOMHET', '999999999', $payload, '$state',
+                        ${if (state == "CLAIMED") "gen_random_uuid()" else "NULL"}, ${if (state == "CLAIMED") "now()" else "NULL"}
+                        FROM source
                     """
                         listOf("READY", "CLAIMED", "SENT", "FAILED").forEach { sql.executeUpdate(insert(it)) }
                         fixture.migrate()

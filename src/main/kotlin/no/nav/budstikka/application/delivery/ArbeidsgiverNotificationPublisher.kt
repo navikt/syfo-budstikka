@@ -7,6 +7,7 @@ import kotlin.time.Instant
 data class ArbeidsgiverNotificationRequest(
     val virksomhetsnummer: String,
     val eksternId: String,
+    val correlationId: String,
     val grupperingsid: String?,
     val tag: String,
     val tekst: String,

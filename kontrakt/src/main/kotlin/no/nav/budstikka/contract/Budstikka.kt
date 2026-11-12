@@ -308,7 +308,8 @@ object Budstikka {
      * requested, a missing leader email address is also terminal.
      *
      * @param eventId unique per dispatch; reuse the same value when retrying the same dispatch.
-     * @param reference your own id for this notification, used for correlation and bookkeeping.
+     * @param reference stable identity of one notification within [orgnummer] and [sakstype], shared
+     *   across producers and recipients. Use an opaque unique key, such as a UUID or a producer-prefixed id.
      * @param orgnummer the organisation that owns the notification and the partition anchor.
      * @param recipient the active Nærmeste leder for a Sykmeldt. Use the overload with
      *   [Arbeidsgivervarsel.HtmlEmailNotification] for an explicit HTML email body.
@@ -393,6 +394,8 @@ object Budstikka {
      * with an explicitly trusted HTML email. Create [recipient] without its optional
      * `externalNotification`; the two alternatives cannot be combined. [link] is optional as in the
      * plain overload.
+     * [reference] identifies one notification within [orgnummer] and [sakstype] across producers
+     * and recipients; use an opaque unique key, such as a UUID or a producer-prefixed id.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -466,6 +469,8 @@ object Budstikka {
      * [sakId] names for the organisation and [sykmeldt]. External notification is optional and follows
      * the recipient's `externalNotification`, as plain text; use the overload with
      * [Arbeidsgivervarsel.HtmlEmailNotification] for an HTML email.
+     * [reference] identifies one notification within [orgnummer] and [sakstype] across producers
+     * and recipients; use an opaque unique key, such as a UUID or a producer-prefixed id.
      *
      * @param sykmeldt the Sykmeldt the notification concerns; their name goes in the sak title.
      * @param sakId your stable key for this organisation's sak about [sykmeldt], for example a dialog
@@ -505,6 +510,8 @@ object Budstikka {
      * Creates an Arbeidsgivervarsel for an Altinn resource with an explicitly trusted HTML email and
      * the required [smsText], in the [sakstype] sak that [sakId] names for the organisation and
      * [sykmeldt]. Create [recipient] without its optional `externalNotification`.
+     * [reference] identifies one notification within [orgnummer] and [sakstype] across producers
+     * and recipients; use an opaque unique key, such as a UUID or a producer-prefixed id.
      */
     fun arbeidsgivervarselCreate(
         eventId: EventId,
@@ -880,6 +887,7 @@ private fun encodeArbeidsgivervarselInSak(
         sendingWindow = sendingWindow,
         sakstype = sakstype,
         saksstatus = saksstatus,
+        identity = ArbeidsgivervarselCreate.Identity.REFERENCE,
     ).encode(eventId, reference)
 }
 

@@ -104,3 +104,24 @@ gjennomført. Det ligger ingen stage-2-migrering i samme release: Flyway kjører
 oppstart. `CHECK NOT VALID` ville heller ikke unntatt gamle rader fra sjekk ved UPDATE.
 
 Dette er operatørveiledning, ikke en utført produksjonsoperasjon.
+
+## Stabil identitet for arbeidsgivervarsler
+
+Rull ut runtime med V14 etter V13 før produsenter tar i bruk den nye kontrakten. Nye
+`sakstype`-kall markerer referansebasert identitet eksplisitt; gamle meldinger uten markøren
+beholder hendelsesbasert identitet. Gamle parsere kan forkaste markøren og dermed velge feil
+identitet. Det holder derfor ikke at én replika har den nye koden.
+
+Første V14-utrulling følger stopp/start-rutinen ovenfor. Gamle INSERT-former støttes, men gamle
+delivery-readers bruker ikke `notification_id` og skal ikke kjøre sammen med den nye koden.
+
+V14 lagrer kjente Fager-identiteter i `delivery.notification_id`. Nye leveranser får identiteten
+ved materialisering, før første eksterne kall. Oppbevaringsjobben fryser også manglende verdier fra
+gamle skrivere før inbox-lenken slettes. Gamle leveranser beholder derfor samme mål gjennom retry
+og opprydding. En foreldreløs leveranse som aldri er forsøkt, kan velge sin delivery-id som mål.
+En tidligere forsøkt leveranse uten kjent identitet feiler terminalt med
+`ARBEIDSGIVERVARSEL missing legacy notification identity`; ingen ny identitet gjettes.
+
+Ikke start eldre workers på referansebaserte meldinger ved tilbakerulling. Følg den kontrollerte
+stopp/starten ovenfor, og avklar håndtering av allerede mottatte meldinger før eldre kode startes.
+Migreringene er additive, men eldre kode bruker ikke den lagrede identiteten.
