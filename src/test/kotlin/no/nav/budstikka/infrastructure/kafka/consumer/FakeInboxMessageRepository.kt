@@ -5,6 +5,9 @@ import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.MicrofrontendCommand
+import no.nav.budstikka.application.port.MicrofrontendKey
+import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -51,6 +54,21 @@ class FakeInboxMessageRepository(
         claim: InboxClaim,
         reason: String,
         nextRetry: Instant,
+    ): Boolean = true
+
+    override fun lockMicrofrontendCommandInTransaction(
+        eventId: UUID,
+        key: MicrofrontendKey,
+    ): MicrofrontendCommand =
+        MicrofrontendCommand(Instant.DISTANT_PAST, earlierScheduledDisables = emptyList(), laterCommandDecided = false)
+
+    override fun cancelPendingInTransaction(eventIds: List<UUID>): Int = eventIds.size
+
+    override fun saveDerivedInTransaction(
+        sourceEventId: UUID,
+        message: InboxMessage,
+        waitReason: String,
+        notBefore: Instant,
     ): Boolean = true
 
     fun calls(): List<String> = calls

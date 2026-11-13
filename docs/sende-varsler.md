@@ -49,9 +49,17 @@ ikke-tom referanse som appen kan finne igjen. For `brukervarselInactivate` og
 
 Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `microfrontendId`, ikke
 på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
-`visibleUntil` skjuler Budstikka mikrofrontenden igjen på det tidspunktet, når planlagt skjuling (#282) er
-rullet ut. Tidspunktet kan ligge høyst 335 dager fram; et tidspunkt som har passert, skjuler den med en
-gang. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan ikke lukkes.
+`visibleUntil` planlegger Budstikka en disable som behandles på eller etter tidspunktet.
+Tidspunktet kan ligge høyst 335 dager fram; en passert frist gir en umiddelbar disable.
+Når en nyere enable eller disable for samme mottaker og `microfrontendId` besluttes,
+erstatter den eldre planer som ennå ikke er blitt leveranser. En ny enable kan dermed
+forlenge synligheten. Leveranser som allerede ligger i delivery, og rekkefølgen ved retry,
+omfattes ikke av kanselleringen; dette følges i [#315](https://github.com/navikt/syfo-budstikka/issues/315).
+Brev kan ikke lukkes.
+
+Ta automatisk skjuling og forlengelse i bruk først når alle Budstikka-instansene har
+runtime-støtten. Ved tilbakerulling kan eldre kode sende lagrede planlagte disables,
+men den kansellerer dem ikke når en nyere enable behandles.
 
 ## EventId, retry og partisjonering
 

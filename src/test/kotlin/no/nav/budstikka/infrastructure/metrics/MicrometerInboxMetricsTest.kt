@@ -14,6 +14,7 @@ import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_FAILED
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_MESSAGE_PROCESSED
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_OUTSIDE_SENDING_WINDOW
+import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.INBOX_SCHEDULED_DISABLE_CAPPED
 import no.nav.budstikka.infrastructure.metrics.MicrometerInboxMetrics.Companion.TAG_REASON
 
 class MicrometerInboxMetricsTest :
@@ -29,6 +30,7 @@ class MicrometerInboxMetricsTest :
             metrics.failed()
             metrics.outsideSendingWindow("Closed Sunday")
             metrics.decisionCasLost()
+            metrics.scheduledDisableCapped()
 
             registry.get(INBOX_MESSAGE_CLAIMED).counter().count() shouldBe 3.0
             registry.get(INBOX_MESSAGE_EMPTY_POLLS).counter().count() shouldBe 1.0
@@ -41,6 +43,7 @@ class MicrometerInboxMetricsTest :
             registry.get(INBOX_MESSAGE_FAILED).counter().count() shouldBe 1.0
             registry.get(INBOX_OUTSIDE_SENDING_WINDOW).counter().count() shouldBe 1.0
             registry.get(INBOX_MESSAGE_DECISION_CAS_LOST).counter().count() shouldBe 1.0
+            registry.get(INBOX_SCHEDULED_DISABLE_CAPPED).counter().count() shouldBe 1.0
         }
 
         test("counts persisted dead letters under one bounded reason label") {
