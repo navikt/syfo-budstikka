@@ -13,26 +13,26 @@ private val Oslo = TimeZone.of("Europe/Oslo")
 class BudstikkaSendingWindowTest :
     FunSpec({
 
-        test("isOpen: åpent i åpningstid (tirsdag 12:00)") {
+        test("isOpen: open within opening hours (Tuesday 12:00)") {
             BudstikkaSendingWindowLookup.isClosed(LocalDateTime(2025, 2, 11, 12, 0).toInstant(Oslo)) shouldBe false
         }
 
-        test("isOpen: stengt utenfor åpningstid (mandag 06:00)") {
+        test("isOpen: closed outside opening hours (Monday 06:00)") {
             BudstikkaSendingWindowLookup.isClosed(LocalDateTime(2025, 2, 10, 6, 0).toInstant(Oslo)) shouldBe true
         }
 
-        test("isOpen: stengt søndag") {
+        test("isOpen: closed on Sunday") {
             BudstikkaSendingWindowLookup.isClosed(LocalDateTime(2025, 2, 9, 12, 0).toInstant(Oslo)) shouldBe true
         }
 
-        test("lørdag er stengt og åpner mandag kl. 09:00") {
+        test("Saturday is closed and opens Monday at 09:00") {
             val saturday = LocalDateTime(2025, 2, 8, 12, 0).toInstant(Oslo)
 
             BudstikkaSendingWindowLookup.isClosed(saturday) shouldBe true
             BudstikkaSendingWindowLookup.nextOpen(saturday) shouldBe LocalDateTime(2025, 2, 10, 9, 0).toInstant(Oslo)
         }
 
-        test("fredag stenger kl. 20:00 og åpner igjen mandag") {
+        test("Friday closes at 20:00 and opens again on Monday") {
             val beforeClosing = LocalDateTime(2025, 2, 7, 19, 59).toInstant(Oslo)
             val closing = LocalDateTime(2025, 2, 7, 20, 0).toInstant(Oslo)
 
@@ -41,33 +41,33 @@ class BudstikkaSendingWindowTest :
             BudstikkaSendingWindowLookup.nextOpen(closing) shouldBe LocalDateTime(2025, 2, 10, 9, 0).toInstant(Oslo)
         }
 
-        test("påskelørdag åpner tirsdag etter andre påskedag") {
+        test("Easter Saturday opens on Tuesday after Easter Monday") {
             val saturday = LocalDateTime(2025, 4, 19, 12, 0).toInstant(Oslo)
 
             BudstikkaSendingWindowLookup.nextOpen(saturday) shouldBe LocalDateTime(2025, 4, 22, 9, 0).toInstant(Oslo)
         }
 
-        test("julaften åpner først etter juledagene og helgen") {
+        test("Christmas Eve opens only after Christmas and the weekend") {
             val christmasEve = LocalDateTime(2025, 12, 24, 12, 0).toInstant(Oslo)
 
             BudstikkaSendingWindowLookup.isClosed(christmasEve) shouldBe true
             BudstikkaSendingWindowLookup.nextOpen(christmasEve) shouldBe LocalDateTime(2025, 12, 29, 9, 0).toInstant(Oslo)
         }
 
-        test("helg med sommertid åpner kl. 09:00 i Oslo") {
+        test("a weekend with daylight saving time opens at 09:00 in Oslo") {
             val saturday = LocalDateTime(2025, 3, 29, 12, 0).toInstant(Oslo)
 
             BudstikkaSendingWindowLookup.nextOpen(saturday) shouldBe LocalDateTime(2025, 3, 31, 9, 0).toInstant(Oslo)
         }
 
-        test("nextOpen: søndag 10:00 gir mandag 09:00") {
+        test("nextOpen: Sunday 10:00 gives Monday 09:00") {
             val instant = LocalDateTime(2025, 2, 9, 10, 0).toInstant(Oslo)
             val next = BudstikkaSendingWindowLookup.nextOpen(instant)
             next shouldNotBeSameInstanceAs instant
             (next - instant).inWholeHours shouldBe 23
         }
 
-        test("nextOpen: allerede åpent returnerer samme instans") {
+        test("nextOpen: already open returns the same instant") {
             val instant = LocalDateTime(2025, 2, 11, 12, 0).toInstant(Oslo)
             BudstikkaSendingWindowLookup.nextOpen(instant) shouldBeSameInstanceAs instant
         }
