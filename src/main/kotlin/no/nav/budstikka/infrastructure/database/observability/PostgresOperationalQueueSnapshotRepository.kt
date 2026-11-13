@@ -125,21 +125,17 @@ class PostgresOperationalQueueSnapshotRepository(
         val expired =
             DeliveryTable.nextAttemptTime.isNull() or
                 (DeliveryTable.nextAttemptTime lessEq observedAt)
-        val due =
-            (DeliveryTable.state eq DeliveryState.READY.name) or
-                ((DeliveryTable.state eq DeliveryState.CLAIMED.name) and expired)
+        val due = (DeliveryTable.state inList DELIVERY_ACTIVE_STATES) and expired
         val queueState =
             Case()
                 .When(due, stringLiteral(DeliveryQueueState.DUE.name))
-                .Else(stringLiteral(DeliveryQueueState.IN_FLIGHT.name))
+                .When(DeliveryTable.state eq DeliveryState.CLAIMED.name, stringLiteral(DeliveryQueueState.IN_FLIGHT.name))
+                .Else(stringLiteral(DeliveryQueueState.WAITING.name))
                 .alias(QUEUE_STATE_COLUMN)
         val oldestAt =
             Case()
-                .When(DeliveryTable.state eq DeliveryState.READY.name, DeliveryTable.createdAt)
-                .When(
-                    (DeliveryTable.state eq DeliveryState.CLAIMED.name) and expired,
-                    Coalesce(DeliveryTable.nextAttemptTime, DeliveryTable.createdAt),
-                ).Else(DeliveryTable.createdAt)
+                .When(due, Coalesce(DeliveryTable.nextAttemptTime, DeliveryTable.createdAt))
+                .Else(DeliveryTable.createdAt)
                 .min()
                 .alias(OLDEST_AT_COLUMN)
         val size = DeliveryTable.id.count().alias(QUEUE_SIZE_COLUMN)

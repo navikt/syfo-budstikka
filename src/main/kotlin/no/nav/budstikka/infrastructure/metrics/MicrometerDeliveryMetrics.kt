@@ -12,6 +12,7 @@ import no.nav.budstikka.domain.decision.Channel
  *
  * - `delivery_claimed_total`, `delivery_empty_polls_total`, `delivery_total{channel,result}`
  * - `delivery_claim_lost_total{channel}`
+ * - `delivery_postponed_total{channel}` for sending-window holds
  * - `narmeste_leder_missing_total{reason}`
  *
  * Labels are low-cardinality and PII-free: lowercase [Channel] names and fixed outcomes. These
@@ -30,6 +31,13 @@ class MicrometerDeliveryMetrics(
     override fun sent(channel: Channel) = delivery(channel, result = RESULT_SENT)
 
     override fun failed(channel: Channel) = delivery(channel, result = RESULT_FAILED)
+
+    override fun postponed(channel: Channel) =
+        Counter
+            .builder(DELIVERY_POSTPONED)
+            .tag(TAG_CHANNEL, channel.name.lowercase())
+            .register(registry)
+            .increment()
 
     override fun claimLost(channel: Channel) =
         Counter
@@ -64,6 +72,7 @@ class MicrometerDeliveryMetrics(
      */
     companion object {
         const val DELIVERY_CLAIMED = "delivery.claimed"
+        const val DELIVERY_POSTPONED = "delivery.postponed"
         const val DELIVERY_CLAIM_LOST = "delivery.claim.lost"
         const val DELIVERY_EMPTY_POLLS = "delivery.empty.polls"
         const val DELIVERY = "delivery"

@@ -519,6 +519,11 @@ private class RecordingDeliveryRepository : DeliveryRepository {
 
     override suspend fun markSent(claim: DeliveryClaim): Boolean = true
 
+    override suspend fun postponeUntil(
+        claim: DeliveryClaim,
+        nextAttempt: Instant,
+    ): Boolean = true
+
     override suspend fun markFailed(
         claim: DeliveryClaim,
         reason: String,

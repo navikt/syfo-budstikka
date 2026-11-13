@@ -19,6 +19,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
@@ -103,7 +104,10 @@ class PostgresDeliveryRepository(
                         DeliveryTable.nameLast,
                     ).where {
                         (
-                            (DeliveryTable.state eq DeliveryState.READY.name) or
+                            (
+                                (DeliveryTable.state eq DeliveryState.READY.name) and
+                                    (DeliveryTable.nextAttemptTime.isNull() or (DeliveryTable.nextAttemptTime lessEq now))
+                            ) or
                                 (
                                     (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
                                         (DeliveryTable.nextAttemptTime lessEq now) and
@@ -239,6 +243,22 @@ class PostgresDeliveryRepository(
 
     override suspend fun markSent(claim: DeliveryClaim): Boolean =
         markClaimedAsTerminal(claim, state = DeliveryState.SENT, errorMessage = null)
+
+    override suspend fun postponeUntil(
+        claim: DeliveryClaim,
+        nextAttempt: Instant,
+    ): Boolean =
+        database.transact {
+            DeliveryTable.update({
+                (DeliveryTable.id eq claim.deliveryId) and
+                    (DeliveryTable.state eq DeliveryState.CLAIMED.name) and
+                    (DeliveryTable.claimToken eq claim.token.value)
+            }) {
+                it[state] = DeliveryState.READY.name
+                it[claimToken] = null
+                it[nextAttemptTime] = nextAttempt
+            } > 0
+        }
 
     override suspend fun markFailed(
         claim: DeliveryClaim,

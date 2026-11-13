@@ -10,6 +10,8 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.domain.decision.Channel
+import no.nav.budstikka.domain.decision.closedSendingWindow
+import kotlin.time.Clock
 
 class DeliveryWorker(
     private val repository: DeliveryRepository,
@@ -17,6 +19,7 @@ class DeliveryWorker(
     private val drainer: LeaseBudgetDrainer,
     private val config: LeaseDrainConfig,
     private val metrics: DeliveryMetrics,
+    private val clock: Clock = Clock.System,
 ) {
     private val logger = applicationLogger(DeliveryWorker::class.java)
 
@@ -68,6 +71,15 @@ class DeliveryWorker(
             // Leave row CLAIMED for lease reclaim instead of forcing terminal failure. A missing
             // handler is a configuration error, not poison data, so it must not spend an attempt.
             logger.event(DeliveryLogEvents.handlerMissing)
+            return
+        }
+        val closed = delivery.payload.closedSendingWindow(clock.now())
+        if (closed != null) {
+            if (repository.postponeUntil(delivery.claim, closed.opensAt)) {
+                metrics.postponed(delivery.channel)
+            } else {
+                metrics.claimLost(delivery.channel)
+            }
             return
         }
         if (!repository.beginAttempt(delivery.claim, config.maxAttempts)) {
