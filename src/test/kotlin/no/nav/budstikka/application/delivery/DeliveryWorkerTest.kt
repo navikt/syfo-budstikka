@@ -53,7 +53,7 @@ import kotlin.time.Instant.Companion.fromEpochMilliseconds
 
 class DeliveryWorkerTest :
     FunSpec({
-        test("a delivery waiting until Saturday is postponed without spending a send attempt while ongoing and closing still send") {
+        test("a delivery on Saturday is postponed until Monday without spending a send attempt while ongoing and closing still send") {
             val scheduled =
                 validMicrofrontendDelivery(UUID.randomUUID()).copy(
                     channel = Channel.BRUKERVARSEL,

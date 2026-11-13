@@ -9,10 +9,8 @@ import no.nav.budstikka.application.port.ClaimedDelivery
 import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
-import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.domain.decision.Channel
-import no.nav.budstikka.domain.decision.gatedSendingWindow
-import no.nav.budstikka.domain.foundation.BudstikkaSendingWindowLookup
+import no.nav.budstikka.domain.decision.closedSendingWindow
 import kotlin.time.Clock
 
 class DeliveryWorker(
@@ -75,11 +73,9 @@ class DeliveryWorker(
             logger.event(DeliveryLogEvents.handlerMissing)
             return
         }
-        val now = clock.now()
-        if (delivery.payload.gatedSendingWindow() == SendingWindow.BUDSTIKKA_OPENING_HOURS &&
-            BudstikkaSendingWindowLookup.isClosed(now)
-        ) {
-            if (repository.postponeUntil(delivery.claim, BudstikkaSendingWindowLookup.nextOpen(now))) {
+        val closed = delivery.payload.closedSendingWindow(clock.now())
+        if (closed != null) {
+            if (repository.postponeUntil(delivery.claim, closed.opensAt)) {
                 metrics.postponed(delivery.channel)
             } else {
                 metrics.claimLost(delivery.channel)
