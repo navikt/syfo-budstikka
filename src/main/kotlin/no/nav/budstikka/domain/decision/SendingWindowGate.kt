@@ -29,20 +29,16 @@ internal data class ClosedSendingWindow(
 )
 
 /**
- * When the content's sending window is closed at [now], when it opens again and why it is closed;
- * `null` when the content may be sent now. Both the decision gate and the delivery worker use this,
- * and the exhaustive `when` makes every new [SendingWindow] value choose its rule explicitly.
+ * When and why the content's sending window is closed at [now], or `null` when it may be sent now.
+ * The exhaustive `when` forces every new [SendingWindow] value to choose its rule.
  */
-internal fun DispatchContent.closedSendingWindow(now: Instant): ClosedSendingWindow? =
-    when (gatedSendingWindow()) {
-        null, SendingWindow.ONGOING -> null
-        SendingWindow.BUDSTIKKA_OPENING_HOURS ->
-            if (BudstikkaSendingWindowLookup.isClosed(now)) {
-                ClosedSendingWindow(
-                    opensAt = BudstikkaSendingWindowLookup.nextOpen(now),
-                    reason = BudstikkaSendingWindowLookup.reason(now).first().reason,
-                )
-            } else {
-                null
-            }
+internal fun DispatchContent.closedSendingWindow(now: Instant): ClosedSendingWindow? = gatedSendingWindow()?.closedAt(now)
+
+private fun SendingWindow.closedAt(now: Instant): ClosedSendingWindow? =
+    when (this) {
+        SendingWindow.ONGOING -> null
+        SendingWindow.BUDSTIKKA_OPENING_HOURS -> {
+            val closed = BudstikkaSendingWindowLookup.reason(now).firstOrNull() ?: return null
+            ClosedSendingWindow(BudstikkaSendingWindowLookup.nextOpen(now), closed.reason)
+        }
     }
