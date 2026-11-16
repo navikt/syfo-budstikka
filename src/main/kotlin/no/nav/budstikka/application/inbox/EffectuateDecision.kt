@@ -4,16 +4,14 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.MicrofrontendKey
 import no.nav.budstikka.application.port.TransactionRunner
-import no.nav.budstikka.contract.Microfrontend
-import no.nav.budstikka.contract.MicrofrontendDisable
-import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DeliveryDraft
-import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.OrderingKey
+import no.nav.budstikka.domain.decision.ScheduledDispatch
+import no.nav.budstikka.domain.decision.orderingKey
+import no.nav.budstikka.domain.decision.scheduledDispatch
 import java.util.UUID
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
@@ -21,17 +19,14 @@ import kotlin.time.Instant
  * Persists one [Decision] atomically: delivery rows and inbox state commit or roll back together.
  * External lookups must finish before this transaction begins.
  *
- * A processed microfrontend command also carries out `visibleUntil`. A newer command per
- * [MicrofrontendKey] cancels pending scheduled disables from earlier commands in ingest order,
- * and an enable with `visibleUntil` schedules a disable as a derived inbox row unless a later command
- * for the key has already been decided. A `visibleUntil` that has passed when the decision is persisted
- * turns the enable into an immediate disable.
+ * Decisions for the same [OrderingKey] are persisted one at a time. A newer command in ingest order
+ * cancels pending [ScheduledDispatch]es from earlier commands, and a decision's own scheduled dispatch
+ * is written as a waiting inbox row unless a later command for the key has already been decided.
  */
 class EffectuateDecision(
     private val transactionRunner: TransactionRunner,
     private val inboxMessageRepository: InboxMessageRepository,
     private val deliveryRepository: DeliveryRepository,
-    private val clock: Clock = Clock.System,
 ) {
     suspend fun effectuate(
         claim: InboxClaim,
@@ -40,13 +35,11 @@ class EffectuateDecision(
         transactionRunner.transaction {
             when (decision) {
                 is Decision.Processed -> {
-                    val now = clock.now()
-                    val deliveries = decision.deliveries.map { it.disabledWhenVisibilityPassed(now) }
-                    val key = deliveries.microfrontendKey()
+                    val key = decision.orderingKey()
                     if (key == null) {
-                        processed(claim, deliveries)
+                        processed(claim, decision.deliveries)
                     } else {
-                        processedMicrofrontend(claim, key, deliveries)
+                        processedInOrder(claim, key, decision)
                     }
                 }
 
@@ -78,39 +71,44 @@ class EffectuateDecision(
         return EffectuationResult.Completed
     }
 
-    private fun processedMicrofrontend(
+    private fun processedInOrder(
         claim: InboxClaim,
-        key: MicrofrontendKey,
-        deliveries: List<DeliveryDraft>,
+        key: OrderingKey,
+        decision: Decision.Processed,
     ): EffectuationResult {
         val command =
-            inboxMessageRepository.lockMicrofrontendCommandInTransaction(claim.eventId, key)
+            inboxMessageRepository.lockOrderedCommandInTransaction(claim.eventId, key)
                 ?: return EffectuationResult.Skipped
-        val result = processed(claim, deliveries)
+        val result = processed(claim, decision.deliveries)
         if (result == EffectuationResult.Skipped) {
             return result
         }
-        inboxMessageRepository.cancelPendingInTransaction(command.earlierScheduledDisables)
+        inboxMessageRepository.cancelPendingInTransaction(command.earlierScheduled)
 
-        val enableDraft = deliveries.firstOrNull { it.content is MicrofrontendEnable } ?: return result
-        val enable = enableDraft.content as MicrofrontendEnable
-        val visibleUntil = enable.visibleUntil
-        if (visibleUntil == null || command.laterCommandDecided) {
+        val scheduled = decision.scheduledDispatch()
+        if (scheduled == null || command.laterCommandDecided) {
             return result
         }
-        val horizon = command.receivedAt + SCHEDULED_DISABLE_HORIZON
+        return schedule(claim.eventId, command.receivedAt, scheduled)
+    }
+
+    private fun schedule(
+        sourceEventId: UUID,
+        sourceReceivedAt: Instant,
+        scheduled: ScheduledDispatch,
+    ): EffectuationResult {
+        val horizon = sourceReceivedAt + SCHEDULING_HORIZON
         inboxMessageRepository.saveDerivedInTransaction(
-            sourceEventId = claim.eventId,
-            message =
-                InboxMessage(
-                    eventId = scheduledDisableEventId(claim.eventId),
-                    reference = enableDraft.reference,
-                    content = MicrofrontendDisable(enable.personIdentifier, enable.microfrontendId),
-                ),
-            waitReason = SCHEDULED_DISABLE_WAIT_REASON,
-            notBefore = minOf(visibleUntil, horizon),
+            sourceEventId = sourceEventId,
+            message = InboxMessage(scheduledEventId(sourceEventId), scheduled.reference, scheduled.content),
+            waitReason = scheduled.waitReason,
+            notBefore = minOf(scheduled.notBefore, horizon),
         )
-        return if (visibleUntil > horizon) EffectuationResult.CompletedWithCappedScheduledDisable else result
+        return if (scheduled.notBefore > horizon) {
+            EffectuationResult.CompletedWithCappedSchedule
+        } else {
+            EffectuationResult.Completed
+        }
     }
 
     private fun Boolean.toResult(): EffectuationResult = if (this) EffectuationResult.Completed else EffectuationResult.Skipped
@@ -122,51 +120,27 @@ sealed interface EffectuationResult {
     data object Completed : EffectuationResult
 
     /**
-     * Completed, but `visibleUntil` lay beyond [SCHEDULED_DISABLE_HORIZON] after the command was
-     * received, so the disable was scheduled at the horizon instead.
+     * Completed, but the scheduled dispatch lay beyond [SCHEDULING_HORIZON] after the command was
+     * received, so it was scheduled at the horizon instead.
      */
-    data object CompletedWithCappedScheduledDisable : EffectuationResult
+    data object CompletedWithCappedSchedule : EffectuationResult
 
     /** The row left CLAIMED or a peer reclaimed it, so nothing was written. */
     data object Skipped : EffectuationResult
 }
 
-/** Wait reason of a scheduled disable derived from a microfrontend enable with `visibleUntil`. */
-internal const val SCHEDULED_DISABLE_WAIT_REASON = "SCHEDULED_DISABLE"
+/**
+ * Latest a scheduled dispatch may wake, measured from the source command's `received_at`. Retention
+ * deletes every inbox row 365 days after `received_at`, whatever its state, so a row scheduled later
+ * would be deleted before it wakes. 30 days of margin leave room for a stopped worker to catch up.
+ * The producer facade applies the same limit to `visibleUntil`.
+ */
+internal val SCHEDULING_HORIZON = 335.days
 
 /**
- * Latest a scheduled disable may fire, measured from the source command's `received_at`. Retention
- * deletes every inbox row 365 days after `received_at`, whatever its state, so a disable scheduled
- * later would be deleted before it fires. 30 days of margin leave room for a stopped worker to catch
- * up. The producer facade applies the same limit.
+ * Event id of the dispatch scheduled from [sourceEventId]. Deterministic, so a repeated decision
+ * finds the row it already wrote instead of scheduling twice. A changed suffix would let a repeated
+ * decision schedule a second row, so keep it.
  */
-internal val SCHEDULED_DISABLE_HORIZON = 335.days
-
-/**
- * Event id of the disable scheduled from the enable [sourceEventId]. Deterministic, so a repeated
- * decision finds the row it already wrote instead of scheduling a second disable.
- */
-internal fun scheduledDisableEventId(sourceEventId: UUID): UUID =
+internal fun scheduledEventId(sourceEventId: UUID): UUID =
     UUID.nameUUIDFromBytes((sourceEventId.toString() + "scheduled-disable").toByteArray())
-
-private fun List<DeliveryDraft>.microfrontendKey(): MicrofrontendKey? {
-    val keys =
-        mapNotNull { draft ->
-            (draft.content as? Microfrontend)?.let { MicrofrontendKey(it.personIdentifier, it.microfrontendId) }
-        }.toSet()
-    check(keys.size <= 1) { "A microfrontend decision must address a single microfrontend key" }
-    return keys.singleOrNull()
-}
-
-/** A `visibleUntil` that has already passed makes the enable an immediate disable. */
-private fun DeliveryDraft.disabledWhenVisibilityPassed(now: Instant): DeliveryDraft {
-    val enable = content as? MicrofrontendEnable ?: return this
-    val visibleUntil = enable.visibleUntil ?: return this
-    if (visibleUntil > now) {
-        return this
-    }
-    return copy(
-        operation = Operation.INACTIVATE,
-        content = MicrofrontendDisable(enable.personIdentifier, enable.microfrontendId),
-    )
-}

@@ -4,8 +4,8 @@ import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.MicrofrontendCommand
-import no.nav.budstikka.application.port.MicrofrontendKey
+import no.nav.budstikka.application.port.OrderedCommand
+import no.nav.budstikka.domain.decision.OrderingKey
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -42,11 +42,10 @@ class ThrowingMessageRepository : InboxMessageRepository {
         nextRetry: Instant,
     ): Boolean = true
 
-    override fun lockMicrofrontendCommandInTransaction(
+    override fun lockOrderedCommandInTransaction(
         eventId: UUID,
-        key: MicrofrontendKey,
-    ): MicrofrontendCommand =
-        MicrofrontendCommand(Instant.DISTANT_PAST, earlierScheduledDisables = emptyList(), laterCommandDecided = false)
+        key: OrderingKey,
+    ): OrderedCommand = OrderedCommand(Instant.DISTANT_PAST, earlierScheduled = emptyList(), laterCommandDecided = false)
 
     override fun cancelPendingInTransaction(eventIds: List<UUID>): Int = eventIds.size
 

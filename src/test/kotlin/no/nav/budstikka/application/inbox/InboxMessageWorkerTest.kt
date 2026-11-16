@@ -10,6 +10,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.testing.TestApplication
@@ -29,22 +30,26 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.MicrofrontendCommand
-import no.nav.budstikka.application.port.MicrofrontendKey
+import no.nav.budstikka.application.port.OrderedCommand
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.bootstrap.gateModule
 import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.MicrofrontendDisable
 import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DeathLookup
+import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.OrderingKey
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.domain.decision.SendingWindowGate
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
@@ -175,6 +180,15 @@ class InboxMessageWorkerTest :
             metrics.processedCount.get() shouldBe 2
             metrics.failedCount.get() shouldBe 0
             metrics.emptyPollCount.get() shouldBe 0
+        }
+
+        test("the application's rules decide an enable whose visibleUntil has passed as a disable") {
+            val enable = MicrofrontendEnable(TEST_SYKMELDT, "syfo-dialog", visibleUntil = Clock.System.now() - 1.days)
+
+            val decision = decisionProcess.process(Dispatch("ref", enable)).shouldBeInstanceOf<Decision.Processed>()
+
+            decision.deliveries.map { it.operation to it.content } shouldContainExactly
+                listOf(Operation.INACTIVATE to MicrofrontendDisable(TEST_SYKMELDT, "syfo-dialog"))
         }
 
         test("runOnce counts and warns when a scheduled disable is capped at the retention horizon") {
@@ -530,10 +544,10 @@ private class PollingInboxMessageRepository(
         return true
     }
 
-    override fun lockMicrofrontendCommandInTransaction(
+    override fun lockOrderedCommandInTransaction(
         eventId: UUID,
-        key: MicrofrontendKey,
-    ): MicrofrontendCommand = MicrofrontendCommand(Clock.System.now(), earlierScheduledDisables = emptyList(), laterCommandDecided = false)
+        key: OrderingKey,
+    ): OrderedCommand = OrderedCommand(Clock.System.now(), earlierScheduled = emptyList(), laterCommandDecided = false)
 
     override fun cancelPendingInTransaction(eventIds: List<UUID>): Int = eventIds.size
 

@@ -6,15 +6,15 @@ import no.nav.budstikka.application.retention.RetentionPolicy
 import java.util.UUID
 import kotlin.time.Duration.Companion.days
 
-class ScheduledDisableTest :
+class SchedulingTest :
     FunSpec({
         test("the horizon leaves 30 days of margin before retention deletes unprocessed inbox rows") {
-            SCHEDULED_DISABLE_HORIZON + 30.days shouldBe RetentionPolicy().inboxAbsoluteRetention
+            SCHEDULING_HORIZON + 30.days shouldBe RetentionPolicy().inboxAbsoluteRetention
         }
 
-        test("the scheduled disable event id is derived deterministically from the source event id") {
+        test("the scheduled event id is derived deterministically from the source event id") {
             val source = UUID.fromString("00000000-0000-0000-0000-0000000000d1")
 
-            scheduledDisableEventId(source) shouldBe UUID.fromString("3b988598-6ea9-3a75-a382-afea63e07a25")
+            scheduledEventId(source) shouldBe UUID.fromString("3b988598-6ea9-3a75-a382-afea63e07a25")
         }
     })

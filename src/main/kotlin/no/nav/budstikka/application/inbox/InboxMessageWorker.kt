@@ -67,7 +67,7 @@ class InboxMessageWorker(
                 return
             }
 
-            EffectuationResult.CompletedWithCappedScheduledDisable -> {
+            EffectuationResult.CompletedWithCappedSchedule -> {
                 metrics.scheduledDisableCapped()
                 logger.event(InboxLogEvents.scheduledDisableCapped)
             }

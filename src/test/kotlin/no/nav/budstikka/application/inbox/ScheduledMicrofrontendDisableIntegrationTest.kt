@@ -17,7 +17,6 @@ import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxMessage
-import no.nav.budstikka.application.port.MicrofrontendKey
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.contract.Dispatch
@@ -28,6 +27,9 @@ import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.OrderingKey
+import no.nav.budstikka.domain.decision.PassedVisibleUntilRule
+import no.nav.budstikka.domain.decision.SCHEDULED_DISABLE_WAIT_REASON
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
 import no.nav.budstikka.infrastructure.MutableClock
@@ -72,12 +74,11 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
         fun inbox() = PostgresInboxMessageRepository(fixture.database)
 
-        fun effectuator(clock: Clock = Clock.System) =
+        fun effectuator() =
             EffectuateDecision(
                 transactionRunner = PostgresTransactionRunner(fixture.database),
                 inboxMessageRepository = inbox(),
                 deliveryRepository = PostgresDeliveryRepository(fixture.database),
-                clock = clock,
             )
 
         // Whole seconds, so values survive the microsecond precision of timestamptz unchanged.
@@ -93,10 +94,10 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
         suspend fun decide(
             claimed: ClaimedInboxMessage,
-            effectuate: EffectuateDecision = effectuator(),
+            process: DecisionProcess = decisionProcess,
         ): EffectuationResult {
             val message = claimed.message
-            return effectuate.effectuate(claimed.claim, decisionProcess.process(Dispatch(message.reference, message.content)))
+            return effectuator().effectuate(claimed.claim, process.process(Dispatch(message.reference, message.content)))
         }
 
         suspend fun receiveAndDecide(
@@ -153,7 +154,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             scheduledDisables() shouldContainExactly
                 listOf(
                     InboxRow(
-                        eventId = scheduledDisableEventId(earlier),
+                        eventId = scheduledEventId(earlier),
                         reference = source.reference,
                         content = disable(),
                         state = "WAIT",
@@ -168,7 +169,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
         test("the scheduled disable wakes at visibleUntil and becomes an ordinary disable delivery") {
             receiveAndDecide(earlier, enable(inDays(1)))
-            val derived = scheduledDisableEventId(earlier)
+            val derived = scheduledEventId(earlier)
             update(derived, nextAttemptTime = Clock.System.now() - 1.seconds)
 
             val woken = claimAll().getValue(derived)
@@ -190,8 +191,8 @@ class ScheduledMicrofrontendDisableIntegrationTest :
                 receiveAndDecide(later, laterCommand) shouldBe EffectuationResult.Completed
 
                 scheduledDisables().map { it.eventId to it.state } shouldContainExactly
-                    listOf(scheduledDisableEventId(earlier) to "PROCESSED")
-                deliveries(scheduledDisableEventId(earlier)).shouldBeEmpty()
+                    listOf(scheduledEventId(earlier) to "PROCESSED")
+                deliveries(scheduledEventId(earlier)).shouldBeEmpty()
             }
         }
 
@@ -209,7 +210,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
         test("a later command cancels a scheduled disable that a worker has claimed but not decided") {
             receiveAndDecide(earlier, enable(inDays(1)))
-            val derived = scheduledDisableEventId(earlier)
+            val derived = scheduledEventId(earlier)
             update(derived, nextAttemptTime = Clock.System.now() - 1.seconds)
             val woken = claimAll().getValue(derived)
 
@@ -240,10 +241,10 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             val claims = claimAll()
 
             decide(claims.getValue(earlier))
-            row(scheduledDisableEventId(earlier))?.state shouldBe "WAIT"
+            row(scheduledEventId(earlier))?.state shouldBe "WAIT"
 
             decide(claims.getValue(later))
-            row(scheduledDisableEventId(earlier))?.state shouldBe "PROCESSED"
+            row(scheduledEventId(earlier))?.state shouldBe "PROCESSED"
         }
 
         test("an earlier command does not cancel the disable a later command scheduled") {
@@ -254,7 +255,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             decide(claims.getValue(later))
             decide(claims.getValue(earlier))
 
-            row(scheduledDisableEventId(later))?.state shouldBe "WAIT"
+            row(scheduledEventId(later))?.state shouldBe "WAIT"
         }
 
         test("within one ingest batch input order wins over reversed event ids when extending visibility") {
@@ -269,8 +270,8 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
             decide(claims.getValue(later))
             decide(claims.getValue(earlier))
-            row(scheduledDisableEventId(later))?.state shouldBe "PROCESSED"
-            row(scheduledDisableEventId(earlier))?.state shouldBe "WAIT"
+            row(scheduledEventId(later))?.state shouldBe "PROCESSED"
+            row(scheduledEventId(earlier))?.state shouldBe "WAIT"
         }
 
         test("an enable whose visibleUntil has passed is delivered as an immediate disable") {
@@ -278,32 +279,33 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             val now = inDays(0)
             receive(later, enable(visibleUntil = now))
 
-            decide(claimAll().getValue(later), effectuator(MutableClock(now))) shouldBe EffectuationResult.Completed
+            val rule = PassedVisibleUntilRule(MutableClock(now))
+            decide(claimAll().getValue(later), DecisionProcess(listOf(rule))) shouldBe EffectuationResult.Completed
 
             deliveries(later) shouldContainExactly listOf(Operation.INACTIVATE to disable())
-            row(scheduledDisableEventId(later)).shouldBeNull()
-            row(scheduledDisableEventId(earlier))?.state shouldBe "PROCESSED"
+            row(scheduledEventId(later)).shouldBeNull()
+            row(scheduledEventId(earlier))?.state shouldBe "PROCESSED"
         }
 
         test("visibleUntil exactly 335 days after receipt is scheduled as given") {
             val receivedAt = inDays(0)
-            val visibleUntil = receivedAt + SCHEDULED_DISABLE_HORIZON
+            val visibleUntil = receivedAt + SCHEDULING_HORIZON
             receive(earlier, enable(visibleUntil))
             update(earlier, receivedAt = receivedAt)
 
             decide(claimAll().getValue(earlier)) shouldBe EffectuationResult.Completed
 
-            row(scheduledDisableEventId(earlier))?.nextAttemptTime shouldBe visibleUntil
+            row(scheduledEventId(earlier))?.nextAttemptTime shouldBe visibleUntil
         }
 
         test("visibleUntil beyond 335 days after receipt is scheduled at the horizon") {
             val receivedAt = inDays(0)
-            receive(earlier, enable(receivedAt + SCHEDULED_DISABLE_HORIZON + 1.seconds))
+            receive(earlier, enable(receivedAt + SCHEDULING_HORIZON + 1.seconds))
             update(earlier, receivedAt = receivedAt)
 
-            decide(claimAll().getValue(earlier)) shouldBe EffectuationResult.CompletedWithCappedScheduledDisable
+            decide(claimAll().getValue(earlier)) shouldBe EffectuationResult.CompletedWithCappedSchedule
 
-            row(scheduledDisableEventId(earlier))?.nextAttemptTime shouldBe receivedAt + SCHEDULED_DISABLE_HORIZON
+            row(scheduledEventId(earlier))?.nextAttemptTime shouldBe receivedAt + SCHEDULING_HORIZON
         }
 
         test("a reclaimed lease or a repeated decision schedules the disable once") {
@@ -317,11 +319,11 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             decide(reclaimed) shouldBe EffectuationResult.Completed
             decide(reclaimed) shouldBe EffectuationResult.Skipped
 
-            scheduledDisables().map { it.eventId } shouldContainExactly listOf(scheduledDisableEventId(earlier))
+            scheduledDisables().map { it.eventId } shouldContainExactly listOf(scheduledEventId(earlier))
             fixture.database.transact {
                 inbox().saveDerivedInTransaction(
                     sourceEventId = earlier,
-                    message = InboxMessage(scheduledDisableEventId(earlier), "ref-$earlier", disable()),
+                    message = InboxMessage(scheduledEventId(earlier), "ref-$earlier", disable()),
                     waitReason = SCHEDULED_DISABLE_WAIT_REASON,
                     notBefore = inDays(1),
                 )
@@ -333,7 +335,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             receive(later, enable(inDays(2)))
             val claims = claimAll()
             val lockKey =
-                PostgresInboxMessageRepository.microfrontendLockKey(MicrofrontendKey(TEST_SYKMELDT, MICROFRONTEND_ID))
+                PostgresInboxMessageRepository.lockKey(OrderingKey.Microfrontend(TEST_SYKMELDT, MICROFRONTEND_ID))
 
             DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { holder ->
                 holder.autoCommit = false
@@ -357,7 +359,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
             // Whichever decision ran first, only the later enable's disable is pending.
             scheduledDisables().filter { it.state == "WAIT" }.map { it.sourceEventId } shouldContainExactly listOf(later)
-            (row(scheduledDisableEventId(earlier))?.state ?: "NOT_SCHEDULED") shouldBeIn
+            (row(scheduledEventId(earlier))?.state ?: "NOT_SCHEDULED") shouldBeIn
                 listOf("NOT_SCHEDULED", "PROCESSED")
         }
 

@@ -6,8 +6,8 @@ import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
-import no.nav.budstikka.application.port.MicrofrontendCommand
-import no.nav.budstikka.application.port.MicrofrontendKey
+import no.nav.budstikka.application.port.OrderedCommand
+import no.nav.budstikka.domain.decision.OrderingKey
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -216,13 +216,13 @@ class PostgresInboxMessageRepository(
             it[attempt] = 0
         } > 0
 
-    override fun lockMicrofrontendCommandInTransaction(
+    override fun lockOrderedCommandInTransaction(
         eventId: UUID,
-        key: MicrofrontendKey,
-    ): MicrofrontendCommand? {
+        key: OrderingKey,
+    ): OrderedCommand? {
         val connection = TransactionManager.current().connection.connection as Connection
         connection.prepareStatement(LOCK_KEY).use { statement ->
-            statement.setLong(1, microfrontendLockKey(key))
+            statement.setLong(1, lockKey(key))
             statement.executeQuery().use { result ->
                 check(result.next()) { "PostgreSQL advisory lock query returned no result" }
             }
@@ -252,9 +252,9 @@ class PostgresInboxMessageRepository(
                     result.getBoolean(1)
                 }
             }
-        return MicrofrontendCommand(
+        return OrderedCommand(
             receivedAt = receivedAt,
-            earlierScheduledDisables = locked - eventId,
+            earlierScheduled = locked - eventId,
             laterCommandDecided = laterCommandDecided,
         )
     }
@@ -300,10 +300,14 @@ class PostgresInboxMessageRepository(
 
     private fun PreparedStatement.setKey(
         index: Int,
-        key: MicrofrontendKey,
+        key: OrderingKey,
     ) {
-        setString(index, key.personIdentifier.value)
-        setString(index + 1, key.microfrontendId)
+        when (key) {
+            is OrderingKey.Microfrontend -> {
+                setString(index, key.personIdentifier.value)
+                setString(index + 1, key.microfrontendId)
+            }
+        }
     }
 
     private fun terminate(
@@ -336,6 +340,7 @@ class PostgresInboxMessageRepository(
             "(SELECT c.received_at, COALESCE(c.source_event_id, c.event_id) FROM inbox_message c WHERE c.event_id = ?)"
 
         // Matches the expressions of inbox_message_microfrontend_key_idx, so the index serves the lookup.
+        // OrderingKey.Microfrontend is the only key; another key type needs its own match and index.
         private const val KEY_MATCH = "(m.content ->> 'personIdentifier') = ? AND (m.content ->> 'microfrontendId') = ?"
 
         private val LOCK_COMMAND_AND_EARLIER_SCHEDULED_DISABLES =
@@ -367,12 +372,13 @@ class PostgresInboxMessageRepository(
          * Hashes the key into PostgreSQL's single-bigint advisory lock space, which is separate from
          * the two-integer space retention uses. A collision only serialises two unrelated keys.
          */
-        internal fun microfrontendLockKey(key: MicrofrontendKey): Long =
-            ByteBuffer
-                .wrap(
-                    MessageDigest
-                        .getInstance("SHA-256")
-                        .digest("budstikka:microfrontend:${key.personIdentifier.value}:${key.microfrontendId}".toByteArray()),
-                ).long
+        internal fun lockKey(key: OrderingKey): Long {
+            val name =
+                when (key) {
+                    is OrderingKey.Microfrontend ->
+                        "budstikka:microfrontend:${key.personIdentifier.value}:${key.microfrontendId}"
+                }
+            return ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(name.toByteArray())).long
+        }
     }
 }
