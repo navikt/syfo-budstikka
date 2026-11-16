@@ -22,7 +22,7 @@ erDiagram
         timestamptz processed_at "nullable"
         text        error_message "nullable"
         text        wait_reason "nullable (sendevindu-hold ADR 0014, SCHEDULED_DISABLE ADR 0018)"
-        uuid        source_event_id "nullable; satt kun på avledede rader (ADR 0018)"
+        uuid        source_event_id "nullable; satt kun på planlagte disables (ADR 0018)"
     }
 
     delivery {
@@ -147,10 +147,10 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
   (virksomheten for arbeidsgivervarsel), ikke lederens fødselsnummer.
 
 - **Microfrontend (ADR 0018):** Før CAS tar effektueringen en advisory-lås per
-  `(sykmeldt, microfrontendId)` og låser deretter raden og ventende avledede disables fra
+  `(sykmeldt, microfrontendId)` og låser deretter raden og ventende planlagte disables fra
   eldre kommandoer, sortert på `(received_at, event_id)` som i oppbevaringsjobben. I samme
   transaksjon settes de ventende radene til `PROCESSED` (kansellering). En enable med
-  `visibleUntil` skriver en avledet rad med `MicrofrontendDisable` i `WAIT` til
+  `visibleUntil` skriver en egen rad med `MicrofrontendDisable` i `WAIT` til
   `visibleUntil` (`insert ... on conflict do nothing`). Det skjer ikke hvis en nyere
   kommando for nøkkelen allerede er besluttet.
 
@@ -181,7 +181,7 @@ RECEIVED -> CLAIMED -> PROCESSED
                    -> FAILED
                    -> WAIT       (utenfor sendevindu, ADR 0014)
 
-(ny avledet rad)   -> WAIT       (planlagt disable, ADR 0018)
+(ny rad)           -> WAIT       (planlagt disable, ADR 0018)
 
 CLAIMED -> CLAIMED   (lease utløpt, kan re-claimes)
 WAIT    -> CLAIMED   (sendevindu åpnet eller visibleUntil nådd: next_attempt_time passert)
@@ -242,7 +242,7 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   klient-side v4). Tidssortering gir B-tree-lokalitet og støtter alders-basert
   retensjons-`DELETE`.
 - `event_id` settes av produsenten (Kafka-headeren i kontrakten), aldri av
-  budstikkas database. Unntaket er avledede rader: der avleder Budstikka `event_id`
+  budstikkas database. Unntaket er planlagte disables: der utleder Budstikka `event_id`
   deterministisk fra kildens (ADR 0018).
 
 ## Observability-koblinger
