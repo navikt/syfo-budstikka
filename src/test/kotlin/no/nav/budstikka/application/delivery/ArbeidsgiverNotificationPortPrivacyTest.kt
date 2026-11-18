@@ -52,6 +52,7 @@ class ArbeidsgiverNotificationPortPrivacyTest :
                 ArbeidsgiverNotificationRequest(
                     virksomhetsnummer = "123456789",
                     eksternId = "external-id",
+                    correlationId = "technical-event-id",
                     grupperingsid = "grouping-id",
                     tag = "sensitive-tag",
                     tekst = notificationText,
