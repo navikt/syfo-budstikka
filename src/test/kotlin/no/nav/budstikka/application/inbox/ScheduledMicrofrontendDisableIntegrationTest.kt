@@ -274,6 +274,55 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             row(scheduledEventId(earlier))?.state shouldBe "WAIT"
         }
 
+        suspend fun receiveAtSameInstant(
+            earlierCommand: DispatchContent,
+            laterCommand: DispatchContent,
+        ): Map<UUID, ClaimedInboxMessage> {
+            receive(earlier, earlierCommand)
+            receive(later, laterCommand)
+            val receivedAt = inDays(0)
+            update(earlier, receivedAt = receivedAt)
+            update(later, receivedAt = receivedAt)
+            return claimAll()
+        }
+
+        test("a later command received at the same instant cancels the earlier schedule by event id") {
+            val claims = receiveAtSameInstant(enable(inDays(1)), disable())
+
+            decide(claims.getValue(earlier))
+            row(scheduledEventId(earlier))?.state shouldBe "WAIT"
+
+            decide(claims.getValue(later))
+            row(scheduledEventId(earlier))?.state shouldBe "PROCESSED"
+        }
+
+        test("an earlier enable received at the same instant as a decided later command schedules nothing") {
+            val claims = receiveAtSameInstant(enable(inDays(1)), disable())
+
+            decide(claims.getValue(later))
+            decide(claims.getValue(earlier))
+
+            scheduledDisables().shouldBeEmpty()
+        }
+
+        test("an earlier command received at the same instant does not cancel the later schedule") {
+            val claims = receiveAtSameInstant(enable(), enable(inDays(1)))
+
+            decide(claims.getValue(later))
+            decide(claims.getValue(earlier))
+
+            row(scheduledEventId(later))?.state shouldBe "WAIT"
+        }
+
+        test("a later enable received at the same instant as a decided earlier command is scheduled") {
+            val claims = receiveAtSameInstant(disable(), enable(inDays(1)))
+
+            decide(claims.getValue(earlier))
+            decide(claims.getValue(later))
+
+            row(scheduledEventId(later))?.state shouldBe "WAIT"
+        }
+
         test("an enable whose visibleUntil has passed is delivered as an immediate disable") {
             receiveAndDecide(earlier, enable(inDays(1)))
             val now = inDays(0)

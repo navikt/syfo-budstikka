@@ -3,8 +3,10 @@ package no.nav.budstikka.infrastructure.database.dispatch
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.CustomOperator
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.TextColumnType
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.java.javaUUID
@@ -49,6 +51,12 @@ object InboxMessageTable : Table("inbox_message") {
             filterCondition = { contentText("microfrontendId").isNotNull() },
         )
     }
+
+    /** Rows for this microfrontend, matched on the expressions of the microfrontend key index. */
+    fun microfrontendIs(
+        personIdentifier: String,
+        microfrontendId: String,
+    ): Op<Boolean> = (contentText("personIdentifier") eq personIdentifier) and (contentText("microfrontendId") eq microfrontendId)
 
     /** `content ->> 'field'`, the expression the microfrontend key index is built on. */
     private fun contentText(field: String) = CustomOperator<String>("->>", TextColumnType(), content, stringLiteral(field))

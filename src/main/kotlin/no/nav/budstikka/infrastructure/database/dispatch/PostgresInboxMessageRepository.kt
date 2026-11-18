@@ -9,12 +9,16 @@ import no.nav.budstikka.application.port.InboxMessageRepository
 import no.nav.budstikka.application.port.OrderedCommand
 import no.nav.budstikka.domain.decision.OrderingKey
 import no.nav.budstikka.infrastructure.database.config.transact
+import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
@@ -29,7 +33,6 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.sql.Connection
-import java.sql.PreparedStatement
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -220,6 +223,17 @@ class PostgresInboxMessageRepository(
         eventId: UUID,
         key: OrderingKey,
     ): OrderedCommand? {
+        lockKeyInTransaction(key)
+        val position = ingestPosition(eventId) ?: return null
+        val locked = lockCommandAndEarlierScheduled(eventId, key, position)
+        return OrderedCommand(
+            receivedAt = position.receivedAt,
+            earlierScheduled = locked - eventId,
+            laterCommandDecided = laterCommandDecided(key, position),
+        )
+    }
+
+    private fun lockKeyInTransaction(key: OrderingKey) {
         val connection = TransactionManager.current().connection.connection as Connection
         connection.prepareStatement(LOCK_KEY).use { statement ->
             statement.setLong(1, lockKey(key))
@@ -227,37 +241,78 @@ class PostgresInboxMessageRepository(
                 check(result.next()) { "PostgreSQL advisory lock query returned no result" }
             }
         }
-        val receivedAt =
-            InboxMessageTable
-                .select(InboxMessageTable.receivedAt)
-                .where { InboxMessageTable.eventId eq eventId }
-                .singleOrNull()
-                ?.get(InboxMessageTable.receivedAt)
-                ?: return null
-        val locked =
-            connection.prepareStatement(LOCK_COMMAND_AND_EARLIER_SCHEDULED_DISABLES).use { statement ->
-                statement.setObject(1, eventId)
-                statement.setKey(2, key)
-                statement.setObject(4, eventId)
-                statement.executeQuery().use { result ->
-                    buildList { while (result.next()) add(result.getObject(1, UUID::class.java)) }
-                }
-            }
-        val laterCommandDecided =
-            connection.prepareStatement(LATER_COMMAND_DECIDED).use { statement ->
-                statement.setKey(1, key)
-                statement.setObject(3, eventId)
-                statement.executeQuery().use { result ->
-                    check(result.next()) { "EXISTS query returned no result" }
-                    result.getBoolean(1)
-                }
-            }
-        return OrderedCommand(
-            receivedAt = receivedAt,
-            earlierScheduled = locked - eventId,
-            laterCommandDecided = laterCommandDecided,
-        )
     }
+
+    /** A row's place in ingest order. A scheduled row takes the place of the command it came from. */
+    private data class IngestPosition(
+        val receivedAt: Instant,
+        val commandEventId: UUID,
+    )
+
+    private fun ingestPosition(eventId: UUID): IngestPosition? =
+        InboxMessageTable
+            .select(InboxMessageTable.receivedAt, InboxMessageTable.sourceEventId)
+            .where { InboxMessageTable.eventId eq eventId }
+            .singleOrNull()
+            ?.let { IngestPosition(it[InboxMessageTable.receivedAt], it[InboxMessageTable.sourceEventId] ?: eventId) }
+
+    /** Locks the command row and the scheduled rows it may cancel. */
+    private fun lockCommandAndEarlierScheduled(
+        eventId: UUID,
+        key: OrderingKey,
+        position: IngestPosition,
+    ): List<UUID> =
+        InboxMessageTable
+            .select(InboxMessageTable.eventId)
+            .where { (InboxMessageTable.eventId eq eventId) or (key.matches() and scheduledBefore(position)) }
+            .orderBy(
+                InboxMessageTable.receivedAt to SortOrder.ASC,
+                InboxMessageTable.eventId to SortOrder.ASC,
+            ).forUpdate()
+            .map { it[InboxMessageTable.eventId] }
+
+    private fun laterCommandDecided(
+        key: OrderingKey,
+        position: IngestPosition,
+    ): Boolean =
+        !InboxMessageTable
+            .select(InboxMessageTable.eventId)
+            .where { key.matches() and commandDecidedAfter(position) }
+            .empty()
+
+    /** Rows that change this key. Another key type needs its own match and index. */
+    private fun OrderingKey.matches(): Op<Boolean> =
+        when (this) {
+            is OrderingKey.Microfrontend -> InboxMessageTable.microfrontendIs(personIdentifier.value, microfrontendId)
+        }
+
+    /** Scheduled rows not yet decided whose command came before [position]. */
+    private fun scheduledBefore(position: IngestPosition): Op<Boolean> =
+        InboxMessageTable.sourceEventId.isNotNull() and
+            (InboxMessageTable.state inList listOf(InboxMessageState.WAIT.name, InboxMessageState.CLAIMED.name)) and
+            ingestedBefore(InboxMessageTable.sourceEventId, position)
+
+    /** Commands already decided that came after [position]. */
+    private fun commandDecidedAfter(position: IngestPosition): Op<Boolean> =
+        InboxMessageTable.sourceEventId.isNull() and
+            (InboxMessageTable.state eq InboxMessageState.PROCESSED.name) and
+            ingestedAfter(InboxMessageTable.eventId, position)
+
+    /** `(received_at, commandEventId) < position`: ingest order, with the command's event id breaking ties. */
+    private fun <S : UUID?> ingestedBefore(
+        commandEventId: ExpressionWithColumnType<S>,
+        position: IngestPosition,
+    ): Op<Boolean> =
+        (InboxMessageTable.receivedAt less position.receivedAt) or
+            ((InboxMessageTable.receivedAt eq position.receivedAt) and (commandEventId less position.commandEventId))
+
+    /** `(received_at, commandEventId) > position`: ingest order, with the command's event id breaking ties. */
+    private fun <S : UUID?> ingestedAfter(
+        commandEventId: ExpressionWithColumnType<S>,
+        position: IngestPosition,
+    ): Op<Boolean> =
+        (InboxMessageTable.receivedAt greater position.receivedAt) or
+            ((InboxMessageTable.receivedAt eq position.receivedAt) and (commandEventId greater position.commandEventId))
 
     override fun cancelPendingInTransaction(eventIds: List<UUID>): Int {
         if (eventIds.isEmpty()) {
@@ -298,18 +353,6 @@ class PostgresInboxMessageRepository(
             }.insertedCount > 0
     }
 
-    private fun PreparedStatement.setKey(
-        index: Int,
-        key: OrderingKey,
-    ) {
-        when (key) {
-            is OrderingKey.Microfrontend -> {
-                setString(index, key.personIdentifier.value)
-                setString(index + 1, key.microfrontendId)
-            }
-        }
-    }
-
     private fun terminate(
         claim: InboxClaim,
         state: InboxMessageState,
@@ -334,39 +377,6 @@ class PostgresInboxMessageRepository(
             listOf(InboxMessageState.RECEIVED.name, InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)
 
         private const val LOCK_KEY = "SELECT pg_advisory_xact_lock(?)"
-
-        // A scheduled disable takes its source command's place in ingest order.
-        private const val COMMAND_POSITION =
-            "(SELECT c.received_at, COALESCE(c.source_event_id, c.event_id) FROM inbox_message c WHERE c.event_id = ?)"
-
-        // Matches the expressions of inbox_message_microfrontend_key_idx, so the index serves the lookup.
-        // OrderingKey.Microfrontend is the only key; another key type needs its own match and index.
-        private const val KEY_MATCH = "(m.content ->> 'personIdentifier') = ? AND (m.content ->> 'microfrontendId') = ?"
-
-        private val LOCK_COMMAND_AND_EARLIER_SCHEDULED_DISABLES =
-            """
-            SELECT m.event_id
-            FROM inbox_message m
-            WHERE m.event_id = ?
-               OR ($KEY_MATCH
-                   AND m.source_event_id IS NOT NULL
-                   AND m.state IN ('${InboxMessageState.WAIT.name}', '${InboxMessageState.CLAIMED.name}')
-                   AND (m.received_at, m.source_event_id) < $COMMAND_POSITION)
-            ORDER BY m.received_at, m.event_id
-            FOR UPDATE OF m
-            """.trimIndent()
-
-        private val LATER_COMMAND_DECIDED =
-            """
-            SELECT EXISTS (
-                SELECT 1
-                FROM inbox_message m
-                WHERE $KEY_MATCH
-                  AND m.source_event_id IS NULL
-                  AND m.state = '${InboxMessageState.PROCESSED.name}'
-                  AND (m.received_at, m.event_id) > $COMMAND_POSITION
-            )
-            """.trimIndent()
 
         /**
          * Hashes the key into PostgreSQL's single-bigint advisory lock space, which is separate from
