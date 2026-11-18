@@ -91,8 +91,9 @@ erDiagram
   Ikke-terminale rader (`RECEIVED`/`CLAIMED`/`WAIT`) beholdes til de er ferdig behandlet,
   men aldri lenger enn 365 dager etter `received_at` (absolutt grense for personopplysninger).
   En planlagt disable arver kildens `received_at` og fyrer senest 335 dager etter den,
-  altså minst 30 dager før grensen (ADR 0018).
-  Rader som slettes ved denne grensen mens de fortsatt er ubehandlet, telles i
+  altså minst 30 dager før grensen (ADR 0018). Kilden beholdes så lenge planen venter (fortsatt
+  høyst 365 dager), slik at en gjentatt melding med samme `EventId` fortsatt avvises som duplikat.
+  Rader som slettes ved 365-dagersgrensen mens de fortsatt er ubehandlet, telles i
   `retention.cleanup.inbox.unprocessed.deleted` og logges på WARN-nivå med kun antall.
   `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager; DL bærer rå payload m/fnr og må ha samme slette-disiplin.
@@ -222,6 +223,7 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `inbox_message_received_at_event_id_idx` på `(received_at, event_id)`
+- `inbox_message_source_event_id_idx` på `(source_event_id)` der `source_event_id IS NOT NULL`
 - `inbox_message_microfrontend_key_idx` på `((content ->> 'personIdentifier'), (content ->> 'microfrontendId'))`
   der `(content ->> 'microfrontendId') IS NOT NULL`
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`

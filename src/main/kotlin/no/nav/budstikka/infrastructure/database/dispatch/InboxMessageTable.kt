@@ -45,6 +45,12 @@ object InboxMessageTable : Table("inbox_message") {
         index("inbox_message_state_next_attempt_time_idx", false, state, nextAttemptTime)
         index("inbox_message_received_at_event_id_idx", false, receivedAt, eventId)
         index(
+            "inbox_message_source_event_id_idx",
+            false,
+            sourceEventId,
+            filterCondition = { sourceEventId.isNotNull() },
+        )
+        index(
             "inbox_message_microfrontend_key_idx",
             false,
             functions = listOf(contentText("personIdentifier"), contentText("microfrontendId")),

@@ -15,8 +15,9 @@ fortsatt betyr en fryst utsending som skal skje, og fordi kansellering kan
 bruke samme overgang som FERDIGSTILL uten en ny kansellert leveransetilstand
 (ADR 0014). Vi valgte bort en synlighetstabell med egen forlengelsesoperasjon,
 slik esyfovarsel har, fordi den gir en ny kontraktoperasjon og en tilstand som
-konkurrerer med TMS. Kostnaden er at ikke-terminale inbox-meldinger må unntas
-fra ordinær sletting, og at beslutninger for samme nøkkel må serialiseres.
+konkurrerer med TMS. Kostnaden er at ikke-terminale inbox-meldinger og kildene til
+ventende planer må unntas fra ordinær sletting, og at beslutninger for samme
+nøkkel må serialiseres.
 
 Kanselleringen gjelder bare planer som ennå ikke er blitt leveranser.
 Rekkefølgen mellom leveranser, også ved retry, følges i

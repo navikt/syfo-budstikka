@@ -8,11 +8,16 @@ import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -66,9 +71,10 @@ class PostgresRetentionRepository(
 
     /**
      * Deletes inbox messages received before [eligibleStateCutoff] whose state is in
-     * [RetentionPolicy.eligibleInboxStates], plus messages received before [anyStateCutoff]
-     * regardless of state. The second cutoff lets stuck, unprocessed messages expire eventually;
-     * those deletions are reported separately as `unprocessed`.
+     * [RetentionPolicy.eligibleInboxStates] and that no waiting scheduled row still needs, plus
+     * messages received before [anyStateCutoff] regardless of state. The second cutoff lets stuck,
+     * unprocessed messages expire eventually; those deletions are reported separately as
+     * `unprocessed`.
      */
     private fun deleteOldInboxMessages(
         eligibleStateCutoff: kotlin.time.Instant,
@@ -81,7 +87,7 @@ class PostgresRetentionRepository(
                 .where {
                     (InboxMessageTable.receivedAt less eligibleStateCutoff) and
                         (
-                            (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) or
+                            ((InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and noPendingScheduled()) or
                                 (InboxMessageTable.receivedAt less anyStateCutoff)
                         )
                 }.orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
@@ -94,6 +100,22 @@ class PostgresRetentionRepository(
         return InboxDeletionCounts(
             total = deleted,
             unprocessed = candidates.count { (_, state) -> state !in policy.eligibleInboxStates },
+        )
+    }
+
+    /**
+     * No scheduled row derived from this inbox row still waits. The source is kept until then, so a
+     * producer retry with the same event id is still a duplicate and cannot cancel the plan.
+     */
+    private fun noPendingScheduled(): Op<Boolean> {
+        val scheduled = InboxMessageTable.alias("scheduled")
+        return notExists(
+            scheduled
+                .select(scheduled[InboxMessageTable.eventId])
+                .where {
+                    (scheduled[InboxMessageTable.sourceEventId] eq InboxMessageTable.eventId) and
+                        (scheduled[InboxMessageTable.state] inList PENDING_SCHEDULED_STATES)
+                },
         )
     }
 
@@ -139,5 +161,7 @@ class PostgresRetentionRepository(
         internal const val RETENTION_CLEANUP_LOCK_KEY = 0x5245544e
 
         private const val TRY_ADVISORY_LOCK = "SELECT pg_try_advisory_xact_lock(?, ?)"
+
+        private val PENDING_SCHEDULED_STATES = listOf(InboxMessageState.WAIT.name, InboxMessageState.CLAIMED.name)
     }
 }

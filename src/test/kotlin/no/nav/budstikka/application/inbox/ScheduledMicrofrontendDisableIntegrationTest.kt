@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -17,6 +18,8 @@ import no.nav.budstikka.application.delivery.DeliveryWorker
 import no.nav.budstikka.application.delivery.MicrofrontendChannelHandler
 import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxMessage
+import no.nav.budstikka.application.retention.RetentionPolicy
+import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.contract.Dispatch
@@ -36,10 +39,13 @@ import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.PostgresTransactionRunner
 import no.nav.budstikka.infrastructure.database.config.transact
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
+import no.nav.budstikka.infrastructure.database.retention.PostgresRetentionRepository
+import no.nav.budstikka.infrastructure.database.retention.RepositoryTestSupport
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -142,6 +148,43 @@ class ScheduledMicrofrontendDisableIntegrationTest :
                 receivedAt?.let { value -> it[InboxMessageTable.receivedAt] = value }
                 nextAttemptTime?.let { value -> it[InboxMessageTable.nextAttemptTime] = value }
             }
+        }
+
+        suspend fun runRetention() =
+            RepositoryTestSupport
+                .exclusiveCleanup { PostgresRetentionRepository(fixture.database, RetentionPolicy()).run(100) }
+                .shouldBeInstanceOf<RetentionResult.Completed>()
+
+        // An enable received 101 days ago, decided and delivered, so only its scheduled disable is pending.
+        suspend fun decideOldEnable(visibleUntil: Instant) {
+            receive(earlier, enable(visibleUntil))
+            update(earlier, receivedAt = inDays(-101))
+            decide(claimAll().getValue(earlier)) shouldBe EffectuationResult.Completed
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.inboxEventId eq earlier }) { it[state] = DeliveryState.SENT.name }
+            }
+        }
+
+        test("retention keeps the source of a waiting disable, so a producer retry stays a duplicate") {
+            val visibleUntil = inDays(10)
+            decideOldEnable(visibleUntil)
+
+            runRetention()
+            receive(earlier, enable(visibleUntil))
+
+            row(earlier)?.state shouldBe "PROCESSED"
+            claimAll().keys.shouldBeEmpty()
+            scheduledDisables().map { it.state to it.nextAttemptTime } shouldContainExactly listOf("WAIT" to visibleUntil)
+        }
+
+        test("retention removes the source once its scheduled disable is done") {
+            decideOldEnable(inDays(10))
+            receiveAndDecide(later, disable())
+
+            runRetention()
+
+            row(earlier).shouldBeNull()
+            row(scheduledEventId(earlier)).shouldBeNull()
         }
 
         test("an enable with visibleUntil schedules one disable that waits until visibleUntil") {
