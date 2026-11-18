@@ -41,6 +41,26 @@ opprettelse og lukking, og begge operasjonene må bruke samme `reference` og `sy
 Dette er Budstikkas additive producer-API. Flexs eksisterende Kafka-kontrakt på
 `flex.ditt-sykefravaer-melding` eies fortsatt av `ditt-sykefravaer-backend`.
 
+## Sendevindu
+
+`brukervarselCreate` og `arbeidsgivervarselCreate` bruker som standard
+`BUDSTIKKA_OPENING_HOURS`: mandag til fredag fra kl. 09.00 til kl. 20.00 norsk tid,
+unntatt helligdager og julaften. Utenfor vinduet holder Budstikka varselet til vinduet
+åpner igjen. `dineSykmeldteVarselCreate` bruker som standard `ONGOING` og sendes med en
+gang, men kan velge `BUDSTIKKA_OPENING_HOURS`.
+
+Budstikka sjekker vinduet på nytt rett før varselet leveres. Faller et forsinket varsel
+eller et nytt forsøk utenfor vinduet, venter det til neste åpning. Ventetiden teller ikke
+som et mislykket forsøk.
+
+Lukking, mikrofrontend, kalenderavtaler og brev, også reservebrev, har ikke sendevindu og
+sendes med en gang. Når Min side har mottatt varselet, bestemmer Min side når SMS og
+e-post går ut. Min side [revarsler oppgaver automatisk](https://tms-docs.nav.no/varsler/start/#revarsling)
+og kan samle eksterne varsler.
+
+Ferdigstiller produsenten et varsel som venter på vinduet, blir varselet likevel sendt når
+vinduet åpner. Dette følges opp i [#26](https://github.com/navikt/syfo-budstikka/issues/26).
+
 ## Opprett og lukk
 
 `reference` er produsentens egen kobling mellom en opprettelse og en senere lukking. Velg en stabil,

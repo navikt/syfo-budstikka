@@ -111,7 +111,8 @@ kan jobbe parallelt uten dobbelt-claim:
 1. Les kandidater med `FOR UPDATE SKIP LOCKED`.
 2. Velg både nye rader og utløpte claims:
    - inbox: `state=RECEIVED` eller `state=CLAIMED and next_attempt_time <= now`
-   - delivery: `state=READY` eller `state=CLAIMED and next_attempt_time <= now`
+   - delivery: `state=READY` med tom eller passert `next_attempt_time`, eller
+     `state=CLAIMED and next_attempt_time <= now`
 3. Sorter deterministisk (`received_at`/`created_at`, deretter ID) og `LIMIT batchSize`.
 4. Oppdater de valgte radene i samme transaksjon: `state = CLAIMED`,
    `next_attempt_time = now + lease` og en ny `claim_token` per batch. Claim rører
@@ -190,15 +191,20 @@ READY -> CLAIMED -> SENT
                 -> FAILED
 
 CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
+CLAIMED -> READY   (utenfor sendevindu, venter til next_attempt_time)
 ```
 
 - Delivery-worker claimer bare kanaler den har `ChannelHandler` for
   (claim filtrerer på `handlers.keys`).
-- `beginAttempt`, `markSent` og `markFailed` er compare-and-set på `CLAIMED` og
+- `beginAttempt`, utsettelse, `markSent` og `markFailed` er compare-and-set på `CLAIMED` og
   `claim_token`. En re-claim skriver et nytt token, så en utløpt worker treffer ingen rad.
   Overganger ut av `CLAIMED` nullstiller tokenet.
 - `attempt` spanderes av `beginAttempt` rett før handleren kalles, ikke ved claim.
   Manglende handler er en konfigurasjonsfeil og brenner ikke et forsøk.
+- Sendevinduet kontrolleres før hvert leveringsforsøk. Utsettelse til neste åpning
+  beholder `attempt`, frigir claimet og setter `READY` med fremtidig `next_attempt_time`.
+  Utsettelsene telles i `delivery_postponed_total{channel}`. Købildet viser dem som
+  `WAITING` frem til åpning; deretter regnes `DUE`-alderen fra åpningstidspunktet.
 
 ## Indekser
 

@@ -10,7 +10,7 @@ import kotlin.time.Instant
 object BudstikkaSendingWindowLookup {
     private val openingHours =
         openingHours {
-            closedOn(DayOfWeek.SUNDAY)
+            closedOn(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
             closedOnRodeDager()
             closedOn(Month.DECEMBER, 24, "Julaften")
             open(LocalTime(9, 0), LocalTime(20, 0))

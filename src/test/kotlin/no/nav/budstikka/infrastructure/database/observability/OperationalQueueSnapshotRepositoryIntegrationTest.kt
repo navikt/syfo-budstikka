@@ -77,6 +77,17 @@ class OperationalQueueSnapshotRepositoryIntegrationTest :
                 )
         }
 
+        test("a postponed delivery is expected waiting and becomes due at its scheduled time") {
+            val createdAt = observedAt - 24.hours
+            val nextAttempt = observedAt + 1.hours
+            fixture.insertDelivery(Channel.BRUKERVARSEL, DeliveryState.READY, createdAt, nextAttempt)
+
+            repository.snapshot(observedAt).deliveries.mapKeys { it.key.state.name } shouldContainExactly
+                mapOf("WAITING" to QueueStats(1, createdAt))
+            repository.snapshot(nextAttempt).deliveries shouldContainExactly
+                mapOf(DeliveryQueueKey(Channel.BRUKERVARSEL, DeliveryQueueState.DUE) to QueueStats(1, nextAttempt))
+        }
+
         test("returns no groups when there is no active work") {
             val snapshot = repository.snapshot(observedAt)
 
