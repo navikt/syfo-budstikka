@@ -19,16 +19,26 @@ import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
  * has already waited for budstikka's delivery window. A requested external notification without a
  * leader email fails the entire delivery terminally; it does not degrade to in-app only. With a
  * sakstype, the notification goes in the Budstikka-owned sak of that type for the recipient; without
- * one, it keeps the producer's tag and optional sak link. Closing remains a permanent failure.
+ * one, it keeps the producer's tag and optional sak link. Closing deletes the notification by its
+ * merkelapp and eksternId, without recipient lookups or sak changes.
  */
 class ArbeidsgivervarselChannelHandler(
     private val publisher: ArbeidsgiverNotificationPublisher,
     private val saker: Arbeidsgiversaker,
     private val legacySnapshots: LegacyDeliverySnapshotResolver,
 ) : ChannelHandler {
+    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome =
+        when (val content = delivery.payload) {
+            is ArbeidsgivervarselCreate -> send(delivery, content)
+            is ArbeidsgivervarselInactivate -> delete(delivery, content)
+            else -> payloadFailure(delivery)
+        }
+
     /** Validates the notification, finds its recipient, makes sure the sak exists, and sends it there. */
-    override suspend fun handle(delivery: ClaimedDelivery): DeliveryOutcome {
-        val create = delivery.payload as? ArbeidsgivervarselCreate ?: return payloadFailure(delivery)
+    private suspend fun send(
+        delivery: ClaimedDelivery,
+        create: ArbeidsgivervarselCreate,
+    ): DeliveryOutcome {
         create.invalidReason()?.let { return DeliveryOutcome.Failed("${CHANNEL.name} $it") }
 
         val snapshot =
@@ -80,20 +90,37 @@ class ArbeidsgivervarselChannelHandler(
         return saker.setStatus(CHANNEL, sak, status, delivery.correlationId()) ?: outcome
     }
 
+    /** Deletes the notification the close addresses, without recipient lookups or sak changes. */
+    private suspend fun delete(
+        delivery: ClaimedDelivery,
+        close: ArbeidsgivervarselInactivate,
+    ): DeliveryOutcome {
+        val sakstype = close.sakstype ?: return DeliveryOutcome.Failed("${CHANNEL.name} closing requires a sakstype")
+        if (close.reference.isBlank() || close.reference != delivery.reference) {
+            return DeliveryOutcome.Failed("${CHANNEL.name} closing reference is invalid")
+        }
+        // An invalid organisation number would find no notification and look closed, so it fails instead.
+        if (close.orgnummer.value.length != 9 || !close.orgnummer.value.all(Char::isDigit)) {
+            return DeliveryOutcome.Failed("${CHANNEL.name} closing orgnummer is invalid")
+        }
+        val request =
+            ArbeidsgiverNotificationDeleteRequest(
+                eksternId = referenceNotificationId(close.orgnummer, close.reference),
+                tag = sakstype.merkelapp,
+                correlationId = delivery.correlationId(),
+            )
+        return withChannelHandlerFailureContext(CHANNEL, "deleting notification") {
+            publisher.delete(request)
+        }.toDeliveryOutcome(CHANNEL)
+    }
+
     private suspend fun publish(request: ArbeidsgiverNotificationRequest): ArbeidsgiverNotificationResponse =
         withChannelHandlerFailureContext(CHANNEL, "publishing notification") {
             publisher.publish(request)
         }
 
     private fun payloadFailure(delivery: ClaimedDelivery): DeliveryOutcome =
-        when (delivery.payload) {
-            is ArbeidsgivervarselInactivate ->
-                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL inactivate is not implemented")
-            else ->
-                DeliveryOutcome.Failed(
-                    "Payload does not match ARBEIDSGIVERVARSEL channel: ${delivery.payload::class.simpleName}",
-                )
-        }
+        DeliveryOutcome.Failed("Payload does not match ARBEIDSGIVERVARSEL channel: ${delivery.payload::class.simpleName}")
 }
 
 /** Where the notification goes, and the sak it belongs to when it has a sakstype. */
