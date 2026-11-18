@@ -97,14 +97,14 @@ class EffectuateDecision(
         sourceReceivedAt: Instant,
         scheduled: ScheduledDispatch,
     ): EffectuationResult {
-        val horizon = sourceReceivedAt + SCHEDULING_HORIZON
+        val latestWake = sourceReceivedAt + SCHEDULING_HORIZON
         inboxMessageRepository.saveDerivedInTransaction(
             sourceEventId = sourceEventId,
             message = InboxMessage(scheduledEventId(sourceEventId), scheduled.reference, scheduled.content),
             waitReason = scheduled.waitReason,
-            notBefore = minOf(scheduled.notBefore, horizon),
+            notBefore = minOf(scheduled.notBefore, latestWake),
         )
-        return if (scheduled.notBefore > horizon) {
+        return if (scheduled.notBefore > latestWake) {
             EffectuationResult.CompletedWithCappedSchedule
         } else {
             EffectuationResult.Completed
