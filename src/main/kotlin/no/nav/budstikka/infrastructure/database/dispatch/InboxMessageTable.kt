@@ -53,12 +53,13 @@ object InboxMessageTable : Table("inbox_message") {
         index(
             "inbox_message_microfrontend_key_idx",
             false,
-            functions = listOf(contentText("personIdentifier"), contentText("microfrontendId")),
+            functions = listOf(contentText("personIdentifier")),
+            indexType = "HASH",
             filterCondition = { contentText("microfrontendId").isNotNull() },
         )
     }
 
-    /** Rows for this microfrontend, matched on the expressions of the microfrontend key index. */
+    /** Rows for this microfrontend. The key index finds the person's rows; microfrontendId is compared exactly. */
     fun microfrontendIs(
         personIdentifier: String,
         microfrontendId: String,

@@ -224,8 +224,10 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `inbox_message_received_at_event_id_idx` på `(received_at, event_id)`
 - `inbox_message_source_event_id_idx` på `(source_event_id)` der `source_event_id IS NOT NULL`
-- `inbox_message_microfrontend_key_idx` på `((content ->> 'personIdentifier'), (content ->> 'microfrontendId'))`
-  der `(content ->> 'microfrontendId') IS NOT NULL`
+- `inbox_message_microfrontend_key_idx`, en hash-indeks på `(content ->> 'personIdentifier')`
+  der `(content ->> 'microfrontendId') IS NOT NULL`. `microfrontendId` sammenlignes eksakt etter
+  oppslaget. Indeksen lagrer bare en hash av personidenten, og `microfrontendId` er ikke med, så
+  lange verdier fra en produsent stopper aldri inntaket.
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
 - `delivery_created_at_id_sent_failed_idx` på `(created_at, id)` der `state IN ('SENT', 'FAILED')`

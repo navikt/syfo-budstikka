@@ -14,8 +14,10 @@ CREATE INDEX inbox_message_source_event_id_idx
     ON inbox_message (source_event_id)
     WHERE source_event_id IS NOT NULL;
 
--- Looks up pending and newer microfrontend rows per (sykmeldt, microfrontendId). Only microfrontend
--- content carries microfrontendId, so the index covers those rows only.
+-- Looks up pending and newer microfrontend rows per sykmeldt; microfrontendId is then compared
+-- exactly. Only microfrontend content carries microfrontendId, so the index covers those rows only.
+-- microfrontendId is left out of the key and personIdentifier is stored as a hash, so no value a
+-- producer sends is too long to index.
 CREATE INDEX inbox_message_microfrontend_key_idx
-    ON inbox_message ((content ->> 'personIdentifier'), (content ->> 'microfrontendId'))
+    ON inbox_message USING hash ((content ->> 'personIdentifier'))
     WHERE (content ->> 'microfrontendId') IS NOT NULL;

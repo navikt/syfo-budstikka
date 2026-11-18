@@ -187,6 +187,15 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             row(scheduledEventId(earlier)).shouldBeNull()
         }
 
+        test("a microfrontend id too long for a B-tree index entry is stored and ordered") {
+            // Random hex barely compresses, so the id stays far above PostgreSQL's B-tree entry limit.
+            val longId = (1..600).joinToString("") { UUID.randomUUID().toString() }
+            receiveAndDecide(earlier, MicrofrontendEnable(TEST_SYKMELDT, longId, inDays(1)))
+            receiveAndDecide(later, MicrofrontendDisable(TEST_SYKMELDT, longId))
+
+            row(scheduledEventId(earlier))?.state shouldBe "PROCESSED"
+        }
+
         test("an enable with visibleUntil schedules one disable that waits until visibleUntil") {
             val visibleUntil = inDays(1)
             receiveAndDecide(earlier, enable(visibleUntil)) shouldBe EffectuationResult.Completed
