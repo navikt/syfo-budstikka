@@ -44,6 +44,9 @@ enum class Oppgavetype(
 
     /** Reminder about a follow-up plan. */
     OPPFOLGINGSPLAN_PAAMINNELSE("OPPFOLGINGSPLAN_PAAMINNELSE"),
+
+    /** Request for the employer to report the need for a dialogue meeting. */
+    DIALOGMOTE_SVAR_BEHOV("DIALOGMOTE_SVAR_BEHOV"),
 }
 
 /** Carrier available for an optional external notification. */

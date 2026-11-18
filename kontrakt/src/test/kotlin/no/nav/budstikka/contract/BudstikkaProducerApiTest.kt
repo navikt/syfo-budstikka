@@ -218,6 +218,7 @@ class BudstikkaProducerApiTest :
                 Oppgavetype.DIALOGMOTE_ENDRING to "DIALOGMOTE_ENDRING",
                 Oppgavetype.DIALOGMOTE_AVLYSNING to "DIALOGMOTE_AVLYSNING",
                 Oppgavetype.DIALOGMOTE_REFERAT to "DIALOGMOTE_REFERAT",
+                Oppgavetype.DIALOGMOTE_SVAR_BEHOV to "DIALOGMOTE_SVAR_BEHOV",
             ).forEach { (oppgavetype, wireValue) ->
                 test("encodes $oppgavetype as its exact wire value") {
                     val encoded =
