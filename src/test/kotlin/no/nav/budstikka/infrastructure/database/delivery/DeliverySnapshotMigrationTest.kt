@@ -37,12 +37,15 @@ class DeliverySnapshotMigrationTest :
                                 "externalVarsling":{"emailTitle":"title","emailText":"body"}}}'::jsonb
                         """
 
+                        // claim() compares with the JVM clock, so the lease must be expired even if the database clock runs ahead.
+                        val expiredLease = "now() - interval '1 minute'"
+
                         fun insert(state: String) =
                             """
                         INSERT INTO delivery(reference, operation, channel, recipient_type, recipient_id,
                                              payload, state, claim_token, next_attempt_time)
                         VALUES ('upgrade-$state', 'CREATE', 'ARBEIDSGIVERVARSEL', 'VIRKSOMHET', '999999999', $payload, '$state',
-                        ${if (state == "CLAIMED") "gen_random_uuid()" else "NULL"}, ${if (state == "CLAIMED") "now()" else "NULL"})
+                        ${if (state == "CLAIMED") "gen_random_uuid()" else "NULL"}, ${if (state == "CLAIMED") expiredLease else "NULL"})
                     """
                         listOf("READY", "CLAIMED", "SENT", "FAILED").forEach { sql.executeUpdate(insert(it)) }
                         fixture.migrate()
