@@ -96,16 +96,10 @@ class ArbeidsgivervarselChannelHandler(
         close: ArbeidsgivervarselInactivate,
     ): DeliveryOutcome {
         val sakstype = close.sakstype ?: return DeliveryOutcome.Failed("${CHANNEL.name} closing requires a sakstype")
-        if (close.reference.isBlank() || close.reference != delivery.reference) {
-            return DeliveryOutcome.Failed("${CHANNEL.name} closing reference is invalid")
-        }
-        // An invalid organisation number would find no notification and look closed, so it fails instead.
-        if (close.orgnummer.value.length != 9 || !close.orgnummer.value.all(Char::isDigit)) {
-            return DeliveryOutcome.Failed("${CHANNEL.name} closing orgnummer is invalid")
-        }
+        // No format checks: the facade validates, and a wrong orgnummer would look closed either way.
         val request =
             ArbeidsgiverNotificationDeleteRequest(
-                eksternId = referenceNotificationId(close.orgnummer, close.reference),
+                eksternId = referenceNotificationId(close.orgnummer, delivery.reference),
                 tag = sakstype.merkelapp,
                 correlationId = delivery.correlationId(),
             )

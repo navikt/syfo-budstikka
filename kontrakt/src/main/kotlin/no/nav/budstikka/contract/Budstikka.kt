@@ -547,10 +547,10 @@ object Budstikka {
      * the same [reference], [orgnummer] and [sakstype] as for creation, and a new [eventId] for this
      * operation. Retry reuses that event id.
      *
-     * A notification that is already gone counts as closed. Closing does not cancel a creation that
-     * is still waiting, for example for the sending window or a retry, so it can still be delivered
-     * later; the sending-window case is tracked in #26. Nor does it stop SMS or email already ordered. A notification created without a
-     * sakstype cannot be closed this way.
+     * A notification that is already gone counts as closed. Closing does not cancel a creation that is
+     * still waiting, for example for the sending window or a retry, so it can still be delivered
+     * later; the sending-window case is tracked in #26. Nor does it stop SMS or email already ordered.
+     * A notification created without a sakstype cannot be closed this way.
      */
     fun arbeidsgivervarselInactivate(
         eventId: EventId,

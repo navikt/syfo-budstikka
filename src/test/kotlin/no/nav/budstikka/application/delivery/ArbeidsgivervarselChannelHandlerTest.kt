@@ -68,7 +68,8 @@ class ArbeidsgivervarselChannelHandlerTest :
                 )
             handler.handle(source) shouldBe DeliveryOutcome.Sent
             val existingSakRequests = sakPublisher.requests.size
-            val close = delivery(ArbeidsgivervarselInactivate(source.reference, TEST_ORGNUMMER, Sakstype.DIALOGMOTE))
+            // Like the create, the close is addressed by the dispatch reference, not the one in the payload.
+            val close = delivery(ArbeidsgivervarselInactivate("payload-reference", TEST_ORGNUMMER, Sakstype.DIALOGMOTE))
 
             handler.handle(close) shouldBe DeliveryOutcome.Sent
             publisher.deletions.single() shouldBe publisher.requests.single().let { it.tag to it.eksternId }
@@ -94,16 +95,13 @@ class ArbeidsgivervarselChannelHandlerTest :
             publisher.requests shouldBe emptyList()
         }
 
-        test("invalid close context fails without an external call") {
+        test("a close without sakstype fails without an external call") {
             val publisher = RecordingPublisher()
             val handler = handler(publisher, ThrowingNarmesteLederLookup())
-            listOf(
-                ArbeidsgivervarselInactivate("reference", TEST_ORGNUMMER),
-                ArbeidsgivervarselInactivate("mismatch", TEST_ORGNUMMER, Sakstype.DIALOGMOTE),
-                ArbeidsgivervarselInactivate("reference", Orgnummer("invalid"), Sakstype.DIALOGMOTE),
-            ).forEach { target ->
-                handler.handle(delivery(target)).shouldBeInstanceOf<DeliveryOutcome.Failed>()
-            }
+
+            handler.handle(delivery(ArbeidsgivervarselInactivate("reference", TEST_ORGNUMMER))) shouldBe
+                DeliveryOutcome.Failed("ARBEIDSGIVERVARSEL closing requires a sakstype")
+
             publisher.deletions shouldBe emptyList()
             publisher.requests shouldBe emptyList()
         }
