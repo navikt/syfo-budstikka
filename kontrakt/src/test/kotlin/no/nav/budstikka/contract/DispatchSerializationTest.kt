@@ -8,7 +8,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlin.time.Instant
 
@@ -266,14 +265,14 @@ class DispatchSerializationTest :
             }
 
             test("an Altinn notification without link is rejected on receipt") {
-                shouldThrow<SerializationException> {
+                shouldThrow<IllegalArgumentException> {
                     dispatchJson.decodeFromString<Dispatch>(
                         payload(
                             """{"type":"AltinnRessurs","resource":"nav_syfo_dialogmote",""" +
                                 """"sykmeldt":"${SYNTHETIC_SYKMELDT.value}","sakId":"dialog-1"}""",
                         ),
                     )
-                }.message shouldContain "link is required for an Altinn resource"
+                }.message shouldBe "link is required for an Altinn resource"
             }
         }
 
