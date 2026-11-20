@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.client
 import com.apollographql.apollo.api.Optional
 import io.ktor.client.HttpClient
 import no.nav.budstikka.application.delivery.AltinnExternalVarsling
+import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationDeleteRequest
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationPublisher
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRecipient
 import no.nav.budstikka.application.delivery.ArbeidsgiverNotificationRequest
@@ -11,6 +12,7 @@ import no.nav.budstikka.application.delivery.NarmesteLederExternalVarsling
 import no.nav.budstikka.contract.ArbeidsgiverMeldingstype
 import no.nav.budstikka.infrastructure.auth.TokenProvider
 import no.nav.budstikka.infrastructure.client.config.ArbeidsgiverNotifikasjonConfig
+import no.nav.budstikka.infrastructure.client.fager.generated.DeleteNotifikasjonMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NyBeskjedMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.NyOppgaveMutation
 import no.nav.budstikka.infrastructure.client.fager.generated.type.AltinnRessursMottakerInput
@@ -53,6 +55,18 @@ class ArbeidsgiverNotifikasjonClient(
                 executor.execute(request.correlationId, request.toNyOppgaveMutation()) { data ->
                     data.nyOppgave.toNotificationResponse()
                 }
+        }
+
+    override suspend fun delete(request: ArbeidsgiverNotificationDeleteRequest): ArbeidsgiverNotificationResponse =
+        executor.execute(request.correlationId, DeleteNotifikasjonMutation(request.tag, request.eksternId)) { data ->
+            val result = data.hardDeleteNotifikasjonByEksternId_V2
+            when {
+                result.onHardDeleteNotifikasjonVellykket != null || result.onNotifikasjonFinnesIkke != null ->
+                    ArbeidsgiverNotificationResponse.Published
+                result.onUgyldigMerkelapp != null -> rejected("UgyldigMerkelapp")
+                result.onUkjentProdusent != null -> rejected("UkjentProdusent")
+                else -> error("Arbeidsgiver notification API returned an unexpected hard-delete result")
+            }
         }
 
     private fun ArbeidsgiverNotificationRequest.toNyBeskjedMutation() =

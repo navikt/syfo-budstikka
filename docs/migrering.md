@@ -113,6 +113,10 @@ inbox-hendelsen, som før. Budstikka regner ut identiteten ved hvert forsøk fra
 leveransen, så overgangen krever ingen databasemigrering.
 
 Eldre Budstikka-kode gir alle arbeidsgivervarsler hendelsesbasert identitet, også dem med
-`sakstype`. Ta derfor `sakstype` i bruk først når alle instansene kjører den nye koden. Ved
-tilbakerulling må produsentene stanse nye `sakstype`-kall til den nye koden er rullet ut igjen.
-Leveranser som allerede venter, sendes da med hendelsesbasert identitet.
+`sakstype`, og lar lukkinger feile terminalt. Ta derfor `sakstype` i bruk først når alle
+instansene kjører den nye koden. Ved tilbakerulling må produsentene stanse nye `sakstype`-kall til
+den nye koden er rullet ut igjen. Opprettelser som allerede venter, sendes da med hendelsesbasert
+identitet og kan senere ikke lukkes med `reference`.
+
+Lukking kansellerer ikke en opprettelse som venter eller kommer senere. Produsenten må håndtere
+det før en flyt flyttes hit; se [Lukk arbeidsgivervarsel](sende-varsler.md#lukk-arbeidsgivervarsel).

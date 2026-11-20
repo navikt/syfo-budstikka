@@ -8,6 +8,7 @@ import no.nav.budstikka.application.inbox.NoInboxMetrics
 import no.nav.budstikka.contract.Arbeidsgiversak
 import no.nav.budstikka.contract.Arbeidsgivervarsel
 import no.nav.budstikka.contract.ArbeidsgivervarselCreate
+import no.nav.budstikka.contract.ArbeidsgivervarselInactivate
 import no.nav.budstikka.contract.BrevCreate
 import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.BrukervarselInactivate
@@ -87,6 +88,13 @@ class ProducerApiIngestTest :
                             text = "Syntetisk varseltekst",
                             link = "https://nav.no/arbeidsgiver",
                         ),
+                    "arbeidsgivervarselInactivate" to
+                        Budstikka.arbeidsgivervarselInactivate(
+                            eventId = eventId,
+                            reference = "ref-1",
+                            orgnummer = ORGNUMMER,
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        ),
                     "brevCreate" to
                         Budstikka.brevCreate(
                             eventId = eventId,
@@ -146,6 +154,7 @@ class ProducerApiIngestTest :
                     "dineSykmeldteVarselCreate" to LedervarselCreate::class,
                     "dineSykmeldteVarselInactivate" to LedervarselInactivate::class,
                     "arbeidsgivervarselCreate" to ArbeidsgivervarselCreate::class,
+                    "arbeidsgivervarselInactivate" to ArbeidsgivervarselInactivate::class,
                     "brevCreate" to BrevCreate::class,
                     "microfrontendEnable" to MicrofrontendEnable::class,
                     "microfrontendDisable" to MicrofrontendDisable::class,

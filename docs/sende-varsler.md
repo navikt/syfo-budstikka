@@ -28,6 +28,7 @@ settes sammen i en produsent.
 | `dittSykefravaerCreate` | Opprett INFO-melding i Ditt Sykefravær. |
 | `dittSykefravaerInactivate` | Lukk en tidligere Ditt Sykefravær-melding. |
 | `arbeidsgivervarselCreate` | Send varsel til Nærmeste leder eller en Altinn-ressurs, i sak etter `sakstype`. |
+| `arbeidsgivervarselInactivate` | Lukk et arbeidsgivervarsel som ble opprettet med `sakstype`. |
 | `brevCreate` | Send et dokument gjennom dokumentdistribusjon. |
 | `microfrontendEnable` | Vis en mikrofrontend på Min side. |
 | `microfrontendDisable` | Skjul en tidligere aktivert mikrofrontend. |
@@ -78,6 +79,30 @@ på `reference`, men referansen skal fortsatt være med for korrelasjon og egen 
 `visibleUntil` skjuler Budstikka mikrofrontenden igjen på det tidspunktet, når planlagt skjuling (#282) er
 rullet ut. Tidspunktet kan ligge høyst 335 dager fram; et tidspunkt som har passert, skjuler den med en
 gang. Siste kommando for samme mottaker og `microfrontendId` vinner. Brev kan ikke lukkes.
+
+### Lukk arbeidsgivervarsel
+
+Bruk samme `reference`, `orgnummer` og `sakstype` som ved opprettelse. Opprettelse og lukking får
+hver sin lagrede `EventId`; nye forsøk gjenbruker id-en til operasjonen. Du trenger ingen id fra Fager.
+
+```kotlin
+val closed = Budstikka.arbeidsgivervarselInactivate(
+    eventId = closeEventId, // lagret for denne lukkingen
+    reference = notificationReference,
+    orgnummer = orgnummer,
+    sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+)
+```
+
+Lukkingen sletter varselet hos Fager uten nye lederoppslag. Saken og eventuelle kalenderavtaler
+følger sine egne livsløp. Finnes ikke varselet hos Fager, regnes det som lukket. Lukking
+kansellerer ikke en opprettelse som fortsatt venter, for eksempel på sendevinduet; den kan bli
+levert senere (se [#26](https://github.com/navikt/syfo-budstikka/issues/26) over). Den stopper
+heller ikke SMS eller e-post som allerede er bestilt. Produsenten må håndtere dette ved behov.
+
+Varsler opprettet uten `sakstype` kan ikke lukkes med denne funksjonen. Ta den nye kontrakten i
+bruk først når støtten er rullet ut på alle Budstikka-instansene; se
+[utrullingsveiledningen](migrering.md#stabil-identitet-for-arbeidsgivervarsler).
 
 ## EventId, retry og partisjonering
 

@@ -305,6 +305,13 @@ class ContractPrivacyTest :
                             sykmeldt = SYNTHETIC_SYKMELDT,
                             microfrontendId = SYNTHETIC_MICROFRONTEND_ID,
                         ),
+                    "arbeidsgivervarselInactivate" to
+                        Budstikka.arbeidsgivervarselInactivate(
+                            eventId = EVENT_ID,
+                            reference = SYNTHETIC_REFERENCE,
+                            orgnummer = SYNTHETIC_ORGNUMMER,
+                            sakstype = Arbeidsgiversak.Type.DIALOGMOTE,
+                        ),
                     "arbeidsgivervarselCreate with sakstype" to
                         Budstikka.arbeidsgivervarselCreate(
                             eventId = EVENT_ID,
