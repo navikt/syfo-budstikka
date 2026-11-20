@@ -90,9 +90,16 @@ erDiagram
   slettes når `received_at` er strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer).
   Ikke-terminale rader (`RECEIVED`/`CLAIMED`/`WAIT`) beholdes til de er ferdig behandlet,
   men aldri lenger enn 365 dager etter `received_at` (absolutt grense for personopplysninger).
-  En planlagt disable arver kildens `received_at` og fyrer senest 335 dager etter den,
-  altså minst 30 dager før grensen (ADR 0018). Kilden beholdes så lenge planen venter (fortsatt
-  høyst 365 dager), slik at en gjentatt melding med samme `EventId` fortsatt avvises som duplikat.
+  En enable med fremtidig `visibleUntil` gir en planlagt disable: en egen melding som venter i
+  `WAIT` og arver enable-meldingens `received_at`. Tidspunktet for skjuling settes senest 335 dager etter
+  `received_at`, altså minst 30 dager før grensen (ADR 0018). Så lenge den planlagte disablen
+  ikke er ferdig behandlet, sletter ikke oppbevaringsjobben enable-meldingen etter 100 dager.
+  Grensen på 365 dager gjelder fortsatt. Dermed avvises en gjentatt enable med samme `EventId`
+  som duplikat og kan ikke kansellere den planlagte disablen.
+  En nyere, ferdigbehandlet kommando for samme mottaker og microfrontend beholdes også mens
+  en eldre enable med `visibleUntil` fortsatt venter på behandling. Ellers kunne den eldre
+  enable-meldingen opprettet en skjulingsplan etter at den nyere kommandoen var slettet.
+  Også her gjelder den absolutte grensen på 365 dager.
   Rader som slettes ved 365-dagersgrensen mens de fortsatt er ubehandlet, telles i
   `retention.cleanup.inbox.unprocessed.deleted` og logges på WARN-nivå med kun antall.
   `dead_letter_message` slettes når `received_at` er
@@ -153,7 +160,10 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
   transaksjon settes de ventende radene til `PROCESSED` (kansellering). En enable med
   `visibleUntil` skriver en egen rad med `MicrofrontendDisable` i `WAIT` til
   `visibleUntil` (`insert ... on conflict do nothing`). Det skjer ikke hvis en nyere
-  kommando for nøkkelen allerede er besluttet.
+  kommando for nøkkelen allerede er besluttet. Transaksjonen setter `lock_timeout` til
+  5 sekunder før nøkkellåsen tas. Grensen gjelder hver venting på en lås, også radlåsene.
+  Ved timeout rulles transaksjonen tilbake. Exposed kan prøve transaksjonen på nytt; hvis
+  forsøkene feiler, lar workeren meldingen bli liggende til leasen utløper.
 
 ### Lagret beslutningsgrunnlag på `delivery`
 
@@ -246,8 +256,9 @@ CLAIMED -> CLAIMED (handler kaster, lease utløpt, kan re-claimes)
   klient-side v4). Tidssortering gir B-tree-lokalitet og støtter alders-basert
   retensjons-`DELETE`.
 - `event_id` settes av produsenten (Kafka-headeren i kontrakten), aldri av
-  budstikkas database. Unntaket er planlagte disables: der utleder Budstikka `event_id`
-  deterministisk fra kildens (ADR 0018).
+  Budstikkas database. Unntaket er en planlagt disable: Budstikka lager id-en ut fra
+  enable-meldingens `event_id`, så samme enable alltid gir samme id. Behandler Budstikka
+  samme enable-melding to ganger, lagres derfor bare én planlagt disable (ADR 0018).
 
 ## Observability-koblinger
 

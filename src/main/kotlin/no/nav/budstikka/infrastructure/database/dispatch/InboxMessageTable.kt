@@ -3,6 +3,7 @@ package no.nav.budstikka.infrastructure.database.dispatch
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
 import org.jetbrains.exposed.v1.core.CustomOperator
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.TextColumnType
@@ -53,9 +54,9 @@ object InboxMessageTable : Table("inbox_message") {
         index(
             "inbox_message_microfrontend_key_idx",
             false,
-            functions = listOf(contentText("personIdentifier")),
+            functions = listOf(content.textField("personIdentifier")),
             indexType = "HASH",
-            filterCondition = { contentText("microfrontendId").isNotNull() },
+            filterCondition = { content.textField("microfrontendId").isNotNull() },
         )
     }
 
@@ -63,8 +64,10 @@ object InboxMessageTable : Table("inbox_message") {
     fun microfrontendIs(
         personIdentifier: String,
         microfrontendId: String,
-    ): Op<Boolean> = (contentText("personIdentifier") eq personIdentifier) and (contentText("microfrontendId") eq microfrontendId)
-
-    /** `content ->> 'field'`, the expression the microfrontend key index is built on. */
-    private fun contentText(field: String) = CustomOperator<String>("->>", TextColumnType(), content, stringLiteral(field))
+    ): Op<Boolean> =
+        (content.textField("personIdentifier") eq personIdentifier) and (content.textField("microfrontendId") eq microfrontendId)
 }
+
+/** Keeps JSON field queries, including aliased rows, compatible with the microfrontend key index. */
+internal fun Expression<DispatchContent>.textField(field: String) =
+    CustomOperator<String>("->>", TextColumnType(), this, stringLiteral(field))

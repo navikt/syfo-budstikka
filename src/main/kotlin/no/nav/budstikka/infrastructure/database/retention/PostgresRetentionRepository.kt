@@ -10,12 +10,15 @@ import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.textField
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
@@ -71,8 +74,8 @@ class PostgresRetentionRepository(
 
     /**
      * Deletes inbox messages received before [eligibleStateCutoff] whose state is in
-     * [RetentionPolicy.eligibleInboxStates] and that no waiting scheduled row still needs, plus
-     * messages received before [anyStateCutoff] regardless of state. The second cutoff lets stuck,
+     * [RetentionPolicy.eligibleInboxStates] and that no pending schedule or older enable still needs,
+     * plus messages received before [anyStateCutoff] regardless of state. The second cutoff lets stuck,
      * unprocessed messages expire eventually; those deletions are reported separately as
      * `unprocessed`.
      */
@@ -87,7 +90,10 @@ class PostgresRetentionRepository(
                 .where {
                     (InboxMessageTable.receivedAt less eligibleStateCutoff) and
                         (
-                            ((InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and noPendingScheduled()) or
+                            (
+                                (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and
+                                    noPendingScheduled() and noEarlierPendingMicrofrontendEnable()
+                            ) or
                                 (InboxMessageTable.receivedAt less anyStateCutoff)
                         )
                 }.orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
@@ -115,6 +121,34 @@ class PostgresRetentionRepository(
                 .where {
                     (scheduled[InboxMessageTable.sourceEventId] eq InboxMessageTable.eventId) and
                         (scheduled[InboxMessageTable.state] inList PENDING_SCHEDULED_STATES)
+                },
+        )
+    }
+
+    /** A processed command must still suppress schedules from older enables until they are decided. */
+    private fun noEarlierPendingMicrofrontendEnable(): Op<Boolean> {
+        val pending = InboxMessageTable.alias("pending_enable")
+        val content = pending[InboxMessageTable.content]
+        val receivedAt = pending[InboxMessageTable.receivedAt]
+        return notExists(
+            pending
+                .select(pending[InboxMessageTable.eventId])
+                .where {
+                    (InboxMessageTable.state eq InboxMessageState.PROCESSED.name) and
+                        InboxMessageTable.sourceEventId.isNull() and
+                        (pending[InboxMessageTable.state] inList PENDING_COMMAND_STATES) and
+                        pending[InboxMessageTable.sourceEventId].isNull() and
+                        (content.textField("type") eq "MicrofrontendEnable") and
+                        content.textField("visibleUntil").isNotNull() and
+                        (content.textField("personIdentifier") eq InboxMessageTable.content.textField("personIdentifier")) and
+                        (content.textField("microfrontendId") eq InboxMessageTable.content.textField("microfrontendId")) and
+                        (
+                            (receivedAt less InboxMessageTable.receivedAt) or
+                                (
+                                    (receivedAt eq InboxMessageTable.receivedAt) and
+                                        (pending[InboxMessageTable.eventId] less InboxMessageTable.eventId)
+                                )
+                        )
                 },
         )
     }
@@ -163,5 +197,7 @@ class PostgresRetentionRepository(
         private const val TRY_ADVISORY_LOCK = "SELECT pg_try_advisory_xact_lock(?, ?)"
 
         private val PENDING_SCHEDULED_STATES = listOf(InboxMessageState.WAIT.name, InboxMessageState.CLAIMED.name)
+        private val PENDING_COMMAND_STATES =
+            listOf(InboxMessageState.RECEIVED.name, InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)
     }
 }

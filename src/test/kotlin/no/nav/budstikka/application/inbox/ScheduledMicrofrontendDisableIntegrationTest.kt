@@ -1,6 +1,7 @@
 package no.nav.budstikka.application.inbox
 
 import io.kotest.assertions.nondeterministic.eventually
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldBeIn
@@ -8,6 +9,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -35,6 +37,7 @@ import no.nav.budstikka.domain.decision.PassedVisibleUntilRule
 import no.nav.budstikka.domain.decision.SCHEDULED_DISABLE_WAIT_REASON
 import no.nav.budstikka.fakes.RecordingDeliveryMetrics
 import no.nav.budstikka.fakes.TEST_SYKMELDT
+import no.nav.budstikka.fakes.TEST_SYKMELDT_2
 import no.nav.budstikka.infrastructure.MutableClock
 import no.nav.budstikka.infrastructure.database.PostgresTestFixture
 import no.nav.budstikka.infrastructure.database.config.PostgresTransactionRunner
@@ -44,6 +47,7 @@ import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.delivery.PostgresDeliveryRepository
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxMessageRepository
+import no.nav.budstikka.infrastructure.database.dispatch.PostgresInboxOrdering
 import no.nav.budstikka.infrastructure.database.retention.PostgresRetentionRepository
 import no.nav.budstikka.infrastructure.database.retention.RepositoryTestSupport
 import org.jetbrains.exposed.v1.core.eq
@@ -51,6 +55,7 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.sql.DriverManager
+import java.sql.SQLException
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Clock
@@ -185,6 +190,59 @@ class ScheduledMicrofrontendDisableIntegrationTest :
 
             row(earlier).shouldBeNull()
             row(scheduledEventId(earlier)).shouldBeNull()
+        }
+
+        listOf("later receipt" to 1.days, "the same receipt time" to 0.days).forEach { (receiptOrder, gap) ->
+            test("retention preserves a newer decision with $receiptOrder until an older enable is decided") {
+                val receivedAt = inDays(-102)
+                receive(earlier, enable(inDays(1)))
+                update(earlier, receivedAt = receivedAt)
+                receive(later, disable())
+                update(later, receivedAt = receivedAt + gap)
+                val claims = claimAll()
+                decide(claims.getValue(later))
+
+                runRetention()
+                decide(claims.getValue(earlier)) shouldBe EffectuationResult.Completed
+
+                scheduledDisables().shouldBeEmpty()
+                runRetention()
+                row(earlier).shouldBeNull()
+                row(later).shouldBeNull()
+            }
+        }
+
+        listOf(
+            "another microfrontend" to MicrofrontendEnable(TEST_SYKMELDT, "another-microfrontend", inDays(1)),
+            "another recipient" to MicrofrontendEnable(TEST_SYKMELDT_2, MICROFRONTEND_ID, inDays(1)),
+            "an enable without a deadline" to enable(),
+            "a disable" to disable(),
+        ).forEach { (description, olderContent) ->
+            test("retention does not keep a newer decision for $description") {
+                receive(earlier, olderContent)
+                update(earlier, receivedAt = inDays(-102))
+                receive(later, disable())
+                update(later, receivedAt = inDays(-101))
+                decide(claimAll().getValue(later))
+
+                runRetention()
+
+                row(later).shouldBeNull()
+                row(earlier)?.state shouldBe "CLAIMED"
+            }
+        }
+
+        test("the absolute retention ceiling still removes a decision needed by an older pending enable") {
+            receive(earlier, enable(inDays(1)))
+            update(earlier, receivedAt = inDays(-367))
+            receive(later, disable())
+            update(later, receivedAt = inDays(-366))
+            decide(claimAll().getValue(later))
+
+            runRetention()
+
+            row(earlier).shouldBeNull()
+            row(later).shouldBeNull()
         }
 
         test("a microfrontend id too long for a B-tree index entry is stored and ordered") {
@@ -436,7 +494,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             receive(later, enable(inDays(2)))
             val claims = claimAll()
             val lockKey =
-                PostgresInboxMessageRepository.lockKey(OrderingKey.Microfrontend(TEST_SYKMELDT, MICROFRONTEND_ID))
+                PostgresInboxOrdering.forKey(OrderingKey.Microfrontend(TEST_SYKMELDT, MICROFRONTEND_ID)).lockId
 
             DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { holder ->
                 holder.autoCommit = false
@@ -462,6 +520,49 @@ class ScheduledMicrofrontendDisableIntegrationTest :
             scheduledDisables().filter { it.state == "WAIT" }.map { it.sourceEventId } shouldContainExactly listOf(later)
             (row(scheduledEventId(earlier))?.state ?: "NOT_SCHEDULED") shouldBeIn
                 listOf("NOT_SCHEDULED", "PROCESSED")
+        }
+
+        listOf("key", "scheduled row").forEach { blockedLock ->
+            test("a blocked $blockedLock times out safely and can be retried after lease expiry") {
+                val extended = inDays(2)
+                receiveAndDecide(earlier, enable(inDays(1)))
+                receive(later, enable(extended))
+                val claimed = claimAll().getValue(later)
+
+                DriverManager.getConnection(fixture.jdbcUrl, fixture.username, fixture.password).use { holder ->
+                    // Release the blocker even if the application regresses to waiting indefinitely.
+                    holder.createStatement().use { it.execute("SET idle_in_transaction_session_timeout = '30s'") }
+                    holder.autoCommit = false
+                    if (blockedLock == "key") {
+                        holder.prepareStatement("SELECT pg_advisory_xact_lock(?)").use { statement ->
+                            val key = OrderingKey.Microfrontend(TEST_SYKMELDT, MICROFRONTEND_ID)
+                            statement.setLong(1, PostgresInboxOrdering.forKey(key).lockId)
+                            statement.executeQuery().close()
+                        }
+                    } else {
+                        holder.prepareStatement("SELECT event_id FROM inbox_message WHERE event_id = ? FOR UPDATE").use { statement ->
+                            statement.setObject(1, scheduledEventId(earlier))
+                            statement.executeQuery().close()
+                        }
+                    }
+
+                    val failure = shouldThrow<SQLException> { decide(claimed) }
+                    failure.sqlState shouldBe "55P03"
+                    failure.stackTraceToString() shouldNotContain TEST_SYKMELDT.value
+                    failure.stackTraceToString() shouldNotContain MICROFRONTEND_ID
+                    row(later)?.state shouldBe "CLAIMED"
+                    deliveries(later).shouldBeEmpty()
+                    scheduledDisables().map { it.eventId to it.state } shouldContainExactly
+                        listOf(scheduledEventId(earlier) to "WAIT")
+                    holder.rollback()
+                }
+
+                update(later, nextAttemptTime = Clock.System.now() - 1.seconds)
+                decide(claimAll().getValue(later)) shouldBe EffectuationResult.Completed
+                scheduledDisables().map { it.eventId to it.state } shouldContainExactlyInAnyOrder
+                    listOf(scheduledEventId(earlier) to "PROCESSED", scheduledEventId(later) to "WAIT")
+                deliveries(later) shouldContainExactly listOf(Operation.CREATE to enable(extended))
+            }
         }
 
         test("an enable with visibleUntil reaches the TMS fake as an enable and after visibleUntil as a disable") {

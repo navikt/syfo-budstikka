@@ -103,7 +103,8 @@ interface InboxMessageRepository {
      * Serialises decisions for [key] with a transaction-scoped advisory lock, then reads
      * the row [eventId] in ingest order `(received_at, event_id)` against the other rows for the key.
      * Call it before any other row lock in the transaction. Retention never takes the key lock and only
-     * tries its own, so it cannot wait on this one.
+     * tries its own, so it cannot wait on this one. Lock waits are bounded; a timeout fails the
+     * transaction rather than leaving the worker blocked indefinitely.
      *
      * Row locks are taken in one statement ordered by `(received_at, event_id)`: the row [eventId] and
      * every pending scheduled row (WAIT, or CLAIMED by a worker that has not decided it yet) derived

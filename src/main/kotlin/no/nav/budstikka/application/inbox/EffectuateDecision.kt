@@ -4,6 +4,7 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.OrderedCommand
 import no.nav.budstikka.application.port.TransactionRunner
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DeliveryDraft
@@ -37,9 +38,9 @@ class EffectuateDecision(
                 is Decision.Processed -> {
                     val key = decision.orderingKey()
                     if (key == null) {
-                        processed(claim, decision.deliveries)
+                        saveProcessed(claim, decision.deliveries)
                     } else {
-                        processedInOrder(claim, key, decision)
+                        saveProcessedForKey(claim, key, decision)
                     }
                 }
 
@@ -59,7 +60,7 @@ class EffectuateDecision(
             }
         }
 
-    private fun processed(
+    private fun saveProcessed(
         claim: InboxClaim,
         deliveries: List<DeliveryDraft>,
     ): EffectuationResult {
@@ -71,7 +72,7 @@ class EffectuateDecision(
         return EffectuationResult.Completed
     }
 
-    private fun processedInOrder(
+    private fun saveProcessedForKey(
         claim: InboxClaim,
         key: OrderingKey,
         decision: Decision.Processed,
@@ -79,20 +80,26 @@ class EffectuateDecision(
         val command =
             inboxMessageRepository.lockOrderedCommandInTransaction(claim.eventId, key)
                 ?: return EffectuationResult.Skipped
-        val result = processed(claim, decision.deliveries)
+        val result = saveProcessed(claim, decision.deliveries)
         if (result == EffectuationResult.Skipped) {
             return result
         }
-        inboxMessageRepository.cancelPendingInTransaction(command.earlierScheduled)
-
-        val scheduled = decision.scheduledDispatch()
-        if (scheduled == null || command.laterCommandDecided) {
-            return result
-        }
-        return schedule(claim.eventId, command.receivedAt, scheduled)
+        return replaceScheduledDispatch(claim.eventId, command, decision.scheduledDispatch())
     }
 
-    private fun schedule(
+    private fun replaceScheduledDispatch(
+        sourceEventId: UUID,
+        command: OrderedCommand,
+        scheduled: ScheduledDispatch?,
+    ): EffectuationResult {
+        inboxMessageRepository.cancelPendingInTransaction(command.earlierScheduled)
+        if (scheduled == null || command.laterCommandDecided) {
+            return EffectuationResult.Completed
+        }
+        return saveScheduledDispatch(sourceEventId, command.receivedAt, scheduled)
+    }
+
+    private fun saveScheduledDispatch(
         sourceEventId: UUID,
         sourceReceivedAt: Instant,
         scheduled: ScheduledDispatch,

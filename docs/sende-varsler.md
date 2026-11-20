@@ -51,15 +51,23 @@ Mikrofrontend bruker et enable/disable-par. Min side matcher på mottaker og `mi
 på `reference`, men referansen skal fortsatt være med for korrelasjon og egen bokføring. Med
 `visibleUntil` planlegger Budstikka en disable som behandles på eller etter tidspunktet.
 Tidspunktet kan ligge høyst 335 dager fram; en passert frist gir en umiddelbar disable.
-Når en nyere enable eller disable for samme mottaker og `microfrontendId` besluttes,
-erstatter den eldre planer som ennå ikke er blitt leveranser. En ny enable kan dermed
-forlenge synligheten. Leveranser som allerede ligger i delivery, og rekkefølgen ved retry,
-omfattes ikke av kanselleringen; dette følges i [#315](https://github.com/navikt/syfo-budstikka/issues/315).
+Når Budstikka behandler en nyere enable eller disable for samme mottaker og `microfrontendId`,
+kansellerer den en ventende planlagt disable fra en eldre enable. Sender du en ny enable med
+senere `visibleUntil`, forlenger du synligheten. Uten `visibleUntil` bestiller du ingen automatisk
+skjuling. Kanselleringen gjelder ikke leveranser Budstikka allerede har laget, og rekkefølgen
+mellom dem ved retry er ikke garantert. Dette følges i
+[#315](https://github.com/navikt/syfo-budstikka/issues/315).
 Brev kan ikke lukkes.
 
 Ta automatisk skjuling og forlengelse i bruk først når alle Budstikka-instansene har
-runtime-støtten. Ved tilbakerulling kan eldre kode sende lagrede planlagte disables,
-men den kansellerer dem ikke når en nyere enable behandles.
+runtime-støtten. Stans produsentenes bruk av funksjonen før tilbakerulling. Kartlegg enable-meldinger
+som ligger i Kafka eller venter på behandling i inbox, og sørg for at nødvendig skjuling håndteres
+før tilbakerullingen. Eldre kode ignorerer `visibleUntil` og lager ingen planlagt disable når den
+behandler disse meldingene. En ny sending med samme `EventId` reparerer ikke den manglende planen
+så lenge enable-meldingen finnes i inbox.
+
+Lagrede planlagte disables kan fortsatt bli sendt etter tilbakerulling. Eldre kode kansellerer dem
+ikke når en nyere enable eller disable behandles.
 
 ## EventId, retry og partisjonering
 

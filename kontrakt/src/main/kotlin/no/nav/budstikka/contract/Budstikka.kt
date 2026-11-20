@@ -582,8 +582,9 @@ object Budstikka {
      *   use reference-based inactivate matching. Required all the same, so every dispatch is traceable.
      * @param sykmeldt the person for whom Min side makes the microfrontend visible.
      * @param microfrontendId the id Min side knows the microfrontend by.
-     * @param visibleUntil when Budstikka hides it again by sending a disable; omit to keep it until
-     *   disabled. At most 335 days ahead; a time that has passed becomes an immediate disable.
+     * @param visibleUntil when the scheduled disable becomes eligible for processing, not a delivery
+     *   deadline. Omit to request no automatic disable. At most 335 days ahead; a time that has passed
+     *   becomes an immediate disable.
      *   A later enable or disable for the same `(sykmeldt, microfrontendId)` replaces a pending
      *   scheduled hide; a later [visibleUntil] extends visibility. This does not cancel deliveries
      *   already queued or order their retries.
