@@ -65,7 +65,8 @@ object InboxMessageTable : Table("inbox_message") {
         personIdentifier: String,
         microfrontendId: String,
     ): Op<Boolean> =
-        (content.textField("personIdentifier") eq personIdentifier) and (content.textField("microfrontendId") eq microfrontendId)
+        (content.textField("personIdentifier") eq personIdentifier) and
+            (content.textField("microfrontendId") eq microfrontendId)
 }
 
 /** Keeps JSON field queries, including aliased rows, compatible with the microfrontend key index. */

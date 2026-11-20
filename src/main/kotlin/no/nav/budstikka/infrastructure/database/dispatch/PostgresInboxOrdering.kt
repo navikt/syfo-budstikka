@@ -63,7 +63,12 @@ internal class PostgresInboxOrdering private constructor(
             .select(InboxMessageTable.receivedAt, InboxMessageTable.sourceEventId)
             .where { InboxMessageTable.eventId eq eventId }
             .singleOrNull()
-            ?.let { IngestPosition(it[InboxMessageTable.receivedAt], it[InboxMessageTable.sourceEventId] ?: eventId) }
+            ?.let { row ->
+                IngestPosition(
+                    receivedAt = row[InboxMessageTable.receivedAt],
+                    commandEventId = row[InboxMessageTable.sourceEventId] ?: eventId,
+                )
+            }
 
     private fun lockCommandAndEarlierScheduled(
         eventId: UUID,
@@ -86,7 +91,7 @@ internal class PostgresInboxOrdering private constructor(
 
     private fun scheduledBefore(position: IngestPosition): Op<Boolean> =
         InboxMessageTable.sourceEventId.isNotNull() and
-            (InboxMessageTable.state inList listOf(InboxMessageState.WAIT.name, InboxMessageState.CLAIMED.name)) and
+            (InboxMessageTable.state inList InboxMessageState.WAITING_OR_CLAIMED) and
             ingestedBefore(InboxMessageTable.sourceEventId, position)
 
     private fun commandDecidedAfter(position: IngestPosition): Op<Boolean> =
@@ -126,6 +131,9 @@ internal class PostgresInboxOrdering private constructor(
          * Uses PostgreSQL's single-bigint lock space, separate from retention's two-integer space.
          * A collision only serialises unrelated keys. Keep the hash stable across rolling deploys.
          */
-        private fun hashKey(name: String): Long = ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(name.toByteArray())).long
+        private fun hashKey(name: String): Long {
+            val digest = MessageDigest.getInstance("SHA-256").digest(name.toByteArray())
+            return ByteBuffer.wrap(digest).long
+        }
     }
 }

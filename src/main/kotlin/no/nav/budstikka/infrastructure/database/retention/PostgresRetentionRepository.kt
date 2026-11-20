@@ -11,15 +11,18 @@ import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.textField
+import org.jetbrains.exposed.v1.core.Alias
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -88,14 +91,13 @@ class PostgresRetentionRepository(
             InboxMessageTable
                 .select(InboxMessageTable.eventId, InboxMessageTable.state)
                 .where {
-                    (InboxMessageTable.receivedAt less eligibleStateCutoff) and
-                        (
-                            (
-                                (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and
-                                    noPendingScheduled() and noEarlierPendingMicrofrontendEnable()
-                            ) or
-                                (InboxMessageTable.receivedAt less anyStateCutoff)
-                        )
+                    val old = InboxMessageTable.receivedAt less eligibleStateCutoff
+                    val finishedAndUnneeded =
+                        (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and
+                            noPendingScheduled() and
+                            not(preventsStaleDisable())
+                    val pastAbsoluteCutoff = InboxMessageTable.receivedAt less anyStateCutoff
+                    old and (finishedAndUnneeded or pastAbsoluteCutoff)
                 }.orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
                 .limit(batchSize)
                 .forUpdate()
@@ -120,38 +122,49 @@ class PostgresRetentionRepository(
                 .select(scheduled[InboxMessageTable.eventId])
                 .where {
                     (scheduled[InboxMessageTable.sourceEventId] eq InboxMessageTable.eventId) and
-                        (scheduled[InboxMessageTable.state] inList PENDING_SCHEDULED_STATES)
+                        (scheduled[InboxMessageTable.state] inList InboxMessageState.WAITING_OR_CLAIMED)
                 },
         )
     }
 
-    /** A processed command must still suppress schedules from older enables until they are decided. */
-    private fun noEarlierPendingMicrofrontendEnable(): Op<Boolean> {
-        val pending = InboxMessageTable.alias("pending_enable")
-        val content = pending[InboxMessageTable.content]
-        val receivedAt = pending[InboxMessageTable.receivedAt]
-        return notExists(
-            pending
-                .select(pending[InboxMessageTable.eventId])
-                .where {
-                    (InboxMessageTable.state eq InboxMessageState.PROCESSED.name) and
-                        InboxMessageTable.sourceEventId.isNull() and
-                        (pending[InboxMessageTable.state] inList PENDING_COMMAND_STATES) and
-                        pending[InboxMessageTable.sourceEventId].isNull() and
-                        (content.textField("type") eq "MicrofrontendEnable") and
-                        content.textField("visibleUntil").isNotNull() and
-                        (content.textField("personIdentifier") eq InboxMessageTable.content.textField("personIdentifier")) and
-                        (content.textField("microfrontendId") eq InboxMessageTable.content.textField("microfrontendId")) and
-                        (
-                            (receivedAt less InboxMessageTable.receivedAt) or
-                                (
-                                    (receivedAt eq InboxMessageTable.receivedAt) and
-                                        (pending[InboxMessageTable.eventId] less InboxMessageTable.eventId)
-                                )
-                        )
-                },
-        )
+    /**
+     * A processed command must stay while an older pending enable can still schedule a disable for
+     * the same target. Otherwise the enable would later schedule a disable that this newer command
+     * already replaced.
+     */
+    private fun preventsStaleDisable(): Op<Boolean> {
+        val enable = InboxMessageTable.alias("pending_enable")
+        val olderPendingEnable =
+            enable.select(enable[InboxMessageTable.eventId]).where {
+                canScheduleDisable(enable) and sameTarget(enable) and arrivedEarlier(enable)
+            }
+        return isProcessedCommand() and exists(olderPendingEnable)
     }
+
+    private fun isProcessedCommand(): Op<Boolean> =
+        with(InboxMessageTable) {
+            (state eq InboxMessageState.PROCESSED.name) and sourceEventId.isNull()
+        }
+
+    private fun canScheduleDisable(enable: Alias<InboxMessageTable>): Op<Boolean> =
+        with(InboxMessageTable) {
+            enable[sourceEventId].isNull() and
+                (enable[state] inList InboxMessageState.PENDING) and
+                (enable[content].textField("type") eq "MicrofrontendEnable") and
+                enable[content].textField("visibleUntil").isNotNull()
+        }
+
+    private fun sameTarget(enable: Alias<InboxMessageTable>): Op<Boolean> =
+        with(InboxMessageTable) {
+            (enable[content].textField("personIdentifier") eq content.textField("personIdentifier")) and
+                (enable[content].textField("microfrontendId") eq content.textField("microfrontendId"))
+        }
+
+    private fun arrivedEarlier(enable: Alias<InboxMessageTable>): Op<Boolean> =
+        with(InboxMessageTable) {
+            (enable[receivedAt] less receivedAt) or
+                ((enable[receivedAt] eq receivedAt) and (enable[eventId] less eventId))
+        }
 
     private fun deleteOldDeadLetterMessages(
         cutoff: kotlin.time.Instant,
@@ -195,9 +208,5 @@ class PostgresRetentionRepository(
         internal const val RETENTION_CLEANUP_LOCK_KEY = 0x5245544e
 
         private const val TRY_ADVISORY_LOCK = "SELECT pg_try_advisory_xact_lock(?, ?)"
-
-        private val PENDING_SCHEDULED_STATES = listOf(InboxMessageState.WAIT.name, InboxMessageState.CLAIMED.name)
-        private val PENDING_COMMAND_STATES =
-            listOf(InboxMessageState.RECEIVED.name, InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)
     }
 }

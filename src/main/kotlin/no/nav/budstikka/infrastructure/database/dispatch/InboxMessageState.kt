@@ -23,4 +23,13 @@ enum class InboxMessageState {
     DROPPED,
     FAILED,
     WAIT,
+    ;
+
+    companion object {
+        /** Stored names of states that are not decided yet. */
+        val PENDING = listOf(RECEIVED, CLAIMED, WAIT).map { it.name }
+
+        /** Stored names of states where a row waits for its time or is being decided. */
+        val WAITING_OR_CLAIMED = listOf(WAIT, CLAIMED).map { it.name }
+    }
 }

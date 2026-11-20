@@ -221,7 +221,7 @@ class PostgresInboxMessageRepository(
             return 0
         }
         return InboxMessageTable.update({
-            (InboxMessageTable.eventId inList eventIds) and (InboxMessageTable.state inList PENDING_STATES)
+            (InboxMessageTable.eventId inList eventIds) and (InboxMessageTable.state inList InboxMessageState.PENDING)
         }) {
             it[state] = InboxMessageState.PROCESSED.name
             it[claimToken] = null
@@ -273,9 +273,4 @@ class PostgresInboxMessageRepository(
             it[InboxMessageTable.waitReason] = null
             it[processedAt] = Clock.System.now()
         } > 0
-
-    companion object {
-        private val PENDING_STATES =
-            listOf(InboxMessageState.RECEIVED.name, InboxMessageState.CLAIMED.name, InboxMessageState.WAIT.name)
-    }
 }
