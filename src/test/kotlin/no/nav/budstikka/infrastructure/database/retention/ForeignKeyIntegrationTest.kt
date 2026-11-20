@@ -10,6 +10,7 @@ import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.days
 
 class ForeignKeyIntegrationTest :
@@ -22,7 +23,7 @@ class ForeignKeyIntegrationTest :
 
         test("deleting an expired inbox row sets linked delivery inbox_event_id to null") {
             val inboxEventId = support.inbox(support.clock.now() - 101.days)
-            val deliveryId = support.delivery(support.clock.now(), DeliveryState.READY, inboxEventId)
+            val deliveryId = support.delivery(support.clock.now(), DeliveryState.SENT, inboxEventId)
 
             support.run(batchSize = 100) shouldBe
                 RetentionResult.Completed(
@@ -35,6 +36,40 @@ class ForeignKeyIntegrationTest :
                     .where { DeliveryTable.id eq deliveryId }
                     .single()[DeliveryTable.inboxEventId] shouldBe null
             }
+        }
+
+        listOf(DeliveryState.READY, DeliveryState.CLAIMED).forEach { state ->
+            test("an expired inbox row with a $state delivery is kept, so retries keep its event id") {
+                val inboxEventId = support.inbox(support.clock.now() - 101.days)
+                val deliveryId = support.delivery(support.clock.now(), state, inboxEventId)
+
+                support.run(batchSize = 100) shouldBe
+                    RetentionResult.Completed(
+                        RetentionCounts(inboxMessages = 0, deadLetterMessages = 0, deliveries = 0),
+                    )
+
+                support.fixture.database.transact {
+                    DeliveryTable
+                        .selectAll()
+                        .where { DeliveryTable.id eq deliveryId }
+                        .single()[DeliveryTable.inboxEventId] shouldBe inboxEventId
+                }
+            }
+        }
+
+        test("an expired inbox row is deleted once its delivery is done") {
+            val inboxEventId = support.inbox(support.clock.now() - 101.days)
+            val deliveryId = support.delivery(support.clock.now(), DeliveryState.READY, inboxEventId)
+            support.run(batchSize = 100)
+
+            support.fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.id eq deliveryId }) { it[state] = DeliveryState.SENT.name }
+            }
+
+            support.run(batchSize = 100) shouldBe
+                RetentionResult.Completed(
+                    RetentionCounts(inboxMessages = 1, deadLetterMessages = 0, deliveries = 0),
+                )
         }
 
         test("deleting an unprocessed inbox row past the absolute ceiling clears the linked delivery reference") {
