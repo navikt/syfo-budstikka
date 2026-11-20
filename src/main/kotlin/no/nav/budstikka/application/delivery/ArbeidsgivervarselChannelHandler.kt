@@ -9,6 +9,7 @@ import no.nav.budstikka.domain.NarmesteLederRelasjon
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DeliverySnapshot
+import no.nav.budstikka.domain.decision.referenceNotificationId
 import no.nav.budstikka.contract.NarmesteLeder as NarmesteLederRecipient
 
 /**
@@ -134,6 +135,14 @@ private fun ArbeidsgiverRecipient.invalidReason(inSak: Boolean): String? =
         is NarmesteLederRecipient -> invalidEmailReason()
     }
 
+/**
+ * Fager's `eksternId`. With a sakstype it comes from the organisation and the reference, so the
+ * notification can be found again without a stored id. Without one it is the dispatch's
+ * correlation id.
+ */
+private fun ArbeidsgivervarselCreate.eksternId(delivery: ClaimedDelivery): String =
+    if (sakstype != null) referenceNotificationId(orgnummer, delivery.reference) else delivery.correlationId()
+
 private fun AltinnResource.toRecipient() =
     Recipient(
         notification =
@@ -161,7 +170,8 @@ private fun ArbeidsgivervarselCreate.toRequest(
     link: String,
 ) = ArbeidsgiverNotificationRequest(
     virksomhetsnummer = orgnummer.value,
-    eksternId = delivery.correlationId(),
+    eksternId = eksternId(delivery),
+    correlationId = delivery.correlationId(),
     grupperingsid = sak?.grupperingsid ?: sakstilknytning?.sakId,
     tag = sak?.merkelapp ?: requireNotNull(tag),
     tekst = text,

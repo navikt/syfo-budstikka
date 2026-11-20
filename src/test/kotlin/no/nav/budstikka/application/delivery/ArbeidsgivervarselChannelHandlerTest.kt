@@ -33,6 +33,24 @@ import no.nav.budstikka.contract.AltinnExternalVarsling as AltinnExternalVarslin
 
 class ArbeidsgivervarselChannelHandlerTest :
     FunSpec({
+        test("a sakstype notification keeps the same eksternId without the inbox link") {
+            val publisher = RecordingPublisher()
+            val sakPublisher = FakeArbeidsgiversakPublisher()
+            val handler = handler(publisher, ThrowingNarmesteLederLookup(), sakPublisher = sakPublisher)
+            val source =
+                delivery(
+                    create(
+                        AltinnResource("producer-resource", sykmeldt = TEST_SYKMELDT, sakId = "sak-1"),
+                        tag = null,
+                        sakstype = Sakstype.DIALOGMOTE,
+                    ),
+                )
+            handler.handle(source) shouldBe DeliveryOutcome.Sent
+            handler.handle(source.copy(inboxEventId = null)) shouldBe DeliveryOutcome.Sent
+            publisher.requests.map { it.eksternId }.distinct() shouldBe listOf("2f9230c2-4d95-300b-ade2-3da991605649")
+            publisher.requests.last().correlationId shouldBe source.id.toString()
+        }
+
         test("publishes arbitrary nonblank Altinn recipient and tag unchanged") {
             val publisher = RecordingPublisher()
             handler(publisher).handle(delivery(create())) shouldBe DeliveryOutcome.Sent
@@ -41,6 +59,7 @@ class ArbeidsgivervarselChannelHandlerTest :
                 ArbeidsgiverNotificationRequest(
                     virksomhetsnummer = TEST_ORGNUMMER.value,
                     eksternId = "00000000-0000-0000-0000-000000000702",
+                    correlationId = "00000000-0000-0000-0000-000000000702",
                     grupperingsid = null,
                     tag = "producer-tag",
                     tekst = "Tekst",
