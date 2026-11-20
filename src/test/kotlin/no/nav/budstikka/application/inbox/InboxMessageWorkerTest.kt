@@ -9,6 +9,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.di.dependencies
 import io.ktor.server.testing.TestApplication
@@ -28,19 +30,26 @@ import no.nav.budstikka.application.port.DeliveryRepository
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.OrderedCommand
 import no.nav.budstikka.application.worker.LeaseBudgetDrainer
 import no.nav.budstikka.application.worker.LeaseDrainConfig
 import no.nav.budstikka.bootstrap.gateModule
 import no.nav.budstikka.contract.BrukervarselCreate
+import no.nav.budstikka.contract.Dispatch
+import no.nav.budstikka.contract.MicrofrontendDisable
+import no.nav.budstikka.contract.MicrofrontendEnable
 import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.domain.decision.Channel
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DeathLookup
+import no.nav.budstikka.domain.decision.Decision
 import no.nav.budstikka.domain.decision.DecisionProcess
 import no.nav.budstikka.domain.decision.DecisionRule
 import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DropReason
+import no.nav.budstikka.domain.decision.Operation
+import no.nav.budstikka.domain.decision.OrderingKey
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.domain.decision.SendingWindowGate
 import no.nav.budstikka.domain.foundation.calendar.NorwegianRodeDager
@@ -62,6 +71,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -170,6 +180,46 @@ class InboxMessageWorkerTest :
             metrics.processedCount.get() shouldBe 2
             metrics.failedCount.get() shouldBe 0
             metrics.emptyPollCount.get() shouldBe 0
+        }
+
+        test("the application's rules decide an enable whose visibleUntil has passed as a disable") {
+            val enable = MicrofrontendEnable(TEST_SYKMELDT, "syfo-dialog", visibleUntil = Clock.System.now() - 1.days)
+
+            val decision = decisionProcess.process(Dispatch("ref", enable)).shouldBeInstanceOf<Decision.Processed>()
+
+            decision.deliveries.map { it.operation to it.content } shouldContainExactly
+                listOf(Operation.INACTIVATE to MicrofrontendDisable(TEST_SYKMELDT, "syfo-dialog"))
+        }
+
+        test("runOnce counts and warns when a scheduled disable is capped at the retention horizon") {
+            val eventId = UUID.fromString("00000000-0000-0000-0000-000000000012")
+            val enable =
+                MicrofrontendEnable(
+                    personIdentifier = TEST_SYKMELDT,
+                    microfrontendId = "syfo-dialog",
+                    visibleUntil = Clock.System.now() + 400.days,
+                )
+            val repository = PollingInboxMessageRepository(messages = listOf(inboxMessage(eventId, content = enable)))
+            val metrics = RecordingInboxMetrics()
+            val logbackLogger = LoggerFactory.getLogger(InboxMessageWorker::class.java) as Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+
+            logbackLogger.addAppender(appender)
+            try {
+                workerWith(repository, metrics = metrics, decisionProcess = decisionProcess).runOnce()
+            } finally {
+                logbackLogger.detachAppender(appender)
+                appender.stop()
+            }
+
+            metrics.processedCount.get() shouldBe 1
+            metrics.scheduledDisableCappedCount.get() shouldBe 1
+            with(appender.list.single { it.level == Level.WARN }) {
+                formattedMessage shouldContain "disable scheduled at the horizon"
+                formattedMessage shouldNotContain TEST_SYKMELDT.value
+                formattedMessage shouldNotContain "syfo-dialog"
+                mdcPropertyMap[MdcKeys.EVENT_ID] shouldBe eventId.toString()
+            }
         }
 
         test("runOnce counts a reclaimed claim as a lost decision CAS without logging a domain outcome") {
@@ -493,6 +543,20 @@ private class PollingInboxMessageRepository(
         waitingMessages += claim.eventId to (reason to nextRetry)
         return true
     }
+
+    override fun lockOrderedCommandInTransaction(
+        eventId: UUID,
+        key: OrderingKey,
+    ): OrderedCommand = OrderedCommand(Clock.System.now(), earlierScheduled = emptyList(), laterCommandDecided = false)
+
+    override fun cancelPendingInTransaction(eventIds: List<UUID>): Int = eventIds.size
+
+    override fun saveDerivedInTransaction(
+        sourceEventId: UUID,
+        message: InboxMessage,
+        waitReason: String,
+        notBefore: Instant,
+    ): Boolean = true
 }
 
 private class RecordingDeliveryRepository : DeliveryRepository {

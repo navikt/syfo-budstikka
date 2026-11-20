@@ -97,7 +97,8 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             val claim = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            effectuate.effectuate(claim, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
+            effectuate.effectuate(claim, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe
+                EffectuationResult.Completed
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"
@@ -141,7 +142,7 @@ class EffectuateDecisionIntegrationTest :
             )
             val claim = inbox.claim(1, lease, 10).single().claim
             val decision = DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("snapshot", create))
-            effectuate.effectuate(claim, decision) shouldBe true
+            effectuate.effectuate(claim, decision) shouldBe EffectuationResult.Completed
             inboxState(eventId) shouldBe "PROCESSED"
             val delivery = deliveries.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
             delivery.snapshot shouldBe
@@ -249,7 +250,7 @@ class EffectuateDecisionIntegrationTest :
                 )
                 val claim = inbox.claim(1, lease, 10).single().claim
                 val decision = DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("calendar", content))
-                effectuate.effectuate(claim, decision) shouldBe true
+                effectuate.effectuate(claim, decision) shouldBe EffectuationResult.Completed
                 inboxState(eventId) shouldBe "PROCESSED"
                 deliveryCount(eventId) shouldBe 1
                 val delivery = repository.claim(1, lease, 10, setOf(Channel.KALENDERAVTALE)).single()
@@ -313,7 +314,7 @@ class EffectuateDecisionIntegrationTest :
                     claim,
                     DecisionProcess(emptyList(), resolver::resolve).process(Dispatch("null-name", content)),
                 ) shouldBe
-                    true
+                    EffectuationResult.Completed
                 val delivery = repository.claim(1, lease, 10, setOf(Channel.ARBEIDSGIVERVARSEL)).single()
                 delivery.snapshot.shouldBeInstanceOf<DeliverySnapshot.Resolved>().name shouldBe null
                 val missing = ArbeidsgiverNotificationResponse.NotYetAvailable("SakFinnesIkke")
@@ -435,7 +436,7 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             val claim = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            effectuate.effectuate(claim, Decision.Failed("boom")) shouldBe true
+            effectuate.effectuate(claim, Decision.Failed("boom")) shouldBe EffectuationResult.Completed
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "FAILED"
@@ -447,7 +448,7 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             val claim = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            effectuate.effectuate(claim, Decision.Dropped(DropReason.DEAD)) shouldBe true
+            effectuate.effectuate(claim, Decision.Dropped(DropReason.DEAD)) shouldBe EffectuationResult.Completed
 
             deliveryCount(eventId) shouldBe 0L
             inboxState(eventId) shouldBe "DROPPED"
@@ -459,8 +460,10 @@ class EffectuateDecisionIntegrationTest :
             inbox.saveBatch(listOf(inboxMessage(eventId)))
             val claim = inbox.claim(limit = 10, lease = lease, maxAttempts = 10).single().claim
 
-            effectuate.effectuate(claim, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe true
-            effectuate.effectuate(claim, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe false
+            effectuate.effectuate(claim, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe
+                EffectuationResult.Completed
+            effectuate.effectuate(claim, Decision.Processed(listOf(microfrontendDraft(reference = "ref-1")))) shouldBe
+                EffectuationResult.Skipped
 
             deliveryCount(eventId) shouldBe 1L
             inboxState(eventId) shouldBe "PROCESSED"

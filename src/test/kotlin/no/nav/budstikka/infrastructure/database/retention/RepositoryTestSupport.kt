@@ -38,7 +38,7 @@ internal class RepositoryTestSupport : AutoCloseable {
 
     suspend fun run(batchSize: Int): RetentionResult = withExclusiveCleanup { repository.run(batchSize) }
 
-    suspend fun <T> withExclusiveCleanup(block: suspend () -> T): T = retentionCleanupMutex.withLock { block() }
+    suspend fun <T> withExclusiveCleanup(block: suspend () -> T): T = exclusiveCleanup(block)
 
     suspend fun inbox(
         receivedAt: Instant,
@@ -167,5 +167,8 @@ internal class RepositoryTestSupport : AutoCloseable {
 
     companion object {
         private val retentionCleanupMutex = Mutex()
+
+        /** Runs [block] while no other spec runs retention; the advisory lock covers the whole test database. */
+        suspend fun <T> exclusiveCleanup(block: suspend () -> T): T = retentionCleanupMutex.withLock { block() }
     }
 }

@@ -8,11 +8,22 @@ import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.infrastructure.database.config.transact
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageTable
+import no.nav.budstikka.infrastructure.database.dispatch.textField
+import org.jetbrains.exposed.v1.core.Alias
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.not
+import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -66,9 +77,10 @@ class PostgresRetentionRepository(
 
     /**
      * Deletes inbox messages received before [eligibleStateCutoff] whose state is in
-     * [RetentionPolicy.eligibleInboxStates], plus messages received before [anyStateCutoff]
-     * regardless of state. The second cutoff lets stuck, unprocessed messages expire eventually;
-     * those deletions are reported separately as `unprocessed`.
+     * [RetentionPolicy.eligibleInboxStates] and that no pending schedule or older enable still needs,
+     * plus messages received before [anyStateCutoff] regardless of state. The second cutoff lets stuck,
+     * unprocessed messages expire eventually; those deletions are reported separately as
+     * `unprocessed`.
      */
     private fun deleteOldInboxMessages(
         eligibleStateCutoff: kotlin.time.Instant,
@@ -79,11 +91,13 @@ class PostgresRetentionRepository(
             InboxMessageTable
                 .select(InboxMessageTable.eventId, InboxMessageTable.state)
                 .where {
-                    (InboxMessageTable.receivedAt less eligibleStateCutoff) and
-                        (
-                            (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) or
-                                (InboxMessageTable.receivedAt less anyStateCutoff)
-                        )
+                    val old = InboxMessageTable.receivedAt less eligibleStateCutoff
+                    val finishedAndUnneeded =
+                        (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and
+                            noPendingScheduled() and
+                            not(preventsStaleDisable())
+                    val pastAbsoluteCutoff = InboxMessageTable.receivedAt less anyStateCutoff
+                    old and (finishedAndUnneeded or pastAbsoluteCutoff)
                 }.orderBy(InboxMessageTable.receivedAt to SortOrder.ASC, InboxMessageTable.eventId to SortOrder.ASC)
                 .limit(batchSize)
                 .forUpdate()
@@ -96,6 +110,61 @@ class PostgresRetentionRepository(
             unprocessed = candidates.count { (_, state) -> state !in policy.eligibleInboxStates },
         )
     }
+
+    /**
+     * No scheduled row derived from this inbox row still waits. The source is kept until then, so a
+     * producer retry with the same event id is still a duplicate and cannot cancel the plan.
+     */
+    private fun noPendingScheduled(): Op<Boolean> {
+        val scheduled = InboxMessageTable.alias("scheduled")
+        return notExists(
+            scheduled
+                .select(scheduled[InboxMessageTable.eventId])
+                .where {
+                    (scheduled[InboxMessageTable.sourceEventId] eq InboxMessageTable.eventId) and
+                        (scheduled[InboxMessageTable.state] inList InboxMessageState.WAITING_OR_CLAIMED)
+                },
+        )
+    }
+
+    /**
+     * A processed command must stay while an older pending enable can still schedule a disable for
+     * the same target. Otherwise the enable would later schedule a disable that this newer command
+     * already replaced.
+     */
+    private fun preventsStaleDisable(): Op<Boolean> {
+        val enable = InboxMessageTable.alias("pending_enable")
+        val olderPendingEnable =
+            enable.select(enable[InboxMessageTable.eventId]).where {
+                canScheduleDisable(enable) and sameTarget(enable) and arrivedEarlier(enable)
+            }
+        return isProcessedCommand() and exists(olderPendingEnable)
+    }
+
+    private fun isProcessedCommand(): Op<Boolean> =
+        with(InboxMessageTable) {
+            (state eq InboxMessageState.PROCESSED.name) and sourceEventId.isNull()
+        }
+
+    private fun canScheduleDisable(enable: Alias<InboxMessageTable>): Op<Boolean> =
+        with(InboxMessageTable) {
+            enable[sourceEventId].isNull() and
+                (enable[state] inList InboxMessageState.PENDING) and
+                (enable[content].textField("type") eq "MicrofrontendEnable") and
+                enable[content].textField("visibleUntil").isNotNull()
+        }
+
+    private fun sameTarget(enable: Alias<InboxMessageTable>): Op<Boolean> =
+        with(InboxMessageTable) {
+            (enable[content].textField("personIdentifier") eq content.textField("personIdentifier")) and
+                (enable[content].textField("microfrontendId") eq content.textField("microfrontendId"))
+        }
+
+    private fun arrivedEarlier(enable: Alias<InboxMessageTable>): Op<Boolean> =
+        with(InboxMessageTable) {
+            (enable[receivedAt] less receivedAt) or
+                ((enable[receivedAt] eq receivedAt) and (enable[eventId] less eventId))
+        }
 
     private fun deleteOldDeadLetterMessages(
         cutoff: kotlin.time.Instant,
