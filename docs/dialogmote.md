@@ -10,7 +10,6 @@ Guiden viser hvilke Budstikka-kall isdialogmote bruker for dialogmøtehendelsene
 - `EventId` lagres transaksjonelt med møteendringen og gjenbrukes ved retry.
 - Bruk `SendingWindow.ONGOING` der funksjonen har parameteret, så en lukking ikke kan nå fram før en opprettelse som venter på sendevinduet. Unntaket er referatbeskjeden til leder.
 - isdialogmote sender bare SM-hendelser når den sykmeldte kan varsles digitalt, og distribuerer brev selv. Bruk derfor ikke `brevFallback`.
-- Planlagt skjuling av microfrontenden med `visibleUntil` krever at #282 er rullet ut.
 
 ## Referanser
 
