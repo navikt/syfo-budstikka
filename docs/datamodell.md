@@ -96,9 +96,9 @@ erDiagram
   ikke er ferdig behandlet, sletter ikke oppbevaringsjobben enable-meldingen etter 100 dager.
   Grensen på 365 dager gjelder fortsatt. Dermed avvises en gjentatt enable med samme `EventId`
   som duplikat og kan ikke kansellere den planlagte disablen.
-  En nyere, ferdigbehandlet kommando for samme mottaker og microfrontend beholdes også mens
+  En nyere, ferdigbehandlet melding for samme mottaker og microfrontend beholdes også mens
   en eldre enable med `visibleUntil` fortsatt venter på behandling. Ellers kunne den eldre
-  enable-meldingen opprettet en skjulingsplan etter at den nyere kommandoen var slettet.
+  enable-meldingen opprettet en skjulingsplan etter at den nyere meldingen var slettet.
   Også her gjelder den absolutte grensen på 365 dager.
   Rader som slettes ved 365-dagersgrensen mens de fortsatt er ubehandlet, telles i
   `retention.cleanup.inbox.unprocessed.deleted` og logges på WARN-nivå med kun antall.
@@ -156,11 +156,11 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
 
 - **Microfrontend (ADR 0018):** Før CAS tar effektueringen en advisory-lås per
   `(sykmeldt, microfrontendId)` og låser deretter raden og ventende planlagte disables fra
-  eldre kommandoer, sortert på `(received_at, event_id)` som i oppbevaringsjobben. I samme
+  eldre meldinger, sortert på `(received_at, event_id)` som i oppbevaringsjobben. I samme
   transaksjon settes de ventende radene til `PROCESSED` (kansellering). En enable med
   `visibleUntil` skriver en egen rad med `MicrofrontendDisable` i `WAIT` til
   `visibleUntil` (`insert ... on conflict do nothing`). Det skjer ikke hvis en nyere
-  kommando for nøkkelen allerede er besluttet. Transaksjonen setter `lock_timeout` til
+  enable eller disable for nøkkelen allerede er besluttet. Transaksjonen setter `lock_timeout` til
   5 sekunder før nøkkellåsen tas. Grensen gjelder hver venting på en lås, også radlåsene.
   Ved timeout rulles transaksjonen tilbake. Exposed kan prøve transaksjonen på nytt; hvis
   forsøkene feiler, lar workeren meldingen bli liggende til leasen utløper.
@@ -196,7 +196,7 @@ RECEIVED -> CLAIMED -> PROCESSED
 
 CLAIMED -> CLAIMED   (lease utløpt, kan re-claimes)
 WAIT    -> CLAIMED   (sendevindu åpnet eller visibleUntil nådd: next_attempt_time passert)
-WAIT    -> PROCESSED (planlagt disable kansellert av en nyere kommando)
+WAIT    -> PROCESSED (planlagt disable kansellert av en nyere melding)
 CLAIMED -> PROCESSED (vekket, ikke besluttet disable kansellert; workeren taper CAS)
 ```
 
