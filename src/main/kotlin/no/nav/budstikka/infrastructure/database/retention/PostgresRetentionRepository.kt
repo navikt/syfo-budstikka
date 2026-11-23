@@ -6,6 +6,7 @@ import no.nav.budstikka.application.retention.RetentionPolicy
 import no.nav.budstikka.application.retention.RetentionRepository
 import no.nav.budstikka.application.retention.RetentionResult
 import no.nav.budstikka.infrastructure.database.config.transact
+import no.nav.budstikka.infrastructure.database.delivery.DeliveryState
 import no.nav.budstikka.infrastructure.database.delivery.DeliveryTable
 import no.nav.budstikka.infrastructure.database.dispatch.DeadLetterMessageTable
 import no.nav.budstikka.infrastructure.database.dispatch.InboxMessageState
@@ -77,10 +78,10 @@ class PostgresRetentionRepository(
 
     /**
      * Deletes inbox messages received before [eligibleStateCutoff] whose state is in
-     * [RetentionPolicy.eligibleInboxStates] and that no pending schedule or older enable still needs,
-     * plus messages received before [anyStateCutoff] regardless of state. The second cutoff lets stuck,
-     * unprocessed messages expire eventually; those deletions are reported separately as
-     * `unprocessed`.
+     * [RetentionPolicy.eligibleInboxStates] and that no waiting delivery, pending schedule or older
+     * enable still needs, plus messages received before [anyStateCutoff] regardless of state. The
+     * second cutoff lets stuck, unprocessed messages expire eventually; those deletions are reported
+     * separately as `unprocessed`.
      */
     private fun deleteOldInboxMessages(
         eligibleStateCutoff: kotlin.time.Instant,
@@ -94,6 +95,7 @@ class PostgresRetentionRepository(
                     val old = InboxMessageTable.receivedAt less eligibleStateCutoff
                     val finishedAndUnneeded =
                         (InboxMessageTable.state inList policy.eligibleInboxStates.toList()) and
+                            noPendingDelivery() and
                             noPendingScheduled() and
                             not(preventsStaleDisable())
                     val pastAbsoluteCutoff = InboxMessageTable.receivedAt less anyStateCutoff
@@ -110,6 +112,20 @@ class PostgresRetentionRepository(
             unprocessed = candidates.count { (_, state) -> state !in policy.eligibleInboxStates },
         )
     }
+
+    /**
+     * No delivery from this inbox row is still waiting to be sent. The row is kept until then, so a
+     * retry keeps the inbox event id as its correlation id and as the notification's identity.
+     */
+    private fun noPendingDelivery(): Op<Boolean> =
+        notExists(
+            DeliveryTable
+                .select(DeliveryTable.id)
+                .where {
+                    (DeliveryTable.inboxEventId eq InboxMessageTable.eventId) and
+                        (DeliveryTable.state inList PENDING_DELIVERY_STATES)
+                },
+        )
 
     /**
      * No scheduled row derived from this inbox row still waits. The source is kept until then, so a
@@ -208,5 +224,7 @@ class PostgresRetentionRepository(
         internal const val RETENTION_CLEANUP_LOCK_KEY = 0x5245544e
 
         private const val TRY_ADVISORY_LOCK = "SELECT pg_try_advisory_xact_lock(?, ?)"
+
+        private val PENDING_DELIVERY_STATES = listOf(DeliveryState.READY.name, DeliveryState.CLAIMED.name)
     }
 }

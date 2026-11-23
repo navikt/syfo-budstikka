@@ -52,6 +52,7 @@ import no.nav.budstikka.infrastructure.database.retention.PostgresRetentionRepos
 import no.nav.budstikka.infrastructure.database.retention.RepositoryTestSupport
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.sql.DriverManager
@@ -160,6 +161,12 @@ class ScheduledMicrofrontendDisableIntegrationTest :
                 .exclusiveCleanup { PostgresRetentionRepository(fixture.database, RetentionPolicy()).run(100) }
                 .shouldBeInstanceOf<RetentionResult.Completed>()
 
+        // Retention keeps an inbox row while a delivery from it waits, so mark decided rows delivered first.
+        suspend fun markDeliveriesSent() =
+            fixture.database.transact {
+                DeliveryTable.update({ DeliveryTable.state neq DeliveryState.SENT.name }) { it[state] = DeliveryState.SENT.name }
+            }
+
         // An enable received 101 days ago, decided and delivered, so only its scheduled disable is pending.
         suspend fun decideOldEnable(visibleUntil: Instant) {
             receive(earlier, enable(visibleUntil))
@@ -201,11 +208,13 @@ class ScheduledMicrofrontendDisableIntegrationTest :
                 update(later, receivedAt = receivedAt + gap)
                 val claims = claimAll()
                 decide(claims.getValue(later))
+                markDeliveriesSent()
 
                 runRetention()
                 decide(claims.getValue(earlier)) shouldBe EffectuationResult.Completed
 
                 scheduledDisables().shouldBeEmpty()
+                markDeliveriesSent()
                 runRetention()
                 row(earlier).shouldBeNull()
                 row(later).shouldBeNull()
@@ -224,6 +233,7 @@ class ScheduledMicrofrontendDisableIntegrationTest :
                 receive(later, disable())
                 update(later, receivedAt = inDays(-101))
                 decide(claimAll().getValue(later))
+                markDeliveriesSent()
 
                 runRetention()
 

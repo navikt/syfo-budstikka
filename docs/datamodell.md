@@ -88,6 +88,9 @@ erDiagram
   Workeren sletter hardt de 100 eldste kandidatene per tabell hver time
   (konfigurerbart). Bare terminale `inbox_message`-rader (`PROCESSED`/`DROPPED`/`FAILED`)
   slettes når `received_at` er strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer).
+  En terminal rad beholdes likevel så lenge en leveranse fra den venter (`READY`/`CLAIMED`), men
+  aldri lenger enn 365-dagersgrensen nedenfor. Da beholder nye forsøk inbox-id-en som
+  korrelasjons-id.
   Ikke-terminale rader (`RECEIVED`/`CLAIMED`/`WAIT`) beholdes til de er ferdig behandlet,
   men aldri lenger enn 365 dager etter `received_at` (absolutt grense for personopplysninger).
   En enable med fremtidig `visibleUntil` gir en planlagt disable: en egen melding som venter i
