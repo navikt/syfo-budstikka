@@ -8,6 +8,10 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Daily rebuild picks up the latest patched Chainguard base image.
+    - cron: "10 5 * * *"
+      timezone: "Europe/Oslo"
   workflow_dispatch:
 
 permissions:
