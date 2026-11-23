@@ -104,3 +104,15 @@ gjennomført. Det ligger ingen stage-2-migrering i samme release: Flyway kjører
 oppstart. `CHECK NOT VALID` ville heller ikke unntatt gamle rader fra sjekk ved UPDATE.
 
 Dette er operatørveiledning, ikke en utført produksjonsoperasjon.
+
+## Stabil identitet for arbeidsgivervarsler
+
+Et arbeidsgivervarsel med `sakstype` bruker en fast id fra virksomhet og `reference` som Fagers
+`eksternId`. Varsler uten `sakstype` beholder hendelsesbasert identitet, altså id-en til
+inbox-hendelsen, som før. Budstikka regner ut identiteten ved hvert forsøk fra feltene på
+leveransen, så overgangen krever ingen databasemigrering.
+
+Eldre Budstikka-kode gir alle arbeidsgivervarsler hendelsesbasert identitet, også dem med
+`sakstype`. Ta derfor `sakstype` i bruk først når alle instansene kjører den nye koden. Ved
+tilbakerulling må produsentene stanse nye `sakstype`-kall til den nye koden er rullet ut igjen.
+Leveranser som allerede venter, sendes da med hendelsesbasert identitet.
