@@ -2,6 +2,7 @@ package no.nav.budstikka.infrastructure.database.dispatch
 
 import no.nav.budstikka.contract.DispatchContent
 import no.nav.budstikka.contract.dispatchJson
+import no.nav.budstikka.infrastructure.database.config.timestamptz
 import org.jetbrains.exposed.v1.core.CustomOperator
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Op
@@ -15,7 +16,6 @@ import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
-import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
 @Suppress("unused")
@@ -27,9 +27,9 @@ object InboxMessageTable : Table("inbox_message") {
     val claimToken = javaUUID("claim_token").nullable()
     val dropReason = text("drop_reason").nullable()
     val attempt = integer("attempt").default(0)
-    val nextAttemptTime = timestamp("next_attempt_time").nullable()
-    val receivedAt = timestamp("received_at").defaultExpression(CurrentTimestamp)
-    val processedAt = timestamp("processed_at").nullable()
+    val nextAttemptTime = timestamptz("next_attempt_time").nullable()
+    val receivedAt = timestamptz("received_at").defaultExpression(CurrentTimestamp)
+    val processedAt = timestamptz("processed_at").nullable()
     val errorMessage = text("error_message").nullable()
     val waitReason = text("wait_reason").nullable()
 

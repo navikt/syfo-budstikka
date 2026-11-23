@@ -6,6 +6,7 @@ import no.nav.budstikka.domain.decision.DeliveryDraft
 import no.nav.budstikka.domain.decision.DeliverySnapshot
 import java.util.UUID
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 data class ClaimedDelivery(
     val id: UUID,
@@ -56,6 +57,12 @@ interface DeliveryRepository {
     suspend fun beginAttempt(
         claim: DeliveryClaim,
         maxAttempts: Int,
+    ): Boolean
+
+    /** Releases the current claim until [nextAttempt], without spending or resetting attempts. */
+    suspend fun postponeUntil(
+        claim: DeliveryClaim,
+        nextAttempt: Instant,
     ): Boolean
 
     /** Returns `false` if the row is no longer CLAIMED under this caller's [claim]. */

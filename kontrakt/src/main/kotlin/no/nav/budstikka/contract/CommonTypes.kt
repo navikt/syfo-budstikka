@@ -44,6 +44,9 @@ enum class Oppgavetype(
 
     /** Reminder about a follow-up plan. */
     OPPFOLGINGSPLAN_PAAMINNELSE("OPPFOLGINGSPLAN_PAAMINNELSE"),
+
+    /** Request for the employer to report the need for a dialogue meeting. */
+    DIALOGMOTE_SVAR_BEHOV("DIALOGMOTE_SVAR_BEHOV"),
 }
 
 /** Carrier available for an optional external notification. */
@@ -151,12 +154,16 @@ data class BrevFallback(
     override fun toString(): String = "BrevFallback(distributionType=$distributionType)"
 }
 
-/** Time window in which Budstikka may dispatch the notification. */
+/** Time window in which Budstikka may decide and start forwarding the notification. */
 enum class SendingWindow {
-    /** Dispatch without an opening-hours restriction. */
+    /** Process the notification without an opening-hours restriction. */
     ONGOING,
 
-    /** Dispatch only during Budstikka opening hours. */
+    /**
+     * Hold creation decisions and delivery attempts outside 09:00 (inclusive) to 20:00 (exclusive)
+     * Monday to Friday in Europe/Oslo, on Norwegian public holidays and on December 24.
+     * Downstream processing and external notifications may happen later.
+     */
     BUDSTIKKA_OPENING_HOURS,
 }
 

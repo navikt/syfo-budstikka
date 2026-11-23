@@ -13,6 +13,7 @@ import no.nav.budstikka.contract.BrukervarselCreate
 import no.nav.budstikka.contract.Dispatch
 import no.nav.budstikka.contract.DispatchHeader
 import no.nav.budstikka.contract.ExternalNotification
+import no.nav.budstikka.contract.SendingWindow
 import no.nav.budstikka.contract.Varseltype
 import no.nav.budstikka.contract.dispatchJson
 import no.nav.budstikka.domain.decision.DeathLookup
@@ -57,6 +58,7 @@ class BrukervarselReservationE2ESpec :
                                     text = "Du har en oppgave",
                                     externalVarsling = ExternalNotification.smsAndEmail(smsText = "Nytt varsel"),
                                     brevFallback = BrevFallback(journalpostId = "jp-krr-1"),
+                                    sendingWindow = SendingWindow.ONGOING,
                                 ),
                         )
 

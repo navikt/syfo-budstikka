@@ -52,7 +52,7 @@ object Budstikka {
      * @param brevFallback lets budstikka send the document through dokumentdistribusjon instead
      *   when the person cannot be notified digitally; dokdist picks the channel, which for a
      *   reserved person means paper. Requires a `journalpostId` you have already created.
-     * @param sendingWindow when the notification may leave budstikka.
+     * @param sendingWindow when Budstikka may decide and start forwarding the notification; see [SendingWindow].
      */
     fun brukervarselCreate(
         eventId: EventId,
@@ -169,7 +169,7 @@ object Budstikka {
      * @param orgnummer the organisation the employment belongs to.
      * @param oppgavetype required by Dine Sykmeldte to group and deduplicate the notification.
      * @param text the activity notification text.
-     * @param sendingWindow when the notification may leave Budstikka.
+     * @param sendingWindow when Budstikka may decide and start forwarding the notification; see [SendingWindow].
      * @param visibleUntil when Dine Sykmeldte stops showing the notification; omit to keep it visible.
      */
     fun dineSykmeldteVarselCreate(
@@ -263,8 +263,7 @@ object Budstikka {
      *   deletes the notification and its data from its database and Kafka. This cannot be undone
      *   and does not cancel external notifications already scheduled. Omit to use the existing
      *   four-month retention period.
-     * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
-     *   hours.
+     * @param sendingWindow when Budstikka may decide and start forwarding the notification; see [SendingWindow].
      */
     @Deprecated(
         "Arbeidsgivernotifikasjoner will require every notification to belong to a sak. " +
@@ -319,8 +318,7 @@ object Budstikka {
      * @param messageType whether the notification is a beskjed or oppgave; defaults to BESKJED.
      * @param visibleUntil despite the name, the time when Arbeidsgivernotifikasjoner permanently
      *   deletes the notification. Omit to use the existing four-month retention period.
-     * @param sendingWindow when the notification may leave Budstikka; defaults to Budstikka opening
-     *   hours.
+     * @param sendingWindow when Budstikka may decide and start forwarding the notification; see [SendingWindow].
      * @param saksstatus optional status to set on the sak after the notification.
      */
     fun arbeidsgivervarselCreate(
