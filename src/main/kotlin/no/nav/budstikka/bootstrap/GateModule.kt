@@ -5,6 +5,7 @@ import io.ktor.server.plugins.di.resolve
 import no.nav.budstikka.domain.decision.DeathGate
 import no.nav.budstikka.domain.decision.DeathLookup
 import no.nav.budstikka.domain.decision.DecisionRule
+import no.nav.budstikka.domain.decision.PassedVisibleUntilRule
 import no.nav.budstikka.domain.decision.ReservationGate
 import no.nav.budstikka.domain.decision.ReservationLookup
 import no.nav.budstikka.domain.decision.SendingWindowGate
@@ -16,6 +17,7 @@ fun DependencyRegistry.gateModule() {
             SendingWindowGate(),
             DeathGate(resolve<DeathLookup>()),
             ReservationGate(resolve<ReservationLookup>()),
+            PassedVisibleUntilRule(),
         )
     }
 }

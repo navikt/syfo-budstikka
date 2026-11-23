@@ -6,6 +6,8 @@ import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.OrderedCommand
+import no.nav.budstikka.domain.decision.OrderingKey
 import no.nav.budstikka.infrastructure.database.config.transact
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -20,10 +22,13 @@ import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
+import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Instant
 
 class PostgresInboxMessageRepository(
@@ -37,11 +42,12 @@ class PostgresInboxMessageRepository(
         }
         database.transact {
             val now = Clock.System.now()
-            InboxMessageTable.batchInsert(messages, ignore = true) { message ->
+            InboxMessageTable.batchInsert(messages.withIndex(), ignore = true) { (index, message) ->
                 this[InboxMessageTable.eventId] = message.eventId
                 this[InboxMessageTable.content] = message.content
                 this[InboxMessageTable.reference] = message.reference
-                this[InboxMessageTable.receivedAt] = now
+                // PostgreSQL stores microseconds; keep input order even when event ids sort backwards.
+                this[InboxMessageTable.receivedAt] = now + index.microseconds
             }
         }
     }
@@ -204,6 +210,50 @@ class PostgresInboxMessageRepository(
             // legitimately waiting message into the poison gate.
             it[attempt] = 0
         } > 0
+
+    override fun lockOrderedCommandInTransaction(
+        eventId: UUID,
+        key: OrderingKey,
+    ): OrderedCommand? = PostgresInboxOrdering.forKey(key).lockCommandInTransaction(eventId)
+
+    override fun cancelPendingInTransaction(eventIds: List<UUID>): Int {
+        if (eventIds.isEmpty()) {
+            return 0
+        }
+        return InboxMessageTable.update({
+            (InboxMessageTable.eventId inList eventIds) and (InboxMessageTable.state inList InboxMessageState.PENDING)
+        }) {
+            it[state] = InboxMessageState.PROCESSED.name
+            it[claimToken] = null
+            it[nextAttemptTime] = null
+            it[waitReason] = null
+            it[processedAt] = Clock.System.now()
+        }
+    }
+
+    override fun saveDerivedInTransaction(
+        sourceEventId: UUID,
+        message: InboxMessage,
+        waitReason: String,
+        notBefore: Instant,
+    ): Boolean {
+        val sourceReceivedAt =
+            InboxMessageTable
+                .select(InboxMessageTable.receivedAt)
+                .where { InboxMessageTable.eventId eq sourceEventId }
+                .single()[InboxMessageTable.receivedAt]
+        return InboxMessageTable
+            .insertIgnore {
+                it[eventId] = message.eventId
+                it[content] = message.content
+                it[reference] = message.reference
+                it[state] = InboxMessageState.WAIT.name
+                it[nextAttemptTime] = notBefore
+                it[InboxMessageTable.waitReason] = waitReason
+                it[receivedAt] = sourceReceivedAt
+                it[InboxMessageTable.sourceEventId] = sourceEventId
+            }.insertedCount > 0
+    }
 
     private fun terminate(
         claim: InboxClaim,

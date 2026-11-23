@@ -54,6 +54,18 @@ data class DeliveryDraft(
 )
 
 /**
+ * A dispatch that a [Decision.Processed] schedules for [notBefore]. It waits as its own inbox row and
+ * is decided like any other message when it wakes, unless a newer command for the same [OrderingKey]
+ * cancels it first. Only a decision with an [OrderingKey] may schedule one.
+ */
+data class ScheduledDispatch(
+    val reference: String,
+    val content: DispatchContent,
+    val notBefore: Instant,
+    val waitReason: String,
+)
+
+/**
  * Result of deciding one inbox event. Input-fetch failures are thrown instead of represented here,
  * leaving the claimed row available after its lease expires.
  */

@@ -26,6 +26,9 @@ interface InboxMetrics {
 
     /** The decision was computed after the row left CLAIMED or was reclaimed by a peer (claim lost). */
     fun decisionCasLost()
+
+    /** A microfrontend `visibleUntil` lay beyond the retention horizon, so its disable was scheduled earlier. */
+    fun scheduledDisableCapped()
 }
 
 object NoInboxMetrics : InboxMetrics {
@@ -47,4 +50,6 @@ object NoInboxMetrics : InboxMetrics {
     ) = Unit
 
     override fun decisionCasLost() = Unit
+
+    override fun scheduledDisableCapped() = Unit
 }

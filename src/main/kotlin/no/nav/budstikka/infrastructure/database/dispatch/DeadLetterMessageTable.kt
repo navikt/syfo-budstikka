@@ -1,9 +1,9 @@
 package no.nav.budstikka.infrastructure.database.dispatch
 
+import no.nav.budstikka.infrastructure.database.config.timestamptz
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
 import org.jetbrains.exposed.v1.datetime.CurrentTimestamp
-import org.jetbrains.exposed.v1.datetime.timestamp
 
 object DeadLetterMessageTable : Table("dead_letter_message") {
     val id = javaUUID("id").databaseGenerated()
@@ -17,7 +17,7 @@ object DeadLetterMessageTable : Table("dead_letter_message") {
     val kafkaKey = text("kafka_key").nullable()
     val failureReason = text("failure_reason")
     val errorMessage = text("error_message").nullable()
-    val receivedAt = timestamp("received_at").defaultExpression(CurrentTimestamp)
+    val receivedAt = timestamptz("received_at").defaultExpression(CurrentTimestamp)
 
     override val primaryKey = PrimaryKey(id)
 
