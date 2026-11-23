@@ -12,7 +12,7 @@ enum class InboxQueueState {
     /** CLAIMED with an active lease. */
     IN_FLIGHT,
 
-    /** WAIT with a future sending-window retry. This is expected waiting, not backlog. */
+    /** WAIT with a future sending-window retry or scheduled disable. This is expected waiting, not backlog. */
     WAITING,
 }
 

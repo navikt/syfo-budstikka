@@ -21,7 +21,8 @@ erDiagram
         timestamptz received_at
         timestamptz processed_at "nullable"
         text        error_message "nullable"
-        text        wait_reason "nullable (sendevindu-hold, ADR 0014)"
+        text        wait_reason "nullable (sendevindu-hold ADR 0014, SCHEDULED_DISABLE ADR 0018)"
+        uuid        source_event_id "nullable; satt kun på planlagte disables (ADR 0018)"
     }
 
     delivery {
@@ -89,7 +90,17 @@ erDiagram
   slettes når `received_at` er strengt eldre enn 100 dager (≥ 90 dagers replay-vindu + buffer).
   Ikke-terminale rader (`RECEIVED`/`CLAIMED`/`WAIT`) beholdes til de er ferdig behandlet,
   men aldri lenger enn 365 dager etter `received_at` (absolutt grense for personopplysninger).
-  Rader som slettes ved denne grensen mens de fortsatt er ubehandlet, telles i
+  En enable med fremtidig `visibleUntil` gir en planlagt disable: en egen melding som venter i
+  `WAIT` og arver enable-meldingens `received_at`. Tidspunktet for skjuling settes senest 335 dager etter
+  `received_at`, altså minst 30 dager før grensen (ADR 0018). Så lenge den planlagte disablen
+  ikke er ferdig behandlet, sletter ikke oppbevaringsjobben enable-meldingen etter 100 dager.
+  Grensen på 365 dager gjelder fortsatt. Dermed avvises en gjentatt enable med samme `EventId`
+  som duplikat og kan ikke kansellere den planlagte disablen.
+  En nyere, ferdigbehandlet melding for samme mottaker og microfrontend beholdes også mens
+  en eldre enable med `visibleUntil` fortsatt venter på behandling. Ellers kunne den eldre
+  enable-meldingen opprettet en skjulingsplan etter at den nyere meldingen var slettet.
+  Også her gjelder den absolutte grensen på 365 dager.
+  Rader som slettes ved 365-dagersgrensen mens de fortsatt er ubehandlet, telles i
   `retention.cleanup.inbox.unprocessed.deleted` og logges på WARN-nivå med kun antall.
   `dead_letter_message` slettes når `received_at` er
   strengt eldre enn 100 dager; DL bærer rå payload m/fnr og må ha samme slette-disiplin.
@@ -133,6 +144,8 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
 
 - **Kafka → inbox:** `InboxMessageHandler` skriver batch til `inbox_message` med
   `batchInsert(ignore = true)`; dedup på `event_id` (PK) fra Kafka-headeren.
+  `received_at` økes med ett mikrosekund per rad i samme poll-batch, slik at
+  ordinær claim-rekkefølge følger input fremfor tilfeldig UUID-sortering.
 - **Decision → delivery:** `EffectuateDecision` kjører i én DB-transaksjon:
   `markProcessedInTransaction(eventId, claimToken)` først (CAS), deretter
   `saveInTransaction(...)` av delivery-rader bare hvis CAS lykkes.
@@ -141,6 +154,17 @@ krever `next_attempt_time` for å bli vekket. CHECK-er håndhever begge kravene.
   Beslutningsgrunnlaget følger `DeliveryDraft.snapshot` til egne kolonner og leses tilbake i
   `ClaimedDelivery.snapshot`. `recipient_type` og `recipient_id` beholder rutingsankeret
   (virksomheten for arbeidsgivervarsel), ikke lederens fødselsnummer.
+
+- **Microfrontend (ADR 0018):** Før CAS tar effektueringen en advisory-lås per
+  `(sykmeldt, microfrontendId)` og låser deretter raden og ventende planlagte disables fra
+  eldre meldinger, sortert på `(received_at, event_id)` som i oppbevaringsjobben. I samme
+  transaksjon settes de ventende radene til `PROCESSED` (kansellering). En enable med
+  `visibleUntil` skriver en egen rad med `MicrofrontendDisable` i `WAIT` til
+  `visibleUntil` (`insert ... on conflict do nothing`). Det skjer ikke hvis en nyere
+  enable eller disable for nøkkelen allerede er besluttet. Transaksjonen setter `lock_timeout` til
+  5 sekunder før nøkkellåsen tas. Grensen gjelder hver venting på en lås, også radlåsene.
+  Ved timeout rulles transaksjonen tilbake. Exposed kan prøve transaksjonen på nytt; hvis
+  forsøkene feiler, lar workeren meldingen bli liggende til leasen utløper.
 
 ### Lagret beslutningsgrunnlag på `delivery`
 
@@ -160,6 +184,7 @@ med terminale leveranser eldre enn 180 dager. Rollen `esyfo-analyse` har fortsat
 nåværende og framtidige public-tabeller og får dermed også tilgang til disse kolonnene; dette er
 akseptert. Det gjøres ingen historisk backfill av `SENT`/`FAILED`.
 
+
 ### `inbox_message.state`
 
 ```text
@@ -168,8 +193,12 @@ RECEIVED -> CLAIMED -> PROCESSED
                    -> FAILED
                    -> WAIT       (utenfor sendevindu, ADR 0014)
 
-CLAIMED -> CLAIMED (lease utløpt, kan re-claimes)
-WAIT    -> CLAIMED (sendevindu åpnet: next_attempt_time passert)
+(ny rad)           -> WAIT       (planlagt disable, ADR 0018)
+
+CLAIMED -> CLAIMED   (lease utløpt, kan re-claimes)
+WAIT    -> CLAIMED   (sendevindu åpnet eller visibleUntil nådd: next_attempt_time passert)
+WAIT    -> PROCESSED (planlagt disable kansellert av en nyere melding)
+CLAIMED -> PROCESSED (vekket, ikke besluttet disable kansellert; workeren taper CAS)
 ```
 
 - Claim bruker `FOR UPDATE SKIP LOCKED` og lease via `next_attempt_time`.
@@ -210,6 +239,11 @@ CLAIMED -> READY   (utenfor sendevindu, venter til next_attempt_time)
 
 - `inbox_message_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `inbox_message_received_at_event_id_idx` på `(received_at, event_id)`
+- `inbox_message_source_event_id_idx` på `(source_event_id)` der `source_event_id IS NOT NULL`
+- `inbox_message_microfrontend_key_idx`, en hash-indeks på `(content ->> 'personIdentifier')`
+  der `(content ->> 'microfrontendId') IS NOT NULL`. `microfrontendId` sammenlignes eksakt etter
+  oppslaget. Indeksen lagrer bare en hash av personidenten, og `microfrontendId` er ikke med, så
+  lange verdier fra en produsent stopper aldri inntaket.
 - `delivery_state_next_attempt_time_idx` på `(state, next_attempt_time)`
 - `delivery_inbox_event_id_idx` på `(inbox_event_id)`
 - `delivery_created_at_id_sent_failed_idx` på `(created_at, id)` der `state IN ('SENT', 'FAILED')`
@@ -227,8 +261,10 @@ CLAIMED -> READY   (utenfor sendevindu, venter til next_attempt_time)
   id-en leses tilbake i stedet for å sendes inn (ikke `.autoGenerate()`, som lager en
   klient-side v4). Tidssortering gir B-tree-lokalitet og støtter alders-basert
   retensjons-`DELETE`.
-- `event_id` settes alltid av produsenten (Kafka-headeren i kontrakten), aldri av
-  budstikkas database.
+- `event_id` settes av produsenten (Kafka-headeren i kontrakten), aldri av
+  Budstikkas database. Unntaket er en planlagt disable: Budstikka lager id-en ut fra
+  enable-meldingens `event_id`, så samme enable alltid gir samme id. Behandler Budstikka
+  samme enable-melding to ganger, lagres derfor bare én planlagt disable (ADR 0018).
 
 ## Observability-koblinger
 

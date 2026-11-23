@@ -5,6 +5,9 @@ import no.nav.budstikka.application.port.ClaimedInboxMessage
 import no.nav.budstikka.application.port.InboxClaim
 import no.nav.budstikka.application.port.InboxMessage
 import no.nav.budstikka.application.port.InboxMessageRepository
+import no.nav.budstikka.application.port.OrderedCommand
+import no.nav.budstikka.domain.decision.OrderingKey
+import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -51,6 +54,20 @@ class FakeInboxMessageRepository(
         claim: InboxClaim,
         reason: String,
         nextRetry: Instant,
+    ): Boolean = true
+
+    override fun lockOrderedCommandInTransaction(
+        eventId: UUID,
+        key: OrderingKey,
+    ): OrderedCommand = OrderedCommand(Instant.DISTANT_PAST, earlierScheduled = emptyList(), laterCommandDecided = false)
+
+    override fun cancelPendingInTransaction(eventIds: List<UUID>): Int = eventIds.size
+
+    override fun saveDerivedInTransaction(
+        sourceEventId: UUID,
+        message: InboxMessage,
+        waitReason: String,
+        notBefore: Instant,
     ): Boolean = true
 
     fun calls(): List<String> = calls
