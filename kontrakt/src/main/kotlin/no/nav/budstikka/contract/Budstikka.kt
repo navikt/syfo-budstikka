@@ -543,6 +543,27 @@ object Budstikka {
         )
 
     /**
+     * Closes an Arbeidsgivervarsel created with a sakstype overload by deleting it permanently. Use
+     * the same [reference], [orgnummer] and [sakstype] as for creation, and a new [eventId] for this
+     * operation. Retry reuses that event id.
+     *
+     * A notification that is already gone counts as closed. Closing does not cancel a creation that is
+     * still waiting, for example for the sending window or a retry, so it can still be delivered
+     * later; the sending-window case is tracked in #26. Nor does it stop SMS or email already ordered.
+     * A notification created without a sakstype cannot be closed this way.
+     */
+    fun arbeidsgivervarselInactivate(
+        eventId: EventId,
+        reference: String,
+        orgnummer: Orgnummer,
+        sakstype: Arbeidsgiversak.Type,
+    ): EncodedDispatch {
+        requireReference(reference)
+        orgnummer.requireOrgnummer()
+        return ArbeidsgivervarselInactivate(reference, orgnummer, sakstype.toWire()).encode(eventId, reference)
+    }
+
+    /**
      * Brev: a document distributed to the Sykmeldt through dokumentdistribusjon. By default
      * dokdist picks the channel itself — digital mailbox (Digipost/e-Boks) for persons without
      * Reservasjon, central print otherwise. A Brev cannot be inactivated once sent, so there is

@@ -573,6 +573,7 @@ class BudstikkaProducerApiTest :
                     "dineSykmeldteVarselCreate",
                     "dineSykmeldteVarselInactivate",
                     "arbeidsgivervarselCreate",
+                    "arbeidsgivervarselInactivate",
                     "brevCreate",
                     "microfrontendEnable",
                     "microfrontendDisable",

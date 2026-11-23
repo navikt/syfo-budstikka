@@ -131,7 +131,8 @@ klebrige eierskap (se [migrering.md](migrering.md)) gjør at budstikka kun motta
 FERDIGSTILL for OPPRETT den selv laget, så lagret rad finnes alltid.
 
 Dette er designretningen; selve oppslaget er ikke implementert i runtime ennå —
-`*Inactivate` mappes i dag til nye `DeliveryDraft`-rader direkte.
+`*Inactivate` mappes i dag til nye `DeliveryDraft`-rader direkte. Arbeidsgivervarsel trenger ikke
+oppslaget: lukkingen finner varselet hos Fager med samme merkelapp og `eksternId` som ved opprettelse.
 
 ### Kantsituasjoner
 
@@ -148,7 +149,7 @@ Dette er designretningen; selve oppslaget er ikke implementert i runtime ennå �
 | Min side brukervarsel     | Ja | Publiser inaktiver-event (tms varsel, samme varselId = `delivery.id`) |
 | Dine Sykmeldte (NL)       | Ja | Ferdigstill-hendelse på dinesykmeldte-topic |
 | Ditt Sykefravær           | Ja | Lukk/erstatt-melding |
-| AG-notifikasjon (+Altinn) | Ja | Avledet fra lagret rad: OPPGAVE→`oppgaveUtført`, BESKJED→`hardDelete`, sak→`nyStatusSak(FERDIG)` |
+| AG-notifikasjon (+Altinn) | Ja, med `sakstype` | Hard-sletter varselet (`hardDeleteNotifikasjonByEksternId_V2`) med merkelapp fra `sakstype` og `eksternId` fra virksomhet og `reference`. Sak og kalenderavtale har egne livsløp og endres ikke. Et varsel uten `sakstype` kan ikke lukkes |
 | Fysisk brev               | **Nei** | Kan ikke trekkes tilbake |
 | Microfrontend             | Synlighet | «Lukking» = `disable` via eget enable/disable-par |
 
